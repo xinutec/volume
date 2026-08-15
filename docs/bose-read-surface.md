@@ -179,27 +179,50 @@ It also pins the operator taxonomy, which now has direct evidence rather than
 inference: `05` **Start** → `07` **Processing** → `06` **Result**, seen as
 `1f 01 07 00` … `1f 06 06 00` … `1f 01 06 00` in that one exchange.
 
-## ⚠ Selecting a mode is still unsolved
-
-`1f 03` reads the active slot (`00`, matching a headphone set to Quiet). Writing
-it has not worked:
+## ✅ SELECTING A MODE — solved, driven, confirmed by ear
 
 ```
-1f 03 02 01 01     ->  1f 03 04 01 05     operator not supported
-1f 03 05 02 00 01  ->  1f 03 07 00        PROCESSING — accepted, then nothing
+1f 03 05 02 <slot> 01
 ```
 
-The second is a verbatim replay of a packet the official app sent, and it is
-*accepted* and then has no effect: `1f 03` still reads `00` and `01 05` still
-reads level `00`. So it is real and it is incomplete — a missing argument, a
-follow-up packet, or a precondition.
+Block `1f`, function `03`, operator `05` (Start), length `02`, payload
+`<slot> 01`. Verified in both directions on 2026-08-15: the headphones announced
+"Quiet" and then "Aware" out loud, and `1f 03` / `01 05` moved to match.
 
-**What is actually needed is a capture of ONE isolated, known action.** The
-existing capture covers a period in which several things happened, so no packet
-can be attributed to "select Aware" with confidence — and every attempt to infer
-it from the surrounding traffic has produced a plausible packet that does
-nothing. The `1f 06 02 …` writes in that capture are the app *pushing mode
-definitions* during sync, not selecting.
+```
+→ 1f 03 05 02 00 01     ← 1f 03 07 00   then 1f 03 → 00, level → 00   ("Quiet")
+→ 1f 03 05 02 01 01     ← 1f 03 07 00   then 1f 03 → 01, level → 0a   ("Aware")
+```
+
+⚠ **This exact packet had already been tried and dismissed as inert.** It was
+sent while the QC45 was *already in Quiet*, so "accepted, then nothing" was the
+correct behaviour being misread as failure. **A no-op write against the state it
+already holds is indistinguishable from a broken command** — always drive a
+setting to the value it does *not* currently have.
+
+The payload is `<slot> 01`, not `01 <slot>`. Both bytes were `01` in the one
+captured example, which hid the order; testing `01 00` (the wrong way round) did
+nothing and testing `00 01` worked.
+
+## How it was found, and what would have found it sooner
+
+By capturing the official app during **one isolated action** and decoding the
+window around it. Two obstacles made that harder than it needed to be:
+
+1. ⚠ **The snoop log ROTATES.** `btsnoop_hci.log` had rolled over mid-session, so
+   the RFCOMM channel setup was in `btsnoop_hci.log.last` and the current file
+   had none — Wireshark then cannot dissect the L2CAP payload as RFCOMM, and the
+   traffic looks absent rather than undissected. **Always extract both and
+   `mergecap` them.**
+2. ⚠ Even merged, some frames stay generic `L2CAP Connection oriented channel`.
+   They are RFCOMM: strip `[addr][control][len(1-2)][credit?]` by hand and the
+   Bose payload is underneath. `47 ef 13 | 00 01 03 05 "1.1.0" | 51` is the
+   version reply.
+
+The decisive detail was one byte: the connect handshake also sends
+`1f 03 05 02 00 01`, and the selection sends `1f 03 05 02 01 01`. Replaying a
+packet lifted from a *handshake* and expecting it to be a *command* is the error
+that cost the most here.
 
 ## Blocks beyond 1f
 
