@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -24,6 +25,10 @@ android {
         versionName = "0.1"
     }
 
+    buildFeatures {
+        compose = true
+    }
+
     buildTypes {
         // Sideloaded probe — no shrinking, debug key.
         release {
@@ -43,12 +48,21 @@ kotlin {
     }
 }
 
-// No Compose, no AppCompat, no core-ktx. The probe's screen is a TextView built in
-// code; everything it does is driven by intent and read back from logcat, so a UI
-// dependency would be weight with no reader.
+// Compose for VolumeActivity, the app someone actually looks at. MainActivity —
+// the #783 probe — stays a bare TextView on purpose: it is driven by intent and
+// read from logcat, and giving an instrument a UI framework buys nothing.
+//
+// No AppCompat: Material 3 in Compose does not need it, and the one thing it would
+// add here is a second theming system to keep in step.
 dependencies {
     // The wire formats live in :protocol, which has no Android dependency and is
     // tested on the JVM. :app is only transports, scanning and screen.
     implementation(project(":protocol"))
+    implementation(platform(libs.compose.bom))
+    implementation(libs.activity.compose)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.lifecycle.runtime.compose)
     testImplementation(libs.junit)
 }

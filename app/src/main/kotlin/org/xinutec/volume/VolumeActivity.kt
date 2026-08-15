@@ -1,0 +1,217 @@
+package org.xinutec.volume
+
+import android.bluetooth.BluetoothManager
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import org.xinutec.volume.protocol.AncMode
+import org.xinutec.volume.protocol.DeviceCard
+import org.xinutec.volume.protocol.DeviceState
+import org.xinutec.volume.protocol.NoteKind
+import org.xinutec.volume.protocol.Screen
+
+/**
+ * The app: every headphone that is bonded and drivable, and its ANC.
+ *
+ * Separate from [MainActivity], which stays the #783 probe. They share `:protocol`
+ * and the transports, so a byte fixed in one is fixed in both — and the probe keeps
+ * working, which matters because it is the only tool that can investigate a device
+ * this screen cannot drive.
+ *
+ * ⚠ Everything here renders [Screen]; none of it decides. Which sentence a device
+ * deserves — unreachable, unidentified, driven-but-unconfirmable — is worked out in
+ * `:protocol` where it is tested, because those distinctions are exactly what a
+ * look at the screen would not catch.
+ */
+class VolumeActivity : ComponentActivity() {
+    private var screen by mutableStateOf(Screen(emptyList()))
+    private lateinit var control: DeviceController
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val adapter = getSystemService(BluetoothManager::class.java)?.adapter
+        control =
+            DeviceController(this, adapter) { next ->
+                runOnUiThread { screen = next }
+            }
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme()) {
+                VolumeScreen(
+                    screen = screen,
+                    onConnect = control::connect,
+                    onSet = control::set,
+                )
+            }
+        }
+        control.refresh()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        control.closeAll()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VolumeScreen(screen: Screen, onConnect: (String) -> Unit, onSet: (String, AncMode) -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Volume") }) }) { pad ->
+        if (screen.cards.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(pad).padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    "No headphones bonded to this phone.",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            return@Scaffold
+        }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(pad),
+            contentPadding =
+                androidx.compose.foundation.layout
+                    .PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(screen.cards, key = { it.address }) { card ->
+                DeviceRow(card, onConnect, onSet)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeviceRow(
+    card: DeviceCard,
+    onConnect: (String) -> Unit,
+    onSet: (String, AncMode) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ⚠ The bonded name, and it may be anything: this phone's QC35 is called
+            // "LE-Pippijn Headphon". The model we worked out goes underneath rather
+            // than replacing it, so the owner can still tell which pair this is.
+            Text(
+                card.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            when (val s = card.state) {
+                is DeviceState.Idle -> {
+                    Text(
+                        "Not connected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                is DeviceState.Busy -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(Modifier.padding(2.dp))
+                        Text(s.what, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                is DeviceState.Unavailable -> {
+                    Text(
+                        s.why,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                is DeviceState.Ready -> {
+                    Text(
+                        s.model,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Only ever present when something is off — a confirmed write
+                    // says nothing here, because the selected chip already says it.
+                    s.note?.let {
+                        Text(
+                            it.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color =
+                                when (it.kind) {
+                                    NoteKind.PROBLEM -> MaterialTheme.colorScheme.error
+                                    NoteKind.CAUTION -> MaterialTheme.colorScheme.tertiary
+                                },
+                        )
+                    }
+                }
+            }
+
+            val modes = card.offer
+            if (modes.isNotEmpty()) {
+                // ⚠ Wraps rather than scrolls: three chips fit a narrow phone, four
+                // (with TalkThru) would not, and a row that scrolls sideways hides
+                // the mode you want behind a gesture nobody looks for.
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val current = (card.state as? DeviceState.Ready)?.mode
+                    for (m in modes) {
+                        FilterChip(
+                            selected = m == current,
+                            onClick = { onSet(card.address, m) },
+                            label = { Text(label(m)) },
+                        )
+                    }
+                }
+            } else if (card.state is DeviceState.Idle || card.state is DeviceState.Unavailable) {
+                FilterChip(
+                    selected = false,
+                    onClick = { onConnect(card.address) },
+                    label = { Text("Connect") },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The vendors' own words, not the enum's.
+ *
+ * Public because `:protocol` takes it as a parameter: the decision of *whether* to
+ * say something is tested there, and the wording lives here.
+ */
+fun label(m: AncMode): String =
+    when (m) {
+        AncMode.OFF -> "Off"
+        AncMode.ANC -> "Noise cancelling"
+        AncMode.AMBIENT -> "Ambient"
+        AncMode.TALK_THRU -> "TalkThru"
+    }

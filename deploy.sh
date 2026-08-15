@@ -48,5 +48,8 @@ echo "=== $serial (model:$MODEL) ==="
 # -S force-stops first. Without it the intent is delivered to the *existing* task
 # (adb says "intent has been delivered to currently running top-most instance"),
 # so a deploy can appear to succeed while the old build is still on screen.
-"$ADB" -s "$serial" shell am start -S -n "$PKG/.MainActivity" >/dev/null
+#
+# VolumeActivity, not MainActivity: the app is what a deploy should put on screen.
+# probe.sh starts the probe by name when it wants it.
+"$ADB" -s "$serial" shell am start -S -n "$PKG/.VolumeActivity" >/dev/null
 echo "installed on $serial — drive it with ./probe.sh"

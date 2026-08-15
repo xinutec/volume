@@ -3,6 +3,11 @@
 Everything in `docs/` was measured against the real headphones on 2026-08-15.
 **Re-measure; firmware moves things.**
 
+**The app** is `VolumeActivity`: every bonded headphone it knows how to drive, its
+model once identified, and its ANC modes as chips. The **probe** (`MainActivity`,
+`probe.sh`) stays — it is the only tool that can investigate a device the app
+cannot drive, and both share `:protocol`, so a byte fixed in one is fixed in both.
+
 ## Two modules
 
 ```

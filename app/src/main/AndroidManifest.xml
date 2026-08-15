@@ -19,22 +19,31 @@
 
     <application
         android:allowBackup="false"
-        android:label="Volume probe"
+        android:label="Volume"
         android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
 
-        <!-- exported so `adb shell am start` can drive it with string extras (see
-             probe.sh). This is a sideloaded probe on a personal phone; when #785
-             decides the real app's shape this activity does not survive into it. -->
+        <!-- The app. Launcher, because this is what #785 is. -->
         <activity
-            android:name=".MainActivity"
+            android:name=".VolumeActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:label="Volume">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The #783 probe. Exported so `adb shell am start` can drive it with
+             string extras (see probe.sh), and NOT a launcher entry: it is an
+             instrument, and it stays because it is the only thing that can
+             investigate a device the app above cannot drive. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="Volume probe"
+            android:launchMode="singleTask" />
 
     </application>
 </manifest>
