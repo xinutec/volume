@@ -156,6 +156,58 @@ Rest of the surface: `1f 00` is a version (`1.0.0`), `1f 02` → `02 02 00 00 00
 switching modes cannot raise a level — so this write is safe in a way a volume
 write would not be. That is the reason to do ANC first and volume last, if ever.
 
+## Writing needs ONE socket — the tool could not do it
+
+⚠ **Bose writes are transactional, so `send` (one socket per packet) can never
+perform one, and the failure is silent**: the device accepts the packet and
+echoes the *unchanged* state back, which reads exactly like a wrong field. Three
+rounds were spent re-reading field layouts before the tool was the problem.
+
+`./probe.sh seq <mac> <uuid> <hex,hex,hex>` sends a list down one connection.
+
+The Start packet is worth knowing on its own — **`1f 01 05 00` dumps the entire
+mode table in one reply**:
+
+```
+1f 06 03 2f 00 00 01 00 00 01 "Quiet"      slot 0
+1f 06 03 2f 01 00 02 00 00 01 "Aware"   …0a  slot 1
+1f 06 03 2f 02 00 0a 01 01 01 "Home"    …09  slot 2
+1f 06 03 2f 03 00 00 01 00 00 (unnamed) …09  slot 3
+```
+
+It also pins the operator taxonomy, which now has direct evidence rather than
+inference: `05` **Start** → `07` **Processing** → `06` **Result**, seen as
+`1f 01 07 00` … `1f 06 06 00` … `1f 01 06 00` in that one exchange.
+
+## ⚠ Selecting a mode is still unsolved
+
+`1f 03` reads the active slot (`00`, matching a headphone set to Quiet). Writing
+it has not worked:
+
+```
+1f 03 02 01 01     ->  1f 03 04 01 05     operator not supported
+1f 03 05 02 00 01  ->  1f 03 07 00        PROCESSING — accepted, then nothing
+```
+
+The second is a verbatim replay of a packet the official app sent, and it is
+*accepted* and then has no effect: `1f 03` still reads `00` and `01 05` still
+reads level `00`. So it is real and it is incomplete — a missing argument, a
+follow-up packet, or a precondition.
+
+**What is actually needed is a capture of ONE isolated, known action.** The
+existing capture covers a period in which several things happened, so no packet
+can be attributed to "select Aware" with confidence — and every attempt to infer
+it from the surrounding traffic has produced a plausible packet that does
+nothing. The `1f 06 02 …` writes in that capture are the app *pushing mode
+definitions* during sync, not selecting.
+
+## Blocks beyond 1f
+
+`13`–`18`, `1a`–`1e` are function-not-supported or block-not-supported. **`17 0b`**
+answers `00`. **`19`** is a whole telemetry block (`19 02` → `0f 71`, `19 03` →
+`00 50 53 73`, `19 0c` → `50`), and `19 01` returns the same per-cell CSV as
+`02 0d`. Nothing in `13`–`1e` looks like ANC control.
+
 ## Not yet swept
 
 The **QC35** (same protocol, different table — expect `01 06` to answer there)

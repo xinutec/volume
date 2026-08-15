@@ -93,22 +93,22 @@ object Probe {
     /**
      * Send many packets down ONE socket and report what each drew back.
      *
-     * Mapping a vendor's read surface means hundreds of packets, and a socket per
-     * packet is both slow (a connect is seconds) and rude to the device. One
-     * connection, many sends, a short listen after each.
-     *
-     * ⚠ **Only ever sweep with GET-shaped packets.** A sweep is a blind walk over
-     * a command space, so the safety comes entirely from the operator byte the
-     * caller chooses — a Set-shaped sweep would be writing arbitrary settings to
-     * the headphones, and volume is one of those settings. See the hearing-safety
-     * rule.
+     * ⚠ **One socket is not merely an optimisation — some commands are only
+     * expressible this way.** Bose writes are transactional: the app opens with an
+     * operator-`05` (Start) packet and the edit that follows is ignored without it.
+     * A tool that opens a fresh connection per packet cannot write at all, and the
+     * failure is silent — the device accepts the packet and echoes the *unchanged*
+     * state back, which reads like a wrong field rather than a missing transaction.
      *
      * Replies cannot be attributed to sends with certainty: these devices also emit
      * unsolicited notifications, and a slow answer lands in the next packet's
      * window. [onResult] therefore reports what arrived *after* a send, not what
      * the send provably caused.
+     *
+     * This is protocol-agnostic and will happily send writes. The read-only
+     * guarantee belongs to [Sweep], which builds only Get-shaped packets.
      */
-    fun sweep(
+    fun exchangeAll(
         adapter: BluetoothAdapter,
         device: BluetoothDevice,
         uuid: UUID,

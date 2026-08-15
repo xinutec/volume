@@ -59,6 +59,15 @@ case "${1:-list}" in
     "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
     watch_log "${SWEEP_WAIT:-180}"
     ;;
+  seq)
+    # The WRITE tool: several packets down ONE socket, in order. Bose edits are
+    # transactional (an operator-05 Start, then the change), so they cannot be
+    # expressed with `send`, which opens a fresh socket per packet.
+    mac="${2:?mac}"; uuid="${3:?uuid}"; packets="${4:?comma-separated hex}"
+    "${ADB[@]}" shell am start -n "$ACT" --es op seq \
+      --es mac "$mac" --es uuid "$uuid" --es packets "$packets" >/dev/null
+    watch_log "${SEQ_WAIT:-30}"
+    ;;
   send|raw)
     mac="${2:?mac}"; uuid="${3:?uuid}"; payload="${4:-}"
     # An empty `--es payload ""` is dropped by the shell before `am` sees it, and am

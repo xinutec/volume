@@ -80,7 +80,8 @@ class MainActivity : Activity() {
             "list" -> list(adapter)
             "send" -> send(adapter, intent ?: return)
             "sweep" -> sweep(adapter, intent ?: return)
-            else -> emit("unknown op '$op' — use list, send or sweep")
+            "seq" -> seq(adapter, intent ?: return)
+            else -> emit("unknown op '$op' — use list, send, sweep or seq")
         }
     }
 
@@ -176,7 +177,7 @@ class MainActivity : Activity() {
         var answered = 0
         var silent = 0
         val err =
-            Probe.sweep(
+            Probe.exchangeAll(
                 adapter,
                 adapter.getRemoteDevice(mac),
                 UUID.fromString(uuid),
@@ -196,6 +197,44 @@ class MainActivity : Activity() {
             return
         }
         emit("done: $answered answered, $silent silent")
+    }
+
+    /**
+     * Send an explicit list of packets down one socket, in order.
+     *
+     * This is the write tool. A Bose edit is a transaction — an operator-`05`
+     * Start, then the change — so it cannot be expressed one-packet-per-socket,
+     * which is what [send] does. Comma-separated hex:
+     *
+     * ```
+     * --es packets 1f010500,1f0602270200...,01050100
+     * ```
+     */
+    private fun seq(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        val mac = intent.getStringExtra("mac")
+        val uuid = intent.getStringExtra("uuid")
+        val spec = intent.getStringExtra("packets")
+        if (mac == null || uuid == null || spec == null) {
+            emit("seq needs --es mac, --es uuid and --es packets (comma-separated hex)")
+            return
+        }
+        val packets = spec.split(",").filter { it.isNotBlank() }.map { Hex.parse(it.trim()) }
+        emit("seq: ${packets.size} packets on one socket to $mac")
+        var i = 0
+        val err =
+            Probe.exchangeAll(
+                adapter,
+                adapter.getRemoteDevice(mac),
+                UUID.fromString(uuid),
+                packets,
+                intent.getIntExtra("per", 900).toLong(),
+                intent.getIntExtra("quiet", 350).toLong(),
+            ) { sent, got ->
+                i++
+                emit("  [$i] → ${Hex.format(sent)}")
+                emit("      ← ${if (got.isEmpty()) "(nothing)" else Hex.format(got)}")
+            }
+        if (err != null) emit("✗ seq failed — $err") else emit("done")
     }
 
     private fun emit(line: String) {
