@@ -1,7 +1,7 @@
 # The vendor protocols, as captured
 
-Measured 2026-08-15 from a full HCI snoop log of the official apps plus our own
-driven sessions. Five devices, three wire formats.
+Measured 2026-08-15 from HCI snoop logs of the official apps plus our own
+driven sessions. Five devices, four wire formats, two transports.
 
 ## ⚠ The channel is never the UUID that looks proprietary
 
@@ -251,7 +251,37 @@ is a keepalive, and it is the bulk of any capture.
 ⚠ **Never sweep this protocol.** It has no Get operator; `aa 31`, `aa 33`, `aa 40`
 and `aa 95` are writes, and `Sweep` deliberately cannot emit them.
 
-### The JLab is a Realtek chip — not BES, and not solved
+## ✅ JLab ANC
+
+On plain **RFCOMM SPP `00001101`** — not GATT, and not any of the framings its app
+bundles.
+
+```
+write  c0 ff 00 | 46 03 00 <mode> 04 | 04 01 00 | <sum>
+       mode  01 = Noise Cancelling On   02 = Be Aware   (00 = off, untested)
+reply  00 ff 01 | 47 01 00 | 01 00 47 00
+```
+`<sum>` is every preceding byte added up mod 256 — checked against both captured
+frames (`…01 04 04 01 00 12` and `…02 04 04 01 00 13`). The device accepted a
+frame with it omitted, so it does not appear to be verified; send it anyway.
+
+Driven from our socket and confirmed in the vendor app's own UI, then restored to
+Noise Cancelling On where it started.
+
+⚠ **The `47` reply is not a success signal.** A write with `mode = 03` drew the
+identical `47` and changed nothing. Verify a JLab write by reading the state back,
+never by the reply.
+
+⚠ **Guessing the mode byte failed and measuring worked**, as with the Sony. The
+values came from capturing the app twice, once per mode; `03` was invented and is
+simply not a mode.
+
+Unsolved: the device's periodic `00 ff 01 31 01 00 <L> <R> 04 00 02 00 00 <x>`
+broadcast carries the two battery levels but **not** the ANC mode, and its last
+byte does not follow the same checksum rule. No read command is known — the app
+appears to track mode locally.
+
+### How the JLab was found — it is a Realtek chip, and none of that mattered
 
 `com.jlab.app` is a rebrand of QCY's app and bundles six chip SDKs (`airoha`,
 `bes`, `bluetrum`, `jieli`, `qcywq`, `realtek`). **"JBuds Sport ANC" appears
@@ -271,11 +301,16 @@ Realtek's transport is `AA <type> <length: 2 LE> <payload>`, payload
 GET_STATUS, `0x0c` INFO_REQ, `0x105` GET_LE_ADDR) and the `*Req` classes
 (`0xc44`–`0xc46` ANC scenario, `0x2xx` EQ, `0x7xx` key mapping).
 
-⚠ **Unsolved.** `01000100` accepts writes and answers neither the BES `aa`
-protocol nor `aa 00 <len> <cmd>` Realtek frames. The `type` byte is a guess —
-`CommandFactory` is the place to settle it. One 14-byte notification did arrive
-(`00 ff 00 31 01 00 50 46 04 00 02 00 00 cc`, unattributed and possibly
-unsolicited); note `50 46` = 80, 70 while its battery read 100/70/100.
+⚠ **Every one of those leads was a dead end**, and they cost the most time of
+anything here. `01000100` accepts writes and answers neither the BES `aa` protocol
+nor Realtek `aa <type> <len:2 LE>` frames at any `type`; QCY's own `ff <len>`
+framing drew nothing either. The 14-byte thing that *does* arrive on both SPP and
+GATT is an unsolicited periodic broadcast, not a reply — it turned up in different
+packets' windows, which is what gave it away.
+
+**What worked was capturing the app**, exactly as with the JBL: one bugreport per
+mode change, then diff the two frames. Thirty minutes of reading SDKs was beaten
+by two taps and a snoop log.
 
 ⚠ **The JLab advertises no name**, and its Fast Pair "BLE address" (`03 02`)
 is *not* what it advertises under — that address never appears in a scan. Match it
