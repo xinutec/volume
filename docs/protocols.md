@@ -48,13 +48,38 @@ Full read/write surface, error taxonomy and the ANC hunt: `bose-read-surface.md`
 
 `3e | type | seq | len(4 BE) | payload | sum | 3c`, escaping the three marker
 bytes. ACK inverts the sequence number. Driven; see `SonyFrame.kt`. DLCI `0x2b`,
-6,716 frames — by far the chattiest. Command table **not mapped**.
+6,716 frames — by far the chattiest.
 
 ```
 → 3e 0c 00 00000002 0000 0e 3c
 ← 3e 01 01 00000000 02 3c                 ACK
   3e 0c 01 00000004 01 00 70 00 82 3c     DATA
 ```
+
+`payload[0]` is the command. The table is `Command.smali` in
+`com.sony.songpal.tandemfamily.message.mdr.{v1,v2}.{table1,table2}` — 152 commands
+in v2/table1 alone, each a plain enum whose ordinal *is* its byte. Subsystems run
+in blocks of ten: `GET_CAPABILITY RET_CAPABILITY GET_STATUS RET_STATUS SET_STATUS
+NTFY_STATUS GET_PARAM RET_PARAM SET_PARAM NTFY_PARAM`.
+
+```
+20 POWER   50 EQEBB (EQ + bass boost)   60 NCASM (noise cancelling / ambient)
+a0 PLAY    b0 auto-play   e0 AUDIO   f0 SYSTEM   04 device info
+```
+
+Verified against the XM4 — every GET drew its own RET, so the table is right:
+```
+→ 62 02   ← 63 02 00                          NCASM status
+→ 52 00   ← 53 00 00                          EQEBB status
+→ f2 00   ← f3 00 00                          SYSTEM status
+→ 60 02   ← 61 02 02 00 01 02 00 14 01 14     NCASM capability, 0x14 = 20 steps
+```
+The `02` is `NcAsmInquiredType.NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE`.
+
+⚠ **`GET_PARAM` (`66`/`67`) draws a bare ACK and no data**, on both inquired types
+tried, while `GET_STATUS` answers. So the XM4's ANC value is not simply
+`66 <type>`; the v2 tables carry their own inquired-type enums and are the next
+place to look. Reading ANC is not done.
 
 ## JBL + JLab — what `df21fe2c` really is
 

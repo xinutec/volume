@@ -13,7 +13,7 @@ moves things.**
 | Bose QC45 | `E4:58:BC:3E:9D:AA` | RFCOMM, SPP `00001101` | Bose | ✅ r/w |
 | Bose QC35 | `4C:87:5D:CC:A0:23` | RFCOMM, SPP `00001101` | Bose | ✅ r/w |
 | JBL Tour One M2 | scan for it | **GATT**, `65786365-…0000` | BES `aa` | ✅ r/w |
-| Sony XM4 | `80:99:E7:F9:D0:61` | RFCOMM, `96cc203e-…` | Sony framed | framing only |
+| Sony XM4 | `80:99:E7:F9:D0:61` | RFCOMM, `96cc203e-…` | Sony framed | table verified |
 | JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | Fast Pair only | — | no command service |
 
 ```
@@ -36,7 +36,9 @@ acknowledgements. `docs/protocols.md` has the correction.
    status, gestures and the ANC capability answer. Writing is `aa 40` EQ preset,
    `aa 41` custom EQ, `aa 33` auto-off, each read back through `aa 21 01 3x`.
    EQ needs ears — a read-back proves the field moved, not that it sounds right.
-2. **Sony command table** — read SonyHeadphonesClient rather than sweep.
+2. **Sony ANC.** The command table is extracted and verified (`60` NCASM, `50`
+   EQEBB, …), but `GET_PARAM` answers with a bare ACK where `GET_STATUS` answers
+   with data. The v2 tables have their own inquired-type enums — start there.
 3. **Bose multipoint** — `04 04`/`04 09` read the paired list + active device;
    writes untried.
 4. **Bose EQ / auto-off / buttons** — among the 15 write-capable fns in
