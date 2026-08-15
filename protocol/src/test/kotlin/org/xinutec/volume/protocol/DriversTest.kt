@@ -209,6 +209,50 @@ class DriversTest {
         assertEquals(Confirmation.Unverifiable, Drivers.JLabQcy.set(t, AncMode.ANC))
     }
 
+    // ---- the name the device holds ---------------------------------------------
+
+    /**
+     * ⚠ The point of asking at all. Android's bonded record for this phone's QC35
+     * is "LE-Pippijn Headphon" — the LE advertisement's truncation — while the
+     * headphones report the name their owner actually set.
+     */
+    @Test
+    fun `bose reports the name its owner gave it`() {
+        // The real reply, read off the QC35: length 0x12 covers a leading 00 and
+        // then seventeen characters. An invented fixture without that byte passed
+        // against a parser that was wrong on the device.
+        val t =
+            Replay(
+                "01 02 01 00" to
+                    "01 02 03 12 00 50 69 70 70 69 6a 6e 20 42 6f 73 65 20 51 43 33 35",
+            )
+        assertEquals("Pippijn Bose QC35", Drivers.BoseQc35.name(t))
+    }
+
+    @Test
+    fun `a bose that answers with an error frame reports no name`() {
+        assertNull(Drivers.BoseQc45.name(Replay("01 02 01 00" to "01 02 04 01 04")))
+        assertNull(Drivers.BoseQc45.name(Replay("01 02 01 00" to "")))
+    }
+
+    /** The JBL puts its name first in the device-info reply, NUL-terminated. */
+    @Test
+    fun `jbl reports its name from the device info reply`() {
+        val t =
+            Replay(
+                "aa 11 00" to
+                    "aa 12 24 4a 42 4c 20 54 4f 55 52 20 4f 4e 45 20 4d 32 00 85 20 00 3c",
+            )
+        assertEquals("JBL TOUR ONE M2", Drivers.JblBes.name(t))
+    }
+
+    /** Devices that will not say so are honest about it rather than inventing one. */
+    @Test
+    fun `a driver with no name command returns null`() {
+        assertNull(Drivers.JLabQcy.name(Replay()))
+        assertNull(Drivers.SonyXm4.name(Replay()))
+    }
+
     // ---- shared --------------------------------------------------------------
 
     @Test

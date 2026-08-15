@@ -26,9 +26,20 @@ class ScreenTest {
         assertTrue(next.cards[1].state is DeviceState.Busy)
     }
 
+    /** The device's own name replaces the bonded one without disturbing anything. */
+    @Test
+    fun `a rename touches one card and keeps its state`() {
+        val busy = screen.with("E4:58:BC:3E:9D:AA", DeviceState.Busy("reading"))
+        val named = busy.renamed("E4:58:BC:3E:9D:AA", "Pippijn Bose QC35")
+        assertEquals("Pippijn Bose QC35", named.cards[0].name)
+        assertTrue(named.cards[0].state is DeviceState.Busy)
+        assertEquals("JLab JBuds Sport ANC 4", named.cards[1].name)
+    }
+
     @Test
     fun `an address that is not on screen changes nothing`() {
         assertEquals(screen, screen.with("00:00:00:00:00:00", DeviceState.Idle))
+        assertEquals(screen, screen.renamed("00:00:00:00:00:00", "nobody"))
     }
 
     /**

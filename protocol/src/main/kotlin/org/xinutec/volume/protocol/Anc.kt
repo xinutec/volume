@@ -53,8 +53,19 @@ interface AncDriver {
      */
     fun read(t: Transport): AncMode?
 
-    /** Send the mode. ⚠ Whether it took is [confirm]'s job, never the reply's. */
+    /** Send the mode. ⚠ Whether it took is [set]'s job, never the reply's. */
     fun write(t: Transport, mode: AncMode)
+
+    /**
+     * The name the **device** holds, or null if it will not say.
+     *
+     * ⚠ Not the same string as the bonded record, and usually better. Android's
+     * bonded name for this phone's QC35 is "LE-Pippijn Headphon" — the LE
+     * advertisement's truncation of it — while the headphones themselves report
+     * "Pippijn Bose QC35". Showing the former is showing a Bluetooth artefact to
+     * someone who named their headphones something else.
+     */
+    fun name(t: Transport): String? = null
 }
 
 /** What happened when a write was checked. */

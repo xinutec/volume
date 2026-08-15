@@ -36,23 +36,45 @@ class DeviceController(
     private val sessions = ConcurrentHashMap<String, Session>()
     private var screen = Screen(emptyList())
 
-    /** Bonded devices we know how to drive, in a stable order. */
-    fun refresh() {
-        val bonded =
-            try {
-                adapter?.bondedDevices.orEmpty()
-            } catch (e: SecurityException) {
-                emit(Screen(emptyList()))
-                return
-            }
-        val cards =
-            bonded
-                .filter { drivable(it) }
-                .sortedBy { it.name ?: it.address }
-                .map { DeviceCard(it.name ?: "(unnamed)", it.address, DeviceState.Idle) }
-        emit(Screen(cards))
-        // Nothing is connected here on purpose — see the class note.
-    }
+    /**
+     * The headphones that are actually here, opened as soon as they are listed.
+     *
+     * ⚠ **Connected, not merely bonded.** Nothing here can be driven over a link
+     * that does not exist, and an earlier version listed every paired device —
+     * including a speaker in another room, with a Connect button that could only
+     * fail slowly.
+     *
+     * Opening is automatic because a device that is connected and supported has
+     * nothing to decide: its owner opened the app to change a mode, and making them
+     * tap Connect first was one slow device (the JBL, whose LE scan can take 25 s)
+     * setting the policy for the other four, which take about a second.
+     */
+    fun refresh() =
+        work.execute {
+            val adapter = adapter ?: return@execute emit(Screen(emptyList()))
+            val here = Connected.addresses(context, adapter)
+            val bonded =
+                try {
+                    adapter.bondedDevices.orEmpty()
+                } catch (e: SecurityException) {
+                    emit(Screen(emptyList()))
+                    return@execute
+                }
+            val listed =
+                bonded
+                    .filter { it.address in here && drivable(it) }
+                    .sortedBy { it.name ?: it.address }
+            emit(
+                Screen(
+                    listed.map {
+                        DeviceCard(it.name ?: "(unnamed)", it.address, DeviceState.Idle)
+                    },
+                ),
+            )
+            // Sequentially, on this one thread: two connects at once contend for the
+            // radio, and what that produces looks like a protocol fault.
+            listed.forEach { openIfNeeded(it.address) }
+        }
 
     /**
      * Whether to list a device at all.
@@ -133,6 +155,11 @@ class DeviceController(
         sessions[address] = session
         update(address, DeviceState.Busy("reading…"))
         val mode = runCatching { session.headphones.driver.read(session.transport) }.getOrNull()
+        // The name the device holds beats the bonded record, which for this phone's
+        // QC35 is the LE advertisement's truncation of what its owner actually set.
+        runCatching { session.headphones.driver.name(session.transport) }
+            .getOrNull()
+            ?.let { rename(address, it) }
         update(
             address,
             DeviceState.Ready(
@@ -162,6 +189,8 @@ class DeviceController(
     }
 
     private fun update(address: String, state: DeviceState) = emit(screen.with(address, state))
+
+    private fun rename(address: String, name: String) = emit(screen.renamed(address, name))
 
     private fun emit(next: Screen) {
         screen = next

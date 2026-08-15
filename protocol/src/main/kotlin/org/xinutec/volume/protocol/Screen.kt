@@ -55,6 +55,16 @@ data class Screen(
     /** Replace one card by address, leaving the rest and the order alone. */
     fun with(address: String, state: DeviceState): Screen =
         copy(cards = cards.map { if (it.address == address) it.copy(state = state) else it })
+
+    /**
+     * Take the name the device itself reports.
+     *
+     * ⚠ Kept out of [with] deliberately: the name arrives once, from a different
+     * read than the mode, and folding it into every state update would mean every
+     * caller had to carry a name it does not have.
+     */
+    fun renamed(address: String, name: String): Screen =
+        copy(cards = cards.map { if (it.address == address) it.copy(name = name) else it })
 }
 
 /** How loudly a note should read. */

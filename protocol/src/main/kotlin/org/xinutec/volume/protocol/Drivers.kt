@@ -40,6 +40,29 @@ object Drivers {
             // the order until a slot other than 1 was tried.
             t.exchange(byteArrayOf(0x1f, 0x03, 0x05, 0x02, slot, 0x01))
         }
+
+        override fun name(t: Transport): String? = Bose.name(t)
+    }
+
+    /** Shared by both Bose models, whose framing is identical. */
+    private object Bose {
+        /**
+         * `01 02` is the device name, as the owner set it.
+         *
+         * ⚠ The payload begins with a byte that is **not** part of the name — the
+         * QC35 answers `01 02 03 12 00 "Pippijn Bose QC35"`. Its meaning is not
+         * established; what matters is that including it yields a name with a
+         * leading NUL, which `trim()` does not remove and which renders as nothing,
+         * so the bug would have shown up as a name that silently lost a character.
+         */
+        fun name(t: Transport): String? {
+            val r = t.exchange(byteArrayOf(0x01, 0x02, 0x01, 0x00))
+            // <block><fn><operator><length><payload…>; only a Status frame carries one.
+            if (r.size < 6 || r[2] != 0x03.toByte()) return null
+            val len = ((r[3].toInt() and 0xff) - 1).coerceAtMost(r.size - 5)
+            if (len <= 0) return null
+            return String(r, 5, len, Charsets.UTF_8).trim { it <= ' ' }.ifBlank { null }
+        }
     }
 
     /**
@@ -70,6 +93,8 @@ object Drivers {
         override fun write(t: Transport, mode: AncMode) {
             t.exchange(byteArrayOf(0x01, 0x06, 0x02, 0x01, value(mode)))
         }
+
+        override fun name(t: Transport): String? = Bose.name(t)
     }
 
     /**
@@ -93,6 +118,17 @@ object Drivers {
                 r[7] == 0x01.toByte() -> AncMode.AMBIENT
                 else -> AncMode.OFF
             }
+        }
+
+        /**
+         * `aa 11` asks; the reply `aa 12 <len> <name…>` starts with the name as
+         * NUL-terminated ASCII, followed by battery and addresses.
+         */
+        override fun name(t: Transport): String? {
+            val r = t.exchange(byteArrayOf(0xaa.toByte(), 0x11, 0x00))
+            if (r.size < 4 || r[0] != 0xaa.toByte() || r[1] != 0x12.toByte()) return null
+            val end = (3 until r.size).firstOrNull { r[it] == 0x00.toByte() } ?: return null
+            return String(r, 3, end - 3, Charsets.UTF_8).trim().ifBlank { null }
         }
 
         override fun write(t: Transport, mode: AncMode) {
