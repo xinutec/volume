@@ -146,6 +146,35 @@ protocol carries — its traffic sits on DLCIs `0x22` and `0x14`:
 → … 1a 0d "Europe/London"                         the app SETS the timezone
 ```
 
+### ⚠ Harman drops the link instead of erroring — and that inverts the map
+
+Bose answers an unsupported command with an error code. **The JBL and JLab close
+the RFCOMM connection**, so a blind sweep dies at its first miss. `Probe`
+therefore takes a `reconnect` flag; `--ez reconnect true` reopens and continues,
+and reports which packet killed the link, because that is a *result*.
+
+Once it can get past the first miss, the error reply appears and the map inverts:
+
+| Reply | Meaning |
+| --- | --- |
+| `ff 01 00 02 <block> <cmd>` | **unsupported** — the error echoes the offending command |
+| link dropped | ⚠ **supported, but the body was malformed** (a real command handed a zero length) |
+
+So on Harman it is the **dropped** packets that name the real commands, not the
+answering ones. Block `07`, functions `00 08 09 10 1b`, and block `03` functions
+`03 05 08 0d` are real and take arguments. Everything else in `07 00`–`07 1f`
+answers the error.
+
+⚠ **Timing matters more here than on Bose.** At a 400 ms window the whole sweep
+read as silent — 0 answered out of 144. At 1500 ms it answered 25 of 32. A
+too-short window looks exactly like a device that does not implement anything.
+
+⚠ **Correction to an earlier claim in this file:** `07 10 00 00` was described as
+"echoed back verbatim, a perfect harmless probe". On a *fresh* connection it does
+elicit a state burst containing `07 10 00 00`; inside a sweep it drops the link.
+Whether that burst is an echo or an unsolicited state dump is **not established**,
+and the earlier wording was over-confident.
+
 ⚠ **Neither device can be identified by UUID.** The JBL advertises nothing
 unique, and the JLab advertises only its dead decoys — so `Channels.kt` names
 both from the device name, and reports that it did. The channel and protocol are

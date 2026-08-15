@@ -176,6 +176,7 @@ class MainActivity : Activity() {
 
         var answered = 0
         var silent = 0
+        var dropped = 0
         val err =
             Probe.exchangeAll(
                 adapter,
@@ -184,19 +185,29 @@ class MainActivity : Activity() {
                 packets,
                 intent.getIntExtra("per", 400).toLong(),
                 intent.getIntExtra("quiet", 150).toLong(),
-            ) { sent, got ->
-                if (got.isEmpty()) {
-                    silent++
-                } else {
-                    answered++
-                    emit("  ${Hex.format(sent)}  ->  ${Hex.format(got)}")
+                intent.getBooleanExtra("reconnect", false),
+            ) { sent, got, killedLink ->
+                when {
+                    killedLink -> {
+                        dropped++
+                        emit("  ${Hex.format(sent)}  ->  DROPPED THE LINK")
+                    }
+
+                    got.isEmpty() -> {
+                        silent++
+                    }
+
+                    else -> {
+                        answered++
+                        emit("  ${Hex.format(sent)}  ->  ${Hex.format(got)}")
+                    }
                 }
             }
         if (err != null) {
             emit("✗ sweep failed — $err")
             return
         }
-        emit("done: $answered answered, $silent silent")
+        emit("done: $answered answered, $silent silent, $dropped killed the link")
     }
 
     /**
@@ -229,7 +240,8 @@ class MainActivity : Activity() {
                 packets,
                 intent.getIntExtra("per", 900).toLong(),
                 intent.getIntExtra("quiet", 350).toLong(),
-            ) { sent, got ->
+                intent.getBooleanExtra("reconnect", false),
+            ) { sent, got, _ ->
                 i++
                 emit("  [$i] → ${Hex.format(sent)}")
                 emit("      ← ${if (got.isEmpty()) "(nothing)" else Hex.format(got)}")

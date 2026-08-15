@@ -115,37 +115,55 @@ object Probe {
         packets: List<ByteArray>,
         perMs: Long,
         quietMs: Long,
-        onResult: (sent: ByteArray, got: ByteArray) -> Unit,
+        reconnect: Boolean = false,
+        onResult: (sent: ByteArray, got: ByteArray, killedLink: Boolean) -> Unit,
     ): String? {
         runCatching { adapter.cancelDiscovery() }
+        var socket = open(device, uuid) ?: return "could not connect"
+        try {
+            // Drain anything the device volunteers on connect, so the first packet's
+            // window is not polluted by a greeting.
+            readFor(socket.inputStream, 700, 300)
+            for (p in packets) {
+                try {
+                    socket.outputStream.write(p)
+                    socket.outputStream.flush()
+                    onResult(p, readFor(socket.inputStream, perMs, quietMs), false)
+                } catch (e: IOException) {
+                    // ⚠ The Harman devices (JBL, JLab) do not answer an unsupported
+                    // command with an error — they DROP THE LINK. On those, a dead
+                    // socket is a result about the packet, not a failure of the run,
+                    // and without reconnecting a sweep stops at its first miss.
+                    if (!reconnect) return "${e.message}"
+                    onResult(p, ByteArray(0), true)
+                    runCatching { socket.close() }
+                    socket = open(device, uuid) ?: return "link died and would not reopen"
+                    readFor(socket.inputStream, 700, 300)
+                }
+            }
+            return null
+        } catch (e: SecurityException) {
+            return "SecurityException: ${e.message}"
+        } finally {
+            runCatching { socket.close() }
+        }
+    }
+
+    /** Secure first, then insecure — see [exchange] for why both are tried. */
+    private fun open(device: BluetoothDevice, uuid: UUID): BluetoothSocket? {
         for (secure in listOf(true, false)) {
-            var socket: BluetoothSocket? = null
-            try {
-                socket =
+            val s =
+                runCatching {
                     if (secure) {
                         device.createRfcommSocketToServiceRecord(uuid)
                     } else {
                         device.createInsecureRfcommSocketToServiceRecord(uuid)
                     }
-                socket.connect()
-                // Drain anything the device volunteers on connect, so the first
-                // packet's window is not polluted by a greeting.
-                readFor(socket.inputStream, 700, 300)
-                for (p in packets) {
-                    socket.outputStream.write(p)
-                    socket.outputStream.flush()
-                    onResult(p, readFor(socket.inputStream, perMs, quietMs))
-                }
-                return null
-            } catch (e: IOException) {
-                if (!secure) return "${e.message}"
-            } catch (e: SecurityException) {
-                return "SecurityException: ${e.message}"
-            } finally {
-                runCatching { socket?.close() }
-            }
+                }.getOrNull() ?: continue
+            if (runCatching { s.connect() }.isSuccess) return s
+            runCatching { s.close() }
         }
-        return "could not connect"
+        return null
     }
 
     /**
