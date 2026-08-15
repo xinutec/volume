@@ -6,6 +6,7 @@
 #   ./probe.sh send <mac> <uuid> <payload-hex> [type] [seq]
 #   ./probe.sh raw  <mac> <uuid> <payload-hex>      bytes verbatim, no framing
 #   ./probe.sh scan                                 what is advertising over LE
+#   ./probe.sh gattmap <name>                       every GATT service + property
 #   ./probe.sh gatt <name> <hex,hex> [service]      BLE — the JBL's control path
 #   ./probe.sh free               force-stop every vendor app holding a channel
 #
@@ -77,6 +78,13 @@ case "${1:-list}" in
     "${ADB[@]}" shell am start -n "$ACT" --es op scan >/dev/null
     watch_log 14
     ;;
+  gattmap)
+    # What a device's GATT actually offers. Cheaper than guessing which of a chip
+    # vendor's published UUID pairs this particular model implements.
+    who="${2:?device name substring}"
+    "${ADB[@]}" shell am start -n "$ACT" --es op gattmap --es name "'$who'" >/dev/null
+    watch_log "${GATT_WAIT:-60}"
+    ;;
   gatt)
     # The LE write path, addressed by advertised NAME: the LE address rotates, so a
     # literal one goes stale and fails slowly rather than saying "no such device".
@@ -110,7 +118,7 @@ case "${1:-list}" in
     watch_log 8
     ;;
   *)
-    sed -n '2,12p' "${BASH_SOURCE[0]}" >&2
+    sed -n '2,13p' "${BASH_SOURCE[0]}" >&2
     exit 2
     ;;
 esac

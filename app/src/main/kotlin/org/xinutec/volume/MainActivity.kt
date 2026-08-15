@@ -83,7 +83,8 @@ class MainActivity : Activity() {
             "seq" -> seq(adapter, intent ?: return)
             "gatt" -> gatt(adapter, intent ?: return)
             "scan" -> scan(adapter, intent)
-            else -> emit("unknown op '$op' — use list, scan, send, sweep, seq or gatt")
+            "gattmap" -> gattmap(adapter, intent ?: return)
+            else -> emit("unknown op '$op' — use list, scan, send, sweep, seq, gatt or gattmap")
         }
     }
 
@@ -296,6 +297,30 @@ class MainActivity : Activity() {
         if (err != null) emit("⚠ $err")
         emit("${seen.size} advertisers")
         seen.forEach { emit("  $it") }
+    }
+
+    /** Every GATT service and characteristic a device offers, with its properties. */
+    private fun gattmap(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        val name =
+            intent.getStringExtra("name") ?: run {
+                emit("gattmap needs --es name")
+                return
+            }
+        emit("resolving '$name' by LE scan…")
+        val seen = Scan.find(adapter, name, intent.getIntExtra("scan", 25000).toLong())
+        if (seen?.device == null) {
+            emit("✗ nothing advertising anything containing '$name'")
+            return
+        }
+        emit("  $seen")
+        val (lines, err) =
+            Gatt.map(
+                this,
+                seen.device,
+                intent.getIntExtra("connect", 20000).toLong(),
+            )
+        lines.forEach { emit("  $it") }
+        if (err != null) emit("✗ $err")
     }
 
     /**

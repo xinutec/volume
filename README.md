@@ -14,7 +14,7 @@ moves things.**
 | Bose QC35 | `4C:87:5D:CC:A0:23` | RFCOMM, SPP `00001101` | Bose | ✅ r/w |
 | JBL Tour One M2 | scan for it | **GATT**, `65786365-…0000` | BES `aa` | ✅ r/w |
 | Sony XM4 | `80:99:E7:F9:D0:61` | RFCOMM, `96cc203e-…` | Sony framed | ✅ r/w |
-| JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | Fast Pair only | — | no command service |
+| JLab JBuds Sport ANC 4 | scan `21 55 35 33` | GATT, `01000100-…` | Realtek, unsolved | — |
 
 ```
 QC45   1f 03 05 02 <slot> 01              slot 0=Quiet 1=Aware 2=Home 3=unnamed
@@ -43,8 +43,10 @@ acknowledgements. `docs/protocols.md` has the correction.
    writes untried.
 4. **Bose EQ / auto-off / buttons** — among the 15 write-capable fns in
    `docs/bose-read-surface.md`.
-5. **JLab** — GATT connects but offers no command service. Read `com.jlab.app`
-   the way `jbl.stc.com` was read.
+5. **JLab** — it is a **Realtek** chip (its model name is inside
+   `com.realsil.sdk.bbpro`), transport `AA <type> <len:2 LE> <cmd:2 LE>`, and its
+   write/notify pair is on `01000100-…`. It answers neither framing yet; the
+   `type` byte is the open question and `CommandFactory` should settle it.
 
 ## ⚠ The open decision (#785)
 
@@ -61,6 +63,7 @@ headphones *and* the Mac's CoreAudio + Picades, which cannot move to the phone
 ./deploy.sh                              # build + install, Pixel 9 by MODEL
 ./probe.sh list                          # bonded + detected channel/protocol
 ./probe.sh scan                          # what is advertising over LE, right now
+./probe.sh gattmap <name>                # every GATT service, char and property
 ./probe.sh free                          # force-stop vendor apps
 ./probe.sh send|raw <mac> <uuid> <hex>   # one packet, one socket
 ./probe.sh seq  <mac> <uuid> <hex,hex>   # one socket — THE RFCOMM WRITE TOOL

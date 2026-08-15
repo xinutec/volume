@@ -251,16 +251,35 @@ is a keepalive, and it is the bulk of any capture.
 ⚠ **Never sweep this protocol.** It has no Get operator; `aa 31`, `aa 33`, `aa 40`
 and `aa 95` are writes, and `Sweep` deliberately cannot emit them.
 
-### The JLab is a BES chip with no command service
+### The JLab is a Realtek chip — not BES, and not solved
 
-Same GATT approach, and it connects — but discovery returns only `1800`, `1801`,
-Fast Pair `fe2c`, and two OTA services: `66666666-…` (BES OTA, the one an earlier
-pass called a JLab decoy) and `01000100-…-009078563412` (the Harman SDK's
-`OTA_SERVICE_NORMAL_UUID`). **No `excelpoint.com` service**, so the JBL's command
-path is not simply reusable.
+`com.jlab.app` is a rebrand of QCY's app and bundles six chip SDKs (`airoha`,
+`bes`, `bluetrum`, `jieli`, `qcywq`, `realtek`). **"JBuds Sport ANC" appears
+inside `com.realsil.sdk.bbpro`** — Realtek's BBPro SDK — so that is this model's
+platform, and the BES services it also exposes are a red herring.
 
-Its Fast Pair greeting gives model `6f 08 a1` and battery `64 64 64`. Next step is
-its own app, `com.jlab.app`, read the same way the JBL's was.
+Its GATT, measured with `probe.sh gattmap`:
+```
+0000fe2c  Fast Pair    …1234 …1235 …1237 write+NOTIFY, …123a read/write/NOTIFY
+66666666  …77777777    write write-nr NOTIFY        BES OTA
+01000100  …03000300    write write-nr               ← write here
+          …02000200    NOTIFY                       ← replies here
+```
+Realtek's transport is `AA <type> <length: 2 LE> <payload>`, payload
+`<cmdId: 2 LE> <params>`, from `TransportLayerPacket` (`SYNC_WORD = 0xaa`,
+`HEADER_LENGTH = 4`). IDs are in `core/protocol/CommandContract` (`0x18`
+GET_STATUS, `0x0c` INFO_REQ, `0x105` GET_LE_ADDR) and the `*Req` classes
+(`0xc44`–`0xc46` ANC scenario, `0x2xx` EQ, `0x7xx` key mapping).
+
+⚠ **Unsolved.** `01000100` accepts writes and answers neither the BES `aa`
+protocol nor `aa 00 <len> <cmd>` Realtek frames. The `type` byte is a guess —
+`CommandFactory` is the place to settle it. One 14-byte notification did arrive
+(`00 ff 00 31 01 00 50 46 04 00 02 00 00 cc`, unattributed and possibly
+unsolicited); note `50 46` = 80, 70 while its battery read 100/70/100.
+
+⚠ **The JLab advertises no name**, and its Fast Pair "BLE address" (`03 02`)
+is *not* what it advertises under — that address never appears in a scan. Match it
+on the stable `21 55 35 33` run inside its `fe2c` service data instead.
 
 ⚠ Neither device is identifiable by UUID (JBL has none unique, JLab only silent
 ones), so `Channels.kt` names both by device name and says so.

@@ -52,6 +52,70 @@ object Gatt {
     private val CCC = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
     /**
+     * Connect and report every service, characteristic and property.
+     *
+     * The alternative is guessing which of a chip vendor's several published UUID
+     * pairs a given device actually implements, which is how an hour goes missing.
+     * Properties matter as much as UUIDs: a characteristic with no NOTIFY cannot be
+     * a reply path however plausible its name.
+     */
+    fun map(
+        context: Context,
+        device: BluetoothDevice,
+        connectMs: Long,
+    ): Pair<List<String>, String?> {
+        val lines = ArrayList<String>()
+        val err =
+            exchange(
+                context,
+                device,
+                // No service is opened: an empty packet list means discovery runs and
+                // nothing is written, so this is safe against anything.
+                ANY,
+                ANY,
+                ANY,
+                emptyList(),
+                0,
+                0,
+                false,
+                connectMs,
+                onDiscovered = { services ->
+                    services.forEach { svc ->
+                        lines.add(svc.uuid.toString())
+                        svc.characteristics.forEach { c ->
+                            val p = c.properties
+                            val flags =
+                                buildString {
+                                    if (p and BluetoothGattCharacteristic.PROPERTY_READ != 0) {
+                                        append("read ")
+                                    }
+                                    if (p and BluetoothGattCharacteristic.PROPERTY_WRITE != 0) {
+                                        append("write ")
+                                    }
+                                    if (p and
+                                        BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0
+                                    ) {
+                                        append("write-nr ")
+                                    }
+                                    if (p and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
+                                        append("NOTIFY ")
+                                    }
+                                    if (p and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0) {
+                                        append("indicate ")
+                                    }
+                                }
+                            lines.add("    ${c.uuid}  ${flags.trim()}")
+                        }
+                    }
+                },
+            ) {}
+        return Pair(lines, err)
+    }
+
+    /** Placeholder for [map], which opens no service. Never matches a real one. */
+    private val ANY = UUID.fromString("00000000-0000-0000-0000-000000000000")
+
+    /**
      * Connect [device] over LE, subscribe to [notify], and write each of [packets]
      * to [write], reporting what was notified after each.
      *
@@ -82,6 +146,8 @@ object Gatt {
         quietMs: Long,
         autoConnect: Boolean,
         connectMs: Long,
+        /** Called once with everything discovered, before any packet is written. */
+        onDiscovered: (List<android.bluetooth.BluetoothGattService>) -> Unit = {},
         onResult: (Result) -> Unit,
     ): String? {
         val notifications = LinkedBlockingQueue<ByteArray>()
@@ -165,6 +231,8 @@ object Gatt {
             step = CountDownLatch(1)
             if (!gatt.discoverServices()) return "discoverServices refused"
             if (!step.await(STEP_MS, TimeUnit.MILLISECONDS)) return "service discovery timed out"
+            onDiscovered(gatt.services)
+            if (packets.isEmpty()) return null
 
             val svc =
                 gatt.getService(service)
