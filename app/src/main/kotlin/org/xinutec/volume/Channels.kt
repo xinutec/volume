@@ -57,6 +57,21 @@ object Channels {
     /** On the JLab, opens, never answers, and is not named in either vendor app. */
     const val JLAB_UNIDENTIFIED = "99999999-9999-9999-9999-999999999999"
 
+    /**
+     * The BES command service, over **GATT** — this is where JBL control actually
+     * lives, and it is not RFCOMM at all. The UUID is ASCII: `65 78 63 65 6c …` is
+     * "excelpoint.com", BES's parent. Named `UUID_SERVICE_CMD_RXTX_UUID_00` and
+     * friends in the JBL app; confirmed against a snoop capture of it working.
+     *
+     * ⚠ Reached at the device's **LE** address, not the BR/EDR one the RFCOMM
+     * channels use, and that address rotates. See `docs/protocols.md`.
+     */
+    const val BES_GATT_SERVICE = "65786365-6c70-6f69-6e74-2e636f6d0000"
+
+    /** Notifications come out of here (`…0001`), and writes go into `…0002`. */
+    const val BES_GATT_NOTIFY = "65786365-6c70-6f69-6e74-2e636f6d0001"
+    const val BES_GATT_WRITE = "65786365-6c70-6f69-6e74-2e636f6d0002"
+
     /** Seen on more than one vendor, so useless for IDENTIFICATION (see the note). */
     val SHARED =
         setOf(

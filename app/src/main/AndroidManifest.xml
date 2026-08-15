@@ -8,6 +8,15 @@
          — the probe is driven headlessly and never shows a permission dialog. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
+    <!-- BLE control channels are reached at an address that ROTATES, so the bonded
+         list cannot supply it and a scan is the only way to learn the current one.
+         neverForLocation keeps this off the location permission: the probe uses
+         scanning to identify a device, never to place anyone. Grant it the same way:
+         `adb shell pm grant org.xinutec.volume android.permission.BLUETOOTH_SCAN` -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+
     <application
         android:allowBackup="false"
         android:label="Volume probe"

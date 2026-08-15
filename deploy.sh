@@ -39,10 +39,12 @@ APK="$PWD/app/build/outputs/apk/debug/app-debug.apk"
 
 echo "=== $serial (model:$MODEL) ==="
 "$ADB" -s "$serial" install -r "$APK"
-# Pre-granted so the probe can be driven headlessly: it opens RFCOMM sockets to
-# already-bonded devices, which needs BLUETOOTH_CONNECT and nothing else. It never
-# shows a permission dialog, so without this every run fails with a SecurityException.
+# Pre-granted so the probe can be driven headlessly — it never shows a permission
+# dialog, so without these a run fails with a SecurityException. CONNECT opens
+# sockets to bonded devices; SCAN resolves the rotating LE address of a GATT
+# control channel, which no bonded-device list can supply.
 "$ADB" -s "$serial" shell pm grant "$PKG" android.permission.BLUETOOTH_CONNECT
+"$ADB" -s "$serial" shell pm grant "$PKG" android.permission.BLUETOOTH_SCAN
 # -S force-stops first. Without it the intent is delivered to the *existing* task
 # (adb says "intent has been delivered to currently running top-most instance"),
 # so a deploy can appear to succeed while the old build is still on screen.

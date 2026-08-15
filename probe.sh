@@ -5,6 +5,8 @@
 #   ./probe.sh list               bonded devices + the control channel each advertises
 #   ./probe.sh send <mac> <uuid> <payload-hex> [type] [seq]
 #   ./probe.sh raw  <mac> <uuid> <payload-hex>      bytes verbatim, no framing
+#   ./probe.sh scan                                 what is advertising over LE
+#   ./probe.sh gatt <name> <hex,hex> [service]      BLE — the JBL's control path
 #   ./probe.sh free               force-stop every vendor app holding a channel
 #
 # ⚠ Hearing safety: probe with reads. Never use a volume command as the proof, and
@@ -67,6 +69,29 @@ case "${1:-list}" in
     "${ADB[@]}" shell am start -n "$ACT" --es op seq \
       --es mac "$mac" --es uuid "$uuid" --es packets "$packets" >/dev/null
     watch_log "${SEQ_WAIT:-30}"
+    ;;
+  scan)
+    "${ADB[@]}" shell am start -n "$ACT" --es op scan >/dev/null
+    watch_log 14
+    ;;
+  gatt)
+    # The LE write path, addressed by advertised NAME: the LE address rotates, so a
+    # literal one goes stale and fails slowly rather than saying "no such device".
+    who="${2:?device name substring, e.g. 'JBL TOUR', or a MAC}"
+    packets="${3:?comma-separated hex}"
+    # A MAC is accepted for the case where the address is known-current (a fresh
+    # scan, a capture); anything else is treated as a name to resolve.
+    if [[ "$who" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
+      args=(--es op gatt --es mac "$who" --es packets "$packets")
+    else
+      # ⚠ Quoted for the DEVICE's shell too. `adb shell` joins its argv into one
+      # command line and re-splits it there, so a name with a space arrives as two
+      # arguments and `am` reads the second as the next flag.
+      args=(--es op gatt --es name "'$who'" --es packets "$packets")
+    fi
+    [ -n "${4:-}" ] && args+=(--es service "$4")
+    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    watch_log "${GATT_WAIT:-40}"
     ;;
   send|raw)
     mac="${2:?mac}"; uuid="${3:?uuid}"; payload="${4:-}"

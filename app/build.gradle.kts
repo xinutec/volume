@@ -12,10 +12,13 @@ android {
 
     defaultConfig {
         applicationId = "org.xinutec.volume"
-        // minSdk 31 (Android 12): BLUETOOTH_CONNECT as a runtime permission lands
-        // here, so the pre-12 legacy BLUETOOTH model is out of scope entirely. The
-        // target phone is the Pixel 9 on Android 17.
-        minSdk = 31
+        // minSdk 33 (Android 13). 31 would do for BLUETOOTH_CONNECT, but the GATT
+        // calls Gatt.kt needs — writeCharacteristic(char, value, type),
+        // writeDescriptor(desc, value), onCharacteristicChanged(g, c, value) — all
+        // land in 33, and their pre-33 forms pass the payload through mutable state on
+        // the characteristic, which races. The target phone is a Pixel 9 on Android 17,
+        // so raising the floor costs nothing and removes the racy branch entirely.
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"

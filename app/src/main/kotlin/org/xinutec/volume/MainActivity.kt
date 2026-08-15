@@ -81,7 +81,9 @@ class MainActivity : Activity() {
             "send" -> send(adapter, intent ?: return)
             "sweep" -> sweep(adapter, intent ?: return)
             "seq" -> seq(adapter, intent ?: return)
-            else -> emit("unknown op '$op' — use list, send, sweep or seq")
+            "gatt" -> gatt(adapter, intent ?: return)
+            "scan" -> scan(adapter, intent)
+            else -> emit("unknown op '$op' — use list, scan, send, sweep, seq or gatt")
         }
     }
 
@@ -247,6 +249,87 @@ class MainActivity : Activity() {
                 emit("      ← ${if (got.isEmpty()) "(nothing)" else Hex.format(got)}")
             }
         if (err != null) emit("✗ seq failed — $err") else emit("done")
+    }
+
+    /** What is advertising right now, and under which address. */
+    private fun scan(adapter: android.bluetooth.BluetoothAdapter, intent: Intent?) {
+        val ms = intent?.getIntExtra("ms", 8000)?.toLong() ?: 8000L
+        emit("scanning ${ms}ms…")
+        val (seen, err) = Scan.run(adapter, ms)
+        if (err != null) emit("⚠ $err")
+        emit("${seen.size} advertisers")
+        seen.forEach { emit("  $it") }
+    }
+
+    /**
+     * The GATT counterpart of [seq]: one LE connection, several writes, in order.
+     *
+     * Defaults to the BES command service, since that is the one channel found this
+     * way so far; `--es service/write/notify` override it for the next device.
+     *
+     * ```
+     * --es name "JBL TOUR" --es packets aa910111
+     * ```
+     *
+     * ⚠ Prefer `--es name` over `--es mac`. The address these devices advertise
+     * rotates, so a literal one goes stale — and connecting to a stale address fails
+     * slowly and misleadingly rather than saying "no such device".
+     */
+    private fun gatt(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        val spec = intent.getStringExtra("packets")
+        val name = intent.getStringExtra("name")
+        val mac = intent.getStringExtra("mac")
+        if (spec == null || (name == null && mac == null)) {
+            emit("gatt needs --es packets, and --es name (preferred) or --es mac")
+            return
+        }
+        val device =
+            if (name != null) {
+                emit("resolving '$name' by LE scan…")
+                // 25 s, not 10: these devices advertise in bursts and rotate address
+                // between them, and a window that misses one reports "not advertising"
+                // — indistinguishable from "not there". The scan stops on the first
+                // match, so a generous window costs nothing when the device is present.
+                val seen = Scan.find(adapter, name, intent.getIntExtra("scan", 25000).toLong())
+                if (seen?.device == null) {
+                    emit("✗ nothing advertising anything containing '$name'")
+                    return
+                }
+                emit("  $seen")
+                seen.device
+            } else {
+                adapter.getRemoteDevice(mac)
+            }
+        val service = intent.getStringExtra("service") ?: Channels.BES_GATT_SERVICE
+        val write = intent.getStringExtra("write") ?: Channels.BES_GATT_WRITE
+        val notify = intent.getStringExtra("notify") ?: Channels.BES_GATT_NOTIFY
+        val packets = spec.split(",").filter { it.isNotBlank() }.map { Hex.parse(it.trim()) }
+
+        emit("gatt: ${packets.size} writes to ${device.address}")
+        emit("  service $service")
+        var i = 0
+        val err =
+            Gatt.exchange(
+                this,
+                device,
+                UUID.fromString(service),
+                UUID.fromString(write),
+                UUID.fromString(notify),
+                packets,
+                intent.getIntExtra("per", 1500).toLong(),
+                intent.getIntExtra("quiet", 500).toLong(),
+                // Direct by default — see Gatt.exchange: an accept-list connect cannot
+                // catch a rotating address. `--ez auto true` for a device whose address
+                // is fixed and which may not be advertising yet.
+                intent.getBooleanExtra("auto", false),
+                intent.getIntExtra("connect", 20000).toLong(),
+            ) { r ->
+                i++
+                emit("  [$i] → ${Hex.format(r.sent)}")
+                emit("      ← ${if (r.received.isEmpty()) "(nothing)" else Hex.format(r.received)}")
+                r.error?.let { emit("      ⚠ $it") }
+            }
+        if (err != null) emit("✗ gatt failed — $err") else emit("done")
     }
 
     private fun emit(line: String) {

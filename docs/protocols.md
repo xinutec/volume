@@ -97,14 +97,42 @@ walk a blind range across it while they are worn.
 ring and source-switching, and that is all. The `07 xx` commands an earlier pass
 pointed at are Fast Pair groups, not JBL commands.
 
-### Where JBL control actually lives — found, not yet spoken
+### Where JBL control actually lives — BLE GATT, driven
 
-From `jbl.stc.com` (apktool → smali; `com.harman.bluetooth`, the BES stack that
-`TourOne2Control` extends):
+⚠ **Not RFCOMM at all.** Every RFCOMM channel on the JBL is silent or answers
+something else, and the app never opens one — confirmed from a snoop capture of it
+working. Control is GATT:
+
+```
+service  65786365-6c70-6f69-6e74-2e636f6d0000   ASCII "excelpoint.com" (BES's parent)
+  write  …0002                                  Write Request
+  notify …0001                                  subscribe via its 0x2902 CCC
+```
+Reached at the device's **LE address, which rotates** — scan for it (`probe.sh
+scan`), and connect through the scanner's own device object with `autoConnect =
+false`; see `Scan.kt` and `Gatt.kt`, where both traps are written down.
+
+Frames are the BES protocol, read out of `jbl.stc.com` (apktool → smali;
+`com.harman.bluetooth`, the stack `TourOne2Control` extends) and then driven:
 
 ```
 [aa][command][length: 1 byte][payload…]      CmdBase.combine(), HEADER_COMMAND = 0xaa
 ```
+
+## ✅ JBL ANC
+
+```
+read   aa 91 01 11
+write  aa 91 07 10  01 <anc>  02 <ambient>  03 <talkthru>
+reply  aa 91 07 12  01 <anc>  02 <ambient>  03 <talkthru>
+```
+`01 01 02 00 03 00` is Noise Cancelling, `01 00 02 01 03 00` Ambient Aware — both
+observed against the app's own screen. Driven from our socket and confirmed by a
+separate read-back, not by the echo. Sub-op `10` sets, `11` gets, `12` returns.
+TalkThru is the unexercised third slot: named from the app's UI, not measured.
+
+`aa 21 01 30` (all status) moves with it — `30 01 00 …` under ANC, `30 00 02 …`
+under Ambient — so ANC is legible from two places.
 ```
 aa 21 01 <30..3a>   status: 30 all · 31 ANC · 32 ambient · 33 auto-off · 34 EQ
                     35 multi-AI · 36 BT connection · 37 OTA · 38 auto play/pause
@@ -116,17 +144,24 @@ aa 91  ANC modes (`aa 91 01 11` reads)              aa 11  device info
 aa 25  battery          aa 94  serial               aa 9b  multi-status
 aa 74/75  ANC tuning    aa 81/82  smart switch      aa 95  factory reset
 ```
-Replies are `aa <cmd+1>` (`aa 11` → `aa 12`), per `RetHeader`.
-
-⚠ **The device does not answer this yet.** `aa 11 00` on SPP `00001101` (the
-SDK's own `BES_SPP_CONNECT`, RFCOMM ch 12) connects and stays silent, as do the
-three shared UUIDs. Unresolved: a connect handshake (`com.harman.auth` exists) or
-a different transport. The JBL app could not be observed doing it — launched
-headless it reaches its dashboard and opens no RFCOMM connection at all, which is
-consistent with it waiting behind the lock screen.
+Replies are `aa <cmd+1>` (`aa 11` → `aa 12`), per `RetHeader`. Seen on the wire:
+`aa 12` device info with the name and battery, `aa 22` status, `aa 94` the serial,
+`aa 77` the gesture map, `aa a2` EQ as IEEE floats. `aa b1 …` every four seconds
+is a keepalive, and it is the bulk of any capture.
 
 ⚠ **Never sweep this protocol.** It has no Get operator; `aa 31`, `aa 33`, `aa 40`
 and `aa 95` are writes, and `Sweep` deliberately cannot emit them.
+
+### The JLab is a BES chip with no command service
+
+Same GATT approach, and it connects — but discovery returns only `1800`, `1801`,
+Fast Pair `fe2c`, and two OTA services: `66666666-…` (BES OTA, the one an earlier
+pass called a JLab decoy) and `01000100-…-009078563412` (the Harman SDK's
+`OTA_SERVICE_NORMAL_UUID`). **No `excelpoint.com` service**, so the JBL's command
+path is not simply reusable.
+
+Its Fast Pair greeting gives model `6f 08 a1` and battery `64 64 64`. Next step is
+its own app, `com.jlab.app`, read the same way the JBL's was.
 
 ⚠ Neither device is identifiable by UUID (JBL has none unique, JLab only silent
 ones), so `Channels.kt` names both by device name and says so.
