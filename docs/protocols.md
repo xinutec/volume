@@ -4,9 +4,19 @@ Every byte here was read off the wire on **2026-08-15** from a full Bluetooth HC
 snoop log of the official apps talking to the real headphones — not from
 documentation and not from a guess. Method at the end.
 
-Status: **four of five speak**. Sony, Bose QC45 and Bose QC35 have been made to
-answer *our own* socket; JBL is decoded from capture but not yet driven. JLab was
-not connected during the capture.
+Status: **all five speak, and all five have answered our own socket.** Five
+devices, **three** wire formats — the JBL and the JLab share one.
+
+| Device | Channel | Protocol |
+| --- | --- | --- |
+| Sony WH-1000XM4 | `96cc203e-…` | Sony framed |
+| Bose QC45 | **SPP `00001101`** | Bose 4-byte |
+| Bose QC35 | **SPP `00001101`** | Bose 4-byte |
+| JBL Tour One M2 | **`df21fe2c-…`** | `[block][cmd][len:2]` |
+| JLab JBuds Sport ANC 4 | **`df21fe2c-…`** | `[block][cmd][len:2]` |
+
+Note that **not one** of the three channels is the UUID you would pick by
+eyeballing the SDP record. Both ways of being wrong are below.
 
 ---
 
@@ -31,6 +41,21 @@ adb shell dumpsys bluetooth_manager | grep "RFCOMM Connection opened"
 ```
 
 `scn` is the RFCOMM channel; match it against the SDP record to get the UUID.
+
+## ⚠ …and the same mistake in the opposite direction
+
+`df21fe2c-2515-4fdb-8886-f12c4d67927c` is on the JBL **and** the JLab, so it
+cannot say which vendor a device is — and it is **the control channel for both**.
+It was originally filed here as "shared across vendors, not a marker" and
+therefore ignored, which is precisely backwards.
+
+Meanwhile the JLab's own exotic-looking `66666666-…` and `99999999-…` are
+**decoys**: both sockets connect and neither ever answers a byte.
+
+So *"which vendor is this?"* and *"which channel do I open?"* are **different
+questions with different answers**, and `Channels.kt` now returns them as
+separate fields. A shared UUID is useless for the first and authoritative for the
+second.
 
 ---
 
@@ -79,34 +104,55 @@ README. Channel `96cc203e-…`, framing
 number. The capture shows it on **DLCI 0x2b, 6,716 frames** — by far the
 chattiest of the five.
 
-## JBL Tour One M2 — decoded, not yet driven
+## JBL and JLab — one protocol, one channel, both driven
 
-Two DLCIs carry vendor traffic (`0x22` and `0x14`). Header is
-**`[block] [command] [length: 2 bytes, big-endian] [payload…]`**:
+Header is **`[block] [command] [length: 2 bytes, big-endian] [payload…]`**. The
+length field was *inferred* from the capture and is now **confirmed**: every
+frame the devices returned to our own socket parses exactly.
+
+`07 10 0000` is echoed back verbatim, which makes it a perfect harmless probe —
+it is how both devices were identified as speaking the same protocol.
+
+```
+JBL  → 07 10 0000
+     ← 03 01 |0003| ea3f99          03 02 |0006| 7d089818ddd9
+       03 03 |0001| 3c              03 0a |0008| 92417496e773d72c
+       07 10 |0000|                 07 34 |000c| 01de786a7ee88dd4c490a3c9
+       03 09 |0007| "6.8.0.0"       03 0b |0018| …24 bytes…
+       06 03 |0007| 017d089818ddd9  07 11 |0004| 0102b800
+
+JLab → 07 10 0000
+     ← 03 01 |0003| 6f08a1          03 02 |0006| 708e3ea2dd56
+       03 03 |0003| 5a 50 64        03 0a |0008| 95275bbf6c1fee c4
+       07 10 |0000|                 07 11 |0004| 0102b000
+```
+
+⚠ **`03 03` is battery, and its LENGTH carries the topology** — inferred, and the
+inference is worth stating because it shapes the UI: the over-ear JBL returns one
+value (`3c` = 60), the JLab earbuds return three (`5a 50 64` = 90 / 80 / 100,
+almost certainly left / right / case). A reader that assumes one battery per
+device will silently drop two thirds of the earbud state.
+
+`03 09` is the firmware version as ASCII on both. The capture also shows the JBL
+app **writing** `1a 0d "Europe/London"`, so this protocol is not read-only.
+
+From the capture of the official JBL app, showing where to look and what else the
+protocol carries — its traffic sits on DLCIs `0x22` and `0x14`:
 
 ```
 → 03 08 0002 0125
-← 03 09 0007 "6.8.0.0"                     firmware version
-← 03 01 0003 ea3f99
-← 03 0a 0008 92417496e773d72c
-← 03 02 0036 … "6.8.0" … "1D150104060124 0A0" …   version + serial
-→ 04 11 0000 / 04 13 0000 / 04 15 0000     zero-length gets
-→ … 1a 0d "Europe/London"                  the app SETS the timezone
+← 03 02 0036 … "6.8.0" … "1D150104060124 0A0" …   version + serial in the clear
+→ 04 11 0000 / 04 13 0000 / 04 15 0000            zero-length gets
+→ … 1a 0d "Europe/London"                         the app SETS the timezone
 ```
 
-⚠ The length field being 2 bytes is **inferred** from `0002/0003/0007/0036`
-consistently matching the bytes that follow. It has not been confirmed by driving
-the device.
+⚠ **Neither device can be identified by UUID.** The JBL advertises nothing
+unique, and the JLab advertises only its dead decoys — so `Channels.kt` names
+both from the device name, and reports that it did. The channel and protocol are
+known regardless, so an unrecognised name still yields a working connection.
 
-⚠ **The JBL advertises no unique UUID**, so `Channels.kt` identifies it by name.
-Note also that `com.harman.ble.jbllink` is JBL's *speaker* app — not relevant to
-headphones (Pippijn, 2026-08-15).
-
-## JLab JBuds Sport ANC 4 — not captured
-
-It was disconnected during the capture (`ACL BR/EDR:N`). Its channel opens, and
-it advertises the placeholder UUIDs `66666666-…`/`99999999-…`. Reconnected
-afterwards; needs another capture round.
+⚠ `com.harman.ble.jbllink` is JBL's **speaker** app and is not relevant here
+(Pippijn, 2026-08-15). The headphone app is `jbl.stc.com`.
 
 ---
 
