@@ -1,0 +1,13 @@
+# Central version catalog. Kept in step with govee-android and recall-android so
+# all three build under the same nix `#android` devshell.
+[versions]
+agp = "8.13.0"
+kotlin = "2.4.0"
+junit = "4.13.2"
+
+[libraries]
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
