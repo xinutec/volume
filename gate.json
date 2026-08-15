@@ -1,0 +1,80 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "nix",
+        "run",
+        "git+file:../dev-lint?ref=HEAD",
+        "--",
+        "."
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "dev-lint",
+      "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "../recall#android",
+        "--no-warn-dirty",
+        "--command",
+        "ktlint",
+        "app/src/**/*.kt"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "ktlint",
+      "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "../recall#android",
+        "--no-warn-dirty",
+        "--command",
+        "./gradlew",
+        "--console=plain",
+        ":app:testDebugUnitTest"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "unit tests",
+      "timeout_s": 1800
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "../recall#android",
+        "--no-warn-dirty",
+        "--command",
+        "./gradlew",
+        "--console=plain",
+        ":app:assembleDebug"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "assembleDebug",
+      "timeout_s": 1800
+    },
+    {
+      "argv": [
+        "nix",
+        "run",
+        "../dev-lint#gate",
+        "--",
+        "--check-table",
+        "gate.dhall",
+        "gate.json"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "the table matches its Dhall",
+      "timeout_s": 300
+    }
+  ],
+  "name": "volume"
+}

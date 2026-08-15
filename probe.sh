@@ -37,10 +37,10 @@ watch_log() {
 
 case "${1:-list}" in
   install)
-    (cd "$here" && nix develop ~/Code/recall#android --command ./gradlew --console=plain :app:assembleDebug)
-    "${ADB[@]}" install -r "$here/app/build/outputs/apk/debug/app-debug.apk"
-    "${ADB[@]}" shell pm grant "$PKG" android.permission.BLUETOOTH_CONNECT
-    echo "installed and granted on $DEV"
+    # deploy.sh owns build + install + grant, and selects the phone by model.
+    # Kept as one implementation so this script and the gate cannot disagree about
+    # what "installed" means.
+    (cd "$here" && nix develop ~/Code/recall#android --command ./deploy.sh)
     ;;
   free)
     for app in "${VENDOR_APPS[@]}"; do "${ADB[@]}" shell am force-stop "$app"; done

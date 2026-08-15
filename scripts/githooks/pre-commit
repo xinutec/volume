@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Single health gate. A commit must be healthy: this runs the full gate
+# (gate.json, rendered from gate.dhall) — dev-lint's shared rules, ktlint, the
+# unit suite and assembleDebug. There is NO separate pre-push step.
+# Slow by design; we optimise for healthy commits, not commit speed.
+# Quiet on success: the gate prints a check's output only when it FAILS, so a
+# healthy commit isn't buried under build noise (DL-GIT-PRECOMMIT-GATE).
+# Nothing here talks to a phone — every row runs on the Mac alone, because a gate
+# that needs headphones powered on and in range is a gate that fails for reasons
+# the commit did not cause.
+# Bypass a genuine work-in-progress commit with:  git commit --no-verify
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+if ! out=$(nix run ../dev-lint#gate -- . gate.json 2>&1); then
+  printf '%s\n' "$out" >&2
+  exit 1
+fi
