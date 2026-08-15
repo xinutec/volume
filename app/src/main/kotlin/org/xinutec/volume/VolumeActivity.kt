@@ -1,6 +1,13 @@
 package org.xinutec.volume
 
+import android.bluetooth.BluetoothA2dp
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.IntentCompat
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
@@ -70,6 +78,54 @@ class VolumeActivity : ComponentActivity() {
         }
         control.refresh()
     }
+
+    /**
+     * Follow the radio while we are on screen.
+     *
+     * ⚠ Without this the list is a snapshot from launch: switch a pair off and its
+     * card stays, offering modes over a socket that is gone. Registered in
+     * [onStart] rather than [onCreate] so a backgrounded app is not opening sockets
+     * to headphones nobody is looking at.
+     */
+    override fun onStart() {
+        super.onStart()
+        val filter =
+            IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+                // ⚠ The profile events are not redundant with the ACL ones. Presence
+                // is read from the A2DP and headset proxies, which populate a moment
+                // AFTER the link comes up — so a pair that is already ACL-connected
+                // when the app starts is invisible, and no ACL event ever follows to
+                // correct it. Measured: the Sony vanished from the list for four
+                // minutes with the phone reporting it as the active A2DP device.
+                addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+                addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
+            }
+        registerReceiver(links, filter)
+        control.refresh()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        runCatching { unregisterReceiver(links) }
+    }
+
+    private val links =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val device =
+                    IntentCompat.getParcelableExtra(
+                        intent,
+                        BluetoothDevice.EXTRA_DEVICE,
+                        BluetoothDevice::class.java,
+                    )
+                // A profile going up or down does not invalidate an open session, so
+                // only an ACL change drops one; the rest just re-ask who is here.
+                val acl = intent.action == BluetoothDevice.ACTION_ACL_DISCONNECTED
+                control.onLinkChanged(device?.address ?: return, dropSession = acl)
+            }
+        }
 
     override fun onDestroy() {
         super.onDestroy()

@@ -123,6 +123,63 @@ class ScreenTest {
         assertEquals(AncMode.ANC, Confirmation.Confirmed.resulting(AncMode.ANC))
     }
 
+    /**
+     * ⚠ Headphones come and go while the app is open, and the list must follow
+     * without losing what it already knows. A rebuild would drop the mode, the
+     * device-reported name and the note, then reopen every session to learn them
+     * again — visibly, as five cards blinking back to "connecting".
+     */
+    @Test
+    fun `reconciling keeps what is known about devices that are still here`() {
+        val live =
+            screen
+                .with(
+                    "E4:58:BC:3E:9D:AA",
+                    DeviceState.Ready("Bose QC45", listOf(AncMode.ANC), AncMode.ANC),
+                ).renamed("E4:58:BC:3E:9D:AA", "Pippijn Bose QC45")
+
+        val next =
+            live.reconciled(
+                listOf(
+                    "E4:58:BC:3E:9D:AA" to "Bose QC Headphones",
+                    "EC:9A:0C:E0:D2:96" to "JLab JBuds Sport ANC 4",
+                ),
+            )
+
+        // Untouched: still Ready, still under the name it reported for itself.
+        assertEquals("Pippijn Bose QC45", next.cards[0].name)
+        assertTrue(next.cards[0].state is DeviceState.Ready)
+        assertTrue(next.cards[1].state is DeviceState.Idle)
+    }
+
+    @Test
+    fun `a device that has gone is dropped, and a new one arrives idle`() {
+        val next = screen.reconciled(listOf("80:99:E7:F9:D0:61" to "WH-1000XM4"))
+        assertEquals(listOf("80:99:E7:F9:D0:61"), next.cards.map { it.address })
+        assertTrue(next.cards[0].state is DeviceState.Idle)
+    }
+
+    @Test
+    fun `reconciling to nothing empties the list`() {
+        assertTrue(screen.reconciled(emptyList()).cards.isEmpty())
+    }
+
+    /** The caller's order wins, so the list does not reshuffle as devices arrive. */
+    @Test
+    fun `reconciling draws them in the order given`() {
+        val next =
+            screen.reconciled(
+                listOf(
+                    "EC:9A:0C:E0:D2:96" to "JLab JBuds Sport ANC 4",
+                    "E4:58:BC:3E:9D:AA" to "Bose QC Headphones",
+                ),
+            )
+        assertEquals(
+            listOf("EC:9A:0C:E0:D2:96", "E4:58:BC:3E:9D:AA"),
+            next.cards.map { it.address },
+        )
+    }
+
     /** A failure keeps its reason: "error" is not a thing anyone can act on. */
     @Test
     fun `unavailability carries why`() {

@@ -66,6 +66,7 @@ object Control {
         }
         val model = if (driver === org.xinutec.volume.protocol.Drivers.BoseQc45) "QC45" else "QC35"
         onNote("identified by read: Bose $model")
+        runCatching { driver.prepare(t) }
         return Session(
             Headphones(
                 Channels.Vendor.BOSE,
@@ -93,6 +94,7 @@ object Control {
                     onNote("${h.model}: ${r.uuid} would not open — is a vendor app holding it?")
                     null
                 } else {
+                    runCatching { h.driver.prepare(t) }
                     Session(h, t, t)
                 }
             }
@@ -118,6 +120,7 @@ object Control {
                         onNote("${h.model}: GATT would not open at ${le.address}")
                         null
                     } else {
+                        runCatching { h.driver.prepare(t) }
                         Session(h, t, t)
                     }
                 }

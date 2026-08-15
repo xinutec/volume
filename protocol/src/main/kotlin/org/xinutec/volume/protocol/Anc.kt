@@ -57,6 +57,17 @@ interface AncDriver {
     fun write(t: Transport, mode: AncMode)
 
     /**
+     * Open the conversation, once per [Transport].
+     *
+     * ⚠ Some protocols need a session established before they answer anything, and
+     * the failure is silent: the Sony returns a bare ACK to a read it would
+     * otherwise answer, which reads as "this device has no mode". Its driver got
+     * away without this for as long as the link happened to be an old one, and
+     * started returning null the first time the app met a freshly connected pair.
+     */
+    fun prepare(t: Transport) {}
+
+    /**
      * The name the **device** holds, or null if it will not say.
      *
      * ⚠ Not the same string as the bonded record, and usually better. Android's

@@ -13,6 +13,9 @@ import org.junit.Test
  * that this file needs no phone.
  */
 class DriversTest {
+    /** Fresh per test: the Sony driver carries a sequence bit across calls. */
+    private val sony = Drivers.SonyXm4()
+
     // ---- Sony ------------------------------------------------------------------
     // Captured whole, framing and all, from the session that drove it: read Off,
     // set Ambient, read back. The frames are the exact ones on the wire.
@@ -32,24 +35,26 @@ class DriversTest {
     fun `sony reads the mode the device reported`() {
         val t =
             Replay(sonyReadRequest to sonyOff)
-        assertEquals(AncMode.OFF, Drivers.SonyXm4.read(t))
+        assertEquals(AncMode.OFF, sony.read(t))
         t.assertDrained()
     }
 
     @Test
     fun `sony distinguishes ambient from anc by the byte that moved`() {
+        // A fresh driver each time, as a fresh connection gets: the sequence bit is
+        // per-session state, so reusing one here would ask with the other bit.
         assertEquals(
             AncMode.AMBIENT,
-            Drivers.SonyXm4.read(Replay(sonyReadRequest to sonyAmbient)),
+            Drivers.SonyXm4().read(Replay(sonyReadRequest to sonyAmbient)),
         )
-        assertEquals(AncMode.ANC, Drivers.SonyXm4.read(Replay(sonyReadRequest to sonyAnc)))
+        assertEquals(AncMode.ANC, Drivers.SonyXm4().read(Replay(sonyReadRequest to sonyAnc)))
     }
 
     /** The write is the frame that was driven, byte for byte. */
     @Test
     fun `sony writes the frame that was measured`() {
         val t = Replay(sonyWriteAnc to "")
-        Drivers.SonyXm4.write(t, AncMode.ANC)
+        sony.write(t, AncMode.ANC)
         assertEquals(sonyWriteAnc, t.sent.first())
     }
 
@@ -61,7 +66,7 @@ class DriversTest {
     fun `sony acknowledges the data frame it received`() {
         val t =
             Replay(sonyReadRequest to sonyOff)
-        Drivers.SonyXm4.read(t)
+        sony.read(t)
         assertEquals(2, t.sent.size)
         // type 01, sequence inverted from the 01 the device used.
         assertEquals(sonyAck, t.sent[1])
@@ -209,6 +214,52 @@ class DriversTest {
         assertEquals(Confirmation.Unverifiable, Drivers.JLabQcy.set(t, AncMode.ANC))
     }
 
+    /**
+     * ⚠ **The sequence bit alternates, and a repeat is silently discarded.** Two
+     * frames with the same one make the device treat the second as a
+     * retransmission; the read then returns nothing and the screen says "reports no
+     * mode", which is what a device with genuinely no read command says. A
+     * hard-coded 00 survived every single-question session and broke the moment an
+     * opener was put in front of the read.
+     */
+    @Test
+    fun `sony alternates its sequence bit across a session`() {
+        val d = Drivers.SonyXm4()
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 00 00 0e 3c" to "3e 0c 01 00 00 00 04 01 00 70 00 82 3c",
+                "3e 0c 01 00 00 00 02 66 02 77 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 01 02 02 01 00 00 83 3c",
+            )
+        d.prepare(t)
+        assertEquals(AncMode.ANC, d.read(t))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ The regression this exists for. Without the opener the Sony answers a bare
+     * ACK, which the driver reports as "no mode" — indistinguishable on screen from
+     * the JLab, which genuinely has no read. It survived every earlier test because
+     * the link was always one the probe had already opened a session on.
+     */
+    @Test
+    fun `sony opens a session before it asks anything`() {
+        val t =
+            Replay("3e 0c 00 00 00 00 02 00 00 0e 3c" to "3e 0c 01 00 00 00 04 01 00 70 00 82 3c")
+        sony.prepare(t)
+        t.assertDrained()
+    }
+
+    /** Nobody else needs one, and pretending otherwise would cost a round trip. */
+    @Test
+    fun `the other drivers need no opener`() {
+        for (d in listOf(Drivers.BoseQc45, Drivers.BoseQc35, Drivers.JblBes, Drivers.JLabQcy)) {
+            val t = Replay()
+            d.prepare(t)
+            assertEquals("${d.javaClass.simpleName} sent something", 0, t.sent.size)
+        }
+    }
+
     // ---- the name the device holds ---------------------------------------------
 
     /**
@@ -250,7 +301,7 @@ class DriversTest {
     @Test
     fun `a driver with no name command returns null`() {
         assertNull(Drivers.JLabQcy.name(Replay()))
-        assertNull(Drivers.SonyXm4.name(Replay()))
+        assertNull(sony.name(Replay()))
     }
 
     // ---- shared --------------------------------------------------------------
@@ -270,7 +321,7 @@ class DriversTest {
                 Drivers.BoseQc45,
                 Drivers.BoseQc35,
                 Drivers.JblBes,
-                Drivers.SonyXm4,
+                sony,
                 Drivers.JLabQcy,
             )
         assertTrue(all.none { AncMode.TALK_THRU in it.modes })

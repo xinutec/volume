@@ -64,17 +64,27 @@ class DeviceController(
                 bonded
                     .filter { it.address in here && drivable(it) }
                     .sortedBy { it.name ?: it.address }
-            emit(
-                Screen(
-                    listed.map {
-                        DeviceCard(it.name ?: "(unnamed)", it.address, DeviceState.Idle)
-                    },
-                ),
-            )
+            // ⚠ Reconcile, do not rebuild: this runs again every time anything
+            // connects or disconnects, and a rebuild would blink every card back to
+            // "connecting" and re-read what it already knew.
+            emit(screen.reconciled(listed.map { it.address to (it.name ?: "(unnamed)") }))
+            // Anything that went away keeps no socket open.
+            sessions.keys.filterNot { a -> listed.any { it.address == a } }.forEach(::drop)
             // Sequentially, on this one thread: two connects at once contend for the
             // radio, and what that produces looks like a protocol fault.
             listed.forEach { openIfNeeded(it.address) }
         }
+
+    /**
+     * A device came or went. Re-reads the whole list rather than trusting the
+     * broadcast's extra: the ACL events arrive for devices this app does not care
+     * about, and a profile can connect a moment after the ACL does, so asking again
+     * is both simpler and more accurate than patching one entry.
+     */
+    fun onLinkChanged(address: String, dropSession: Boolean = true) {
+        if (dropSession) drop(address)
+        refresh()
+    }
 
     /**
      * Whether to list a device at all.

@@ -162,14 +162,48 @@ object Drivers {
      * and re-reading. Bytes 1, 3 and 4 held `02 01 00` in every state and are NOT
      * identified — they are echoed back verbatim rather than reasoned about.
      */
-    object SonyXm4 : AncDriver {
+    class SonyXm4 : AncDriver {
+        /**
+         * ⚠ **Sony frames carry an alternating sequence bit, and it is not
+         * decoration.** Send two frames with the same one and the device treats the
+         * second as a retransmission and ignores it — silently, so a read returns
+         * nothing and the screen says "this device reports no mode", which is
+         * exactly what another device legitimately says.
+         *
+         * A hard-coded `00` therefore worked for as long as each session asked
+         * exactly one question, and broke the moment a session opener was added in
+         * front of the read. Per instance, not per object: two headphones must not
+         * share a counter, which is why [Registry] builds a fresh driver per device.
+         */
+        private var seq: Byte = 0
+
+        private fun nextSeq(): Byte {
+            val s = seq
+            seq = (s.toInt() xor 1).toByte()
+            return s
+        }
+
         override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT)
 
-        /** `NcAsmInquiredType.NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE`. */
-        private const val TYPE: Byte = 0x02
+        /**
+         * `CONNECT_GET_PROTOCOL_INFO`, which is what turns a socket into a session.
+         *
+         * The probe always sent this first and every read worked; the driver did
+         * not, and read fine — until a Bluetooth cycle gave it a fresh link, after
+         * which `66 02` answered with an ACK and nothing else. So it is not
+         * ceremony: it is the difference between a session and a socket.
+         */
+        override fun prepare(t: Transport) {
+            exchangeFramed(t, byteArrayOf(0x00, 0x00))
+        }
 
-        /** The maximum of the twenty ambient steps the capability answer reports. */
-        private const val AMBIENT_MAX: Byte = 0x14
+        private companion object {
+            /** `NcAsmInquiredType.NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE`. */
+            const val TYPE: Byte = 0x02
+
+            /** The maximum of the twenty ambient steps the capability reports. */
+            const val AMBIENT_MAX: Byte = 0x14
+        }
 
         override fun read(t: Transport): AncMode? {
             val body = exchangeFramed(t, byteArrayOf(0x66, TYPE)) ?: return null
@@ -191,7 +225,7 @@ object Drivers {
 
         /** Send one framed payload, ack the device's answer, return its payload. */
         private fun exchangeFramed(t: Transport, payload: ByteArray): ByteArray? {
-            val got = t.exchange(SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 0x00, payload))
+            val got = t.exchange(SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload))
             val data =
                 SonyFrame.decodeAll(got).lastOrNull { it.type == SonyFrame.TYPE_DATA_MDR }
                     ?: return null
@@ -200,7 +234,7 @@ object Drivers {
         }
 
         /** The ack a received DATA frame expects: type 01, sequence inverted. */
-        fun ackFor(frame: SonyFrame.Frame): ByteArray? =
+        private fun ackFor(frame: SonyFrame.Frame): ByteArray? =
             if (frame.type != SonyFrame.TYPE_DATA_MDR) {
                 null
             } else {

@@ -49,11 +49,14 @@ object Registry {
         val n = name.lowercase()
         return when {
             d.vendor == Channels.Vendor.SONY -> {
+                // ⚠ A fresh driver, not a shared one: the Sony's sequence bit is
+                // per-connection state, and two pairs sharing a counter would each
+                // see the other's frames as retransmissions.
                 Headphones(
                     d.vendor,
                     "Sony WH-1000XM4",
                     Route.Rfcomm(Channels.SONY),
-                    Drivers.SonyXm4,
+                    Drivers.SonyXm4(),
                 )
             }
 

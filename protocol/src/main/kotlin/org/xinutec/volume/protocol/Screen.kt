@@ -65,6 +65,27 @@ data class Screen(
      */
     fun renamed(address: String, name: String): Screen =
         copy(cards = cards.map { if (it.address == address) it.copy(name = name) else it })
+
+    /**
+     * Bring the list in line with what is [present] now, **keeping what is known**.
+     *
+     * ⚠ Not a rebuild. Headphones come and go while the app is open, and rebuilding
+     * would throw away every card's state — the mode read, the name the device
+     * reported, the note explaining why one of them cannot confirm — and then open
+     * every session again to learn it back. So: an address already on screen keeps
+     * its card untouched, a new one arrives [DeviceState.Idle], and one that has
+     * gone is dropped.
+     *
+     * @param present address to bonded name, in the order to draw them.
+     */
+    fun reconciled(present: List<Pair<String, String>>): Screen {
+        val known = cards.associateBy { it.address }
+        return Screen(
+            present.map { (address, name) ->
+                known[address] ?: DeviceCard(name, address, DeviceState.Idle)
+            },
+        )
+    }
 }
 
 /** How loudly a note should read. */

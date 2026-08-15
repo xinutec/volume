@@ -35,7 +35,7 @@ class RegistryTest {
             Drivers.BoseQc45,
             Registry.fromAdvertisement("Bose QC Headphones", qc45)!!.driver,
         )
-        assertSame(Drivers.SonyXm4, Registry.fromAdvertisement("WH-1000XM4", sony)!!.driver)
+        assertTrue(Registry.fromAdvertisement("WH-1000XM4", sony)!!.driver is Drivers.SonyXm4)
         assertSame(Drivers.JblBes, Registry.fromAdvertisement("JBL TOUR ONE M2", jbl)!!.driver)
         assertSame(
             Drivers.JLabQcy,
