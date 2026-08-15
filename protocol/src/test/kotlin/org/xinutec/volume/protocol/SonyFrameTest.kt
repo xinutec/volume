@@ -1,4 +1,4 @@
-package org.xinutec.volume
+package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

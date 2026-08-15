@@ -1,4 +1,4 @@
-package org.xinutec.volume
+package org.xinutec.volume.protocol
 
 /**
  * Sony's framing on the `96cc203e-…` RFCOMM channel.

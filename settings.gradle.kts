@@ -22,7 +22,15 @@ dependencyResolutionManagement {
 
 rootProject.name = "volume"
 
-// Task #783: an RFCOMM probe, not the app. It exists to answer whether a
-// headphone's proprietary control channel is speakable at all, and to hand #785
-// the raw bytes it is built from. Deliberately one module and no UI framework.
+// Two modules, split by what a JVM can run.
+//
+// :protocol is every byte of the five wire formats and has NO Android dependency,
+// so all of it is testable with `./gradlew :protocol:test` — no phone, no adb, no
+// pairing. :app is the parts that genuinely need a device: RFCOMM sockets, GATT,
+// LE scanning, permissions, UI.
+//
+// The line is drawn at I/O, not at "app vs library": the transport INTERFACE lives
+// in :protocol and only its implementations are in :app, which is what lets a
+// recorded session be replayed against the real driver code off-device.
+include(":protocol")
 include(":app")

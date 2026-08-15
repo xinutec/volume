@@ -1,4 +1,4 @@
-package org.xinutec.volume
+package org.xinutec.volume.protocol
 
 /**
  * Hex in and out. The probe's whole contract with the terminal is hex strings, and

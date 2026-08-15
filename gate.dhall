@@ -1,12 +1,17 @@
 {-
 volume/gate.dhall — this repository's commit gate.
 
-Short, because the repository is short: one Android module, no frontend, no
-backend. What it does have is the piece worth gating hardest — `Channels.kt`,
-whose tests are the real SDP records read off the phone. The trap those encode
-(most vendor-looking UUIDs are shared between vendors, and the one task #783
-labels "Bose proprietary" is on the Sony too) is the kind a later edit
-re-introduces because keying on it looks reasonable.
+Two modules, and the split is what makes the gate worth having. `:protocol` is
+every byte of the five wire formats with no Android dependency, so its tests are
+plain JVM tests: they run here, in seconds, with no phone, no pairing and no
+headphones switched on. `:app` is transports and screen.
+
+The rows worth gating hardest are in `:protocol` — `Channels.kt`, whose tests are
+the real SDP records read off the phone, and `DriversTest`, which replays recorded
+transcripts through the real driver code. Both encode traps a later edit
+re-introduces because the wrong thing looks reasonable: most vendor-looking UUIDs
+are shared between vendors, the one task #783 labels "Bose proprietary" is on the
+Sony too, and a device's reply to a write says nothing about whether it took.
 
 **No flake of its own.** The Android SDK comes from recall's `#android` devshell,
 the same borrowing `xinutec-infra/govee-android` does — a second unfree SDK
@@ -33,8 +38,23 @@ in  { name = "volume"
         -}
         G.Check::{
         , name = "ktlint"
-        , argv = G.inShell "../recall#android" [ "ktlint", "app/src/**/*.kt" ]
+        , argv =
+            G.inShell
+              "../recall#android"
+              [ "ktlint", "app/src/**/*.kt", "protocol/src/**/*.kt" ]
         , timeout_s = 900
+        }
+      , {-  The device-independent suite, and the reason the module split exists:
+            no emulator, no SDK, no phone. Runs first because it is the fastest row
+            and the one most likely to catch a real mistake.
+        -}
+        G.Check::{
+        , name = "protocol tests (no device)"
+        , argv =
+            G.inShell
+              "../recall#android"
+              [ "./gradlew", "--console=plain", ":protocol:test" ]
+        , timeout_s = 1800
         }
       , {-  The whole unit suite. `testDebugUnitTest` and not a filtered variant:
             a narrowed filter compiles the classes it skips, so a broken one stays

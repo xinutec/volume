@@ -21,12 +21,29 @@
         "--no-warn-dirty",
         "--command",
         "ktlint",
-        "app/src/**/*.kt"
+        "app/src/**/*.kt",
+        "protocol/src/**/*.kt"
       ],
       "cwd": ".",
       "env": {},
       "name": "ktlint",
       "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "../recall#android",
+        "--no-warn-dirty",
+        "--command",
+        "./gradlew",
+        "--console=plain",
+        ":protocol:test"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "protocol tests (no device)",
+      "timeout_s": 1800
     },
     {
       "argv": [

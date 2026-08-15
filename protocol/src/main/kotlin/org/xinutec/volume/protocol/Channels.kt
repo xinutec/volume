@@ -1,4 +1,4 @@
-package org.xinutec.volume
+package org.xinutec.volume.protocol
 
 /**
  * Which control channel to open on a bonded device, and which protocol it speaks.

@@ -11,3 +11,5 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# The protocol module is a plain JVM library so its tests run without a device.
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

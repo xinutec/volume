@@ -1,8 +1,26 @@
 # volume — headphone control over the vendor channels
 
-Task #783's instrument, not the product (#785 is the app). Everything in `docs/`
-was measured against the real headphones on 2026-08-15. **Re-measure; firmware
-moves things.**
+Everything in `docs/` was measured against the real headphones on 2026-08-15.
+**Re-measure; firmware moves things.**
+
+## Two modules
+
+```
+:protocol   every byte of the five wire formats. NO Android dependency, so
+            `./gradlew :protocol:test` runs on any JVM — no phone, no pairing,
+            no headphones switched on. This is where most of the code lives.
+:app        only what genuinely needs a device: RFCOMM sockets, GATT, LE
+            scanning, permissions, screen.
+```
+The line is drawn at **I/O, not at "app vs library"**: `Transport` is declared in
+`:protocol` and only implemented in `:app`, which is what lets `DriversTest`
+replay recorded transcripts through the real driver code off-device.
+
+⚠ **That split flatters itself if you stop there.** The byte layouts are the easy
+part and were nearly right first time; every wrong conclusion in this repo came
+from *session* behaviour — greetings answering questions never asked, writes that
+need a transaction, reads that need an ack. So the fixtures are real captures, and
+`Confirmation` exists so a caller cannot mistake a reply for a result.
 
 ⚠ Repo is PUBLIC and carries the headphones' MACs — Pippijn's call, 2026-08-15.
 

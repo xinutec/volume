@@ -1,4 +1,4 @@
-package org.xinutec.volume
+package org.xinutec.volume.protocol
 
 /**
  * Builds the packet list for a read-surface sweep.

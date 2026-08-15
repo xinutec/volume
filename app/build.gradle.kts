@@ -47,5 +47,8 @@ kotlin {
 // code; everything it does is driven by intent and read back from logcat, so a UI
 // dependency would be weight with no reader.
 dependencies {
+    // The wire formats live in :protocol, which has no Android dependency and is
+    // tested on the JVM. :app is only transports, scanning and screen.
+    implementation(project(":protocol"))
     testImplementation(libs.junit)
 }
