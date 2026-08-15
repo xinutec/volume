@@ -66,8 +66,11 @@ case "${1:-list}" in
     # transactional (an operator-05 Start, then the change), so they cannot be
     # expressed with `send`, which opens a fresh socket per packet.
     mac="${2:?mac}"; uuid="${3:?uuid}"; packets="${4:?comma-separated hex}"
-    "${ADB[@]}" shell am start -n "$ACT" --es op seq \
-      --es mac "$mac" --es uuid "$uuid" --es packets "$packets" >/dev/null
+    args=(--es op seq --es mac "$mac" --es uuid "$uuid" --es packets "$packets")
+    # SONY_SEQ=1 frames each payload and acks the device's data frames — its PARAM
+    # reads only answer inside a session that does both.
+    [ -n "${SONY_SEQ:-}" ] && args+=(--ez sony true)
+    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
     watch_log "${SEQ_WAIT:-30}"
     ;;
   scan)

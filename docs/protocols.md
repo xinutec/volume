@@ -76,10 +76,48 @@ Verified against the XM4 — every GET drew its own RET, so the table is right:
 ```
 The `02` is `NcAsmInquiredType.NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE`.
 
-⚠ **`GET_PARAM` (`66`/`67`) draws a bare ACK and no data**, on both inquired types
-tried, while `GET_STATUS` answers. So the XM4's ANC value is not simply
-`66 <type>`; the v2 tables carry their own inquired-type enums and are the next
-place to look. Reading ANC is not done.
+### ⚠ Sony needs a SESSION, not a packet
+
+`66 02` sent one-per-socket draws a bare ACK and nothing else — on every one of
+the ten inquired types tried, which reads like "this command returns no data". It
+does not. Inside one socket, with the device's DATA frames acknowledged, the same
+byte answers:
+
+```
+→ 3e 0c 00 |00000002| 00 00                 CONNECT_GET_PROTOCOL_INFO
+← 3e 0c 01 |00000004| 01 00 70 00
+→ 3e 0c 01 |00000002| 66 02                 NCASM_GET_PARAM
+← 3e 0c 01 |00000008| 67 02 01 02 02 01 00 00
+```
+`SONY_SEQ=1 ./probe.sh seq …` does the framing and the acking. This is the third
+appearance of one trap: **a one-shot exchange cannot hold a protocol that has
+state.** Bose writes need it, Sony reads need it.
+
+Inquired type `02` is `NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE`; the v2 enum adds
+`01 NC_ON_OFF`, `11`–`19` mode-switch variants, `21`/`22` ambient-only, `30`
+NC/AMB toggle. Capability `61 02 | 02 00 01 02 00 14 01 14` gives 0x14 = 20
+ambient steps.
+
+## ✅ Sony ANC
+
+```
+read   66 02
+write  68 02 <on> 02 <nc> 01 00 <ambient>
+reply  67 02 <on> 02 <nc> 01 00 <ambient>        69 02 … is the notify
+```
+```
+Noise Canceling   01 02 02 01 00 00
+Ambient Sound     01 02 00 01 00 14      0x14 = 20, the max of the 20 steps
+Off               00 02 00 01 00 14      ambient settings retained while off
+```
+Driven both ways from our socket, each confirmed by a separate `66 02` read, and
+left on Noise Canceling where it started.
+
+The fields were **measured, not guessed**: the app's v1 message classes are
+obfuscated, so the mode was changed in the vendor app three times and the value
+re-read each time. Only the bytes that actually moved are named — `on` (byte 0),
+`nc` (byte 2), `ambient` (byte 5). Bytes 1, 3 and 4 held `02 01 00` in all three
+states and are **not** identified; do not read meaning into them.
 
 ## JBL + JLab — what `df21fe2c` really is
 

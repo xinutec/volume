@@ -231,8 +231,41 @@ class MainActivity : Activity() {
             emit("seq needs --es mac, --es uuid and --es packets (comma-separated hex)")
             return
         }
-        val packets = spec.split(",").filter { it.isNotBlank() }.map { Hex.parse(it.trim()) }
-        emit("seq: ${packets.size} packets on one socket to $mac")
+        val raw = spec.split(",").filter { it.isNotBlank() }.map { Hex.parse(it.trim()) }
+        // ⚠ Sony needs a SESSION, not a packet. Its PARAM reads answer only inside one
+        // where the device's DATA frames are acknowledged; one-shot `send` gets the
+        // ACK and nothing else, which reads exactly like "this command returns no
+        // data". `--ez sony true` frames each payload and acks what comes back.
+        val sony = intent.getBooleanExtra("sony", false)
+        val packets =
+            if (sony) {
+                raw.mapIndexed { n, p ->
+                    SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, (n % 2).toByte(), p)
+                }
+            } else {
+                raw
+            }
+        val ackWith: (ByteArray) -> ByteArray? =
+            if (!sony) {
+                { null }
+            } else {
+                { got ->
+                    // Acknowledge only what the device SENT as data; acking its acks
+                    // would have us talking to ourselves.
+                    SonyFrame
+                        .decodeAll(got)
+                        .lastOrNull { it.type == SonyFrame.TYPE_DATA_MDR }
+                        ?.let { f ->
+                            SonyFrame.encode(
+                                SonyFrame.TYPE_ACK,
+                                (f.seq.toInt() xor 1).toByte(),
+                                ByteArray(0),
+                            )
+                        }
+                }
+            }
+        val how = if (sony) " (sony framed, acked)" else ""
+        emit("seq: ${packets.size} packets on one socket to $mac$how")
         var i = 0
         val err =
             Probe.exchangeAll(
@@ -243,10 +276,14 @@ class MainActivity : Activity() {
                 intent.getIntExtra("per", 900).toLong(),
                 intent.getIntExtra("quiet", 350).toLong(),
                 intent.getBooleanExtra("reconnect", false),
+                ackWith,
             ) { sent, got, _ ->
                 i++
                 emit("  [$i] → ${Hex.format(sent)}")
                 emit("      ← ${if (got.isEmpty()) "(nothing)" else Hex.format(got)}")
+                if (sony) {
+                    SonyFrame.decodeAll(got).forEach { emit("        $it") }
+                }
             }
         if (err != null) emit("✗ seq failed — $err") else emit("done")
     }

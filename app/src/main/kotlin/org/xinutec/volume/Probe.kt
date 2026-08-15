@@ -116,6 +116,13 @@ object Probe {
         perMs: Long,
         quietMs: Long,
         reconnect: Boolean = false,
+        /**
+         * Given what just arrived, the reply to send back before the next packet, or
+         * null for none. Sony's protocol needs this: the device expects its DATA
+         * frames to be acknowledged, and a peer that never does eventually stops
+         * being told anything — which reads as "that command returns no data".
+         */
+        ackWith: (ByteArray) -> ByteArray? = { null },
         onResult: (sent: ByteArray, got: ByteArray, killedLink: Boolean) -> Unit,
     ): String? {
         runCatching { adapter.cancelDiscovery() }
@@ -128,7 +135,12 @@ object Probe {
                 try {
                     socket.outputStream.write(p)
                     socket.outputStream.flush()
-                    onResult(p, readFor(socket.inputStream, perMs, quietMs), false)
+                    val got = readFor(socket.inputStream, perMs, quietMs)
+                    onResult(p, got, false)
+                    ackWith(got)?.let {
+                        socket.outputStream.write(it)
+                        socket.outputStream.flush()
+                    }
                 } catch (e: IOException) {
                     // ⚠ The Fast Pair devices (JBL, JLab) reject a message they do not
                     // like by DROPPING THE LINK rather than answering. A dead socket is

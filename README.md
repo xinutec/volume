@@ -1,4 +1,4 @@
-# volume — headphone control over the vendor RFCOMM channels
+# volume — headphone control over the vendor channels
 
 Task #783's instrument, not the product (#785 is the app). Everything in `docs/`
 was measured against the real headphones on 2026-08-15. **Re-measure; firmware
@@ -6,23 +6,25 @@ moves things.**
 
 ⚠ Repo is PUBLIC and carries the headphones' MACs — Pippijn's call, 2026-08-15.
 
-## ANC driven on three of five. Two transports.
+## ANC driven on four of five. Two transports.
 
 | Device | Address | Channel | Protocol | ANC |
 | --- | --- | --- | --- | --- |
 | Bose QC45 | `E4:58:BC:3E:9D:AA` | RFCOMM, SPP `00001101` | Bose | ✅ r/w |
 | Bose QC35 | `4C:87:5D:CC:A0:23` | RFCOMM, SPP `00001101` | Bose | ✅ r/w |
 | JBL Tour One M2 | scan for it | **GATT**, `65786365-…0000` | BES `aa` | ✅ r/w |
-| Sony XM4 | `80:99:E7:F9:D0:61` | RFCOMM, `96cc203e-…` | Sony framed | table verified |
+| Sony XM4 | `80:99:E7:F9:D0:61` | RFCOMM, `96cc203e-…` | Sony framed | ✅ r/w |
 | JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | Fast Pair only | — | no command service |
 
 ```
 QC45   1f 03 05 02 <slot> 01              slot 0=Quiet 1=Aware 2=Home 3=unnamed
 QC35   01 06 02 01 <value>                00 / 01 / 03
 JBL    aa 91 07 10 01 <anc> 02 <amb> 03 <talkthru>     read with aa 91 01 11
+Sony   68 02 <on> 02 <nc> 01 00 <ambient>               read with 66 02
 ```
-All driven from our own socket. The Bose announced each mode aloud; the JBL was
-confirmed by an independent read-back and against the vendor app's screen.
+All driven from our own socket. The Bose announced each mode aloud; the JBL and
+the Sony were confirmed by an independent read-back and against the vendor app's
+screen, and each device was left in the mode it started in.
 
 ⚠ **Two channels that answer are not control channels.** `df21fe2c` is Google
 Fast Pair — battery, model, firmware, and the LE address, but no ANC or EQ — and
@@ -36,9 +38,7 @@ acknowledgements. `docs/protocols.md` has the correction.
    status, gestures and the ANC capability answer. Writing is `aa 40` EQ preset,
    `aa 41` custom EQ, `aa 33` auto-off, each read back through `aa 21 01 3x`.
    EQ needs ears — a read-back proves the field moved, not that it sounds right.
-2. **Sony ANC.** The command table is extracted and verified (`60` NCASM, `50`
-   EQEBB, …), but `GET_PARAM` answers with a bare ACK where `GET_STATUS` answers
-   with data. The v2 tables have their own inquired-type enums — start there.
+2. **Sony EQ** — `50`–`5b` EQEBB, same session mechanism, `SONY_SEQ=1`.
 3. **Bose multipoint** — `04 04`/`04 09` read the paired list + active device;
    writes untried.
 4. **Bose EQ / auto-off / buttons** — among the 15 write-capable fns in
@@ -97,6 +97,10 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
   the full timeout, which reads like a protocol fault.
 - ⚠ **A BLE device is several sightings**, and only one of them carries the name.
   Merge them; keeping the first hid the JBL behind "(no name)".
+- ⚠ **A one-shot exchange cannot hold a protocol with state**, and this has now
+  cost three separate wrong conclusions. Sony's `66 02` returns a bare ACK
+  one-per-socket and real data inside a session that acks the device's frames —
+  ten inquired types were written off before that was the difference.
 
 ## Hearing safety
 
@@ -107,7 +111,7 @@ Get/zero (tested) rather than taking them as parameters.
 
 ## Docs / build
 
-`docs/protocols.md` — three wire formats, capture method, channel traps.
+`docs/protocols.md` — the wire formats, capture method, channel traps.
 `docs/bose-read-surface.md` — Bose surface, error taxonomy, how ANC was found.
 
 ```bash
