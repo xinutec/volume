@@ -9,10 +9,13 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.ScrollView
 import android.widget.TextView
+import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.Channels
+import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.Hex
 import org.xinutec.volume.protocol.SonyFrame
 import org.xinutec.volume.protocol.Sweep
+import org.xinutec.volume.protocol.set
 import java.util.UUID
 
 /**
@@ -81,14 +84,41 @@ class MainActivity : Activity() {
             return
         }
         when (op) {
-            "list" -> list(adapter)
-            "send" -> send(adapter, intent ?: return)
-            "sweep" -> sweep(adapter, intent ?: return)
-            "seq" -> seq(adapter, intent ?: return)
-            "gatt" -> gatt(adapter, intent ?: return)
-            "scan" -> scan(adapter, intent)
-            "gattmap" -> gattmap(adapter, intent ?: return)
-            else -> emit("unknown op '$op' — use list, scan, send, sweep, seq, gatt or gattmap")
+            "list" -> {
+                list(adapter)
+            }
+
+            "send" -> {
+                send(adapter, intent ?: return)
+            }
+
+            "sweep" -> {
+                sweep(adapter, intent ?: return)
+            }
+
+            "seq" -> {
+                seq(adapter, intent ?: return)
+            }
+
+            "gatt" -> {
+                gatt(adapter, intent ?: return)
+            }
+
+            "scan" -> {
+                scan(adapter, intent)
+            }
+
+            "gattmap" -> {
+                gattmap(adapter, intent ?: return)
+            }
+
+            "anc" -> {
+                anc(adapter, intent ?: return)
+            }
+
+            else -> {
+                emit("unknown op '$op' — list, scan, send, sweep, seq, gatt, gattmap, anc")
+            }
         }
     }
 
@@ -303,6 +333,77 @@ class MainActivity : Activity() {
         seen.forEach { emit("  $it") }
     }
 
+    /**
+     * The real stack, end to end: resolve a bonded device to a driver, open its
+     * channel, read the mode, and optionally set one.
+     *
+     * This is what #785 is built out of — the probe ops above are the instrument
+     * that found the bytes, and this is the first thing that uses them the way the
+     * app will.
+     *
+     * ```
+     * --es op anc --es device "JBL"            read
+     * --es op anc --es device "JBL" --es mode ambient
+     * ```
+     */
+    private fun anc(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        val want = intent.getStringExtra("device")
+        if (want == null) {
+            emit("anc needs --es device (a bonded name substring)")
+            return
+        }
+        val bonded =
+            try {
+                adapter.bondedDevices.firstOrNull {
+                    it.name?.contains(want, ignoreCase = true) == true
+                }
+            } catch (e: SecurityException) {
+                emit("BLUETOOTH_CONNECT not granted: ${e.message}")
+                return
+            }
+        if (bonded == null) {
+            emit("no bonded device matching '$want'")
+            return
+        }
+        val uuids =
+            bonded.uuids
+                ?.map { it.uuid.toString() }
+                ?.toSet()
+                .orEmpty()
+        emit("${bonded.name} ${bonded.address}")
+
+        val session =
+            Control.connect(this, adapter, bonded, bonded.name.orEmpty(), uuids, { model ->
+                emit("  scanning for $model over LE…")
+                Scan.find(adapter, LE_NAMES[model] ?: model, 25000)?.device
+            }) { emit("  $it") } ?: return
+        session.use {
+            emit("  ${it.headphones.model} via ${it.headphones.route}")
+            val before = it.headphones.driver.read(it.transport)
+            emit("  mode: ${before ?: "(this device has no read command)"}")
+
+            val mode = intent.getStringExtra("mode") ?: return@use
+            val target =
+                AncMode.entries.firstOrNull { m -> m.name.equals(mode, ignoreCase = true) }
+            if (target == null) {
+                emit("  ✗ '$mode' is not one of ${AncMode.entries}")
+                return@use
+            }
+            if (target !in it.headphones.driver.modes) {
+                emit(
+                    "  ✗ ${it.headphones.model} has no $target, only ${it.headphones.driver.modes}",
+                )
+                return@use
+            }
+            emit("  → $target")
+            when (val c = it.headphones.driver.set(it.transport, target)) {
+                is Confirmation.Confirmed -> emit("  ✓ confirmed by read-back")
+                is Confirmation.Contradicted -> emit("  ✗ it reads back as ${c.actual}")
+                is Confirmation.Unverifiable -> emit("  ⚠ sent; this device cannot confirm it")
+            }
+        }
+    }
+
     /** Every GATT service and characteristic a device offers, with its properties. */
     private fun gattmap(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
         val name =
@@ -405,5 +506,16 @@ class MainActivity : Activity() {
 
     companion object {
         const val TAG = "volume-probe"
+
+        /**
+         * What a device calls itself over LE, when that differs from its bonded
+         * name. ⚠ The JLab advertises no name at all, so it is matched on a stable
+         * run inside its Fast Pair service data instead.
+         */
+        private val LE_NAMES =
+            mapOf(
+                "JBL Tour One M2" to "JBL TOUR",
+                "JLab JBuds Sport ANC 4" to "21 55 35 33",
+            )
     }
 }

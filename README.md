@@ -87,6 +87,16 @@ headphones *and* the Mac's CoreAudio + Picades, which cannot move to the phone
 ./probe.sh gatt <name|addr> <hex,hex>    # one LE connection — THE GATT WRITE TOOL
 ./probe.sh sweep <mac> <uuid> <proto> [blocks] [fns]
 ```
+
+The app's own stack, end to end — registry → transport → driver → read-back:
+```bash
+adb shell am start -n org.xinutec.volume/.MainActivity --es op anc \
+  --es device "'JBL TOUR'" [--es mode ANC|AMBIENT|OFF]
+```
+Verified on all five, 2026-08-15: Sony and JLab over RFCOMM, JBL over GATT with an
+LE scan, and a **renamed QC35 identified by asking it** — its record carries
+nothing but standard and shared UUIDs, so `Registry.identifyBose` reads `01 06`,
+which is ANC on the QC35 and unsupported on the QC45.
 Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
 `--ez reconnect true` for Fast Pair sweeps.
 
