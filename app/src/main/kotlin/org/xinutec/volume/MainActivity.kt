@@ -79,7 +79,8 @@ class MainActivity : Activity() {
         when (op) {
             "list" -> list(adapter)
             "send" -> send(adapter, intent ?: return)
-            else -> emit("unknown op '$op' — use list or send")
+            "sweep" -> sweep(adapter, intent ?: return)
+            else -> emit("unknown op '$op' — use list, send or sweep")
         }
     }
 
@@ -148,6 +149,53 @@ class MainActivity : Activity() {
                 frames.forEach { emit("  $it") }
             }
         }
+    }
+
+    /**
+     * Walk a protocol's read surface and print only what answered.
+     *
+     * Prints the silent count rather than each silent packet: a sweep is mostly
+     * silence, and 300 lines of "nothing" buries the dozen that matter.
+     */
+    private fun sweep(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        val mac = intent.getStringExtra("mac")
+        val uuid = intent.getStringExtra("uuid")
+        val proto = intent.getStringExtra("proto")
+        if (mac == null || uuid == null || proto == null) {
+            emit("sweep needs --es mac, --es uuid and --es proto (bose|harman)")
+            return
+        }
+        val blocks = Sweep.range(intent.getStringExtra("blocks") ?: "00-12")
+        val fns = Sweep.range(intent.getStringExtra("fns") ?: "00-0f")
+        val packets = Sweep.packets(proto, blocks, fns)
+
+        emit("sweep $proto on $mac — ${packets.size} GET packets")
+        emit("  blocks ${"%02x".format(blocks.first)}-${"%02x".format(blocks.last)}")
+        emit("  fns    ${"%02x".format(fns.first)}-${"%02x".format(fns.last)}")
+
+        var answered = 0
+        var silent = 0
+        val err =
+            Probe.sweep(
+                adapter,
+                adapter.getRemoteDevice(mac),
+                UUID.fromString(uuid),
+                packets,
+                intent.getIntExtra("per", 400).toLong(),
+                intent.getIntExtra("quiet", 150).toLong(),
+            ) { sent, got ->
+                if (got.isEmpty()) {
+                    silent++
+                } else {
+                    answered++
+                    emit("  ${Hex.format(sent)}  ->  ${Hex.format(got)}")
+                }
+            }
+        if (err != null) {
+            emit("✗ sweep failed — $err")
+            return
+        }
+        emit("done: $answered answered, $silent silent")
     }
 
     private fun emit(line: String) {

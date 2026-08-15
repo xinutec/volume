@@ -50,6 +50,15 @@ case "${1:-list}" in
     "${ADB[@]}" shell am start -n "$ACT" --es op list >/dev/null
     watch_log 4
     ;;
+  sweep)
+    # Walk a protocol's read surface. GET-shaped packets only — see Sweep.kt.
+    mac="${2:?mac}"; uuid="${3:?uuid}"; proto="${4:?proto: bose|harman}"
+    args=(--es op sweep --es mac "$mac" --es uuid "$uuid" --es proto "$proto")
+    [ -n "${5:-}" ] && args+=(--es blocks "$5")
+    [ -n "${6:-}" ] && args+=(--es fns "$6")
+    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    watch_log "${SWEEP_WAIT:-180}"
+    ;;
   send|raw)
     mac="${2:?mac}"; uuid="${3:?uuid}"; payload="${4:-}"
     # An empty `--es payload ""` is dropped by the shell before `am` sees it, and am

@@ -91,6 +91,64 @@ object Probe {
     }
 
     /**
+     * Send many packets down ONE socket and report what each drew back.
+     *
+     * Mapping a vendor's read surface means hundreds of packets, and a socket per
+     * packet is both slow (a connect is seconds) and rude to the device. One
+     * connection, many sends, a short listen after each.
+     *
+     * ⚠ **Only ever sweep with GET-shaped packets.** A sweep is a blind walk over
+     * a command space, so the safety comes entirely from the operator byte the
+     * caller chooses — a Set-shaped sweep would be writing arbitrary settings to
+     * the headphones, and volume is one of those settings. See the hearing-safety
+     * rule.
+     *
+     * Replies cannot be attributed to sends with certainty: these devices also emit
+     * unsolicited notifications, and a slow answer lands in the next packet's
+     * window. [onResult] therefore reports what arrived *after* a send, not what
+     * the send provably caused.
+     */
+    fun sweep(
+        adapter: BluetoothAdapter,
+        device: BluetoothDevice,
+        uuid: UUID,
+        packets: List<ByteArray>,
+        perMs: Long,
+        quietMs: Long,
+        onResult: (sent: ByteArray, got: ByteArray) -> Unit,
+    ): String? {
+        runCatching { adapter.cancelDiscovery() }
+        for (secure in listOf(true, false)) {
+            var socket: BluetoothSocket? = null
+            try {
+                socket =
+                    if (secure) {
+                        device.createRfcommSocketToServiceRecord(uuid)
+                    } else {
+                        device.createInsecureRfcommSocketToServiceRecord(uuid)
+                    }
+                socket.connect()
+                // Drain anything the device volunteers on connect, so the first
+                // packet's window is not polluted by a greeting.
+                readFor(socket.inputStream, 700, 300)
+                for (p in packets) {
+                    socket.outputStream.write(p)
+                    socket.outputStream.flush()
+                    onResult(p, readFor(socket.inputStream, perMs, quietMs))
+                }
+                return null
+            } catch (e: IOException) {
+                if (!secure) return "${e.message}"
+            } catch (e: SecurityException) {
+                return "SecurityException: ${e.message}"
+            } finally {
+                runCatching { socket?.close() }
+            }
+        }
+        return "could not connect"
+    }
+
+    /**
      * Collect bytes until the link goes quiet for [quietMs], or [totalMs] elapses.
      *
      * Polls `available()` rather than blocking in `read()`: a blocking read on a
