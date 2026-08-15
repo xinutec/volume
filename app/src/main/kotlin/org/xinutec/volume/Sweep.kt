@@ -34,21 +34,25 @@ object Sweep {
         }
 
     /**
-     * Harman (JBL, JLab): `[block][command][length: 2 bytes big-endian]`.
+     * Fast Pair message stream (JBL, JLab): `[group][code][length: 2 bytes BE]`.
      *
-     * Length is hard-wired to zero, which is what the official app's own reads look
-     * like (`04 11 0000`, `07 10 0000`). A zero-length body is the closest thing
-     * this protocol has to a operator-less Get.
+     * Length is hard-wired to zero. Unlike [bose] that is **not** a safety argument —
+     * this protocol has no Get operator, so a zero-length body is a message, not a
+     * read, and the device answers `ff 01` (acknowledged) rather than "unsupported".
+     *
+     * ⚠ **Group `04` is Device Action, whose first code rings the headphones.** A
+     * sweep that walks into it will ring whatever is on your head. Range-limit to the
+     * group being investigated rather than walking `00`–`12`.
      */
-    fun harman(blocks: IntRange, commands: IntRange): List<ByteArray> =
-        blocks.flatMap { b ->
-            commands.map { c -> byteArrayOf(b.toByte(), c.toByte(), 0x00, 0x00) }
+    fun fastPair(groups: IntRange, codes: IntRange): List<ByteArray> =
+        groups.flatMap { g ->
+            codes.map { c -> byteArrayOf(g.toByte(), c.toByte(), 0x00, 0x00) }
         }
 
     fun packets(protocol: String, blocks: IntRange, functions: IntRange): List<ByteArray> =
         when (protocol.lowercase()) {
             "bose" -> bose(blocks, functions)
-            "harman" -> harman(blocks, functions)
+            "fastpair" -> fastPair(blocks, functions)
             else -> throw IllegalArgumentException("unknown sweep protocol '$protocol'")
         }
 }

@@ -96,8 +96,9 @@ class ChannelsTest {
     }
 
     /**
-     * The trap, direction two. `df21fe2c` is on both the JBL and the JLab, so it
-     * cannot identify either — and it is the channel both actually answer on.
+     * The trap, direction two. `df21fe2c` is on both the JBL and the JLab because
+     * both are Fast Pair certified: it identifies no vendor, and — the part that took
+     * a second pass to see — it is not a vendor channel at all.
      */
     @Test
     fun `jbl and jlab share one channel and one protocol`() {
@@ -105,24 +106,24 @@ class ChannelsTest {
         val jlab = Channels.detect("JLab JBuds Sport ANC 4", jlabJbuds)
         assertEquals(Channels.Vendor.JBL, jbl.vendor)
         assertEquals(Channels.Vendor.JLAB, jlab.vendor)
-        assertEquals(Channels.HARMAN, jbl.channel)
-        assertEquals(Channels.HARMAN, jlab.channel)
-        assertEquals(Channels.Protocol.HARMAN, jbl.protocol)
-        assertEquals(Channels.Protocol.HARMAN, jlab.protocol)
+        assertEquals(Channels.FAST_PAIR, jbl.channel)
+        assertEquals(Channels.FAST_PAIR, jlab.channel)
+        assertEquals(Channels.Protocol.FAST_PAIR, jbl.protocol)
+        assertEquals(Channels.Protocol.FAST_PAIR, jlab.protocol)
     }
 
-    /** The JLab's own advertised UUIDs open and never answer, so never prefer them. */
+    /** The JLab's other advertised UUIDs open and never answer, so never prefer them. */
     @Test
-    fun `jlab is not routed to its decoy uuids`() {
+    fun `jlab is not routed to its silent uuids`() {
         val d = Channels.detect("JLab JBuds Sport ANC 4", jlabJbuds)
-        assertNotEquals(Channels.JLAB_DECOY_A, d.channel)
-        assertNotEquals(Channels.JLAB_DECOY_B, d.channel)
+        assertNotEquals(Channels.BES_OTA, d.channel)
+        assertNotEquals(Channels.JLAB_UNIDENTIFIED, d.channel)
     }
 
-    /** A decoy-only device has nothing to connect to, and must not claim otherwise. */
+    /** A device with only those has nothing to connect to, and must not claim otherwise. */
     @Test
-    fun `decoy uuids alone yield no channel`() {
-        val d = Channels.detect("JLab thing", std + Channels.JLAB_DECOY_A)
+    fun `silent uuids alone yield no channel`() {
+        val d = Channels.detect("JLab thing", std + Channels.BES_OTA)
         assertEquals(Channels.Vendor.JLAB, d.vendor)
         assertNull(d.channel)
         assertEquals(Channels.Protocol.NONE, d.protocol)
@@ -133,11 +134,11 @@ class ChannelsTest {
      * the channel and protocol are known even when the vendor is not.
      */
     @Test
-    fun `an unnamed harman device still gets its channel`() {
+    fun `an unnamed fast pair device still gets its channel`() {
         val d = Channels.detect("something else", jblTourOneM2)
         assertEquals(Channels.Vendor.UNKNOWN, d.vendor)
-        assertEquals(Channels.HARMAN, d.channel)
-        assertEquals(Channels.Protocol.HARMAN, d.protocol)
+        assertEquals(Channels.FAST_PAIR, d.channel)
+        assertEquals(Channels.Protocol.FAST_PAIR, d.protocol)
     }
 
     /**
@@ -206,7 +207,10 @@ class ChannelsTest {
     @Test
     fun `annotation flags the two uuids that mislead`() {
         assertTrue("speaks on SPP" in Channels.annotate(Channels.BOSE_MUSIC))
-        assertTrue("not an id" in Channels.annotate(Channels.HARMAN))
+        assertTrue("not an id" in Channels.annotate(Channels.FAST_PAIR))
+        // The one that misled longest: it answers, so it reads as control until the
+        // annotation says otherwise.
+        assertTrue("not control" in Channels.annotate(Channels.FAST_PAIR))
         assertEquals("  ← A2DP sink", Channels.annotate("0000110b-0000-1000-8000-00805f9b34fb"))
     }
 }

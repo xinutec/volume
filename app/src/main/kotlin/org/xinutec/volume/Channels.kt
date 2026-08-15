@@ -15,9 +15,9 @@ package org.xinutec.volume
  *  - The QC45 advertises `9b26d8c0-…`, which looks exactly like a vendor control
  *    channel. **It is not the one the Bose app uses** — the protocol is on plain
  *    SPP. So `9b26d8c0` identifies the device and must NOT be opened.
- *  - `df21fe2c-…` is on the JBL *and* the JLab, so it cannot say which vendor a
- *    device is — and it is nonetheless **the control channel for both**. Shared
- *    does not mean useless; it means it answers the second question, not the first.
+ *  - `df21fe2c-…` is on the JBL *and* the JLab and answers a documented protocol —
+ *    but it is not either vendor's, and it is **not a control channel at all**. See
+ *    [FAST_PAIR].
  *
  * So [Detection] carries a vendor, a channel, and a protocol as three separate
  * things, and [SHARED] governs only the first.
@@ -33,25 +33,41 @@ object Channels {
     const val SPP = "00001101-0000-1000-8000-00805f9b34fb"
 
     /**
-     * The JBL **and** JLab control channel. Both answer the same
-     * `[block][cmd][len:2 BE][payload]` protocol on it, which is why one
-     * implementation covers both — they are near-certainly the same chipset stack
-     * (inferred from the identical framing, not confirmed from a datasheet).
+     * **Google Fast Pair Message Stream**, which the JBL and the JLab both implement
+     * because both are Fast Pair certified. Not JBL's, not JLab's, not Harman's:
+     * `[message group][message code][length: 2 BE][payload]`.
+     *
+     * ⚠ **It is a device-state channel, not a control channel.** It carries model
+     * ID, battery and firmware — no ANC, no EQ. Vendor control lives elsewhere and
+     * is not yet spoken; `docs/protocols.md` has the evidence and what is left.
+     *
+     * Identified from the payload shapes, not from a spec handshake: 3-byte model
+     * ID, 8-byte session nonce, battery as one value (over-ear) or three (earbuds),
+     * and `ff 01 <len> <group><code>` acknowledgements.
      */
-    const val HARMAN = "df21fe2c-2515-4fdb-8886-f12c4d67927c"
+    const val FAST_PAIR = "df21fe2c-2515-4fdb-8886-f12c4d67927c"
 
-    /** Advertised by the JLab and **dead**: both sockets open and never answer. */
-    const val JLAB_DECOY_A = "66666666-6666-6666-6666-666666666666"
-    const val JLAB_DECOY_B = "99999999-9999-9999-9999-999999999999"
+    /**
+     * BES chip OTA service — named in the JBL app's own `BesSdkConstants`, so this is
+     * a chipset record and not, as it first read, a JLab oddity. It opens and never
+     * answers because an OTA session is not a command session.
+     */
+    const val BES_OTA = "66666666-6666-6666-6666-666666666666"
+
+    /** On the JLab, opens, never answers, and is not named in either vendor app. */
+    const val JLAB_UNIDENTIFIED = "99999999-9999-9999-9999-999999999999"
 
     /** Seen on more than one vendor, so useless for IDENTIFICATION (see the note). */
     val SHARED =
         setOf(
             "00000000-deca-fade-deca-deafdecacaff",
             "81c2e72a-0591-443e-a1ff-05f988593351",
+            // Answers a fourth framing on the JBL — `fe 03 01 04` then 16 zero bytes.
+            // Not identified, and not pursued: it is on the Sony and both Bose too,
+            // so whatever it is, it is not the JBL's control channel.
             "931c7e8a-540f-4686-b798-e8df0a2ad9f7",
             "f8d1fbe4-7966-4334-8024-ff96c9330e15",
-            HARMAN,
+            FAST_PAIR,
         )
 
     /** The Bluetooth SIG's own, by short code. Never a vendor control channel. */
@@ -79,7 +95,7 @@ object Channels {
 
     enum class Vendor { SONY, BOSE, JBL, JLAB, UNKNOWN }
 
-    /** Five devices, three wire formats. */
+    /** What a channel speaks — only formats that have actually answered us. */
     enum class Protocol {
         /** `3e | type | seq | len(4 BE) | payload | sum | 3c`, see [SonyFrame]. */
         SONY_FRAMED,
@@ -87,8 +103,8 @@ object Channels {
         /** `[function block][function][operator][length][payload]`. */
         BOSE,
 
-        /** `[block][cmd][length: 2 bytes BE][payload]`. */
-        HARMAN,
+        /** `[message group][message code][length: 2 BE][payload]`, see [FAST_PAIR]. */
+        FAST_PAIR,
 
         NONE,
     }
@@ -124,24 +140,24 @@ object Channels {
             return Detection(Vendor.BOSE, SPP, Protocol.BOSE, "unique uuid, speaks on spp")
         }
 
-        // The Harman-family channel. It cannot say WHICH of the two this is, so the
-        // name does that — but either way the channel and protocol are already known,
-        // which is why an unrecognised name still gets a working connection.
-        if (HARMAN in u) {
+        // Fast Pair. Every certified device has it, so it names no vendor — the name
+        // does that. It is offered as the channel because it is the only one on these
+        // two that answers, but it buys state, not control.
+        if (FAST_PAIR in u) {
             val who =
                 when {
                     n.startsWith("jbl") -> Vendor.JBL
                     n.startsWith("jlab") -> Vendor.JLAB
                     else -> Vendor.UNKNOWN
                 }
-            val basis = if (who == Vendor.UNKNOWN) "harman channel, vendor unnamed" else "name"
-            return Detection(who, HARMAN, Protocol.HARMAN, basis)
+            val basis = if (who == Vendor.UNKNOWN) "fast pair, vendor unnamed" else "name"
+            return Detection(who, FAST_PAIR, Protocol.FAST_PAIR, basis)
         }
 
-        // A JLab that somehow lacks the Harman channel: its own advertised UUIDs are
-        // decoys that open and never answer, so there is nothing to connect to.
-        if (JLAB_DECOY_A in u || JLAB_DECOY_B in u) {
-            return Detection(Vendor.JLAB, null, Protocol.NONE, "only dead decoy uuids")
+        // A JLab without Fast Pair: what is left is an OTA service and one unknown,
+        // neither of which answers, so there is nothing to connect to.
+        if (BES_OTA in u || JLAB_UNIDENTIFIED in u) {
+            return Detection(Vendor.JLAB, null, Protocol.NONE, "only silent uuids")
         }
 
         // A Bose QC35 advertises plain SPP and nothing else that identifies it, so
@@ -167,8 +183,9 @@ object Channels {
         return when {
             u == SONY -> "  ← SONY CONTROL"
             u == BOSE_MUSIC -> "  ← identifies a QC45, but it speaks on SPP"
-            u == HARMAN -> "  ← JBL/JLab CONTROL (shared, so not an id)"
-            u == JLAB_DECOY_A || u == JLAB_DECOY_B -> "  ← JLab decoy, opens but never answers"
+            u == FAST_PAIR -> "  ← Fast Pair message stream (state, not control; not an id)"
+            u == BES_OTA -> "  ← BES chip OTA service, silent outside an OTA session"
+            u == JLAB_UNIDENTIFIED -> "  ← on the JLab, opens but never answers"
             u in SHARED -> "  ← shared across vendors, not a marker"
             else -> "  ← unknown"
         }

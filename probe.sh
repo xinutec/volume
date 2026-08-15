@@ -52,7 +52,7 @@ case "${1:-list}" in
     ;;
   sweep)
     # Walk a protocol's read surface. GET-shaped packets only — see Sweep.kt.
-    mac="${2:?mac}"; uuid="${3:?uuid}"; proto="${4:?proto: bose|harman}"
+    mac="${2:?mac}"; uuid="${3:?uuid}"; proto="${4:?proto: bose|fastpair}"
     args=(--es op sweep --es mac "$mac" --es uuid "$uuid" --es proto "$proto")
     [ -n "${5:-}" ] && args+=(--es blocks "$5")
     [ -n "${6:-}" ] && args+=(--es fns "$6")

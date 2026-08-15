@@ -130,10 +130,10 @@ object Probe {
                     socket.outputStream.flush()
                     onResult(p, readFor(socket.inputStream, perMs, quietMs), false)
                 } catch (e: IOException) {
-                    // ⚠ The Harman devices (JBL, JLab) do not answer an unsupported
-                    // command with an error — they DROP THE LINK. On those, a dead
-                    // socket is a result about the packet, not a failure of the run,
-                    // and without reconnecting a sweep stops at its first miss.
+                    // ⚠ The Fast Pair devices (JBL, JLab) reject a message they do not
+                    // like by DROPPING THE LINK rather than answering. A dead socket is
+                    // then a result about the packet, not a failure of the run, and
+                    // without reconnecting a sweep stops at its first miss.
                     if (!reconnect) return "${e.message}"
                     onResult(p, ByteArray(0), true)
                     runCatching { socket.close() }

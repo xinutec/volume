@@ -163,7 +163,7 @@ class MainActivity : Activity() {
         val uuid = intent.getStringExtra("uuid")
         val proto = intent.getStringExtra("proto")
         if (mac == null || uuid == null || proto == null) {
-            emit("sweep needs --es mac, --es uuid and --es proto (bose|harman)")
+            emit("sweep needs --es mac, --es uuid and --es proto (bose|fastpair)")
             return
         }
         val blocks = Sweep.range(intent.getStringExtra("blocks") ?: "00-12")
