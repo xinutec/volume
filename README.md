@@ -1,86 +1,88 @@
-# volume — headphone control probe (task #783)
+# volume — headphone control over the vendor RFCOMM channels
 
-**This is not the app.** It is the instrument that answers #783: *can a
-headphone's proprietary control channel be spoken at all?* #785 is built from the
-bytes it captures, and once the shape of the real app is settled this probe does
-not survive into it.
+Task #783's instrument, not the product (#785 is the app). Everything in `docs/`
+was measured against the real headphones on 2026-08-15. **Re-measure; firmware
+moves things.**
 
-## The answer, for Sony: yes
+⚠ Repo is PUBLIC and carries the headphones' MACs — Pippijn's call, 2026-08-15.
 
-Measured 2026-08-15 against **WH-1000XM4** (`80:99:E7:F9:D0:61`) on
-`96cc203e-5068-46ad-b32d-e316f5e069ba`, over a **secure** RFCOMM socket, first
-attempt.
+## All five speak. Three protocols.
 
-```
-→ 3e 0c 00 00 00 00 02 00 00 0e 3c
-← 3e 01 01 00 00 00 00 02 3c              ACK   seq=01 payload=(none)
-  3e 0c 01 00 00 00 04 01 00 70 00 82 3c  DATA  seq=01 payload=01 00 70 00
-```
-
-Both reply frames checksum clean and their declared lengths match their payloads,
-so the framing in `SonyFrame.kt` is **confirmed**, not merely self-consistent:
+| Device | MAC | Channel | Protocol | ANC |
+| --- | --- | --- | --- | --- |
+| Bose QC45 | `E4:58:BC:3E:9D:AA` | SPP `00001101` | Bose | ✅ r/w |
+| Bose QC35 | `4C:87:5D:CC:A0:23` | SPP `00001101` | Bose | ✅ r/w |
+| Sony XM4 | `80:99:E7:F9:D0:61` | `96cc203e-…` | Sony framed | framing only |
+| JBL Tour One M2 | `28:6F:40:8A:D3:E4` | `df21fe2c-…` | Harman | cmds located |
+| JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | `df21fe2c-…` | Harman | cmds located |
 
 ```
-3e | type(1) | seq(1) | length(4, big-endian) | payload | sum(1) | 3c
+QC45   1f 03 05 02 <slot> 01     slot 0=Quiet 1=Aware 2=Home 3=unnamed
+QC35   01 06 02 01 <value>       00 / 01 / 03
 ```
+Both driven from our socket; headphones announced the mode aloud.
 
-What the exchange establishes beyond the framing:
+## Next
 
-- **The device ACKs first, then answers**, as two frames in one read.
-- **The ACK inverts the sequence number.** Sending `seq=00` returns an ACK with
-  `seq=01`; sending `seq=01` returns `seq=00`. Verified both ways round.
-- `0x00` requests protocol info and `0x01` returns it — the reply payload
-  `01 00 70 00` is stable across runs.
-- ⚠ **We do not ACK the device's data frame yet.** Each probe run opens a fresh
-  socket, so nothing has needed it; a long-lived session almost certainly will.
+1. **Harman args.** Real cmds: JBL block `07` fns `00 08 09 10 1b`, block `03`
+   fns `03 05 08 0d`. `07 10 0000` → `07 11 0004 0102b800` works on both. ANC is
+   in there.
+2. **Sony command table** — read SonyHeadphonesClient rather than sweep.
+3. **Bose multipoint** — `04 04`/`04 09` read the paired list + active device;
+   writes untried.
+4. **Bose EQ / auto-off / buttons** — among the 15 write-capable fns in
+   `docs/bose-read-surface.md`.
 
-## Not yet answered
+## ⚠ The open decision (#785)
 
-- **Bose QC45** (`E4:58:BC:3E:9D:AA`). Both channels refuse to connect — but the
-  headphones were powered off (`ACL BR/EDR:N`), so this says nothing about the
-  protocol. Re-probe with them **on and connected to the phone**.
-- **JBL Tour One M2**, **JLab JBuds Sport ANC 4**, and the unidentified
-  `LE-Pippijn Headphon` (plain SPP, suspected QC35).
-- **Anything that changes a setting.** Everything above is read-only by design.
+2026-08-12 Pippijn settled: headphones go in **thoth's Angular UI**, one remote.
+2026-08-15, asked fresh: **pure Kotlin app**. The second knowingly reverses the
+first; tie-break deferred to the protocol work, which favours neither (the Kotlin
+is identical either way). Native = QS tile + widget. Angular = one remote for
+headphones *and* the Mac's CoreAudio + Picades, which cannot move to the phone
+(`project_thoth`). **Pippijn's call — don't re-decide it silently.**
 
-## Reading the SDP record
-
-`Channels.kt` decides which channel to open, and its tests are the real SDP
-records read off the Pixel 9. The trap it exists for:
-
-⚠ **Most vendor-looking UUIDs are shared.** `81c2e72a`, `931c7e8a` and `f8d1fbe4`
-are on the Sony *and* the JBL *and* the unidentified Bose; `df21fe2c` on the JBL
-*and* the JLab. **`00000000-deca-fade-deca-deafdecacaff` is on the Sony, the QC45
-and the unidentified Bose alike** — task #783 annotates it "Bose proprietary",
-and it is not. Keying on it would have opened the wrong channel.
-
-Only three devices can be identified by UUID at all (Sony, QC45, JLab). The **JBL
-advertises no unique UUID whatsoever**, so it and a QC35 are indistinguishable by
-SDP; those fall back to the device name, and the detection says so rather than
-presenting a guess as a match.
-
-## Using it
+## Probe
 
 ```bash
-./probe.sh install                    # build, install, grant BLUETOOTH_CONNECT
-./probe.sh free                       # force-stop the vendor apps
-./probe.sh list                       # bonded devices + detected control channel
-./probe.sh send <mac> <uuid> <hex> [type] [seq]   # Sony-framed
-./probe.sh raw  <mac> <uuid> <hex>                # bytes verbatim
+./deploy.sh                              # build + install, Pixel 9 by MODEL
+./probe.sh list                          # bonded + detected channel/protocol
+./probe.sh free                          # force-stop vendor apps
+./probe.sh send|raw <mac> <uuid> <hex>   # one packet, one socket
+./probe.sh seq  <mac> <uuid> <hex,hex>   # one socket — THE WRITE TOOL
+./probe.sh sweep <mac> <uuid> <proto> [blocks] [fns]
 ```
+Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
+`--ez reconnect true` for Harman sweeps.
 
-Everything is logged under `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE`
-overrides the target (default: Pixel 9 over the VPN).
+### Traps, each of which cost a wrong conclusion
 
-⚠ **Only one app may hold a device's RFCOMM channel.** A connect failure while a
-vendor app is running is not a protocol result — run `./probe.sh free` first. Keep
-the vendor apps installed: capturing the remaining protocols needs them.
+- ⚠ **One vendor app holds the channel exclusively.** A connect failure while one
+  runs is not a protocol result. Keep them installed — captures need them.
+  `com.harman.ble.jbllink` is the *speaker* app; headphones are `jbl.stc.com`.
+- ⚠ **`send` cannot write.** Bose edits are transactional (operator-`05` Start,
+  then the change). The orphaned write is *accepted* and the unchanged state
+  echoes back — reads exactly like a wrong field. Use `seq`.
+- ⚠ **Never test a write against the value already held.** A no-op is
+  indistinguishable from a broken command; the QC45 selection was found,
+  dismissed as inert, then shown correct.
+- ⚠ **Response windows differ ~4× by vendor.** JBL at 400 ms: 0/144 answered. At
+  1500 ms: 25/32. Too short reads as "implements nothing".
 
-⚠ **Hearing safety.** Probe with reads. Never use a volume command as a
-round-trip proof, and restore any level touched for a test in the same step.
+## Hearing safety
 
-## Build
+Probe with reads; never prove a round-trip with a volume command; restore any
+level touched. ANC mode is not volume — it cannot raise a level, which is why it
+is the right thing to write first. `Sweep.kt` hard-wires operator/length to
+Get/zero (tested) rather than taking them as parameters.
 
-`nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest` —
-19 unit tests, no device needed. The Android SDK comes from recall's devshell;
-this repo has no flake of its own, same as `xinutec-infra/govee-android`.
+## Docs / build
+
+`docs/protocols.md` — three wire formats, capture method, channel traps.
+`docs/bose-read-surface.md` — Bose surface, error taxonomy, how ANC was found.
+
+```bash
+nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest
+nix run ../dev-lint#gate -- . gate.json
+```
+No flake of its own; SDK from recall's devshell, like `xinutec-infra/govee-android`.
