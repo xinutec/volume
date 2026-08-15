@@ -133,6 +133,42 @@ TalkThru is the unexercised third slot: named from the app's UI, not measured.
 
 `aa 21 01 30` (all status) moves with it — `30 01 00 …` under ANC, `30 00 02 …`
 under Ambient — so ANC is legible from two places.
+
+## The JBL read surface
+
+Per-feature status is one byte each, and cheaper to read than the `30` bundle:
+```
+→ aa 21 01 31   ← aa 22 02 31 01        ANC on
+→ aa 21 01 32   ← aa 22 02 32 00        ambient aware off
+→ aa 21 01 33   ← aa 22 04 33 00 1e 00  auto-off: off, 0x1e = 30 (minutes, unverified)
+→ aa 21 01 34   ← aa 22 02 34 00        EQ preset 0
+→ aa 21 01 36   ← aa 22 02 36 00        BT connection status
+→ aa 91 01 21   ← aa 91 09 22 01 01 04 07 05 01 a1 07     ANC capability, undecoded
+```
+
+### Gestures — read and decoded
+
+```
+→ aa 77 02 01 ff                        ff = ALL; or one GestureType byte
+← aa 77 11 02  06 0b  07 04  08 00  0c 00  09 00  0a 00  0b 00  0e 00
+```
+Pairs of `<gesture><action>`, so as shipped: left tap → ANC/ambient cycle, left
+double tap → TalkThru, and the other six unassigned. Both tables are the app's
+own, indexed by enum ordinal through `CmdBase.values` / `values_Action`:
+
+```
+gesture  00 L-whole 01 R-whole 02/03 L-swipe fwd/back 04/05 R-swipe fwd/back
+         06/07/08 L tap/double/triple   09/0a/0b R tap/double/triple
+         0c/0d L hold/double-hold       0e/0f R hold/double-hold
+         fd L-all  fe R-all  ff all     10 balance dial  11 volume dial
+action   00 default 01 vol+ 02 vol- 03 ambient 04 talkthru 05 next 06 prev
+         07 anc 08 play/pause 09 anc+ambient 0a play/dismiss-VA 0b anc-ambient
+         0c anc-off 0d ambient-off       a0…ac assistant actions
+```
+
+⚠ **`01` and `02` are volume up and down.** A gesture write can therefore bind a
+button to a volume change — the one thing this repo will not do casually. Read
+gestures freely; leave the writes until there is a reason.
 ```
 aa 21 01 <30..3a>   status: 30 all · 31 ANC · 32 ambient · 33 auto-off · 34 EQ
                     35 multi-AI · 36 BT connection · 37 OTA · 38 auto play/pause

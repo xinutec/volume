@@ -32,9 +32,10 @@ acknowledgements. `docs/protocols.md` has the correction.
 
 ## Next
 
-1. **JBL EQ, auto-off, gestures** — same GATT channel, table already known:
-   `aa 40` EQ preset, `aa 41`/`aa 42` custom EQ, `aa 33` auto-off, `aa 71`/`aa 72`
-   gestures, `aa 21 01 3x` to read each back.
+1. **JBL EQ and auto-off writes.** Reads are all done (`docs/protocols.md`):
+   status, gestures and the ANC capability answer. Writing is `aa 40` EQ preset,
+   `aa 41` custom EQ, `aa 33` auto-off, each read back through `aa 21 01 3x`.
+   EQ needs ears — a read-back proves the field moved, not that it sounds right.
 2. **Sony command table** — read SonyHeadphonesClient rather than sweep.
 3. **Bose multipoint** — `04 04`/`04 09` read the paired list + active device;
    writes untried.
