@@ -66,21 +66,47 @@ are (voltage, temperature, a charge counter), **they must not be used as a fixed
 fingerprint**, and they are noise in any diff — which matters for the ANC hunt
 below.
 
-## ⚠ ANC is NOT identified yet, and guessing would be wrong
+## ANC — found, by diff, 2026-08-15
 
-Nothing above is *known* to be the noise-cancellation mode. Several candidates
-have the right shape — `01 05` (`0b 00 03`), `01 0b` (`01 02 0f`), `03 06`
-(`01 01`) — and picking one because it looks plausible is exactly the reasoning
-that sent four packets to `9b26d8c0` and got silence.
+**Block `01`, function `05`. The second payload byte is the mode.**
 
-Note the QC35-era ANC command is block `01` function `06`, and on the QC45 that
-answers `04 01 04` — **function not supported**. So the QC45 moved it, and the
-two models will need different command tables even though they share a framing.
+```
+01 05 01 00  ->  01 05 03 03  0b 00 03      before
+01 05 01 00  ->  01 05 03 03  0b 0a 03      after Pippijn selected Aware
+```
 
-**The experiment that settles it** costs one action: sweep, change the ANC mode
-on the headphones, sweep again, and diff — ignoring `05 07` and `05 0d`. Whatever
-else moved is the ANC state. `./probe.sh sweep … > before.txt`, toggle,
-`> after.txt`, `diff`.
+⚠ **Three fields moved in that diff and only one of them is ANC.** `05 04`
+(`02 ff ff`↔`01 ff ff`) and `08 07` (`03`↔`04`) look just as convincing — and
+both had *already* differed between two sweeps taken **before** anything was
+touched, so they drift on their own. `01 05` was identical across both
+pre-change sweeps and moved only with the mode.
+
+**That is the whole method: take the baseline TWICE.** A single before/after diff
+here would have offered three candidates with no way to choose, and the plausible
+one is not the right one. A second baseline costs a minute and converts a guess
+into an elimination.
+
+Mode values: `0a` = Aware, confirmed. The `00` seen beforehand is the other mode
+(Quiet) — **inferred, not yet confirmed**, because the pre-change state was not
+established before the baseline was taken.
+
+The surrounding bytes `0b … 03` did not move and are unexplained; do not assume
+they are padding.
+
+## The QC35's ANC is elsewhere
+
+The QC35-era ANC command is block `01` function `06`, and on the QC45 that
+answers `04 01 04` — **function not supported**. The QC45 moved it to `01 05`.
+So the two Bose models share a framing and need **different command tables**; the
+QC35 needs its own sweep and its own before/twice-baseline/after diff.
+
+## Writing it
+
+Not yet attempted. The Get is `01 05 01 00`; by the operator taxonomy above a Set
+should be `01 05 00 01 <mode>`, with operator `00`. That is a **write to
+headphones on someone's head**, so it is worth stating that ANC mode is not
+volume — the hearing-safety rule is about level, and switching Quiet/Aware cannot
+raise one. Confirm the mode values first, then write.
 
 ## Not yet swept
 
