@@ -132,6 +132,14 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
   the full timeout, which reads like a protocol fault.
 - ⚠ **A BLE device is several sightings**, and only one of them carries the name.
   Merge them; keeping the first hid the JBL behind "(no name)".
+- ⚠ **"Answers nothing" and "has nothing to answer" look identical**, and this has
+  now cost three findings. The JLab genuinely has no read command; the Sony was
+  being ignored for repeating a sequence byte. Both rendered as "reports no mode".
+  Only comparing against a state you already know tells them apart.
+- ⚠ **Connected is not on-a-profile.** Presence comes from the A2DP and headset
+  proxies, which populate *after* the ACL link, so a pair already connected when
+  the app starts can be invisible with no ACL event to follow. Listen for the
+  profile transitions too.
 - ⚠ **A one-shot exchange cannot hold a protocol with state**, and this has now
   cost three separate wrong conclusions. Sony's `66 02` returns a bare ACK
   one-per-socket and real data inside a session that acks the device's frames —

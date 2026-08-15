@@ -93,6 +93,18 @@ byte answers:
 appearance of one trap: **a one-shot exchange cannot hold a protocol that has
 state.** Bose writes need it, Sony reads need it.
 
+⚠ **The sequence byte ALTERNATES, and a repeat is discarded in silence.** Send two
+frames with the same one and the device treats the second as a retransmission: no
+error, no reply, and the caller reports "this device has no mode" — which is a
+sentence another device says truthfully. A hard-coded `00` therefore works for as
+long as a session asks exactly one question, and fails the moment anything is sent
+before the read. Found only because a Bluetooth cycle gave the app a genuinely
+fresh link; every test until then had reused one the probe had already opened.
+
+⚠ **`00 00` (`CONNECT_GET_PROTOCOL_INFO`) opens the session.** The probe always
+sent it first, which is why its reads worked; a driver that skips it gets away
+with it on an established link and not on a new one.
+
 Inquired type `02` is `NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE`; the v2 enum adds
 `01 NC_ON_OFF`, `11`–`19` mode-switch variants, `21`/`22` ambient-only, `30`
 NC/AMB toggle. Capability `61 02 | 02 00 01 02 00 14 01 14` gives 0x14 = 20
