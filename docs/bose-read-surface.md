@@ -6,6 +6,11 @@ and safe to run on headphones that are being worn.
 
 Swept against the **QC45** on 2026-08-15. 304 packets, one socket, ~2 minutes.
 
+⚠ **Sweep past block `12`.** The first sweep ran `00-12` and missed block `1f`,
+which is where the QC45 actually keeps its ANC control — see the end of this file.
+Blocks `0a`-`0d` answer "block not supported", which reads like the end of the map
+and is not.
+
 ## The error codes are the map
 
 Operator `04` in a reply is an error, and its payload distinguishes three very
@@ -66,9 +71,11 @@ are (voltage, temperature, a charge counter), **they must not be used as a fixed
 fingerprint**, and they are noise in any diff — which matters for the ANC hunt
 below.
 
-## ANC — found, by diff, 2026-08-15
+## ANC — READING it, found by diff, 2026-08-15
 
-**Block `01`, function `05`. The second payload byte is the mode.**
+**Block `01`, function `05`. The second payload byte is the mode.** This is where
+the current level is *read*; ⚠ it is **read-only**, and writing ANC is a different
+block entirely — see below. Do not read this section as the whole answer.
 
 ```
 01 05 01 00  ->  01 05 03 03  0b 00 03      before
@@ -100,13 +107,54 @@ answers `04 01 04` — **function not supported**. The QC45 moved it to `01 05`.
 So the two Bose models share a framing and need **different command tables**; the
 QC35 needs its own sweep and its own before/twice-baseline/after diff.
 
-## Writing it
+## ⚠ Writing ANC is NOT at `01 05` — it is block `1f`
 
-Not yet attempted. The Get is `01 05 01 00`; by the operator taxonomy above a Set
-should be `01 05 00 01 <mode>`, with operator `00`. That is a **write to
-headphones on someone's head**, so it is worth stating that ANC mode is not
-volume — the hearing-safety rule is about level, and switching Quiet/Aware cannot
-raise one. Confirm the mode values first, then write.
+`01 05` is a **read-only mirror** of the current level. Three writes to it were
+tried and all three were refused with `01 05 04 01 05` (operator not supported):
+
+```
+01 05 00 01 0a   →  01 05 04 01 05      nothing changed
+01 05 00 01 05   →  01 05 04 01 05
+01 05 00 01 00   →  01 05 04 01 05
+```
+
+The real control is **block `1f`**, which the first sweep never reached because
+it ran `00-12`. It was found by capturing the official app while Pippijn changed
+the mode, which is the method that should have been used before guessing an
+operator:
+
+```
+1f 06 02 27  02 00 0a "Home"  …zero padding…  05 00 00 00
+1f 06 02 28  00 00 01 "Quiet" …zero padding…  01
+```
+
+Operator is **`02`**, not `00`. And the QC45 does not have a two-way ANC switch
+at all — it has **named modes**, each carrying a level. Reading them back:
+
+```
+1f 07 01 00      ->  00 01 02 03            the mode slots
+1f 06 01 01 01   ->  01 00 02 00 00 01 "Aware"    … 0a …
+1f 06 01 01 02   ->  02 00 0a 01 01 01 "Home"     … 09 …
+1f 06 01 01 03   ->  03 00 00 01 00 00 (unnamed)  … 09 …
+```
+
+`1f 06` with a Get and **no** argument answers `04 01 01` — which pins that error
+code as *bad or missing argument*, distinct from the block/function/operator
+codes above.
+
+⚠ **The level byte's position is not yet unambiguous.** The Set payload (length
+`0x27`) and the Get reply (length `0x2f`) do not line up field-for-field, and the
+app's captured Sets vary a byte at the *end* (`00`/`02`/`05`/`08`/`09`) while the
+Get replies vary one near the *front*. Both are plausibly the 0–10 level. Do not
+write a mode until one differential settles it: change a mode's level in the app,
+re-read `1f 06 01 01 <idx>`, and see which byte moved.
+
+Rest of the surface: `1f 00` is a version (`1.0.0`), `1f 02` → `02 02 00 00 00 09`,
+`1f 08` → `04 07`, `1f 05` → `01`. `1f 09`–`1f 0f` are function-not-supported.
+
+**Hearing safety note for whoever writes this first:** ANC mode is not volume, and
+switching modes cannot raise a level — so this write is safe in a way a volume
+write would not be. That is the reason to do ANC first and volume last, if ever.
 
 ## Not yet swept
 
