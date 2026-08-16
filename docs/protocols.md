@@ -221,11 +221,26 @@ Per-feature status is one byte each, and cheaper to read than the `30` bundle:
 ```
 → aa 21 01 31   ← aa 22 02 31 01        ANC on
 → aa 21 01 32   ← aa 22 02 32 00        ambient aware off
-→ aa 21 01 33   ← aa 22 04 33 00 1e 00  auto-off: off, 0x1e = 30 (minutes, unverified)
-→ aa 21 01 34   ← aa 22 02 34 00        EQ preset 0
+→ aa 21 01 33   ← aa 22 04 33 00 1e 00  auto-off: off, 0x1e = 30 minutes
+→ aa 21 01 34   ← aa 22 02 34 00        ⚠ NOT the EQ preset — unidentified
+→ aa 21 01 35   ← aa 22 02 35 df        "multi-AI" per the SDK; `df` undecoded
 → aa 21 01 36   ← aa 22 02 36 00        BT connection status
+→ aa 21 01 37   ← aa 22 02 37 00        OTA
+→ aa 21 01 38   ← aa 22 02 38 01        ✅ Auto Play & Pause — see below
+→ aa 21 01 39   ← aa 22 02 39 01        TWS
+→ aa 21 01 3a   ← (nothing)             ⚠ PersoniFi: this model does not answer
+→ aa 21 01 30   ← aa 22 0d 30 01 00 ff 00 df 01 00 01 01 00 1e 00     all of them
 → aa 91 01 21   ← aa 91 09 22 01 01 04 07 05 01 a1 07     ANC capability, undecoded
 ```
+The whole sweep, 2026-08-16 21:36. ⚠ The `30` bundle holds the same values but its
+field ORDER is not established — `01 00` opens it and `00 1e 00` closes it, which fits
+`31 32 … 33`, and the middle does not line up with a plain concatenation. The per-field
+reads are unambiguous and cheaper, so nothing depends on decoding the bundle.
+
+✅ **`38` is Auto Play & Pause**, and this is a cross-check rather than a guess: it read
+`01` while the vendor app's own screen, open minutes earlier, showed that switch on.
+Read only — `aa 38` would set it if the setter mirrors the getter as it does for
+`31`/`32`/`33`, but that has not been sent.
 
 ### ✅ Auto power off — driven 2026-08-16
 
@@ -233,6 +248,11 @@ Per-feature status is one byte each, and cheaper to read than the `30` bundle:
 → aa 21 01 33        ← aa 22 04 33 <on> <minutes> <?>     00 1e 00 = off, 30 min
 → aa 33 03 <on> <minutes> <?>   ← aa 00 02 33 00          the ack, not the answer
 ```
+⚠ **The app offers 30 min / 1 hr / 2 hr, and only `1e` = 30 has ever been sent.** So
+the unit is now well supported — the vendor's own menu is in minutes and its first
+entry is the byte we read — but `3c` and `78` are untested and this code cannot ask
+for either.
+
 Driven both ways from this code and confirmed by read-back. ⚠ **The shape was
 guessed from the status reply and worked first time** — the setter mirrors the
 getter here, as it does on all four vendors. ⚠ `1e` = 30 was never varied, so the
@@ -274,6 +294,46 @@ setting moves is about something else.
 
 ⚠ **`aa 40 01 01` drew nothing and changed nothing.** `aa 40`/`aa 41`/`aa 42` are
 named in the SDK tables but none of them is the path the app uses; `aa a2` is.
+
+### ⚠ What the app has, and what we have — 2026-08-16
+
+Every row of the vendor app's device screen, read off it top to bottom, against the
+status sweep taken minutes later. **Three of twenty-two are driven.** Written down
+because "is it all understood?" could not be answered before without opening the app,
+and answering it from what `docs/` happened to mention would have flattered us.
+
+| the app's row | wire | us |
+| --- | --- | --- |
+| battery % | in `aa 12`, and `aa 25` | — |
+| ⏻ power off | ? | — |
+| Ambient Sound Control master switch | ? | — |
+| Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
+| Customize ANC | `aa 74`/`aa 75`? | — |
+| Personi-Fi | `3a` **answers nothing** | — |
+| Equalizer | `aa a2` | ✅ r/w |
+| Low Volume Dynamic EQ | ? | — |
+| Spatial Sound + Movie/Music/Game | ? | — |
+| Gestures | `aa 77` reads, `aa 71` sets | 👁 read, #970 |
+| Smart Talk + 5/15/20 s | ? | — |
+| VoiceAware + Low/Mid/High | ? | — |
+| Smart Audio & Video + Audio/Video | ? | — |
+| SilentNow | ? | — |
+| Auracast | ? | — |
+| LE Audio | ? | — |
+| Auto Play & Pause | ✅ `38`, cross-checked | 👁 read |
+| Personal Sound Amplification | ? | — |
+| Left / Right Sound Balance | gesture table has `10 balance dial` | — |
+| Voice Assistant | `35` = `df`? | — |
+| Voice Prompts (language) | ? | — |
+| Max Volume Limiter | ? | — |
+| Auto Power Off + 30 min/1 hr/2 hr | `33` | ✅ on/off only |
+
+⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
+of the app touching that one control, and the method in `docs/captures.md` applies
+unchanged; the reason there are twenty of them is that the work stopped when ANC
+worked. ⚠ Several rows are toggles that are OFF right now — Spatial Sound, Smart Talk,
+VoiceAware, LE Audio, balance — so any of them could be the unidentified `34`, and
+attributing it needs one of them varied, not more reading.
 
 ### Gestures — read and decoded
 
