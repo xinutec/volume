@@ -156,6 +156,8 @@ Get/zero (tested) rather than taking them as parameters.
 
 `docs/protocols.md` — the wire formats, capture method, channel traps.
 `docs/bose-read-surface.md` — Bose surface, error taxonomy, how ANC was found.
+`docs/liveness.md` — why the profile broadcasts, not ACL, keep the list live;
+measured timings, and the traps in measuring it.
 
 ```bash
 nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest

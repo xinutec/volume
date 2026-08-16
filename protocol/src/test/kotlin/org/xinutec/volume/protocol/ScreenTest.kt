@@ -3,6 +3,7 @@ package org.xinutec.volume.protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -144,6 +145,7 @@ class ScreenTest {
                     "E4:58:BC:3E:9D:AA" to "Bose QC Headphones",
                     "EC:9A:0C:E0:D2:96" to "JLab JBuds Sport ANC 4",
                 ),
+                Emptiness.NONE_CONNECTED,
             )
 
         // Untouched: still Ready, still under the name it reported for itself.
@@ -154,14 +156,53 @@ class ScreenTest {
 
     @Test
     fun `a device that has gone is dropped, and a new one arrives idle`() {
-        val next = screen.reconciled(listOf("80:99:E7:F9:D0:61" to "WH-1000XM4"))
+        val next =
+            screen.reconciled(
+                listOf("80:99:E7:F9:D0:61" to "WH-1000XM4"),
+                Emptiness.NONE_CONNECTED,
+            )
         assertEquals(listOf("80:99:E7:F9:D0:61"), next.cards.map { it.address })
         assertTrue(next.cards[0].state is DeviceState.Idle)
+        // A populated screen must NOT carry a reason it is empty.
+        assertNull(next.emptiness)
     }
 
     @Test
-    fun `reconciling to nothing empties the list`() {
-        assertTrue(screen.reconciled(emptyList()).cards.isEmpty())
+    fun `reconciling to nothing empties the list, and says why`() {
+        val next = screen.reconciled(emptyList(), Emptiness.BLUETOOTH_OFF)
+        assertTrue(next.cards.isEmpty())
+        assertEquals(Emptiness.BLUETOOTH_OFF, next.emptiness)
+    }
+
+    /**
+     * ⚠ **The defect this type replaces.** Every empty list rendered one sentence,
+     * "No headphones bonded to this phone", and it was false in four of the five
+     * cases — measured on 2026-08-16 with thirteen devices bonded. The radio being
+     * off is the one that bites, because `bondedDevices` returns an empty set then
+     * rather than failing, so the honest answer and the misleading one are the same
+     * value and only the caller can tell them apart.
+     */
+    @Test
+    fun `an empty screen must say why, and the reasons are distinct`() {
+        val off = Screen(emptyList(), Emptiness.BLUETOOTH_OFF)
+        val quiet = Screen(emptyList(), Emptiness.NONE_CONNECTED)
+        assertNotEquals(off, quiet)
+        assertThrows(IllegalArgumentException::class.java) { Screen(emptyList()) }
+    }
+
+    @Test
+    fun `a populated screen may not claim to be empty`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            Screen(listOf(DeviceCard("x", "y", DeviceState.Idle)), Emptiness.NONE_BONDED)
+        }
+    }
+
+    /** Updating cards leaves the (absent) reason alone — the count cannot change. */
+    @Test
+    fun `with and renamed preserve the invariant`() {
+        val next = screen.with("E4:58:BC:3E:9D:AA", DeviceState.Busy("x"))
+        assertNull(next.emptiness)
+        assertNull(screen.renamed("E4:58:BC:3E:9D:AA", "n").emptiness)
     }
 
     /** The caller's order wins, so the list does not reshuffle as devices arrive. */
@@ -173,6 +214,7 @@ class ScreenTest {
                     "EC:9A:0C:E0:D2:96" to "JLab JBuds Sport ANC 4",
                     "E4:58:BC:3E:9D:AA" to "Bose QC Headphones",
                 ),
+                Emptiness.NONE_CONNECTED,
             )
         assertEquals(
             listOf("EC:9A:0C:E0:D2:96", "E4:58:BC:3E:9D:AA"),

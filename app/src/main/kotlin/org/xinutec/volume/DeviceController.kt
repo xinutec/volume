@@ -3,9 +3,11 @@ package org.xinutec.volume
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
+import android.util.Log
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
+import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Registry
@@ -15,6 +17,18 @@ import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+
+/**
+ * Tag for the one thing about this app that cannot be established off-device:
+ * whether the screen follows the radio, and **which** broadcast makes it do so.
+ *
+ * ⚠ Kept rather than deleted after the question was answered. The ACL and profile
+ * events race, the winner depends on the pair and on how the link came up, and a
+ * reasoned answer about which one arrived first is exactly the kind that was wrong
+ * before. `adb logcat -s VolumeLive` prints the chain; `scripts/watch-list.sh`
+ * reads it from the outside.
+ */
+internal const val LIVE = "VolumeLive"
 
 /**
  * The screen's hands: everything that blocks, off the main thread.
@@ -34,7 +48,7 @@ class DeviceController(
 ) {
     private val work = Executors.newSingleThreadExecutor()
     private val sessions = ConcurrentHashMap<String, Session>()
-    private var screen = Screen(emptyList())
+    private var screen = Screen(emptyList(), Emptiness.LOOKING)
 
     /**
      * The headphones that are actually here, opened as soon as they are listed.
@@ -51,23 +65,42 @@ class DeviceController(
      */
     fun refresh() =
         work.execute {
-            val adapter = adapter ?: return@execute emit(Screen(emptyList()))
-            val here = Connected.addresses(context, adapter)
+            val adapter = adapter ?: return@execute emit(Screen(emptyList(), Emptiness.NO_ADAPTER))
+            // ⚠ Before touching `bondedDevices`, which returns an EMPTY SET rather
+            // than failing while the radio is off — the one case where the honest
+            // answer and the most misleading one are the same value.
+            if (!adapter.isEnabled) {
+                return@execute emit(Screen(emptyList(), Emptiness.BLUETOOTH_OFF))
+            }
             val bonded =
                 try {
                     adapter.bondedDevices.orEmpty()
                 } catch (e: SecurityException) {
-                    emit(Screen(emptyList()))
+                    emit(Screen(emptyList(), Emptiness.NOT_PERMITTED))
                     return@execute
                 }
+            val here = Connected.addresses(context, adapter)
             val listed =
                 bonded
                     .filter { it.address in here && drivable(it) }
                     .sortedBy { it.name ?: it.address }
+            // Narrowest true statement about why the list came out empty.
+            val whenEmpty =
+                when {
+                    bonded.isEmpty() -> Emptiness.NONE_BONDED
+                    here.isEmpty() -> Emptiness.NONE_CONNECTED
+                    else -> Emptiness.NONE_DRIVABLE
+                }
+            Log.i(
+                LIVE,
+                "refresh: bonded=${bonded.size} connected=${here.size} listed=${listed.size}",
+            )
             // ⚠ Reconcile, do not rebuild: this runs again every time anything
             // connects or disconnects, and a rebuild would blink every card back to
             // "connecting" and re-read what it already knew.
-            emit(screen.reconciled(listed.map { it.address to (it.name ?: "(unnamed)") }))
+            emit(
+                screen.reconciled(listed.map { it.address to (it.name ?: "(unnamed)") }, whenEmpty),
+            )
             // Anything that went away keeps no socket open.
             sessions.keys.filterNot { a -> listed.any { it.address == a } }.forEach(::drop)
             // Sequentially, on this one thread: two connects at once contend for the

@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +41,7 @@ import androidx.core.content.IntentCompat
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
+import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Screen
 
@@ -57,7 +59,7 @@ import org.xinutec.volume.protocol.Screen
  * look at the screen would not catch.
  */
 class VolumeActivity : ComponentActivity() {
-    private var screen by mutableStateOf(Screen(emptyList()))
+    private var screen by mutableStateOf(Screen(emptyList(), Emptiness.LOOKING))
     private lateinit var control: DeviceController
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,12 +95,26 @@ class VolumeActivity : ComponentActivity() {
             IntentFilter().apply {
                 addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
                 addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
-                // ⚠ The profile events are not redundant with the ACL ones. Presence
-                // is read from the A2DP and headset proxies, which populate a moment
-                // AFTER the link comes up — so a pair that is already ACL-connected
-                // when the app starts is invisible, and no ACL event ever follows to
-                // correct it. Measured: the Sony vanished from the list for four
-                // minutes with the phone reporting it as the active A2DP device.
+                // ⚠ **The profile events are the load-bearing ones; ACL alone finds
+                // nothing.** Presence is read from the A2DP and headset proxies, and
+                // those populate well after the link comes up. Measured on the Pixel
+                // 9, 2026-08-16, switching the Sony on with this screen in front —
+                // the timings are in `docs/liveness.md`:
+                //
+                //   53.768  ACL_CONNECTED           → proxies say connected=0
+                //   54.992  profile state changed   → proxies say connected=1
+                //
+                // So an ACL-only listener queries 1.24 s too early, gets an empty
+                // set, and NO FURTHER ACL EVENT EVER ARRIVES to correct it — which is
+                // the four-minute disappearance this was written for. Going the other
+                // way the profile events lead ACL_DISCONNECTED by 414 ms, so they are
+                // the earlier signal in both directions, not a late repair to ACL.
+                //
+                // ⚠ Do not conclude from that four-minute note that this receiver
+                // fixes a COLD start: nothing broadcasts for a pair that was already
+                // connected when the app launched. `onStart`'s refresh below is what
+                // covers that, and it is a separate mechanism. `adb logcat -s
+                // VolumeLive` re-derives all of this in one connect.
                 addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
                 addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
             }
@@ -120,6 +136,10 @@ class VolumeActivity : ComponentActivity() {
                         BluetoothDevice.EXTRA_DEVICE,
                         BluetoothDevice::class.java,
                     )
+                // ⚠ Logged because the ordering is the whole question. Each refresh
+                // logs what the profile proxies then said, so the pair of lines shows
+                // whether an ACL event alone would have found anything.
+                Log.i(LIVE, "broadcast: ${intent.action?.substringAfterLast('.')}")
                 // A profile going up or down does not invalidate an open session, so
                 // only an ACL change drops one; the rest just re-ask who is here.
                 val acl = intent.action == BluetoothDevice.ACTION_ACL_DISCONNECTED
@@ -137,14 +157,19 @@ class VolumeActivity : ComponentActivity() {
 @Composable
 fun VolumeScreen(screen: Screen, onConnect: (String) -> Unit, onSet: (String, AncMode) -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Volume") }) }) { pad ->
-        if (screen.cards.isEmpty()) {
+        screen.emptiness?.let { why ->
             Column(
                 modifier = Modifier.fillMaxSize().padding(pad).padding(24.dp),
                 verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (why == Emptiness.LOOKING) {
+                    CircularProgressIndicator()
+                }
                 Text(
-                    "No headphones bonded to this phone.",
+                    reason(why),
                     style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 16.dp),
                 )
             }
             return@Scaffold
@@ -257,6 +282,25 @@ private fun DeviceRow(
         }
     }
 }
+
+/**
+ * What an empty list means, in words.
+ *
+ * ⚠ Each of these used to be "No headphones bonded to this phone", and four of
+ * them were false. They are worded to name the thing the owner can act on — the
+ * radio, the permission, the switch on the headphones — rather than to describe
+ * the app's own state, which is what the old sentence did.
+ */
+fun reason(e: Emptiness): String =
+    when (e) {
+        Emptiness.LOOKING -> "Looking for your headphones…"
+        Emptiness.NO_ADAPTER -> "This phone has no Bluetooth."
+        Emptiness.BLUETOOTH_OFF -> "Bluetooth is off."
+        Emptiness.NOT_PERMITTED -> "Volume needs Bluetooth permission to see your headphones."
+        Emptiness.NONE_BONDED -> "No headphones paired with this phone yet."
+        Emptiness.NONE_CONNECTED -> "No headphones switched on. Turn a pair on and it appears here."
+        Emptiness.NONE_DRIVABLE -> "What is connected is not something this app can drive."
+    }
 
 /**
  * The vendors' own words, not the enum's.

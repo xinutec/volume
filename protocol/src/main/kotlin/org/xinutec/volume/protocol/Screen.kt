@@ -48,10 +48,70 @@ sealed interface DeviceState {
     ) : DeviceState
 }
 
+/**
+ * Why there is nothing to show.
+ *
+ * ⚠ **These were one sentence, and it was false in four of the five cases.** An
+ * empty list rendered "No headphones bonded to this phone" whatever had produced
+ * it — with the radio off, with permission refused, with five pairs bonded and
+ * none switched on. The worst is [BLUETOOTH_OFF]: `bondedDevices` reads as empty
+ * when the adapter is disabled, so the app blamed its owner's pairing for its own
+ * blindness, and the sentence sent them to the one settings screen that could not
+ * help. Measured on 2026-08-16: thirteen bonded devices, that sentence on screen.
+ *
+ * The distinctions are here rather than in `:app` because they are a *decision*
+ * about which fact is true, and each carries a different thing for the owner to
+ * do. The words for them are the caller's, like [note]'s labels.
+ */
+enum class Emptiness {
+    /**
+     * Nothing has been asked yet — the first frame, before the first refresh.
+     *
+     * ⚠ Not a fact about the phone, and the only one here that is not. It exists
+     * because the invariant forces the opening screen to say something, and every
+     * other answer would be a claim we have not checked. It must not read like
+     * one: the right rendering is "looking", not a verdict.
+     */
+    LOOKING,
+
+    /** No Bluetooth on this device at all — nothing to be done. */
+    NO_ADAPTER,
+
+    /** The radio is off. ⚠ Indistinguishable from [NONE_BONDED] by bonded set alone. */
+    BLUETOOTH_OFF,
+
+    /** We may not ask who is bonded, so we cannot know. */
+    NOT_PERMITTED,
+
+    /** Nothing is paired with this phone. */
+    NONE_BONDED,
+
+    /** Pairs are known, none is switched on. The ordinary empty. */
+    NONE_CONNECTED,
+
+    /** Something is connected, but nothing this app can drive — a speaker, a laptop. */
+    NONE_DRIVABLE,
+}
+
 /** The screen, in the order the list is drawn. */
 data class Screen(
     val cards: List<DeviceCard>,
+    /**
+     * Why [cards] is empty — required exactly when it is.
+     *
+     * ⚠ The invariant is enforced rather than documented, because the defect this
+     * replaces was a caller emitting an empty list and leaving the reason to be
+     * guessed downstream. There is no default: a default is how one of these
+     * becomes a lie about the other five.
+     */
+    val emptiness: Emptiness? = null,
 ) {
+    init {
+        require(cards.isEmpty() == (emptiness != null)) {
+            "an empty screen must say why it is empty, and a populated one must not"
+        }
+    }
+
     /** Replace one card by address, leaving the rest and the order alone. */
     fun with(address: String, state: DeviceState): Screen =
         copy(cards = cards.map { if (it.address == address) it.copy(state = state) else it })
@@ -77,13 +137,17 @@ data class Screen(
      * gone is dropped.
      *
      * @param present address to bonded name, in the order to draw them.
+     * @param whenEmpty what to say if [present] is empty — asked for up front so
+     *   that the caller, which is the only thing that knows whether the radio is
+     *   off or the room is simply quiet, cannot decline to answer.
      */
-    fun reconciled(present: List<Pair<String, String>>): Screen {
+    fun reconciled(present: List<Pair<String, String>>, whenEmpty: Emptiness): Screen {
         val known = cards.associateBy { it.address }
         return Screen(
             present.map { (address, name) ->
                 known[address] ?: DeviceCard(name, address, DeviceState.Idle)
             },
+            emptiness = whenEmpty.takeIf { present.isEmpty() },
         )
     }
 }
