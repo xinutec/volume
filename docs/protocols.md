@@ -335,8 +335,8 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Twenty-two of twenty-three rows have a wire identity, ten are decoded well enough to
-drive, and four are in our app.** ⚠ Those three numbers are different questions and
+status sweep taken minutes later. **Twenty-two of twenty-three rows have a wire identity — every one except the LE Audio
+toggle — eleven are decoded well enough to drive, and four are in our app.** ⚠ Those three numbers are different questions and
 collapsing them flatters the work: knowing a row is `aa 98` is not knowing what its
 Low/Mid/High byte means. Written down
 because "is it all understood?" could not be answered before without opening the app,
@@ -349,7 +349,7 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
 | Customize ANC | ✅ `aa 91 01 21` | — |
-| Personi-Fi | `aa 9a`; opening sends nothing | — |
+| Personi-Fi | ✅ `aa a1`; ⚠ `aa 9a` is the TEST | — |
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | — |
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, ⚠ modes silent | — |
@@ -517,6 +517,30 @@ it is not `b0`, whatever the class name suggests.
 that is explained — the curve was already read at connect. For the other two it is a
 real result and not a missed tap: the taps are verified by the driver, and the frames
 either side are present. Their state is app-local until something is committed.
+
+### ✅ Personi-Fi is `aa a1`, and no hearing test was needed — 2026-08-16 23:43
+
+```
+→ aa a1 01 01            ← aa a1 05 02 01 <on> 02 <?>     get
+→ aa a1 03 00 01 <on>    ← aa a1 03 02 01 <on>            set
+```
+⚠ **This file said Personi-Fi was `aa 9a`.** `9a` is `EarCanalTestingCmd` — the test
+itself — and the *enable* is `a1` (`PersoniFiModeHearingTextCmd`). Two commands, and
+naming the feature after the wrong one would have sent a future session hunting in the
+test flow for a switch that lives elsewhere.
+
+✅ **The screen sends nothing until it is provisioned**, which is why opening it in the
+earlier sweep looked silent: the feature needs a 6 MB download before it will run at
+all. Once downloaded, this device already had a profile stored, so the switch could be
+cycled without anyone taking a hearing test.
+
+⚠ **`aa 9a` EarCanalTesting is still unexercised** — that is the RETEST button, and it
+plays tones into someone's ears. It is the one command here that cannot be reached
+without a person volunteering for it.
+
+⚠ **TEST REPORT sends NOTHING.** The per-ear curve it draws is app-side in that window;
+no frame carried it. ⚠ And it is someone's hearing profile — a repo this public gets
+the command shape and never the values.
 
 ### ⚠ `aa b1` GetSetFeature — the mechanism, not the names
 
