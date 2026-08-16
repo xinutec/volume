@@ -154,8 +154,15 @@ byte. Decoded in `docs/protocols.md`.
 | 20:36:45 | Equalizer → **JAZZ** in the JBL app |
 | 20:37:52 | **Auto Power Off** toggled on |
 
-The EQ went out at 20:36:48 as `aa a2 74 …` — a ten-band curve of float pairs, not a
-preset id, which is why the `34` status never moved. ⚠ **The EQ's prior state was not
-recorded before changing it**; it was recovered from an `aa a2 02 01 ff` read earlier
-in the same capture (20:26:55, all gains 0.0) and restored to that. Read the value
-first next time.
+The EQ went out at 20:36:48 as `aa a2 74 …` — a ten-band curve of float pairs, which
+is why the `34` status never moved. ⚠ **The EQ's prior state was not recorded before
+changing it**; it was recovered from an `aa a2 02 01 ff` read earlier in the same
+capture (20:26:55, all gains 0.0) and restored to that. Read the value first next
+time.
+
+⚠ **And that restore was incomplete, which showed 45 minutes later.** The gains went
+back to zero but the *table id* did not — the frame carries both, and the id was left
+at the slot the app's JAZZ write had used. It surfaced at 21:22 when the settings
+screen read the curve and said "custom" over ten zeroes, which is what a state neither
+named curve produces looks like; tapping Flat put it back to `00`. Comparing the whole
+frame is what caught it. Comparing the part you were thinking about would not have.

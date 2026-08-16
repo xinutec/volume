@@ -51,11 +51,15 @@ import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
+import org.xinutec.volume.protocol.EqCurve
+import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SoundQuality
+import org.xinutec.volume.protocol.TimedOff
+import java.util.Locale
 
 /**
  * The app: every headphone that is bonded and drivable, and its ANC.
@@ -194,6 +198,11 @@ interface SettingActions {
     fun setMultipoint(address: String, on: Boolean)
 
     fun setAutoOff(address: String, mode: AutoOff)
+
+    /** ⚠ Only the switch moves; the timeout is sent back as it was read. */
+    fun setTimedOff(address: String, v: TimedOff)
+
+    fun setCurve(address: String, curve: EqCurve)
 
     fun setSoundQuality(address: String, mode: SoundQuality)
 
@@ -449,6 +458,51 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             }
         }
 
+        settings.curve?.let { c ->
+            // ⚠ The name is looked up, not stored: the device sends back ten numbers
+            // and a table id, and "Jazz" is only true if both still match what the app
+            // sent for it. ⚠ **The table id is part of that, and it caught something**
+            // — the JBL was found holding flat gains under a table neither chip
+            // writes, so "custom" is shown with the id rather than a bare word that
+            // would look like a rendering fault above ten zeroes.
+            SettingLabel(
+                "Equaliser",
+                JBL_CURVES.firstOrNull { it.second == c }?.first ?: "custom · table ${c.table}",
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for ((name, preset) in JBL_CURVES) {
+                    FilterChip(
+                        selected = preset == c,
+                        onClick = { actions.setCurve(address, preset) },
+                        label = { Text(name) },
+                    )
+                }
+            }
+            Text(
+                // ⚠ **A non-breaking space, and it is load-bearing at this width.**
+                // With an ordinary one the wrap fell between `16k` and its `0`, so the
+                // last band's gain started the next line looking like a stray digit —
+                // seen in the split-screen render, not in any test. Breaking only at
+                // the separators keeps every band with its own number.
+                c.bands.joinToString(" · ") { "${hz(it.hz)}\u00A0${db(it.gain)}" },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        settings.timedOff?.let { v ->
+            SettingRow(
+                "Power off when idle",
+                if (v.on) "after ${v.minutes} minutes" else "off",
+                writable = true,
+                checked = v.on,
+                onChange = { actions.setTimedOff(address, v.copy(on = it)) },
+            )
+        }
+
         settings.multipoint?.let { on ->
             SettingRow(
                 "Two devices at once",
@@ -580,6 +634,20 @@ private val BOSE_TONE =
     )
 
 internal fun signed(v: Int) = if (v > 0) "+$v" else "$v"
+
+/**
+ * A gain, as an equaliser draws it: `+4`, `−1.5`, `0`.
+ *
+ * ⚠ **Formatted without a locale's decimal comma**, because the wire is IEEE floats
+ * and the vendor app's own axis is labelled with points. A band reading `+2,5` beside
+ * a frequency reading `2.5k` is the kind of inconsistency that looks like a bug in
+ * the decode rather than in the formatting.
+ */
+internal fun db(v: Float): String {
+    val whole = v.toInt()
+    val text = if (v == whole.toFloat()) "$whole" else String.format(Locale.ROOT, "%.1f", v)
+    return if (v > 0) "+$text" else text
+}
 
 /**
  * A band centre as the vendor app labels it: `400`, `1k`, `2.5k`, `16k`.

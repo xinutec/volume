@@ -238,21 +238,35 @@ guessed from the status reply and worked first time** — the setter mirrors the
 getter here, as it does on all four vendors. ⚠ `1e` = 30 was never varied, so the
 units are still "minutes, unverified"; only the on/off byte is measured.
 
-### ✅ Equalizer — `aa a2`, and it is a CURVE, not a preset
+### ✅ Equalizer — `aa a2`, a CURVE **and** a table id
 
 ```
-→ aa a2 02 01 ff     read the current curve
-← aa a2 74 00 02 01 <16-byte header> <10 records> 01
-→ aa a2 74 00 00 01 <16-byte header> <10 records> 01      write (byte 4/5 differ)
+→ aa a2 02 01 <id>   read a table; ff = whichever is in use, and the reply names it
+← aa a2 74 00 02 <id> <13 bytes> <10 records> 01
+→ aa a2 74 00 00 <id> <13 bytes> <10 records> 01      write — operator 00, not 02
 ```
-Each record is 10 bytes: `01 01 <gain float32 LE> <frequency float32 LE>`, and the
+Each record is 10 bytes, `<a> 01 <gain float32 LE> <frequency float32 LE>`, and the
 ten frequencies are **exactly the app's axis** — 32, 64, 125, 250, 500, 1k, 2k, 4k,
-8k, 16k. JAZZ is `+4 +2 +1 +2.5 −1.5 −1.5 0 +1 +2 +4`; flat is all zeroes. Read and
-write both driven from this code, and the curve restored to the flat one it started
-on.
+8k, 16k. JAZZ is `+4 +2 +1 +2.5 −1.5 −1.5 0 +1 +2 +4`; flat is all zeroes.
 
-⚠ **The named presets are the APP's, not the device's** — same as Bose, opposite of
-Sony. Selecting JAZZ sends a curve; nothing sends a preset id.
+⚠ **`0x74` = 116 does not count the trailing `01`** — 117 bytes follow the length.
+⚠ The first record's leading byte is `0a` where every other record's is `01`.
+Unexplained; the vendor app sends it too, so a write copies the read frame and
+substitutes only the gains. Doing that reproduces the app's JAZZ frame **byte for
+byte**, which is what `JblSettingsTest` asserts.
+
+⚠ **A write carries both a curve and an id, so "nothing sends a preset id" was
+wrong.** Payload byte 2 is a table selector: `aa a2 02 01 c9` and `…ca` are echoed
+back in it, `ff` comes back as the id actually in use, the flat curve read as `00`,
+and the app's JAZZ write used `01`. Which of the two the device honours is NOT
+established — nothing captured varies one without the other.
+
+⚠ **`c9` (196 bytes) and `ca` (86) are other tables in the same record shape**, read
+at connect. `c9` is *longer* than a user curve, so a decoder that only checks the
+array is big enough will read ten of its records as the equaliser.
+
+⚠ **The named curves are the APP's**, as on the Bose and unlike Sony: selecting JAZZ
+sends ten numbers, not a name.
 
 ⚠ **`aa 21 01 34` is NOT the EQ preset**, though it was written down as one. It read
 `00` before selecting JAZZ and `00` after. A status field that does not move when the

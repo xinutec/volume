@@ -65,8 +65,12 @@ data class Settings(
     val eq: EqSetting? = null,
     val bands: List<Int> = emptyList(),
     val tone: BoseBands? = null,
+    /** The JBL's drawn curve — a third EQ shape, for the reason [EqCurve] gives. */
+    val curve: EqCurve? = null,
     val multipoint: Boolean? = null,
     val autoOff: AutoOff? = null,
+    /** ⚠ The JBL's timer, which is not [autoOff]'s rule — see [TimedOff]. */
+    val timedOff: TimedOff? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -83,8 +87,8 @@ data class Settings(
     /** Whether there is anything at all to draw. */
     val any: Boolean
         get() =
-            eq != null || tone != null || multipoint != null ||
-                autoOff != null || soundQuality != null || button != null
+            eq != null || tone != null || curve != null || multipoint != null ||
+                autoOff != null || timedOff != null || soundQuality != null || button != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }

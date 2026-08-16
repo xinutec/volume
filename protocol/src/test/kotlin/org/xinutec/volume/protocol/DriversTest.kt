@@ -424,4 +424,53 @@ class DriversTest {
         assertEquals(Confirmation.Confirmed, Drivers.JblBes.set(t, AncMode.TALK_THRU))
         t.assertDrained()
     }
+
+    /** 20:38:39, right after the write that turned it on. */
+    @Test
+    fun `jbl reads its auto power off`() {
+        val t = Replay("aa 21 01 33" to "aa 22 04 33 01 1e 00")
+        assertEquals(TimedOff(on = true, minutes = 30), Drivers.JblBes.readAutoOff(t))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **The write's own reply is an ack and is not consulted.**
+     *
+     * `aa 00 02 33 00` says the frame arrived. Here the device is made to lie — it
+     * acks and then reports the setting unchanged — and the driver must return what
+     * the re-read said, not what the ack implied. This is the shape of the mistake
+     * that `Confirmation` exists for.
+     */
+    @Test
+    fun `jbl auto power off is believed from the re-read, not the ack`() {
+        val t =
+            Replay(
+                "aa 33 03 01 1e 00" to "aa 00 02 33 00",
+                "aa 21 01 33" to "aa 22 04 33 00 1e 00",
+            )
+        Drivers.JblBes.writeAutoOff(t, TimedOff(on = true, minutes = 30))
+        assertEquals(TimedOff(on = false, minutes = 30), Drivers.JblBes.readAutoOff(t))
+        t.assertDrained()
+    }
+
+    /**
+     * The curve write reads first, sends the app's frame, and re-reads.
+     *
+     * ⚠ **The read up front is not a spare round trip.** [JblEq.set] copies thirteen
+     * unexplained bytes out of that reply, so dropping it would mean inventing them —
+     * and the assertion below is that what went out is the vendor app's frame, which
+     * is only true because they were copied.
+     */
+    @Test
+    fun `jbl writes a curve built from the frame it just read`() {
+        val jazz = JBL_CURVES.first { it.first == "Jazz" }.second
+        val t =
+            Replay(
+                "aa a2 02 01 ff" to JblFrames.FLAT,
+                JblFrames.spaced(JblFrames.JAZZ_SENT) to "aa 00 02 a2 00",
+                "aa a2 02 01 ff" to JblFrames.JAZZ_ECHO,
+            )
+        assertEquals(jazz, Drivers.JblBes.writeCurve(t, jazz.table, jazz.bands.map { it.gain }))
+        t.assertDrained()
+    }
 }

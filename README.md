@@ -120,12 +120,14 @@ app too, so that one is the device's rule — the button works for the app and n
 us, which is the lead in #965. ⚠ Never merge the two.
 
 ⚠ **A "preset" is the app's on Bose and JBL** — three band values, or a ten-band curve
-of floats — and the device's on Sony, where it is an opaque id. Only Sony has a preset
-on the wire.
+of floats — and the device's on Sony, where it is an opaque id. ⚠ The JBL's curve does
+carry a *table id* beside the ten gains, but it is sent together with them and never
+alone, so it is not a preset in Sony's sense and nothing establishes which the device
+obeys.
 
 **Open:** #965 Sony button · #967 probe repeats a run's packets · #966 Bose auto-off ·
-#968 QC35 card · #970 JBL gesture writes (⚠ two actions are volume) · #971 JBL settings
-on screen · #935 refresh/disconnect affordances.
+#968 QC35 card · #970 JBL gesture writes (⚠ two actions are volume) · #973 the list
+scrolls to the top after a write · #935 refresh/disconnect affordances.
 
 ## Probe
 
