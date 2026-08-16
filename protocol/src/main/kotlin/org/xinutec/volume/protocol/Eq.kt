@@ -74,7 +74,8 @@ object SonyEq {
         while (i + 2 < payload.size) {
             // Each band is `01 <hi> <lo>`; the leading 01 is what makes it findable.
             if (payload[i] == 0x01.toByte()) {
-                out += ((payload[i + 1].toInt() and 0xFF) shl 8) or (payload[i + 2].toInt() and 0xFF)
+                out +=
+                    ((payload[i + 1].toInt() and 0xFF) shl 8) or (payload[i + 2].toInt() and 0xFF)
                 i += 3
             } else {
                 i++
