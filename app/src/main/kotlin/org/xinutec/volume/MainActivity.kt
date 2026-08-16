@@ -182,7 +182,10 @@ class MainActivity : Activity() {
         if (!raw) {
             val frames = SonyFrame.decodeAll(r.received)
             if (frames.isEmpty()) {
-                emit("  (no complete Sony frame — framing hypothesis may be wrong)")
+                // The framing is measured, not assumed (docs/sony-settings.md), so
+                // this now means a partial read or a device that is not answering —
+                // it is no longer a reason to doubt SonyFrame.
+                emit("  (no complete Sony frame — truncated, or nothing was sent)")
             } else {
                 frames.forEach { emit("  $it") }
             }

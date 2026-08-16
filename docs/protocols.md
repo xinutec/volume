@@ -91,7 +91,11 @@ byte answers:
 ```
 `SONY_SEQ=1 ./probe.sh seq …` does the framing and the acking. This is the third
 appearance of one trap: **a one-shot exchange cannot hold a protocol that has
-state.** Bose writes need it, Sony reads need it.
+state.** The Bose ANC write needs it, Sony reads need it.
+
+⚠ **The framing itself is settled** — escaping, length and checksum — by one
+captured frame; `docs/sony-settings.md`. It is no longer a hypothesis to blame when
+a device stays quiet.
 
 ⚠ **The sequence byte ALTERNATES, and a repeat is discarded in silence.** Send two
 frames with the same one and the device treats the second as a retransmission: no

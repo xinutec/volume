@@ -90,8 +90,12 @@ Differs from the QC45 — battery moves, ANC moves:
 
 ## Not yet
 
-QC35 block `1f` (may not exist — older model). Bose EQ, auto-off, button
-assignment: among the `04 01 05` set above, same twice-baseline method.
+QC35 block `1f` (may not exist — older model).
+
+EQ (`01 07`), multipoint (`01 0a`) and the Action button (`01 09`) are **decoded** —
+`docs/bose-settings.md`, from the 2026-08-16 capture rather than from this sweep.
+⚠ Two things that leaves open about the list above: `01 0a` answers a Get but is not
+among the readable functions recorded here, and auto-off was never located at all.
 
 A long sweep ends in `Broken pipe` around block `0d`; the device closes after a
 run of unsupported blocks. Range-limit rather than sweeping to `12` blindly.

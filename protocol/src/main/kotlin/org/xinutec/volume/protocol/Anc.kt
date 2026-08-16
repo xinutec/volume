@@ -27,8 +27,9 @@ enum class AncMode {
  * A byte channel to one headphone, already open.
  *
  * ⚠ **One instance is one CONNECTION, not one packet**, and that is load-bearing
- * rather than an optimisation. Bose edits are transactional, and Sony answers
- * `GET_PARAM` only inside a session where its frames are acknowledged — both
+ * rather than an optimisation. The Bose ANC write is transactional — an
+ * operator-`05` Start and then the edit — and Sony answers `GET_PARAM` only inside
+ * a session where its frames are acknowledged; both
  * return plausible, wrong-looking nothing when each packet gets a fresh socket.
  * Three separate wrong conclusions came from missing that, so the interface makes
  * a session the only thing you can hold.

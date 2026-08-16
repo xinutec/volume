@@ -15,9 +15,10 @@ Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces th
   so the only cost of holding a channel is power and the only cost of dropping it is
   a reconnect its owner feels. See `Leases`.
 - **Anything they still do exclusively is something Pippijn loses on uninstall
-  day.** Today this app does ANC and nothing else. The "Next" list below is
-  therefore parity work, not exploration — EQ, multipoint, auto-off and button
-  assignment all live only in the vendor apps right now.
+  day.** The "Next" list below is therefore parity work, not exploration.
+  ⚠ **The screen shows ANC and nothing else** — EQ, multipoint, auto-off and the
+  button live only in the vendor apps *for the user*, even though `:protocol` now
+  has drivers for most of them. Driver code nobody can reach is not parity.
 
 **The app** is `VolumeActivity`: every *connected* headphone it knows how to drive,
 its model once identified, and its ANC modes as chips. It follows the radio while on
@@ -158,9 +159,12 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
 - ⚠ **A connect failure while a vendor app is running is not a protocol result.**
   Close it first (`./probe.sh free`). Keep them installed until parity — captures
   need them; `docs/protocols.md` says which app drives which device.
-- ⚠ **`send` cannot write.** Bose edits are transactional (operator-`05` Start,
-  then the change). The orphaned write is *accepted* and the unchanged state
-  echoes back — reads exactly like a wrong field. Use `seq`.
+- ⚠ **`send` cannot write.** The Bose ANC edit is transactional (operator-`05`
+  Start, then the change). The orphaned write is *accepted* and the unchanged state
+  echoes back — reads exactly like a wrong field. Use `seq`. ⚠ But **not every Bose
+  write is transactional**: EQ, multipoint and the Action button each took a plain
+  `02` Set. Generalising from the one function cost nothing yet only because
+  nothing had been sent to the other three.
 - ⚠ **Never test a write against the value already held.** A no-op is
   indistinguishable from a broken command; the QC45 selection was found,
   dismissed as inert, then shown correct.

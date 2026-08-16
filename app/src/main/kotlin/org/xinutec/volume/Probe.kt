@@ -94,11 +94,16 @@ object Probe {
      * Send many packets down ONE socket and report what each drew back.
      *
      * ⚠ **One socket is not merely an optimisation — some commands are only
-     * expressible this way.** Bose writes are transactional: the app opens with an
-     * operator-`05` (Start) packet and the edit that follows is ignored without it.
-     * A tool that opens a fresh connection per packet cannot write at all, and the
-     * failure is silent — the device accepts the packet and echoes the *unchanged*
-     * state back, which reads like a wrong field rather than a missing transaction.
+     * expressible this way.** The Bose ANC write is transactional: the app opens
+     * with an operator-`05` (Start) packet and the edit that follows is ignored
+     * without it. A tool that opens a fresh connection per packet cannot send it at
+     * all, and the failure is silent — the device accepts the packet and echoes the
+     * *unchanged* state back, which reads like a wrong field rather than a missing
+     * transaction.
+     *
+     * ⚠ **Not every Bose write needs one**, and assuming so is its own trap: EQ,
+     * multipoint and the Action button each took a plain operator-`02` Set and the
+     * echoed state changed. `docs/bose-settings.md`.
      *
      * Replies cannot be attributed to sends with certainty: these devices also emit
      * unsolicited notifications, and a slow answer lands in the next packet's

@@ -139,7 +139,7 @@ fa 05 → fb 05 00 00 00 01
 
 ⚠ `a9 01 20 12` arrives **110 times** and `a5 01 00 03` 54 times, unasked. Anything
 that reads a Sony session has to expect unsolicited traffic between its question and
-its answer — which is exactly why [SonyEq.state] refuses a frame that is not its own
+its answer — which is exactly why `SonyEq.state` refuses a frame that is not its own
 opcode rather than decoding whatever turned up.
 
 ## Not captured
