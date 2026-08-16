@@ -100,9 +100,10 @@ sealed interface DeviceState {
     /**
      * Connected and driving.
      *
-     * @param mode null when the device has no read command, which is a real state
-     *   and not "unknown yet" — the JLab never reports one, and a spinner there
-     *   would wait forever.
+     * @param mode null when the mode cannot be read, which is a real state and not
+     *   "unknown yet" — a spinner there would wait forever. ⚠ The JLab was the
+     *   example until its read was found on 2026-08-16; no device here is in that
+     *   state now, so null means "nobody has found the read yet".
      */
     data class Ready(
         val model: String,

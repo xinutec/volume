@@ -102,62 +102,30 @@ vendor app's bytes. It cannot show the device answers *us* — the Sony needed a
 session opener nobody knew about, the Bose refuses an untransacted write on one
 function and accepts it on three others, and both look identical to a green suite.
 
-**Driven on hardware** — sent to the headphone by this code, and confirmed
-- **Sony EQ** — `SonyXm4.readEq`/`writeEq`/`bands`, 2026-08-16. Read matched the
-  vendor capture byte for byte; presets `a1` and `a2` each written, confirmed and
-  restored. The band table read `[400, 1000, 2500, 6300, 16000]`, which is also the
-  escaping rules proven on a device rather than in a replay.
-  ⚠ Writing a custom *curve* (`58 01 <preset> <count> <levels>`) is structurally
-  certain and still unexercised: no band was dragged during the capture.
-- **Sony auto-off** — `readAutoOff`/`writeAutoOff`, both directions, confirmed and
-  restored. Two values; no timer exists in this model's menu, so an unknown value
-  reads as not-understood.
-- **Sony Sound Quality Mode** — `readSoundQuality`/`writeSoundQuality`, block `e0`.
-  Decoded and driven the same evening, both directions, confirmed and restored.
-  ⚠ Changing it renegotiates the codec, so the link drops and returns.
+**Driven** = this code changed it on a headphone and read it back. Anything else is
+named in a task; the frames are in `docs/`, not repeated here.
 
-- **Bose multipoint** — `MultipointDriver` on `BoseQc45`, on and off, confirmed and
-  restored. ⚠ Its reply to a write never answers the question — a flags byte that
-  never equals what was written — so it is read back with a real Get. ⚠ **The XM4
-  refuses the identical setting**, so neither vendor's result transfers to the other.
-- **Bose EQ and Action button** — `BoseQc45.readEq`/`writeEq`/`readButton`/
-  `writeButton`, `docs/bose-settings.md`. Bass Boost, both range ends and flat all
-  written and confirmed; Spotify and back on the button. ⚠ The presets are the
-  *app's*, not the device's: three signed band values, no preset id on the wire, so
-  this is deliberately **not** `EqDriver`. ⚠ Only two of the button's actions exist
-  here; the menu offers more.
-  ✅ **The ±10 range is no longer inferred** — the device declares `f6 0a` as each
-  band's min/max, and both ends were driven and read back.
+| | QC45 | QC35 | Sony XM4 | JBL M2 | JLab |
+| --- | --- | --- | --- | --- | --- |
+| ANC | ✅ | ✅ | ✅ | ✅ +TalkThru | ✅ |
+| EQ / tone | ✅ 3 bands | — | ✅ preset | ✅ 10-band curve | — |
+| Multipoint | ✅ | — | ⛔ refused | — | — |
+| Auto power off | ❓ #966 | — | ✅ | ✅ | — |
+| Sound quality | — | — | ✅ | — | — |
+| Button / gestures | ✅ | — | ⛔ refused #965 | 👁 read only #970 | — |
 
-**Decoded, and the device says no** — the frames are right and the write is refused
-- **Sony multipoint** — ⚠ **the XM4 refuses to enable it at all**, for this repo, for
-  Sony Headphones Connect driven over adb, and for a finger on the switch. All three
-  send `d8 d2 01 01`; all three get `d9 d2 01 00`. Not the codec — retested in both
-  Sound Quality Modes. `d8 d2 01 00` has never been sent, because it has never been
-  on to turn off. ⚠ The QC45 accepts the same setting happily, so this is the XM4's
-  own rule and not something about multipoint.
-- **Sony [CUSTOM] button** — `SonyButton`, block `f0` type `06`, `00` Ambient Sound
-  Control / `31` Digital assistant. ⚠ **The reads work and the write does not — but
-  the vendor app's identical frame does.** That asymmetry is the lead, and it is
-  #965; do not merge it with multipoint above, which fails for everyone. ⚠ The QC45's
-  equivalent button write works from this code, which is the same contrast again.
+⛔ **Refused is not broken.** The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and ignores
+both; the QC45 accepts the equivalents from this code. Multipoint fails for Sony's own
+app too, so that one is the device's rule — the button works for the app and not for
+us, which is the lead in #965. ⚠ Never merge the two.
 
-**Decoded, needs a driver** / **Captured, needs decoding**
+⚠ **A "preset" is the app's on Bose and JBL** — three band values, or a ten-band curve
+of floats — and the device's on Sony, where it is an opaque id. Only Sony has a preset
+on the wire.
 
-*(nothing outstanding — every captured byte is decoded, every decoded frame has a
-driver, and on the XM4 and the QC45 every driver but two has been run against the
-device. The two are named above, and both are the device saying no.)*
-
-**Not captured**
-- **JBL EQ, auto-off, gestures.** Reads are done (`docs/protocols.md`): status,
-  gestures, ANC capability. Writes are `aa 40` EQ preset, `aa 41` custom EQ,
-  `aa 33` auto-off, read back through `aa 21 01 3x`. ⚠ EQ needs ears — a read-back
-  proves the field moved, not that it sounds right.
-- **Sony CUSTOM button** — attempted and **sent nothing** (the link was down); #955.
-- **Bose auto-off** — not found in the app's device page; may not exist on the QC45.
-- ~~**JLab reads.**~~ ✅ Found 2026-08-16: `c0 ff 00 44 00 00 01 00 04`. All three
-  modes driven and read back, and `00` = off went from "untested" to measured the
-  moment there was a read to check it with.
+**Open:** #965 Sony button · #967 probe repeats a run's packets · #966 Bose auto-off ·
+#968 QC35 card · #970 JBL gesture writes (⚠ two actions are volume) · #971 JBL settings
+on screen · #935 refresh/disconnect affordances.
 
 ## Probe
 

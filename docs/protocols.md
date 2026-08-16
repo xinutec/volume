@@ -208,7 +208,9 @@ reply  aa 91 07 12  01 <anc>  02 <ambient>  03 <talkthru>
 `01 01 02 00 03 00` is Noise Cancelling, `01 00 02 01 03 00` Ambient Aware — both
 observed against the app's own screen. Driven from our socket and confirmed by a
 separate read-back, not by the echo. Sub-op `10` sets, `11` gets, `12` returns.
-TalkThru is the unexercised third slot: named from the app's UI, not measured.
+✅ **TalkThru is the third slot**, driven 2026-08-16 and confirmed against the app's
+own selector. ⚠ `read` used to fall through to OFF for it, reporting a mode the device
+was really in as the one state it cannot be put into.
 
 `aa 21 01 30` (all status) moves with it — `30 01 00 …` under ANC, `30 00 02 …`
 under Ambient — so ANC is legible from two places.
@@ -308,7 +310,7 @@ bundles.
 
 ```
 write  c0 ff 00 | 46 03 00 <mode> 04 | 04 01 00 | <sum>
-       mode  01 = Noise Cancelling On   02 = Be Aware   (00 = off, untested)
+       mode  00 = off   01 = Noise Cancelling On   02 = Be Aware   (all driven)
 reply  00 ff 01 | 47 01 00 | 01 00 47 00
 ```
 `<sum>` is every preceding byte added up mod 256 — checked against both captured
