@@ -169,6 +169,10 @@ vendor app drives which device (⚠ each vendor ships two plausible ones).
 `docs/bose-read-surface.md` — Bose surface, error taxonomy, how ANC was found.
 `docs/liveness.md` — why the profile broadcasts, not ACL, keep the list live;
 measured timings, and the traps in measuring it.
+`docs/sony-settings.md` — Sony EQ, auto-off and multipoint frames.
+`docs/captures.md` — ⚠ WHAT WAS DONE AND WHEN for each capture, and the method
+that works. A capture without its action log is a haystack.
+measured timings, and the traps in measuring it.
 
 ## Tools
 
