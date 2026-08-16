@@ -350,6 +350,7 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print group names")
     parser.add_argument("--dump", action="store_true", help="print every label")
     parser.add_argument("--state", metavar="LABEL", help="print a switch's value")
+    parser.add_argument("--tap", metavar="LABEL", help="scroll to a label and tap it")
     args = parser.parse_args()
 
     if args.list:
@@ -362,6 +363,16 @@ def main() -> int:
     if args.dump:
         for text in sorted({n.text for n in dump() if n.text}):
             print(text)
+        return 0
+
+    if args.tap:
+        driver = Driver()
+        nodes = driver.show(args.tap)
+        node = label(nodes, args.tap) if nodes else None
+        if node is None:
+            print(f"could not reach '{args.tap}'", file=sys.stderr)
+            return 2
+        driver.tap(node, args.tap)
         return 0
 
     if args.state:
