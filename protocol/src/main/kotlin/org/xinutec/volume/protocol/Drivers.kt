@@ -29,6 +29,32 @@ object Drivers {
             t.exchange(BoseMultipoint.set(on))
         }
 
+        /**
+         * The tone controls. ⚠ **Not [EqDriver]**, on purpose: that interface is
+         * built around a preset the device chooses a curve for, and the QC45 has no
+         * preset on the wire at all. Making it fit would mean inventing an id to put
+         * in [EqSetting.preset], which is the kind of tidy lie that later reads as a
+         * measurement.
+         */
+        fun readEq(t: Transport): BoseBands? = BoseEq.state(t.exchange(BoseEq.get()))
+
+        /**
+         * ⚠ **Three frames, one per band**, because that is what the vendor app
+         * sends — and each draws the full state back, so the last reply is the whole
+         * answer. Sending fewer is untested: nothing says a band left alone keeps its
+         * value across a partial write.
+         */
+        fun writeEq(t: Transport, bands: BoseBands): BoseBands? {
+            val replies = BoseEq.setAll(bands).map { t.exchange(it) }
+            return BoseEq.state(replies.last())
+        }
+
+        fun readButton(t: Transport): BoseButton.Action? =
+            BoseButton.state(t.exchange(BoseButton.get()))
+
+        fun writeButton(t: Transport, action: BoseButton.Action): BoseButton.Action? =
+            BoseButton.state(t.exchange(BoseButton.set(action)))
+
         private const val QUIET: Byte = 0x00
         private const val AWARE: Byte = 0x01
 

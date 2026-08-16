@@ -168,6 +168,55 @@ class BoseSettingsTest {
         assertNull(BoseButton.state(bytes("0109030b8009070001400800000080")))
     }
 
+    // ---- through the driver ------------------------------------------------
+
+    /**
+     * 11:25:33 end to end — the three writes Bose Music sent for Bass Boost, and the
+     * three statuses it drew, in order. ⚠ The first two replies still read flat; only
+     * the last carries the change, which is why the driver takes the last one.
+     */
+    @Test
+    fun `the driver walks the three bands and reads the state off the last reply`() {
+        val t =
+            Replay(
+                "01 07 02 02 00 02" to "01 07 03 0c f6 0a 00 00 f6 0a 00 01 f6 0a 00 02",
+                "01 07 02 02 00 01" to "01 07 03 0c f6 0a 00 00 f6 0a 00 01 f6 0a 00 02",
+                "01 07 02 02 08 00" to "01 07 03 0c f6 0a 08 00 f6 0a 00 01 f6 0a 00 02",
+            )
+        assertEquals(BoseEq.BASS_BOOST, Drivers.BoseQc45.writeEq(t, BoseEq.BASS_BOOST))
+        t.assertDrained()
+    }
+
+    /** The 2026-08-15 sweep's own reply to `01 07`, with the EQ flat. */
+    @Test
+    fun `the driver reads the EQ`() {
+        val t = Replay("01 07 01 00" to "01 07 03 0c f6 0a 00 00 f6 0a 00 01 f6 0a 00 02")
+        assertEquals(BoseEq.FLAT, Drivers.BoseQc45.readEq(t))
+    }
+
+    /**
+     * 11:26:47's status, which is also what the 2026-08-15 sweep saw at rest — the
+     * shortcut was on Hear Battery Level both days.
+     */
+    @Test
+    fun `the driver reads the action button`() {
+        val t = Replay("01 09 01 00" to "01 09 03 0b 80 09 03 00 01 40 08 00 00 00 80")
+        assertEquals(BoseButton.Action.HEAR_BATTERY_LEVEL, Drivers.BoseQc45.readButton(t))
+    }
+
+    /** 11:26:38, and the status it drew. */
+    @Test
+    fun `the driver sets the action button and reads the action back`() {
+        val t =
+            Replay(
+                "01 09 02 03 80 09 10" to "01 09 03 0b 80 09 10 00 01 40 08 00 00 00 80",
+            )
+        assertEquals(
+            BoseButton.Action.SPOTIFY,
+            Drivers.BoseQc45.writeButton(t, BoseButton.Action.SPOTIFY),
+        )
+    }
+
     // ---- Framing -----------------------------------------------------------
 
     @Test
