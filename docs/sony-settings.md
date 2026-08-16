@@ -57,12 +57,22 @@ rule holds for the BES `aa` protocol, not for this.
 
 ## Not captured
 
-**Button assignment** (`[CUSTOM]` button → Digital assistant and back) was
-performed at 11:07:56 and 11:08:23, and is **absent**: the capture ends at
-11:06:44.
+**Button assignment** (`[CUSTOM]` button → Digital assistant and back), performed at
+11:07:56 and 11:08:23. Two separate reasons, and the second is the one that matters:
 
-⚠ **The snoop log flushes lazily — the last ~2 minutes are still in memory when a
-bugreport copies it.** The file's own mtime is later than its last frame, so it
-looks complete. Wait a few minutes after the actions before pulling, and always
-check the last frame's timestamp against what you did rather than trusting the
-file size or mtime.
+⚠ **The snoop log flushes lazily.** The first bugreport's log ended at 11:06:44
+though its mtime was 11:10 — the last minutes were still in memory. Wait a few
+minutes before pulling, and check the LAST FRAME's timestamp against what you did;
+size and mtime both lie.
+
+⚠ **But a second pull showed the frames do not exist.** That capture spans
+09:19–11:17 and has 425 frames in the 11:06–11:09 window, of which **every one is
+`HCI_EVT` or `HCI_CMD` — no ACL data at all**. So nothing was sent to the
+headphones: the app changed its own UI and reported success, having lost the link,
+almost certainly when the multipoint toggle at 11:06:42 renegotiated the connection.
+
+**Method, for the next attempt:** confirm the vendor app is still connected
+*immediately before each action*, not just at the start. A settings app will happily
+render a change it has not delivered, which is indistinguishable from one it has —
+and is the same shape as this repo's oldest trap, an answer that was never an answer.
+Do the connection-disturbing settings (multipoint) LAST.
