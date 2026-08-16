@@ -76,34 +76,71 @@ only captured frame containing a marker byte, its declared length of 21 matches 
 after unescaping 22 bytes, and its checksum `54` holds only over the unescaped body.
 Length counts the unescaped payload; the sum is taken before escaping.
 
-## Automatic power off — `0xf8` set, `0xf9` state
+## Automatic power off — block `f0` (SYSTEM), type `04`
 
-    → f8 04 01 11 00      "Do not turn off"
+    → f6 04              GET_PARAM
+    ← f7 04 01 10 00     RET_PARAM — read at connect, 10:58:22
+    → f8 04 01 11 00     "Do not turn off"
     ← f9 04 01 11 00
-    → f8 04 01 10 00      "Off when headphones are removed"
+    → f8 04 01 10 00     "Off when headphones are removed"
     ← f9 04 01 10 00
 
-One byte, `10` vs `11`. ⚠ Only these two values were exercised; the XM4's menu
-offered no timed options, so a timer encoding — if one exists — is unmeasured.
+One byte, `10` vs `11`, and its notify **does** echo the value set — so unlike
+multipoint, this one is confirmable from its own reply. ⚠ Only these two values were
+exercised; the XM4's menu offered no timed options, so a timer encoding — if one
+exists — is unmeasured, and an unknown value must read as "not understood".
 
-## Multipoint — ⚠ two different subsystems, and it is not understood
+## Multipoint — block `d0`, type `d2`
 
-With direction read from the capture rather than guessed:
+    → d6 d2              GET_PARAM
+    ← d7 d2 01 <on>      RET_PARAM — read at connect, 10:58:23, value 00
+    → d8 d2 01 01        SET_PARAM
 
-    on      → d8 d2 01 01        ← 99 01 06 01
-    off     → 98 01 06 00        ← d9 d2 01 00
+⚠ **The reply to a multipoint write is about a DIFFERENT setting**, and this is the
+trap in the file. Setting `d2` to `01` drew `99 01 06 01`, a `90`-block
+notification; setting that `90`-block parameter back to `00` drew `d9 d2 01 00`. In
+both directions the device acked what it was told and then notified *the other
+thing*.
 
-⚠ **The two taps did not use the same command**, and that is a fact about the
-capture, not a typo. Turning it on sent a `d0`-block command and drew a `90`-block
-reply; turning it off sent a `90`-block command and drew a `d0`-block reply. Under
-the SDK's blocks-of-ten that reads as two subsystems each SET_PARAM-ing while the
-other NTFY_PARAM-s.
+An earlier reading of this called it a mis-tap — the screen was driven blind by
+coordinate, so the layout might have shifted. ⚠ **That is now ruled out.** Decoded
+with the acks in view, both taps are complete, well-formed transactions: SET, ack,
+one notification, our ack. Nothing was lost and nothing landed astray.
 
-The likeliest explanation is that the second tap did not land on the same control —
-the screen was driven blind by coordinate, and the layout may have shifted after the
-first toggle. **Do not build a driver on this pair until it is re-captured**, with
-the app's state checked between taps. Everything else in this file is symmetric and
-was confirmed twice; this is the one row that is not.
+*Inference*, and labelled as one: enabling multipoint forces the connection-quality
+setting off LDAC, and putting that setting back turns multipoint off — so each write
+has a side effect on the other, and what the device volunteers is the side effect.
+The consequence for code holds whatever the cause: **read back with `d6 d2`.**
+
+⚠ **`d8 d2 01 00` has never been sent.** Multipoint was turned off through the
+`90`-block parameter, not this one. That `00` is this field's off value is known
+only because the GET and the notification both reported it.
+
+## Everything the app asked, on connecting
+
+The whole capture's DATA frames, deduplicated by their first two payload bytes.
+⚠ **A map of where to look, not a decode** — only the rows above have been read.
+
+```
+36 02..0b  device info strings   37 02 "HP002"  37 03 "MDRID294301"  37 04 "CE7"
+                                 37 06 "0000000000502474"  37 0b "8BD1C6930CD0F12E"
+                                 37 07 cb   37 08 14   37 09 25   37 0a 14
+42 01 / 43 01   01 00            46 01 05 → 47 01 05 25 14 14 10 <16 hex chars>
+52/53 01  EQ status              56/57/58/59/5a/5b 01   EQ            ← decoded
+62/63 02  NCASM status           66/67/68 02            ANC           ← driven
+82/83 01, 86/87 01               a2/a3 01, a5 01 (×54), a6/a7/a9 01 20 12 (×110)
+94 01 00, 98/99 01 06            multipoint's other half             ← above
+c4 01 00 → c9 01 …               JSON log upload: {"v":"M6","logs":[{"key":…
+d2/d3 d1, d2/d3 d2  status       d6/d7/d8/d9 d1, d2     multipoint    ← decoded
+e2/e3 01, e2/e3 02, e6/e7 01,02  AUDIO block
+f2/f3 03..06  status             f6/f7 03..06, f8/f9 04  SYSTEM       ← auto-off
+fa 05 → fb 05 00 00 00 01
+```
+
+⚠ `a9 01 20 12` arrives **110 times** and `a5 01 00 03` 54 times, unasked. Anything
+that reads a Sony session has to expect unsolicited traffic between its question and
+its answer — which is exactly why [SonyEq.state] refuses a frame that is not its own
+opcode rather than decoding whatever turned up.
 
 ## Not captured
 

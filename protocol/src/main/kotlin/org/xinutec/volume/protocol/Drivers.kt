@@ -17,8 +17,17 @@ object Drivers {
      * Only the two ends are mapped here — Home is a user-defined level, not a
      * fourth semantic mode.
      */
-    object BoseQc45 : AncDriver {
+    object BoseQc45 :
+        AncDriver,
+        MultipointDriver {
         override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
+
+        override fun readMultipoint(t: Transport): Boolean? =
+            BoseMultipoint.state(t.exchange(BoseMultipoint.get()))
+
+        override fun writeMultipoint(t: Transport, on: Boolean) {
+            t.exchange(BoseMultipoint.set(on))
+        }
 
         private const val QUIET: Byte = 0x00
         private const val AWARE: Byte = 0x01
@@ -164,7 +173,8 @@ object Drivers {
      */
     class SonyXm4 :
         AncDriver,
-        EqDriver {
+        EqDriver,
+        MultipointDriver {
         /**
          * ⚠ **Sony frames carry an alternating sequence bit, and it is not
          * decoration.** Send two frames with the same one and the device treats the
@@ -256,6 +266,25 @@ object Drivers {
          */
         override fun bands(t: Transport): List<Int> =
             exchangeFramed(t, SonyEq.getBands())?.let(SonyEq::bands) ?: emptyList()
+
+        fun readAutoOff(t: Transport): AutoOff? =
+            exchangeFramed(t, SonyAutoOff.get())?.let(SonyAutoOff::state)
+
+        /** ⚠ Its notify echoes the value set, so this one really is confirmable. */
+        fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
+            exchangeFramed(t, SonyAutoOff.set(mode))?.let(SonyAutoOff::state)
+
+        override fun readMultipoint(t: Transport): Boolean? =
+            exchangeFramed(t, SonyMultipoint.get())?.let(SonyMultipoint::state)
+
+        /**
+         * ⚠ Returns nothing on purpose. The reply to this write is a notification
+         * about a *different* parameter, so handing it back would invite exactly the
+         * comparison it cannot support — see [SonyMultipoint].
+         */
+        override fun writeMultipoint(t: Transport, on: Boolean) {
+            exchangeFramed(t, SonyMultipoint.set(on))
+        }
 
         /** Send one framed payload, ack the device's answer, return its payload. */
         private fun exchangeFramed(t: Transport, payload: ByteArray): ByteArray? {
