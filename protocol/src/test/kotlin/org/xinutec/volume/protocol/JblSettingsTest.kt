@@ -164,6 +164,16 @@ class JblSettingsTest {
         assertNull(JblSafeSound.state(bytes("aaa50302")))
     }
 
+    /**
+     * ⚠ The preset list is only worth having if its indices line up with the ids the
+     * device actually sends, so that is what is asserted — not its length.
+     */
+    @Test
+    fun `the preset names are indexed by the id on the wire`() {
+        assertEquals("Off", JBL_EQ_PRESETS[JblEq.curve(flat)!!.table])
+        assertEquals("Jazz", JBL_EQ_PRESETS[JblEq.curve(bytes(JblFrames.JAZZ_ECHO))!!.table])
+    }
+
     private fun bytes(s: String) = Hex.parse(s)
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")

@@ -166,6 +166,32 @@ object JblEq {
 val JBL_HZ = listOf(32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 
 /**
+ * `EnumEqPresetIdx`, the SDK's name for the table id an `aa a2` frame carries.
+ *
+ * ⚠ **Names only — the CURVES for seven of these have never been seen.** A write sends
+ * the ten gains as well as the id, so this list cannot be turned into nine buttons:
+ * [JBL_CURVES] still offers the two whose bytes were captured. The value of having it
+ * is that a curve the owner set from the vendor app now renders as "Vocal" rather than
+ * as "table 2", which is the difference between a number and a fact.
+ *
+ * Trustworthy for the same reason the gesture tables are: the ordinal is the wire
+ * value, and the two ids observed — `00` for the flat curve and `01` for the app's
+ * JAZZ write — land exactly on OFF and JAZZ.
+ */
+val JBL_EQ_PRESETS =
+    listOf(
+        "Off",
+        "Jazz",
+        "Vocal",
+        "Bass",
+        "User",
+        "Rock",
+        "Piano",
+        "Club",
+        "Studio",
+    )
+
+/**
  * The two curves the vendor app was seen to send, with the ids it sent them under.
  *
  * ⚠ **This is not the app's preset menu.** The JBL app offers more; these are the two

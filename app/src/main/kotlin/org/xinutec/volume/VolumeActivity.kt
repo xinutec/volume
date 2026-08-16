@@ -53,6 +53,7 @@ import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.JBL_CURVES
+import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
@@ -467,7 +468,8 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             // would look like a rendering fault above ten zeroes.
             SettingLabel(
                 "Equaliser",
-                JBL_CURVES.firstOrNull { it.second == c }?.first ?: "custom · table ${c.table}",
+                JBL_CURVES.firstOrNull { it.second == c }?.first
+                    ?: "custom · ${JBL_EQ_PRESETS.getOrNull(c.table) ?: "table ${c.table}"}",
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
