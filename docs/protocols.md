@@ -222,13 +222,13 @@ Per-feature status is one byte each, and cheaper to read than the `30` bundle:
 → aa 21 01 31   ← aa 22 02 31 01        ANC on
 → aa 21 01 32   ← aa 22 02 32 00        ambient aware off
 → aa 21 01 33   ← aa 22 04 33 00 1e 00  auto-off: off, 0x1e = 30 minutes
-→ aa 21 01 34   ← aa 22 02 34 00        ⚠ NOT the EQ preset — unidentified
+→ aa 21 01 34   ← aa 22 02 34 00        EQ_PRESET — inert; this model uses aa a2
 → aa 21 01 35   ← aa 22 02 35 df        "multi-AI" per the SDK; `df` undecoded
 → aa 21 01 36   ← aa 22 02 36 00        BT connection status
 → aa 21 01 37   ← aa 22 02 37 00        OTA
-→ aa 21 01 38   ← aa 22 02 38 01        ⚠ was called Auto Play & Pause — see below
+→ aa 21 01 38   ← aa 22 02 38 01        ✅ AUTO_PLAY_PAUSE_ENABLE_STATUS
 → aa 21 01 39   ← aa 22 02 39 01        TWS
-→ aa 21 01 3a   ← (nothing)             ⚠ PersoniFi: this model does not answer
+→ aa 21 01 3a   ← (nothing)             ANC_TUNING; 3a–3e are all silent here
 → aa 21 01 30   ← aa 22 0d 30 01 00 ff 00 df 01 00 01 01 00 1e 00     all of them
 → aa 91 01 21   ← aa 91 09 22 01 01 04 07 05 01 a1 07     ANC capability, undecoded
 ```
@@ -237,13 +237,38 @@ field ORDER is not established — `01 00` opens it and `00 1e 00` closes it, wh
 `31 32 … 33`, and the middle does not line up with a plain concatenation. The per-field
 reads are unambiguous and cheaper, so nothing depends on decoding the bundle.
 
-⚠ **"`38` is Auto Play & Pause" was published here and is now doubtful.** It rested on
-one point: `38` read `01` while the app's switch showed on. Driving that switch two
-hours later sent **`aa 35 01 <on>`**, twice, matching off and on — and `31`/`32`/`33`
-all mirror between setter and status field, which would make the status field `35`,
-not `38`. But `aa 21 01 35` reads `df`, which is not a boolean.
-So: the SETTER is measured, the status field is not settled, and `01` is a value most
-fields hold. ⚠ A single agreeing byte is not a mapping — that is what this cost.
+✅ **The status fields are an SDK enum, and it settles two arguments.**
+`EnumDeviceStatusType` is fourteen entries and the wire byte is its ordinal + `0x30`:
+
+```
+30 ALL_STATUS      31 ANC            32 AMBIENT_AWARE_MODE   33 AUTO_OFF
+34 EQ_PRESET       35 MULTI_AI       36 BT_CONNECTION        37 OTA_UPGRADE
+38 AUTO_PLAY_PAUSE_ENABLE_STATUS     39 TWS_CONNECTION       3a ANC_TUNING
+3b IN_EAR          3c SEAL_CHECK     3d PERSONIFI_TEST_MODE
+```
+Eight of those were already measured and agree, which is what makes the other six
+trustworthy.
+
+✅ **`34` is EQ_PRESET after all — and inert on this model.** It was filed here as
+"NOT the EQ preset" because it stayed `00` across a JAZZ selection, which was the
+right *observation*: this device carries its equaliser as a ten-band curve under
+`aa a2`, so the legacy preset field never moves. Named, not unidentified.
+
+⚠ **`38` IS Auto Play & Pause, and the retraction printed here was wrong.** The
+sequence is worth keeping: it was published on one agreeing byte (too little),
+retracted when the setter turned out to be `aa 35 01 <on>` (reasonable, but an
+argument from a rule rather than from evidence), and the SDK's own enum now settles
+it. ⚠ **So setter and status field do NOT always mirror on this protocol** — `31`,
+`32` and `33` do, and this one does not. The mirror is a useful guess, not a law.
+
+⚠ **`3a` is ANC_TUNING_STATUS, not PersoniFi** — PersoniFi is `3d`. This file said
+otherwise.
+
+Measured 23:14 on the M2: `3a` through `3e` answer **nothing**. In-ear and seal check
+are earbud features on an over-ear, and the tuning and test-mode fields are inactive.
+⚠ `3b`'s "reply" was an `aa 25` battery frame that arrived in the window — an
+unsolicited notification, not an answer, and the reason a decoder must check the
+command byte rather than the leading `aa`.
 
 ### ✅ Auto power off — driven 2026-08-16
 
@@ -322,7 +347,7 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | SilentNow | ⚠ opening it sends nothing | — |
 | Auracast | ✅ `aa b0`, measured | — |
 | LE Audio | ✅ `aa b0` LeaAudio, read | — |
-| Auto Play & Pause | ✅ `aa 35 01 <on>` | — |
+| Auto Play & Pause | ✅ set `aa 35 01 <on>`, status `38` | — |
 | Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
 | Left / Right Sound Balance | ✅ `aa a8` | — |
 | Voice Assistant | ✅ `aa 92`, measured | — |
@@ -535,9 +560,7 @@ action   00 default 01 vol+ 02 vol- 03 ambient 04 talkthru 05 next 06 prev
 button to a volume change — the one thing this repo will not do casually. Read
 gestures freely; leave the writes until there is a reason.
 ```
-aa 21 01 <30..3a>   status: 30 all · 31 ANC · 32 ambient · 33 auto-off · 34 ⚠ NOT EQ
-                    35 multi-AI · 36 BT connection · 37 OTA · 38 auto play/pause
-                    39 TWS · 3a PersoniFi
+aa 21 01 <30..3d>   EnumDeviceStatusType, ordinal + 0x30 — see the list above
 aa 31  set ANC          aa 32  set ambient aware    aa 33  set auto-off
 aa 40/41/42  named in the SDK, ⚠ none is the EQ path — aa a2 is, and is driven
 aa 71  set gesture      aa 72  read gesture         aa 77  gesture batch
