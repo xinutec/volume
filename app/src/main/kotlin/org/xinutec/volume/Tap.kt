@@ -7,6 +7,7 @@ import android.util.Log
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.OneButton
 import org.xinutec.volume.protocol.Registry
+import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
 
@@ -147,6 +148,10 @@ object Tap {
             adapter.bondedDevices
                 .orEmpty()
                 .filter { it.address in here }
+                // ⚠ Same rule as the screen's list, and for the same reason: a
+                // speaker offers SPP too, and a tile that targets the kitchen
+                // speaker looks exactly like one that worked.
+                .filter { Wearable.couldBeHeadphones(it.bluetoothClass?.deviceClass ?: 0) }
                 .filter { d ->
                     val uuids =
                         d.uuids

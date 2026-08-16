@@ -12,6 +12,7 @@ import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Screen
+import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
@@ -143,6 +144,10 @@ class DeviceController(
      * answered neither way" than to hide the pair its owner is holding.
      */
     private fun drivable(d: BluetoothDevice): Boolean {
+        // ⚠ First, because SPP does not distinguish headphones from a laptop or a
+        // speaker — and the speakers are always in the room. `Crowley` and the
+        // SoundLink both listed as drivable, with a Connect that could only fail.
+        if (!Wearable.couldBeHeadphones(d.bluetoothClass?.deviceClass ?: 0)) return false
         val uuids =
             d.uuids
                 ?.map { it.uuid.toString() }
