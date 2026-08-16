@@ -139,6 +139,31 @@ class JblSettingsTest {
         assertEquals(JblEq.curve(bytes(JblFrames.JAZZ_ECHO)), JBL_CURVES[1].second)
     }
 
+    // ---- max volume limiter -------------------------------------------------
+
+    /**
+     * 22:14:26 — from the vendor app's OWN connect sweep, never driven by us.
+     *
+     * ⚠ **Both payload bytes are `01`, so this frame alone cannot say which is the
+     * status.** The offset comes from the SDK's `SafeSoundCmd`, calibrated against
+     * `SpeakToChatCmd` whose two offsets match Smart Talk's driven values. Reading a
+     * single agreeing byte as a mapping is what made `38` look like Auto Play & Pause
+     * earlier the same day; this is that mistake refused a second time.
+     */
+    @Test
+    fun `the volume limiter is read, and its offset is the SDK's`() {
+        assertEquals(true, JblSafeSound.state(bytes("aaa503020101")))
+        assertEquals(false, JblSafeSound.state(bytes("aaa503020100")))
+        assertEquals("aaa50101", hex(JblSafeSound.get()))
+    }
+
+    /** ⚠ There is no writer, and that is the design — see [JblSafeSound]. */
+    @Test
+    fun `a foreign frame is not a volume limit`() {
+        assertNull(JblSafeSound.state(bytes("aaa00702010002640300")))
+        assertNull(JblSafeSound.state(bytes("aaa50302")))
+    }
+
     private fun bytes(s: String) = Hex.parse(s)
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")

@@ -157,8 +157,8 @@ object Drivers {
         override fun read(t: Transport): AncMode? {
             val r = t.exchange(byteArrayOf(0xaa.toByte(), 0x91.toByte(), 0x01, 0x11))
             // ⚠ **The command byte is checked, not just the `aa`.** Every frame this
-            // chip sends starts `aa`, including the `aa b1` keepalive it emits every
-            // four seconds, so `aa` alone admits any of them — and the TLV slots would
+            // chip sends starts `aa`, including the `aa b1` GetSetFeature poll it
+            // runs every four seconds, so `aa` alone admits any of them — and the TLV slots would
             // then be read out of a frame about the battery. Being strict turns a
             // confident wrong mode into an honest "cannot say".
             if (r.size < 10 || r[0] != 0xaa.toByte() || r[1] != 0x91.toByte()) return null
@@ -218,6 +218,10 @@ object Drivers {
         }
 
         fun readCurve(t: Transport): EqCurve? = JblEq.curve(t.exchange(JblEq.get()))
+
+        /** ⚠ Read only, deliberately — [JblSafeSound] says why there is no writer. */
+        fun readVolumeLimit(t: Transport): Boolean? =
+            JblSafeSound.state(t.exchange(JblSafeSound.get()))
 
         /**
          * Read the curve, write [table] and [gains] into that frame, and read back.

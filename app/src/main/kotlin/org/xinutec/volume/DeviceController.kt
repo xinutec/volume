@@ -267,6 +267,7 @@ class DeviceController(
                 Settings(
                     curve = Drivers.JblBes.readCurve(s.transport),
                     timedOff = Drivers.JblBes.readAutoOff(s.transport),
+                    volumeLimit = Drivers.JblBes.readVolumeLimit(s.transport),
                 )
             }
 

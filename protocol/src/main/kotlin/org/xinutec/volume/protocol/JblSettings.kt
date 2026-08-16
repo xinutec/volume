@@ -206,6 +206,41 @@ private fun putFloat(b: ByteArray, at: Int, v: Float) {
 }
 
 /**
+ * The JBL's Max Volume Limiter — `aa a5`, the SDK's `SafeSoundCmd`.
+ *
+ * ```
+ * → aa a5 01 01        ← aa a5 03 02 01 <status>
+ * ```
+ *
+ * ⚠ **Read only, and that is a decision rather than a limitation.** This is hearing
+ * protection; it was found switched on, and nothing in this repo will write it. The
+ * getter came free from the vendor app's own connect-time sweep, so showing it costs
+ * nothing and touching it is never necessary.
+ *
+ * ⚠ **The offset is the SDK's, not a guess.** `SafeSoundCmd` parses `setStatus` from
+ * frame index 5. That reading was calibrated on a command whose answer is already
+ * known: `SpeakToChatCmd` takes `setOn` from index 4 and `setLatency` from index 5,
+ * and those are exactly where Smart Talk's driven values sit. Both payload bytes here
+ * happen to be `01`, so the capture alone could not have separated them — one
+ * agreeing byte is what made `38` look like Auto Play & Pause earlier the same day.
+ */
+object JblSafeSound {
+    const val CMD: Byte = 0xa5.toByte()
+
+    /** Where `SafeSoundCmd.setStatus` reads from, counting the `aa`. */
+    private const val STATUS_AT = 5
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+
+    fun state(reply: ByteArray): Boolean? {
+        if (reply.size <= STATUS_AT) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
+        if (reply[3] != 0x02.toByte()) return null
+        return reply[STATUS_AT] != 0x00.toByte()
+    }
+}
+
+/**
  * The BES chip's framing, which the JBL and the JLab share at the byte level.
  *
  * `aa <command> <length> <payload…>`, and a reply comes back under `command + 1`

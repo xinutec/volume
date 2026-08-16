@@ -71,6 +71,14 @@ data class Settings(
     val autoOff: AutoOff? = null,
     /** ⚠ The JBL's timer, which is not [autoOff]'s rule — see [TimedOff]. */
     val timedOff: TimedOff? = null,
+    /**
+     * The JBL's Max Volume Limiter — **shown, never written**.
+     *
+     * ⚠ Not in [refuses]: the device does not refuse this and its own app changes it
+     * freely. It is read-only because it is hearing protection, which is this repo's
+     * choice and is worth saying out loud rather than leaving as an absent control.
+     */
+    val volumeLimit: Boolean? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -88,7 +96,8 @@ data class Settings(
     val any: Boolean
         get() =
             eq != null || tone != null || curve != null || multipoint != null ||
-                autoOff != null || timedOff != null || soundQuality != null || button != null
+                autoOff != null || timedOff != null || soundQuality != null ||
+                button != null || volumeLimit != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }
