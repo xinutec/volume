@@ -10,12 +10,20 @@ import android.util.Log
 import android.widget.ScrollView
 import android.widget.TextView
 import org.xinutec.volume.protocol.AncMode
+import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.BoseBands
+import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseEq
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Confirmation
+import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Hex
 import org.xinutec.volume.protocol.SonyFrame
 import org.xinutec.volume.protocol.Sweep
+import org.xinutec.volume.protocol.Transport
 import org.xinutec.volume.protocol.set
+import org.xinutec.volume.protocol.setEq
+import org.xinutec.volume.protocol.setMultipoint
 import java.util.UUID
 
 /**
@@ -116,8 +124,15 @@ class MainActivity : Activity() {
                 anc(adapter, intent ?: return)
             }
 
+            "settings" -> {
+                settings(adapter, intent ?: return)
+            }
+
             else -> {
-                emit("unknown op '$op' — list, scan, send, sweep, seq, gatt, gattmap, anc")
+                emit(
+                    "unknown op '$op' — list, scan, send, sweep, seq, gatt, gattmap, " +
+                        "anc, settings",
+                )
             }
         }
     }
@@ -350,9 +365,44 @@ class MainActivity : Activity() {
      * ```
      */
     private fun anc(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        withSession(adapter, intent, "anc") {
+            val before = it.headphones.driver.read(it.transport)
+            emit("  mode: ${before ?: "(this device has no read command)"}")
+
+            val mode = intent.getStringExtra("mode") ?: return@withSession
+            val target =
+                AncMode.entries.firstOrNull { m -> m.name.equals(mode, ignoreCase = true) }
+            if (target == null) {
+                emit("  ✗ '$mode' is not one of ${AncMode.entries}")
+                return@withSession
+            }
+            if (target !in it.headphones.driver.modes) {
+                emit(
+                    "  ✗ ${it.headphones.model} has no $target, only ${it.headphones.driver.modes}",
+                )
+                return@withSession
+            }
+            emit("  → $target")
+            report(it.headphones.driver.set(it.transport, target))
+        }
+    }
+
+    /**
+     * Resolve `--es device` to an open session and hand it to [body].
+     *
+     * Extracted the moment a second op needed it. The connect half is identical for
+     * every driver — what differs is only which of the driver's questions get asked,
+     * which is [body].
+     */
+    private fun withSession(
+        adapter: android.bluetooth.BluetoothAdapter,
+        intent: Intent,
+        op: String,
+        body: (Session) -> Unit,
+    ) {
         val want = intent.getStringExtra("device")
         if (want == null) {
-            emit("anc needs --es device (a bonded name substring)")
+            emit("$op needs --es device (a bonded name substring)")
             return
         }
         val bonded =
@@ -382,30 +432,147 @@ class MainActivity : Activity() {
             }) { emit("  $it") } ?: return
         session.use {
             emit("  ${it.headphones.model} via ${it.headphones.route}")
-            val before = it.headphones.driver.read(it.transport)
-            emit("  mode: ${before ?: "(this device has no read command)"}")
+            body(it)
+        }
+    }
 
-            val mode = intent.getStringExtra("mode") ?: return@use
-            val target =
-                AncMode.entries.firstOrNull { m -> m.name.equals(mode, ignoreCase = true) }
-            if (target == null) {
-                emit("  ✗ '$mode' is not one of ${AncMode.entries}")
-                return@use
-            }
-            if (target !in it.headphones.driver.modes) {
-                emit(
-                    "  ✗ ${it.headphones.model} has no $target, only ${it.headphones.driver.modes}",
-                )
-                return@use
-            }
-            emit("  → $target")
-            when (val c = it.headphones.driver.set(it.transport, target)) {
-                is Confirmation.Confirmed -> emit("  ✓ confirmed by read-back")
-                is Confirmation.Contradicted -> emit("  ✗ it reads back as ${c.actual}")
-                is Confirmation.Unverifiable -> emit("  ⚠ sent; this device cannot confirm it")
+    /** One line per outcome, so a write's evidence is never left implicit. */
+    private fun report(c: Confirmation<Any>) =
+        when (c) {
+            is Confirmation.Confirmed -> emit("  ✓ confirmed by read-back")
+            is Confirmation.Contradicted -> emit("  ✗ it reads back as ${c.actual}")
+            is Confirmation.Unverifiable -> emit("  ⚠ sent; this device cannot confirm it")
+        }
+
+    /**
+     * Everything decoded that is not ANC: EQ, multipoint, auto-off, the Action button.
+     *
+     * ⚠ **This op is how those drivers get proven.** They were written on 2026-08-16
+     * from a capture and replayed in tests; until something sends them to a headphone
+     * they are a hypothesis with good spelling. Read first — with no write argument
+     * this only asks questions.
+     *
+     * ```
+     * --es op settings --es device "XM4"                     read everything
+     * --es op settings --es device "XM4" --es eq a1          Sony: a preset id, hex
+     * --es op settings --es device "XM4" --es autooff never  never | when_removed
+     * --es op settings --es device "XM4" --es multipoint on
+     * --es op settings --es device "Bose" --es eq 8,0,0      Bose: bass,mid,treble dB
+     * --es op settings --es device "Bose" --es button spotify
+     * ```
+     */
+    private fun settings(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
+        withSession(adapter, intent, "settings") { session ->
+            val t = session.transport
+            when (val d = session.headphones.driver) {
+                is Drivers.SonyXm4 -> {
+                    sonySettings(d, t, intent)
+                }
+
+                Drivers.BoseQc45 -> {
+                    boseSettings(t, intent)
+                }
+
+                else -> {
+                    emit("  ${session.headphones.model} has no settings decoded beyond ANC")
+                }
             }
         }
     }
+
+    private fun sonySettings(d: Drivers.SonyXm4, t: Transport, intent: Intent) {
+        emit("  eq:         ${d.readEq(t) ?: "(no answer)"}")
+        emit("  bands:      ${d.bands(t).ifEmpty { "(no answer)" }}")
+        emit("  auto-off:   ${d.readAutoOff(t) ?: "(no answer)"}")
+        emit("  multipoint: ${d.readMultipoint(t) ?: "(no answer)"}")
+
+        intent.getStringExtra("eq")?.let { arg ->
+            val preset = arg.toIntOrNull(16)
+            if (preset == null) {
+                emit("  ✗ eq wants a preset id in hex, e.g. a1 — not '$arg'")
+            } else {
+                emit("  → preset ${arg.lowercase()}")
+                report(d.setEq(t, preset))
+            }
+        }
+        intent.getStringExtra("autooff")?.let { arg ->
+            val mode = AutoOff.entries.firstOrNull { it.name.equals(arg, ignoreCase = true) }
+            if (mode == null) {
+                emit("  ✗ '$arg' is not one of ${AutoOff.entries}")
+            } else {
+                emit("  → $mode")
+                // Its own notify echoes the value, but the comparison is still made
+                // against a real read — see setMultipoint's note.
+                val after = d.writeAutoOff(t, mode) ?: d.readAutoOff(t)
+                when (after) {
+                    null -> emit("  ⚠ sent; nothing came back to check it against")
+                    mode -> emit("  ✓ confirmed")
+                    else -> emit("  ✗ it reads back as $after")
+                }
+            }
+        }
+        intent.getStringExtra("multipoint")?.let { arg ->
+            val on = onOff(arg) ?: return@let emit("  ✗ multipoint wants on|off, not '$arg'")
+            emit("  → multipoint $arg")
+            report(d.setMultipoint(t, on))
+        }
+    }
+
+    private fun boseSettings(t: Transport, intent: Intent) {
+        val d = Drivers.BoseQc45
+        emit("  eq:         ${d.readEq(t) ?: "(no answer)"}")
+        emit("  multipoint: ${d.readMultipoint(t) ?: "(no answer)"}")
+        emit("  button:     ${d.readButton(t) ?: "(unexercised code, or no answer)"}")
+
+        intent.getStringExtra("eq")?.let { arg ->
+            val n = arg.split(",").mapNotNull { it.trim().toIntOrNull() }
+            if (n.size != 3) {
+                emit("  ✗ eq wants bass,mid,treble in dB, e.g. 8,0,0 — not '$arg'")
+                return@let
+            }
+            val want = BoseBands(bass = n[0], mid = n[1], treble = n[2])
+            if (n.any { it !in BoseEq.RANGE }) {
+                // ⚠ The range itself is inferred, so refusing here is a guess about a
+                // guess. Say so rather than pretending the device rejected it.
+                emit("  ✗ $want is outside the INFERRED range ${BoseEq.RANGE}; not sent")
+                return@let
+            }
+            emit("  → $want")
+            val after = d.writeEq(t, want) ?: d.readEq(t)
+            when (after) {
+                null -> emit("  ⚠ sent; nothing came back to check it against")
+                want -> emit("  ✓ confirmed")
+                else -> emit("  ✗ it reads back as $after")
+            }
+        }
+        intent.getStringExtra("multipoint")?.let { arg ->
+            val on = onOff(arg) ?: return@let emit("  ✗ multipoint wants on|off, not '$arg'")
+            emit("  → multipoint $arg")
+            report(d.setMultipoint(t, on))
+        }
+        intent.getStringExtra("button")?.let { arg ->
+            val action =
+                BoseButton.Action.entries.firstOrNull { it.name.equals(arg, ignoreCase = true) }
+            if (action == null) {
+                emit("  ✗ '$arg' is not one of ${BoseButton.Action.entries}")
+                return@let
+            }
+            emit("  → $action")
+            val after = d.writeButton(t, action) ?: d.readButton(t)
+            when (after) {
+                null -> emit("  ⚠ sent; nothing came back to check it against")
+                action -> emit("  ✓ confirmed")
+                else -> emit("  ✗ it reads back as $after")
+            }
+        }
+    }
+
+    private fun onOff(arg: String): Boolean? =
+        when (arg.lowercase()) {
+            "on", "true", "1" -> true
+            "off", "false", "0" -> false
+            else -> null
+        }
 
     /** Every GATT service and characteristic a device offers, with its properties. */
     private fun gattmap(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {

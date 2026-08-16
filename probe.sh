@@ -8,6 +8,8 @@
 #   ./probe.sh scan                                 what is advertising over LE
 #   ./probe.sh gattmap <name>                       every GATT service + property
 #   ./probe.sh gatt <name> <hex,hex> [service]      BLE — the JBL's control path
+#   ./probe.sh anc  <device> [mode]                 read, or set, the ANC mode
+#   ./probe.sh settings <device> [k=v …]            EQ, multipoint, auto-off, button
 #   ./probe.sh free               force-stop every vendor app holding a channel
 #
 # ⚠ Hearing safety: probe with reads. Never use a volume command as the proof, and
@@ -63,9 +65,10 @@ case "${1:-list}" in
     watch_log "${SWEEP_WAIT:-180}"
     ;;
   seq)
-    # The WRITE tool: several packets down ONE socket, in order. Bose edits are
-    # transactional (an operator-05 Start, then the change), so they cannot be
-    # expressed with `send`, which opens a fresh socket per packet.
+    # The WRITE tool: several packets down ONE socket, in order. The Bose ANC write
+    # is transactional (an operator-05 Start, then the change), so it cannot be
+    # expressed with `send`, which opens a fresh socket per packet. ⚠ Only that one
+    # is — Bose EQ, multipoint and the Action button each took a plain Set.
     mac="${2:?mac}"; uuid="${3:?uuid}"; packets="${4:?comma-separated hex}"
     args=(--es op seq --es mac "$mac" --es uuid "$uuid" --es packets "$packets")
     # SONY_SEQ=1 frames each payload and acks the device's data frames — its PARAM
@@ -103,6 +106,40 @@ case "${1:-list}" in
     [ -n "${4:-}" ] && args+=(--es service "$4")
     "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
     watch_log "${GATT_WAIT:-40}"
+    ;;
+  anc)
+    # The whole stack: resolve a bonded name to a driver, open its channel, read
+    # the mode, optionally set one. With no mode it only reads.
+    who="${2:?device name substring}"
+    args=(--es op anc --es device "'$who'")
+    [ -n "${3:-}" ] && args+=(--es mode "$3")
+    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    watch_log "${ANC_WAIT:-40}"
+    ;;
+  settings)
+    # Everything decoded that is not ANC. ⚠ With no k=v arguments this READS only —
+    # which is the right first move against a driver nothing has ever sent.
+    #
+    #   ./probe.sh settings XM4                     read
+    #   ./probe.sh settings XM4 eq=a1               Sony preset id, hex
+    #   ./probe.sh settings XM4 autooff=never       never | when_removed
+    #   ./probe.sh settings Bose eq=8,0,0           Bose bass,mid,treble in dB
+    #   ./probe.sh settings Bose button=spotify     hear_battery_level | spotify
+    #   ./probe.sh settings XM4 multipoint=on
+    who="${2:?device name substring}"
+    args=(--es op settings --es device "'$who'")
+    shift 2
+    for kv in "$@"; do
+      # Split on the FIRST = only: a Bose eq value is itself comma-separated and a
+      # future value could hold one too.
+      key="${kv%%=*}"; val="${kv#*=}"
+      case "$key" in
+        eq|multipoint|autooff|button) args+=(--es "$key" "$val") ;;
+        *) echo "unknown setting '$key' — eq, multipoint, autooff, button" >&2; exit 2 ;;
+      esac
+    done
+    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    watch_log "${SETTINGS_WAIT:-60}"
     ;;
   send|raw)
     mac="${2:?mac}"; uuid="${3:?uuid}"; payload="${4:-}"
