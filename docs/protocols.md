@@ -226,7 +226,7 @@ Per-feature status is one byte each, and cheaper to read than the `30` bundle:
 → aa 21 01 35   ← aa 22 02 35 df        "multi-AI" per the SDK; `df` undecoded
 → aa 21 01 36   ← aa 22 02 36 00        BT connection status
 → aa 21 01 37   ← aa 22 02 37 00        OTA
-→ aa 21 01 38   ← aa 22 02 38 01        ✅ Auto Play & Pause — see below
+→ aa 21 01 38   ← aa 22 02 38 01        ⚠ was called Auto Play & Pause — see below
 → aa 21 01 39   ← aa 22 02 39 01        TWS
 → aa 21 01 3a   ← (nothing)             ⚠ PersoniFi: this model does not answer
 → aa 21 01 30   ← aa 22 0d 30 01 00 ff 00 df 01 00 01 01 00 1e 00     all of them
@@ -237,10 +237,13 @@ field ORDER is not established — `01 00` opens it and `00 1e 00` closes it, wh
 `31 32 … 33`, and the middle does not line up with a plain concatenation. The per-field
 reads are unambiguous and cheaper, so nothing depends on decoding the bundle.
 
-✅ **`38` is Auto Play & Pause**, and this is a cross-check rather than a guess: it read
-`01` while the vendor app's own screen, open minutes earlier, showed that switch on.
-Read only — `aa 38` would set it if the setter mirrors the getter as it does for
-`31`/`32`/`33`, but that has not been sent.
+⚠ **"`38` is Auto Play & Pause" was published here and is now doubtful.** It rested on
+one point: `38` read `01` while the app's switch showed on. Driving that switch two
+hours later sent **`aa 35 01 <on>`**, twice, matching off and on — and `31`/`32`/`33`
+all mirror between setter and status field, which would make the status field `35`,
+not `38`. But `aa 21 01 35` reads `df`, which is not a boolean.
+So: the SETTER is measured, the status field is not settled, and `01` is a value most
+fields hold. ⚠ A single agreeing byte is not a mapping — that is what this cost.
 
 ### ✅ Auto power off — driven 2026-08-16
 
@@ -248,14 +251,13 @@ Read only — `aa 38` would set it if the setter mirrors the getter as it does f
 → aa 21 01 33        ← aa 22 04 33 <on> <minutes> <?>     00 1e 00 = off, 30 min
 → aa 33 03 <on> <minutes> <?>   ← aa 00 02 33 00          the ack, not the answer
 ```
-⚠ **The app offers 30 min / 1 hr / 2 hr, and only `1e` = 30 has ever been sent.** So
-the unit is now well supported — the vendor's own menu is in minutes and its first
-entry is the byte we read — but `3c` and `78` are untested and this code cannot ask
-for either.
+✅ **The unit is MINUTES, proven 2026-08-16 22:09** by driving the app's own three
+options and reading the frames: `1e`/`3c`/`78` = 30/60/120 for "30 min"/"1 hr"/"2 hr".
+This replaces a note that had said "minutes, unverified" since the field was found.
 
 Driven both ways from this code and confirmed by read-back. ⚠ **The shape was
 guessed from the status reply and worked first time** — the setter mirrors the
-getter here, as it does on all four vendors. ⚠ `1e` = 30 was never varied, so the
+getter here, as it does on all four vendors. ⚠ `1e` = 30 was never varied by us, so the
 units are still "minutes, unverified"; only the on/off byte is measured.
 
 ### ✅ Equalizer — `aa a2`, a CURVE **and** a table id
@@ -298,7 +300,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Three of twenty-two are driven.** Written down
+status sweep taken minutes later. **Three of twenty-two are driven by us; eleven are now decoded.** Written down
 because "is it all understood?" could not be answered before without opening the app,
 and answering it from what `docs/` happened to mention would have flattered us.
 
@@ -306,27 +308,27 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | --- | --- | --- |
 | battery % | in `aa 12`, and `aa 25` | — |
 | ⏻ power off | ? | — |
-| Ambient Sound Control master switch | ? | — |
+| Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
 | Customize ANC | `aa 74`/`aa 75`? | — |
 | Personi-Fi | `3a` **answers nothing** | — |
 | Equalizer | `aa a2` | ✅ r/w |
-| Low Volume Dynamic EQ | ? | — |
-| Spatial Sound + Movie/Music/Game | ? | — |
+| Low Volume Dynamic EQ | ✅ `aa 9e` | — |
+| Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, ⚠ modes silent | — |
 | Gestures | `aa 77` reads, `aa 71` sets | 👁 read, #970 |
-| Smart Talk + 5/15/20 s | ? | — |
-| VoiceAware + Low/Mid/High | ? | — |
-| Smart Audio & Video + Audio/Video | ? | — |
+| Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | — |
+| VoiceAware + Low/Mid/High | ✅ `aa 98`, level unknown | — |
+| Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
 | SilentNow | ? | — |
 | Auracast | ? | — |
 | LE Audio | ? | — |
-| Auto Play & Pause | ✅ `38`, cross-checked | 👁 read |
+| Auto Play & Pause | ✅ `aa 35 01 <on>` | — |
 | Personal Sound Amplification | ? | — |
-| Left / Right Sound Balance | gesture table has `10 balance dial` | — |
+| Left / Right Sound Balance | ✅ `aa a8` | — |
 | Voice Assistant | `35` = `df`? | — |
 | Voice Prompts (language) | ? | — |
 | Max Volume Limiter | ? | — |
-| Auto Power Off + 30 min/1 hr/2 hr | `33` | ✅ on/off only |
+| Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
 
 ⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
 of the app touching that one control, and the method in `docs/captures.md` applies
@@ -334,6 +336,65 @@ unchanged; the reason there are twenty of them is that the work stopped when ANC
 worked. ⚠ Several rows are toggles that are OFF right now — Spatial Sound, Smart Talk,
 VoiceAware, LE Audio, balance — so any of them could be the unidentified `34`, and
 attributing it needs one of them varied, not more reading.
+
+### ✅ Eight more, driven through the vendor app — 2026-08-16 21:44 and 22:04
+
+Two runs of `scripts/drive-jbl.sh`, each change followed immediately by its inverse.
+Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operator>
+<payload…>`, operator **`00` set · `01` get · `02` status**.
+
+| the app's row | set | get | status |
+| --- | --- | --- | --- |
+| Ambient Sound Control, master off | `aa 91 01 13` | `aa 91 01 11` | `aa 91 07 12 …` all three slots `00` |
+| Low Volume Dynamic EQ | `aa 9e 02 00 <on>` | `aa 9e 01 01` | `aa 9e 02 02 <on>` |
+| Spatial Sound | `aa 9d 03 00 <on> <mode>` | `aa 9d 01 01` | `aa 9d 03 02 <on> <mode>` |
+| Smart Talk | `aa 9f 03 00 <on> <seconds>` | `aa 9f 01 01` | `aa 9f 03 02 <on> <seconds>` |
+| VoiceAware | `aa 98 03 00 02 <on>` | `aa 98 01 01` | `aa 98 03 02 02 <on>` |
+| Auto Play & Pause | `aa 35 01 <on>` | ? | ⚠ see above |
+| Left / Right Sound Balance | `aa a8 05 00 01 <on> 02 64` | `aa a8 01 01` | `aa a8 05 02 01 <on> 02 64` |
+| Smart Audio & Video | `aa 81 08 00 01 35 00 <v> 00 ff ff` | `aa 82 00` | `aa 83 08 …` |
+
+✅ **Smart Talk's timeout is in SECONDS** — `05`/`0f`/`14` are exactly the app's 5 s,
+15 s and 20 s. Four points, so this is measured rather than inferred from one.
+
+✅ **Smart Talk was then seen doing its job unprompted**: at 21:48:36 the headphones
+volunteered `aa 91 07 12 01 00 02 00 03 01` — into TalkThru — and `…01 01 02 00 03 00`
+back twenty seconds later. Notifications, not commands; it is the feature working.
+
+⚠ **Smart Audio & Video's payload is located, not decoded.** The byte that moves is
+`e6` when the switch is turned off and `96` when it is turned on. That is not a
+boolean, and 230/150 look like milliseconds of latency, which is a guess and is
+written here as one.
+
+⚠ **VoiceAware's `02` is unexplained** — the Low/Mid/High slider was never dragged,
+so `02` may be that level or may be a field id. One drag would settle it.
+
+⚠ **Spatial Sound's Movie / Music / Game buttons send NOTHING when tapped.** Confirmed
+twice, the second time with the three taps landing on one row at identical
+coordinates, so this is no longer a suspected mis-tap. The mode byte travels with the
+on/off write instead. ⚠ It is still NOT established that the buttons reach the device
+at all: tapping Movie and *then* toggling would show a mode byte other than `01`, and
+that has not been done.
+
+### The vendor app's own connect-time sweep — 22:14:25, 40 exchanges in two seconds
+
+Forcing our app to release the link made the vendor app reconnect, and it read
+everything it knows about. That list is a map of this device's surface, free:
+
+```
+aa 9b 02 01 01   aa 91 01 11   aa 91 01 21   aa 9f 01 01   aa a2 02 01 ca/ff/c9
+aa 9e 01 01      aa 9d 01 01   aa 82 00      aa 77 02 01 ff   aa 98 01 01
+aa a0 01 01      aa 21 01 35   aa 93 01 04   aa 93 01 01   aa a5 01 01
+aa 90 01 03      aa 94 01 01   aa b0 01 00   aa 61 02 fe 35   aa 13 01 00 01
+aa a8 01 01
+```
+✅ `aa 94 01 01` → `aa 94 11 02 "TL1461-AN0018486"` — the **serial number**, in ASCII.
+✅ `aa 13 01 00 01` → a 37-byte table of `<id> <value> 00` triples, which is the
+shape of a capability list and is undecoded.
+
+⚠ **This sweep is the cheapest lead left.** Every getter above has a setter by the
+mirror rule, and the ones still unnamed — `93`, `a5`, `90`, `b0`, `9b`, `a0` — are
+that many of the app's remaining rows.
 
 ### Gestures — read and decoded
 
