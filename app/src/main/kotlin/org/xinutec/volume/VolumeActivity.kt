@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
@@ -164,12 +165,16 @@ fun VolumeScreen(screen: Screen, onConnect: (String) -> Unit, onSet: (String, An
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (why == Emptiness.LOOKING) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(Modifier.padding(bottom = 16.dp))
                 }
+                // ⚠ `textAlign`, not just the Column's `horizontalAlignment`: the
+                // Text fills the width, so centring the block is a no-op and every
+                // one of these wraps to two lines. Caught by looking — the code read
+                // as centred and rendered hard left.
                 Text(
                     reason(why),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 16.dp),
+                    textAlign = TextAlign.Center,
                 )
             }
             return@Scaffold
