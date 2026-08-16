@@ -6,9 +6,9 @@ The wire formats in `docs/` were measured against the real headphones on
 
 ## ⚠ This app is a replacement, not an addition
 
-The vendor apps — Bose Music, Sony Headphones, JBL, JLab — are to be **uninstalled**
-once this one replaces them (Pippijn, 2026-08-16). Two consequences, and both change
-what counts as done:
+A **pure Kotlin native app** — Pippijn's call, #785 — and the vendor apps (Bose
+Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces them
+(2026-08-16). Two consequences, and both change what counts as done:
 
 - **Coexisting with them is not a goal.** Never trade away responsiveness to leave a
   channel free for an app that is going to be deleted; that mistake set the channel
@@ -90,19 +90,9 @@ acknowledgements. `docs/protocols.md` has the correction.
 5. **JLab reads.** ANC writes work, but no read command is known — its periodic
    broadcast carries battery, not mode. Capture the app opening its dashboard.
 
-## ⚠ The open decision (#785)
-
-2026-08-12 Pippijn settled: headphones go in **thoth's Angular UI**, one remote.
-2026-08-15, asked fresh: **pure Kotlin app**. The second knowingly reverses the
-first; tie-break deferred to the protocol work, which favours neither (the Kotlin
-is identical either way). Native = QS tile + widget. Angular = one remote for
-headphones *and* the Mac's CoreAudio + Picades, which cannot move to the phone
-(`project_thoth`). **Pippijn's call — don't re-decide it silently.**
-
 ## Probe
 
 ```bash
-./deploy.sh                              # build + install, Pixel 9 by MODEL
 ./probe.sh list                          # bonded + detected channel/protocol
 ./probe.sh scan                          # what is advertising over LE, right now
 ./probe.sh gattmap <name>                # every GATT service, char and property
@@ -127,9 +117,9 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
 
 ### Traps, each of which cost a wrong conclusion
 
-- ⚠ **One vendor app holds the channel exclusively.** A connect failure while one
-  runs is not a protocol result. Keep them installed — captures need them.
-  `com.harman.ble.jbllink` is the *speaker* app; headphones are `jbl.stc.com`.
+- ⚠ **A connect failure while a vendor app is running is not a protocol result.**
+  Close it first (`./probe.sh free`). Keep them installed until parity — captures
+  need them; `docs/protocols.md` says which app drives which device.
 - ⚠ **`send` cannot write.** Bose edits are transactional (operator-`05` Start,
   then the change). The orphaned write is *accepted* and the unchanged state
   echoes back — reads exactly like a wrong field. Use `seq`.
