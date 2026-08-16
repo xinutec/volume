@@ -80,6 +80,21 @@
     {
       "argv": [
         "nix",
+        "shell",
+        "nixpkgs#mypy",
+        "-c",
+        "mypy",
+        "--strict",
+        "scripts/"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "scripts type-check",
+      "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
         "run",
         "../dev-lint#gate",
         "--",
