@@ -52,6 +52,24 @@ The EQ screen is Bass/Mid/Treble sliders plus four preset buttons (Bass Boost, B
 Reducer, Treble Boost, Treble Reducer) — so the presets are almost certainly a
 three-value write, not an opaque preset id like Sony's.
 
+### ⚠ First look at the EQ frames — UNVERIFIED, a lead not a result
+
+    11:25:33 → 01 07 02 02  08 00        Bass Boost
+    11:25:33 ← 01 07 03 0c  f60a0800 f60a0001 f60a0002
+    11:25:41 → 01 07 02 02  06 02        Treble Boost
+    11:25:41 ← 01 07 03 0c  f60a0800 f60a0001 f60a0602
+
+Reading it as Bose's `<block> <fn> <operator> <len> <payload>`: block `01` fn `07`
+is EQ, operator `02` is Set and `03` the status. The status carries **three groups
+of four**, one per band, and each looks like `f6 0a <value> <band>` — `f6`/`0a` being
+−10/+10 as the limits, and bands `00`/`01`/`02` = Bass/Mid/Treble. The value moved
+only in the band whose button was pressed, which is what makes the reading
+plausible.
+
+⚠ **Not confirmed:** the `f6 0a` prefix is a guess from the numbers looking like a
+range, nothing more. A Reset frame and a slider drag would settle it. Verify against
+the 15 write-capable functions in `docs/bose-read-surface.md` before writing code.
+
 Link confirmed still up after the last action, and the app still showed the QC45 —
 so unlike the Sony run, everything here should be on the wire.
 

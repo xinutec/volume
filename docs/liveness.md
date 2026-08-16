@@ -73,6 +73,15 @@ mistake that survives review and then blocks a later simplification.
   shade open, or in split screen, it returns another app's tree. Check
   `dumpsys window | grep mCurrentFocus` first — `watch-list.sh` refuses to run
   otherwise.
+- ⚠ **`mCurrentFocus` naming another app does NOT mean this one is stopped.** In
+  split screen both halves stay resumed and only one has focus, so `onStop` never
+  fires and nothing is released. Reading focus as "backgrounded" produced a
+  confident wrong diagnosis — the app was said to be holding nothing while it held
+  an open GATT client, which was why a tile tap could not open one.
 - ⚠ **Verify the APK actually carries the change** before believing a run:
   `strings` the installed dex for a string the change added. A successful
   `adb install` is not evidence.
+- ⚠ **Reinstalling removes the app's Quick Settings tile** from `sysui_qs_tiles`,
+  silently. Re-add with `adb shell cmd statusbar add-tile
+  org.xinutec.volume/.AncTileService`, and note `click-tile` only reaches a bound
+  service — i.e. with the shade open (`cmd statusbar expand-settings` first).
