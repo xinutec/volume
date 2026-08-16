@@ -503,6 +503,19 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             )
         }
 
+        settings.volumeLimit?.let { on ->
+            // ⚠ A value with no switch, and a sentence saying why — otherwise a
+            // missing control reads as a missing feature, which is the trap
+            // `RefusedNote` exists for. This one is not refused: the device would
+            // take the write and its own app makes it freely.
+            SettingLabel("Volume limit", if (on) "on" else "off")
+            Text(
+                "hearing protection — this app will read it, never change it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+
         settings.multipoint?.let { on ->
             SettingRow(
                 "Two devices at once",
