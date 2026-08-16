@@ -74,10 +74,14 @@ object BoseEq {
     const val TREBLE = 2
 
     /**
-     * ⚠ **Unproven.** `f6 0a` leads every band's group in every frame seen, and −10
-     * to +10 is what those two read as signed — but only preset buttons were pressed,
-     * so no level outside −0…+8 was ever exercised. A slider dragged to each end is
-     * what would settle it.
+     * ✅ **Proven on hardware 2026-08-16**, twice over and no longer an inference.
+     *
+     * The `f6 0a` that leads every band's group is the device declaring its own
+     * bounds — a flat QC45 answers `01 07 03 0c  f6 0a 00 00  f6 0a 00 01
+     * f6 0a 00 02`, which is `<min> <max> <level> <band>` three times. And both ends
+     * were then driven: bass −10 and bass +10 were each accepted and read back before
+     * being restored to flat. Until that evening only −0…+8 had ever been exercised,
+     * because the capture pressed preset buttons and dragged no slider.
      */
     val RANGE = -10..10
 
@@ -136,6 +140,11 @@ object BoseEq {
  * Multipoint — block `01`, function `0a`. The one setting here that is symmetric,
  * unlike the Sony's, whose two taps used two different subsystems.
  *
+ * ✅ **Driven on hardware 2026-08-16**, on and off, each confirmed by read-back and
+ * restored. ⚠ Worth stating next to [SonyMultipoint], which the XM4 refuses outright:
+ * the same *setting* behaves completely differently on the two vendors, so neither
+ * one's result may be carried across to the other.
+ *
  * ⚠ The 2026-08-15 sweep did not record `01 0a` among block `01`'s readable
  * functions, though it plainly answers a Get. Either the sweep's function range
  * stopped short of it or the device answered differently then; re-sweep before
@@ -167,6 +176,9 @@ object BoseMultipoint {
 
 /**
  * The Action button's shortcut — block `01`, function `09`.
+ *
+ * ✅ **Driven on hardware 2026-08-16**: Spotify and back to Hear Battery Level, each
+ * confirmed by read-back and restored.
  *
  * ⚠ **Only two of the app's options were exercised**, so this enum is two entries
  * and everything else decodes to null rather than to a guess. The QC45's own menu

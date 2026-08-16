@@ -112,32 +112,37 @@ function and accepts it on three others, and both look identical to a green suit
   Decoded and driven the same evening, both directions, confirmed and restored.
   ⚠ Changing it renegotiates the codec, so the link drops and returns.
 
-**Decoded, and the write is refused** — the frames are right and the device says no
+- **Bose multipoint** — `MultipointDriver` on `BoseQc45`, on and off, confirmed and
+  restored. ⚠ Its reply to a write never answers the question — a flags byte that
+  never equals what was written — so it is read back with a real Get. ⚠ **The XM4
+  refuses the identical setting**, so neither vendor's result transfers to the other.
+- **Bose EQ and Action button** — `BoseQc45.readEq`/`writeEq`/`readButton`/
+  `writeButton`, `docs/bose-settings.md`. Bass Boost, both range ends and flat all
+  written and confirmed; Spotify and back on the button. ⚠ The presets are the
+  *app's*, not the device's: three signed band values, no preset id on the wire, so
+  this is deliberately **not** `EqDriver`. ⚠ Only two of the button's actions exist
+  here; the menu offers more.
+  ✅ **The ±10 range is no longer inferred** — the device declares `f6 0a` as each
+  band's min/max, and both ends were driven and read back.
+
+**Decoded, and the device says no** — the frames are right and the write is refused
 - **Sony multipoint** — ⚠ **the XM4 refuses to enable it at all**, for this repo, for
   Sony Headphones Connect driven over adb, and for a finger on the switch. All three
   send `d8 d2 01 01`; all three get `d9 d2 01 00`. Not the codec — retested in both
   Sound Quality Modes. `d8 d2 01 00` has never been sent, because it has never been
-  on to turn off.
+  on to turn off. ⚠ The QC45 accepts the same setting happily, so this is the XM4's
+  own rule and not something about multipoint.
 - **Sony [CUSTOM] button** — `SonyButton`, block `f0` type `06`, `00` Ambient Sound
   Control / `31` Digital assistant. ⚠ **The reads work and the write does not — but
   the vendor app's identical frame does.** That asymmetry is the lead, and it is
-  #965; do not merge it with multipoint above, which fails for everyone.
-
-**Written, needs hardware** — code, replay tests against captured frames, no device
-- **Bose multipoint** — `MultipointDriver` on `BoseQc45`. ⚠ **Its reply to a write
-  never answers the question**: a flags byte that never equals what was written, so
-  it is read back with a real Get. Same hazard as the Sony's, reached from a
-  completely different direction.
-
-- **Bose EQ and Action button** — `BoseQc45.readEq`/`writeEq`/`readButton`/
-  `writeButton`, `docs/bose-settings.md`. ⚠ The presets are the *app's*, not the
-  device's: three signed band values, no preset id on the wire, so this is
-  deliberately **not** `EqDriver`. ⚠ Only two of the button's actions were driven.
+  #965; do not merge it with multipoint above, which fails for everyone. ⚠ The QC45's
+  equivalent button write works from this code, which is the same contrast again.
 
 **Decoded, needs a driver** / **Captured, needs decoding**
 
-*(nothing outstanding — every captured byte is decoded, and every decoded frame has
-a driver. What is missing everywhere now is a screen and a headphone.)*
+*(nothing outstanding — every captured byte is decoded, every decoded frame has a
+driver, and on the XM4 and the QC45 every driver but two has been run against the
+device. The two are named above, and both are the device saying no.)*
 
 **Not captured**
 - **JBL EQ, auto-off, gestures.** Reads are done (`docs/protocols.md`): status,

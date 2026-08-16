@@ -25,9 +25,12 @@ is unlike Sony, where the byte is unsigned and offset by 10. Each group is
 `<min> <max> <level> <band>`; the band is the group's own fourth byte, so the groups
 are self-describing and must not be read positionally.
 
-⚠ **`f6`/`0a` as −10/+10 limits is unproven.** They lead every group in every frame,
-and that is the whole evidence: only preset buttons were pressed, so no level outside
-0…+8 was ever exercised. Drag a slider to each end to settle it.
+✅ **`f6`/`0a` ARE the −10/+10 limits — settled on hardware 2026-08-16 evening**, and
+by two independent routes. The device declares them: a flat QC45 answers
+`01 07 03 0c  f6 0a 00 00  f6 0a 00 01  f6 0a 00 02`, so each group's first two bytes
+are that band's own min and max. And both ends were then driven — bass −10 and bass
++10, each accepted and read back, then restored to flat. Until that evening the whole
+evidence was that those bytes led every group, with nothing outside 0…+8 exercised.
 
 ⚠ **There is no preset id on the wire.** Bose Music's four preset buttons are the app
 writing three band values, so the presets belong to the app — the opposite of Sony,
@@ -58,6 +61,11 @@ layout at rest, written down before anyone knew what it meant.
 is bit 0, and bits 1–2 were set throughout. A driver comparing the status to the
 value it sent would report every write as failed.
 
+✅ **Driven on hardware 2026-08-16**, on and off, each confirmed by read-back and
+restored. ⚠ **The XM4 refuses the same setting outright** (`docs/sony-settings.md`) —
+so "multipoint works" is true of this device and false of that one, and neither
+result transfers.
+
 ⚠ The 2026-08-15 sweep did not list `01 0a` among block `01`'s readable functions
 though it plainly answers a Get. Either the sweep's function range stopped short or
 the device answered differently then — do not treat that list as complete.
@@ -70,6 +78,11 @@ the device answered differently then — do not treat that list as complete.
 `03` Hear Battery Level, `10` Spotify. ⚠ **Only those two were driven**; the QC45's
 menu offers more, and an unexercised code decodes to unknown rather than the nearest
 match.
+
+✅ **Driven on hardware 2026-08-16** by this repo's own driver: Spotify, then back to
+Hear Battery Level, each confirmed by read-back. ⚠ Worth noting beside the XM4's
+[CUSTOM] button, whose write this repo cannot make stick at all (#965) — the same
+kind of setting, and only one of the two vendors accepts it from us.
 
 ⚠ `80 09` is unexplained and is carried verbatim. The eight-byte trailer is static —
 identical for both actions here and in the 08-15 sweep — and is **not** a mask of
