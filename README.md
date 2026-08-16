@@ -1,12 +1,32 @@
 # volume — headphone control over the vendor channels
 
-Everything in `docs/` was measured against the real headphones on 2026-08-15.
+The wire formats in `docs/` were measured against the real headphones on
+2026-08-15; the app's own behaviour (`docs/liveness.md`) on 2026-08-16.
 **Re-measure; firmware moves things.**
 
-**The app** is `VolumeActivity`: every bonded headphone it knows how to drive, its
-model once identified, and its ANC modes as chips. The **probe** (`MainActivity`,
-`probe.sh`) stays — it is the only tool that can investigate a device the app
-cannot drive, and both share `:protocol`, so a byte fixed in one is fixed in both.
+## ⚠ This app is a replacement, not an addition
+
+The vendor apps — Bose Music, Sony Headphones, JBL, JLab — are to be **uninstalled**
+once this one replaces them (Pippijn, 2026-08-16). Two consequences, and both change
+what counts as done:
+
+- **Coexisting with them is not a goal.** Never trade away responsiveness to leave a
+  channel free for an app that is going to be deleted; that mistake set the channel
+  lease to 8 s when nothing was waiting for it. See `Leases`.
+- **Anything they still do exclusively is something Pippijn loses on uninstall
+  day.** Today this app does ANC and nothing else. The "Next" list below is
+  therefore parity work, not exploration — EQ, multipoint, auto-off and button
+  assignment all live only in the vendor apps right now.
+
+**The app** is `VolumeActivity`: every *connected* headphone it knows how to drive,
+its model once identified, and its ANC modes as chips. It follows the radio while
+on screen, so a pair switched on appears without anyone touching it
+(`docs/liveness.md`), and it **gives every control channel back when backgrounded**
+— an app nobody is looking at has no business holding a live link to five devices.
+
+The **probe** (`MainActivity`, `probe.sh`) stays — it is the only tool that can
+investigate a device the app cannot drive, and both share `:protocol`, so a byte
+fixed in one is fixed in both.
 
 ## Two modules
 
@@ -154,10 +174,31 @@ Get/zero (tested) rather than taking them as parameters.
 
 ## Docs / build
 
-`docs/protocols.md` — the wire formats, capture method, channel traps.
+`docs/protocols.md` — the wire formats, capture method, channel traps, and which
+vendor app drives which device (⚠ each vendor ships two plausible ones).
 `docs/bose-read-surface.md` — Bose surface, error taxonomy, how ANC was found.
 `docs/liveness.md` — why the profile broadcasts, not ACL, keep the list live;
 measured timings, and the traps in measuring it.
+
+## Tools
+
+```
+./deploy.sh              build + install. ⚠ Does NOT relaunch: the phone keeps
+                         Volume in a split screen with the agent console, and
+                         `am start` re-creates the task fullscreen and throws the
+                         console out. `install -r` kills the process, so the app
+                         comes back in place on the new build. --start to
+                         foreground anyway.
+./probe.sh               the #783 probe (MainActivity) — for devices the app
+                         cannot yet drive.
+scripts/watch-list.sh    does the screen follow the radio? Samples the radio and
+                         the semantics tree on one clock, prints only on change.
+scripts/shot.sh          screenshot just Volume's half of the split, cropped to
+                         the window frame the window manager reports.
+```
+⚠ `adb logcat -s VolumeLive` is the app's own account of the same thing: every
+broadcast it receives, what the profile proxies said at that moment, and every
+channel it releases.
 
 ```bash
 nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest
