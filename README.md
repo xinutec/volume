@@ -97,15 +97,20 @@ session opener nobody knew about, the Bose refuses an untransacted write on one
 function and accepts it on three others, and both look identical to a green suite.
 
 **Written, needs hardware** — code, replay tests against captured frames, no device
-- **Sony EQ** — `SonyXm4.readEq`/`writeEq`/`bands`, `docs/sony-settings.md`.
-  ⚠ Writing a custom *curve* (`58 01 <preset> <count> <levels>`) is structurally
-  certain and unexercised: no band was dragged during the capture.
+- **Sony EQ** — `SonyXm4.readEq`/`writeEq`/`bands`. ⚠ Writing a custom *curve*
+  (`58 01 <preset> <count> <levels>`) is structurally certain and unexercised: no
+  band was dragged during the capture.
+- **Sony auto-off** — `readAutoOff`/`writeAutoOff`. Two values; no timer exists in
+  this model's menu, so an unknown value reads as not-understood.
+- **Multipoint, both vendors** — `MultipointDriver`, on `SonyXm4` and `BoseQc45`.
+  ⚠ **Neither device's reply to a multipoint write answers the question**: the Sony
+  volunteers a notification about a *different* parameter, the Bose a flags byte
+  that never equals what was written. Both are read back with a real Get.
+  ⚠ Sony's `d8 d2 01 00` has never been sent — only turning it *on* was captured.
 
 **Decoded, needs a driver** — the frames are exact and encoded in `:protocol` with
 the capture as fixtures
-- **Sony auto-off, multipoint** — `docs/sony-settings.md`. ⚠ The multipoint pair is
-  the one asymmetric row in that file; re-capture before writing it.
-- **Bose EQ, multipoint, Action button** — `docs/bose-settings.md`, `BoseSettings.kt`.
+- **Bose EQ and Action button** — `docs/bose-settings.md`, `BoseSettings.kt`.
   ⚠ The presets are the *app's*, not the device's: three signed band values, no
   preset id on the wire.
 
