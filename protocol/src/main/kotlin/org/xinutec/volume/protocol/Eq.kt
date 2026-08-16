@@ -22,6 +22,36 @@ data class EqSetting(
 )
 
 /**
+ * One point on a drawn equaliser curve: a band centre, and its gain.
+ *
+ * ⚠ **Gain is a float here because it is a float on the wire.** The JBL sends IEEE
+ * singles and its app's own curves land on halves (`+2.5`), so rounding to the
+ * integer dB that [EqSetting] uses would quietly move a band. Exact equality is
+ * therefore meaningful: a write is echoed back bit for bit, so a difference is the
+ * device disagreeing rather than arithmetic drift.
+ */
+data class EqBand(
+    val hz: Int,
+    val gain: Float,
+)
+
+/**
+ * A whole curve, and the table id the device keeps it under.
+ *
+ * ⚠ **Not [EqSetting], and the difference is which end owns the values.** Sony sends
+ * an opaque preset id and the *device* answers with the curve it means. The JBL is
+ * sent a full curve *and* an id together, so which of the two it honours is not
+ * established — nothing captured varies one without the other.
+ *
+ * ⚠ [table] is measured, not named: `00` was the flat curve and `01` was what the app
+ * sent for JAZZ. Two values, so this is not evidence for an ordering of the menu.
+ */
+data class EqCurve(
+    val table: Int,
+    val bands: List<EqBand>,
+)
+
+/**
  * The Sony EQEBB frames, as captured 2026-08-16 (`docs/sony-settings.md`).
  *
  * Here rather than in the driver because it is pure arithmetic over bytes, and

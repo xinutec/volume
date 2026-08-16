@@ -156,7 +156,12 @@ object Drivers {
          */
         override fun read(t: Transport): AncMode? {
             val r = t.exchange(byteArrayOf(0xaa.toByte(), 0x91.toByte(), 0x01, 0x11))
-            if (r.size < 10 || r[0] != 0xaa.toByte()) return null
+            // ⚠ **The command byte is checked, not just the `aa`.** Every frame this
+            // chip sends starts `aa`, including the `aa b1` keepalive it emits every
+            // four seconds, so `aa` alone admits any of them — and the TLV slots would
+            // then be read out of a frame about the battery. Being strict turns a
+            // confident wrong mode into an honest "cannot say".
+            if (r.size < 10 || r[0] != 0xaa.toByte() || r[1] != 0x91.toByte()) return null
             return when {
                 r[5] == 0x01.toByte() -> AncMode.ANC
                 r[7] == 0x01.toByte() -> AncMode.AMBIENT
@@ -196,6 +201,35 @@ object Drivers {
                     talk.toByte(),
                 ),
             )
+        }
+
+        fun readAutoOff(t: Transport): TimedOff? = JblAutoOff.state(t.exchange(JblAutoOff.get()))
+
+        /**
+         * Send it, and say nothing about whether it took.
+         *
+         * ⚠ **Returns Unit on purpose.** The device answers `aa 00 02 33 00`, which is
+         * an ack — it says the frame arrived, not that the setting moved, and this
+         * repo has been wrong once already by reading one of those as an answer. The
+         * caller re-reads; [readAutoOff] is the only thing that knows.
+         */
+        fun writeAutoOff(t: Transport, v: TimedOff) {
+            t.exchange(JblAutoOff.set(v))
+        }
+
+        fun readCurve(t: Transport): EqCurve? = JblEq.curve(t.exchange(JblEq.get()))
+
+        /**
+         * Read the curve, write [table] and [gains] into that frame, and read back.
+         *
+         * ⚠ The read up front is not a wasted round trip: [JblEq.set] builds the write
+         * from it precisely so the thirteen unexplained bytes go back unchanged.
+         */
+        fun writeCurve(t: Transport, table: Int, gains: List<Float>): EqCurve? {
+            val read = t.exchange(JblEq.get())
+            val frame = JblEq.set(read, table, gains) ?: return null
+            t.exchange(frame)
+            return readCurve(t)
         }
     }
 

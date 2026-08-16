@@ -13,6 +13,7 @@ import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
+import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqSetting
 import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.Note
@@ -22,6 +23,7 @@ import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SoundQuality
+import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
@@ -261,6 +263,13 @@ class DeviceController(
                 )
             }
 
+            Drivers.JblBes -> {
+                Settings(
+                    curve = Drivers.JblBes.readCurve(s.transport),
+                    timedOff = Drivers.JblBes.readAutoOff(s.transport),
+                )
+            }
+
             else -> {
                 Settings()
             }
@@ -275,6 +284,14 @@ class DeviceController(
     ) = work.execute {
         holding(address) {
             val s = openIfNeeded(address) ?: return@holding
+            // ⚠ **Taken before [DeviceState.Busy] overwrites it**, and kept rather
+            // than re-read below. Changing the equaliser is not a question about noise
+            // cancelling: re-asking spent a round trip on something nothing had
+            // invalidated, and on the JBL — where a reply can be a keepalive that
+            // arrived first — it came back empty and the mode silently went blank.
+            // Measured 2026-08-16: switching auto power off on the JBL cleared its
+            // selected ANC chip, with the headphones still plainly cancelling noise.
+            val mode = (card(address)?.state as? DeviceState.Ready)?.mode
             update(address, DeviceState.Busy("$what…"))
             val c = runCatching { body(s) }
             c.onFailure {
@@ -291,13 +308,15 @@ class DeviceController(
                     s.headphones.model,
                     s.headphones.driver.modes
                         .toList(),
-                    runCatching { s.headphones.driver.read(s.transport) }.getOrNull(),
+                    mode,
                     outcome.settingNote(describe),
                 ),
             )
             emit(screen.withSettings(address, settings))
         }
     }
+
+    private fun card(address: String) = screen.cards.firstOrNull { it.address == address }
 
     override fun setEqPreset(address: String, preset: Int) =
         applied<EqSetting>(address, "setting the equaliser", { "preset ${it.preset}" }) {
@@ -327,6 +346,35 @@ class DeviceController(
             when (val after = d.writeAutoOff(it.transport, mode) ?: d.readAutoOff(it.transport)) {
                 null -> Confirmation.Unverifiable
                 mode -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setTimedOff(address: String, v: TimedOff) =
+        applied<TimedOff>(address, "setting power off", { if (it.on) "on" else "off" }) {
+            Drivers.JblBes.writeAutoOff(it.transport, v)
+            // ⚠ The write's own reply is an ack, so the truth comes from a re-read.
+            when (val after = Drivers.JblBes.readAutoOff(it.transport)) {
+                null -> Confirmation.Unverifiable
+                v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setCurve(address: String, curve: EqCurve) =
+        applied<EqCurve>(address, "setting the equaliser", { "table ${it.table}" }) {
+            when (
+                val after =
+                    Drivers.JblBes.writeCurve(
+                        it.transport,
+                        curve.table,
+                        curve.bands.map { b ->
+                            b.gain
+                        },
+                    )
+            ) {
+                null -> Confirmation.Unverifiable
+                curve -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
         }

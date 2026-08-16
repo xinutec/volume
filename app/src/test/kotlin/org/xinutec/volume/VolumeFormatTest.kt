@@ -43,4 +43,18 @@ class VolumeFormatTest {
         assertEquals("-10", signed(-10))
         assertEquals("0", signed(0))
     }
+
+    /**
+     * The JBL's gains are floats, and its own JAZZ curve lands on a half.
+     *
+     * ⚠ A whole number must not render `+4.0` beside a band labelled `4k`; the two
+     * decimal points then look like the same kind of number and are not.
+     */
+    @Test
+    fun `a gain shows a decimal only when it has one`() {
+        assertEquals(
+            listOf("+4", "+2", "+1", "+2.5", "-1.5", "-1.5", "0", "+1", "+2", "+4"),
+            listOf(4f, 2f, 1f, 2.5f, -1.5f, -1.5f, 0f, 1f, 2f, 4f).map(::db),
+        )
+    }
 }
