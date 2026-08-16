@@ -300,7 +300,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Three of twenty-two are driven by us; seventeen now have a wire identity.** Written down
+status sweep taken minutes later. **Four of twenty-two are driven by us; twenty now have a wire identity.** Written down
 because "is it all understood?" could not be answered before without opening the app,
 and answering it from what `docs/` happened to mention would have flattered us.
 
@@ -310,8 +310,8 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | ⏻ power off | ? | — |
 | Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
-| Customize ANC | `aa 91` AdvancedAnc + `aa 99` | — |
-| Personi-Fi | `aa 9a` EarCanalTesting | — |
+| Customize ANC | ✅ `aa 91 01 21` | — |
+| Personi-Fi | `aa 9a`; opening sends nothing | — |
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | — |
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, ⚠ modes silent | — |
@@ -319,20 +319,21 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | — |
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level unknown | — |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
-| SilentNow | ? | — |
-| Auracast | `aa b0` parses `AuracastGroup` | — |
+| SilentNow | ⚠ opening it sends nothing | — |
+| Auracast | ✅ `aa b0`, measured | — |
 | LE Audio | ✅ `aa b0` LeaAudio, read | — |
 | Auto Play & Pause | ✅ `aa 35 01 <on>` | — |
 | Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
 | Left / Right Sound Balance | ✅ `aa a8` | — |
-| Voice Assistant | `35` = `df`? | — |
-| Voice Prompts (language) | ? | — |
+| Voice Assistant | ✅ `aa 92`, measured | — |
+| Voice Prompts (language) | ✅ `aa 93`, measured | — |
 | Max Volume Limiter | ✅ `aa a5` SafeSound | ✅ read-only, ⚠ hearing |
 | Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
 
-⚠ **Five rows still have no wire identity at all**: the ⏻ remote power off, SilentNow,
-Auracast, Voice Assistant and Voice Prompts. None has a command class of its own, so
-the next place to look is `aa b1` `GetSetFeatureCmd` rather than another capture.
+⚠ **Two rows still have no wire identity**: the ⏻ remote power off, and the LE Audio
+toggle — which is NOT `aa b0`, since that turned out to be Auracast. SilentNow has a
+screen that sends nothing, so it is app-local until committed. The next place to look
+for all three is `aa b1` `GetSetFeatureCmd`.
 
 ⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
 of the app touching that one control, and the method in `docs/captures.md` applies
@@ -343,7 +344,7 @@ attributing it needs one of them varied, not more reading.
 
 ### ✅ Eight more, driven through the vendor app — 2026-08-16 21:44 and 22:04
 
-Two runs of `scripts/drive-jbl.sh`, each change followed immediately by its inverse.
+Two runs of `scripts/drive_jbl.py`, each change followed immediately by its inverse.
 Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operator>
 <payload…>`, operator **`00` set · `01` get · `02` status**.
 
@@ -448,6 +449,36 @@ four-second traffic is a real poll with a real answer — `aa b1 04 01 00 01 00`
 `00` (`aa b1 03 00 01 00`). Calling it a keepalive is what made it easy to filter out
 and ignore; it is a generic feature channel and may be the route to several rows that
 have no command class of their own.
+
+### ✅ Opening each sub-screen names five more — 2026-08-16 23:03, no writes
+
+`scripts/drive_jbl.py screens` opens every row that leads somewhere and backs out.
+Opening is a READ, so this costs nothing and risks nothing; each screen fires its own
+getter on the way in.
+
+| screen opened | what went out |
+| --- | --- |
+| Customize ANC | `aa 91 01 21` → `aa 91 09 22 01 01 04 07 05 01 a1 07` |
+| Gestures | `aa 77 02 01 ff` |
+| Auracast | `aa b0 02 02 00`, `aa b0 03 01 01 1e`, `aa b0 01 00` |
+| Personal Sound Amplification | `aa a0 01 01` |
+| **Voice Assistant** | **`aa 92 01 01`** → `aa 92 09 02 01 01 02 01 03 00 04 00` |
+| **Voice Prompts** | **`aa 93 01 01`** → `aa 93 05 02 01 00 00 08`, and `aa 93 01 04` |
+
+✅ **`aa 92` and `aa 93` were both unknown an hour ago** — `93` was one of the unnamed
+getters in the connect sweep, and `92` had never been seen at all.
+
+✅ **`aa 91 01 21` is Customize ANC.** This file already had that frame, filed as "ANC
+capability, undecoded"; opening the screen is what attributed it.
+
+✅ **Auracast is `aa b0`**, now measured rather than inferred from `LeaAudioCmd`
+parsing into `AuracastGroup`. ⚠ Which means the **LE Audio toggle is still unplaced** —
+it is not `b0`, whatever the class name suggests.
+
+⚠ **Personi-Fi, SilentNow and Equalizer fired NOTHING when opened.** For the equaliser
+that is explained — the curve was already read at connect. For the other two it is a
+real result and not a missed tap: the taps are verified by the driver, and the frames
+either side are present. Their state is app-local until something is committed.
 
 ### ⚠ `aa b1` GetSetFeature — the mechanism, not the names
 
