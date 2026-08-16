@@ -45,5 +45,28 @@
             android:label="Volume probe"
             android:launchMode="singleTask" />
 
+        <!-- ANC from the Quick Settings shade. This is the thing a native app can do
+             that a web page cannot, and it is why #785 went native.
+
+             ⚠ `BIND_QUICK_SETTINGS_TILE` is granted to the SYSTEM, not requested by
+             us: it is what stops any app binding a tile service. Without it the tile
+             never appears in the editor, with no error anywhere.
+
+             ⚠ `activeTile` is deliberately NOT set. It makes the system ask the
+             service to refresh even while the shade is shut, and answering that
+             honestly would mean opening a control channel to a headphone nobody is
+             looking at — the exact thing `onStop`'s release exists to stop. The tile
+             reads its cheap state when the shade opens instead. -->
+        <service
+            android:name=".AncTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_anc"
+            android:label="Noise cancelling"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>
