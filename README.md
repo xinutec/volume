@@ -114,6 +114,10 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Sound quality | — | — | ✅ | — | — |
 | Button / gestures | ✅ | — | ⛔ refused #965 | 👁 read only #970 | — |
 
+⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
+twenty-two device controls and three of them are here — the inventory is in
+`docs/protocols.md` and the gap is #974. No equivalent audit exists for the other four.
+
 ⛔ **Refused is not broken.** The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and ignores
 both; the QC45 accepts the equivalents from this code. Multipoint fails for Sony's own
 app too, so that one is the device's rule — the button works for the app and not for
@@ -127,7 +131,8 @@ obeys.
 
 **Open:** #965 Sony button · #967 probe repeats a run's packets · #966 Bose auto-off ·
 #968 QC35 card · #970 JBL gesture writes (⚠ two actions are volume) · #973 the list
-scrolls to the top after a write · #935 refresh/disconnect affordances.
+scrolls to the top after a write · #974 19 of the JBL's 22 app features undecoded ·
+#935 refresh/disconnect affordances.
 
 ## Probe
 
