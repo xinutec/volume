@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ⚠ `updatePeriodMillis="0"`: NO periodic refresh. The system's minimum is 30
+  minutes anyway, but the real reason is that an honest refresh would mean opening a
+  control channel to a headphone nobody is looking at — the exact behaviour
+  `VolumeActivity.onStop`'s release exists to stop. The widget updates when tapped
+  and when the launcher asks.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/anc_widget"
+    android:minHeight="40dp"
+    android:minWidth="110dp"
+    android:previewLayout="@layout/anc_widget"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -68,5 +68,22 @@
             </intent-filter>
         </service>
 
+        <!-- The same one tap on the home screen. ⚠ Exported, because the launcher
+             and the AppWidgetManager are what send to it; the custom tap action is
+             delivered through an IMMUTABLE PendingIntent, so nothing else can
+             retarget it. -->
+        <receiver
+            android:name=".AncWidget"
+            android:exported="true"
+            android:label="Noise cancelling">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="org.xinutec.volume.WIDGET_TAP" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/anc_widget_info" />
+        </receiver>
+
     </application>
 </manifest>

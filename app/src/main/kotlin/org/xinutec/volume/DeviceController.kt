@@ -8,7 +8,6 @@ import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
-import org.xinutec.volume.protocol.Leases
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Registry
@@ -16,9 +15,6 @@ import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 /**
  * Tag for the one thing about this app that cannot be established off-device:
@@ -48,16 +44,11 @@ class DeviceController(
     private val adapter: BluetoothAdapter?,
     private val onScreen: (Screen) -> Unit,
 ) {
-    // ⚠ Scheduled, but still SINGLE-threaded: the lease sweep has to run on the same
-    // thread as every read and write, or it could close a channel mid-exchange.
-    private val work = Executors.newSingleThreadScheduledExecutor()
-    private val sessions = ConcurrentHashMap<String, Session>()
-    private val leases = Leases(IDLE_MS)
+    // ⚠ NOT this object's sessions. The tile and the widget drive the same
+    // headphones from the same process, and a second control channel to a device
+    // that already has one simply fails — so the process owns them, not the screen.
+    private val work = Sessions.work
     private var screen = Screen(emptyList(), Emptiness.LOOKING)
-
-    init {
-        work.scheduleWithFixedDelay(::sweep, IDLE_MS, IDLE_MS, TimeUnit.MILLISECONDS)
-    }
 
     /**
      * The headphones that are actually here, opened as soon as they are listed.
@@ -111,7 +102,7 @@ class DeviceController(
                 screen.reconciled(listed.map { it.address to (it.name ?: "(unnamed)") }, whenEmpty),
             )
             // Anything that went away keeps no socket open.
-            sessions.keys.filterNot { a -> listed.any { it.address == a } }.forEach(::drop)
+            Sessions.held().filterNot { a -> listed.any { it.address == a } }.forEach(::drop)
             // Sequentially, on this one thread: two connects at once contend for the
             // radio, and what that produces looks like a protocol fault.
             listed.forEach { holding(it.address) { openIfNeeded(it.address) } }
@@ -147,34 +138,8 @@ class DeviceController(
 
     fun connect(address: String) = work.execute { holding(address) { openIfNeeded(address) } }
 
-    /**
-     * Run [body] with [address]'s lease held, and give it back however that ends.
-     *
-     * ⚠ The `finally` is the point. An early return — the device is gone, the socket
-     * would not open — would otherwise leave the address marked in-flight for ever,
-     * and [Leases] deliberately never expires in-flight work, so the channel would be
-     * held until the app died. That is the bug this whole change is about, rebuilt by
-     * accident one level down.
-     *
-     * ⚠ Not reentrant, so [openIfNeeded] does NOT bracket itself; its callers do.
-     */
-    private fun <T> holding(address: String, body: () -> T): T {
-        leases.begin(address)
-        try {
-            return body()
-        } finally {
-            // ⚠ `containsKey`, spelled out: `address in sessions` on a
-            // ConcurrentHashMap resolves to `containsValue` (KT-18053), so it would
-            // compare an address against Session objects, always miss, and forget
-            // every lease instead of holding it. Kotlin refuses to compile the
-            // ambiguous form, which is the only reason this is not a silent bug.
-            if (sessions.containsKey(address)) {
-                leases.end(address, System.currentTimeMillis())
-            } else {
-                leases.forget(address)
-            }
-        }
-    }
+    /** Bracket the lease; the bookkeeping and its traps live in [Sessions]. */
+    private fun <T> holding(address: String, body: () -> T): T = Sessions.holding(address, body)
 
     fun set(address: String, mode: AncMode) =
         work.execute {
@@ -203,7 +168,7 @@ class DeviceController(
     }
 
     private fun openIfNeeded(address: String): Session? {
-        sessions[address]?.let { return it }
+        Sessions.existing(address)?.let { return it }
         val device =
             try {
                 adapter?.bondedDevices?.firstOrNull { it.address == address }
@@ -237,7 +202,7 @@ class DeviceController(
             update(address, DeviceState.Unavailable(why))
             return null
         }
-        sessions[address] = session
+        Sessions.remember(address, session)
         update(address, DeviceState.Busy("reading…"))
         val mode = runCatching { session.headphones.driver.read(session.transport) }.getOrNull()
         // The name the device holds beats the bonded record, which for this phone's
@@ -264,48 +229,24 @@ class DeviceController(
         return session
     }
 
-    private fun drop(address: String) {
-        leases.forget(address)
-        sessions.remove(address)?.let { runCatching { it.close() } }
-    }
-
-    /**
-     * Give back every channel whose lease has run out.
-     *
-     * ⚠ Runs on [work], the same single thread as every other radio operation, so it
-     * cannot close a channel that a read or write is part-way through. The [Leases]
-     * bookkeeping would refuse anyway; this makes it structurally impossible rather
-     * than merely correct.
-     */
-    private fun sweep() {
-        // Already ON the work thread — scheduled there — so no `execute` wrapper.
-        val due = leases.expired(System.currentTimeMillis())
-        if (due.isEmpty()) return
-        Log.i(LIVE, "lease expired, releasing: ${due.joinToString()}")
-        due.forEach(::drop)
-    }
+    private fun drop(address: String) = Sessions.drop(address)
 
     /**
      * Let go of everything, now — the app is no longer on screen.
      *
-     * ⚠ **Not the same as [closeAll].** The screen's contents are kept, so coming
-     * back shows the cards immediately rather than blinking through "connecting"; it
-     * is only the radio links that go. Before this existed, a backgrounded Volume
-     * held every headphone's control channel until Android got round to destroying
-     * the activity, which can be many minutes — the vendor apps were locked out that
-     * whole time, with Volume nowhere in sight to explain it.
+     * ⚠ **The screen's contents are kept**, so coming back shows the cards
+     * immediately rather than blinking through "connecting"; only the radio links go.
+     *
+     * ⚠ **In split screen this never fires.** Both halves stay resumed, so `onStop`
+     * is not called and the lease sweep in [Sessions] is the only thing that lets go.
+     * That is exactly the arrangement on this phone, which is why the tile could not
+     * open a channel the app was holding — and why sessions are owned per-process
+     * rather than per-screen.
      */
-    fun release() =
-        work.execute {
-            if (sessions.isEmpty()) return@execute
-            Log.i(LIVE, "backgrounded, releasing: ${sessions.keys.joinToString()}")
-            sessions.keys.toList().forEach(::drop)
-        }
+    fun release() = Sessions.releaseAll()
 
-    fun closeAll() {
-        sessions.keys.toList().forEach(::drop)
-        work.shutdownNow()
-    }
+    /** The activity is going; the process and its channels are not. */
+    fun closeAll() = Sessions.releaseAll()
 
     private fun update(address: String, state: DeviceState) = emit(screen.with(address, state))
 
