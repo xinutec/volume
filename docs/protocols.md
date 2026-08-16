@@ -320,14 +320,14 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level unknown | — |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
 | SilentNow | ? | — |
-| Auracast | ? | — |
+| Auracast | `aa b0` parses `AuracastGroup` | — |
 | LE Audio | ✅ `aa b0` LeaAudio, read | — |
 | Auto Play & Pause | ✅ `aa 35 01 <on>` | — |
 | Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
 | Left / Right Sound Balance | ✅ `aa a8` | — |
 | Voice Assistant | `35` = `df`? | — |
 | Voice Prompts (language) | ? | — |
-| Max Volume Limiter | ✅ `aa a5` SafeSound, read ⚠ hearing | — |
+| Max Volume Limiter | ✅ `aa a5` SafeSound | ✅ read-only, ⚠ hearing |
 | Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
 
 ⚠ **Five rows still have no wire identity at all**: the ⏻ remote power off, SilentNow,
@@ -448,6 +448,26 @@ four-second traffic is a real poll with a real answer — `aa b1 04 01 00 01 00`
 `00` (`aa b1 03 00 01 00`). Calling it a keepalive is what made it easy to filter out
 and ignore; it is a generic feature channel and may be the route to several rows that
 have no command class of their own.
+
+### ⚠ `aa b1` GetSetFeature — the mechanism, not the names
+
+`com/harman/commands/GetSetFeatureCmd` is a **generic key → value map**, logging
+`keyId=`, `valueSize=` and "setFeatures: value is not boolean need add other". So it
+is a bag of feature flags rather than one setting, which is why several app rows have
+no command class of their own.
+
+```
+→ aa b1 04 01 00 01 00      get      313 of these in one capture, every 4 s
+← aa b1 04 02 00 01 00      status
+→ aa b1 03 00 02 00         set      operator 00
+```
+
+⚠ **The key ids are NOT in the SDK.** `BesDeviceStatusControl.getFeatures`/
+`setFeatures` take the map from their caller and pass it through, so the ids live in
+the app's own (obfuscated) layer. Naming them therefore needs an experiment, not more
+reading: drive one of the unidentified rows and watch which key moves. That is the
+same ablation the unidentified status byte `34` needs, and it is the honest next step
+for the ⏻ power off, SilentNow, Auracast, Voice Assistant and Voice Prompts.
 
 ✅ **Three rows are readable RIGHT NOW with values already captured**, from the vendor
 app's own connect sweep, with no driving at all:
