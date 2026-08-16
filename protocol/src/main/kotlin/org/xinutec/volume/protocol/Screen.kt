@@ -20,6 +20,62 @@ data class DeviceCard(
         get() = (state as? DeviceState.Ready)?.modes.orEmpty()
 }
 
+/**
+ * The settings a device has beyond ANC.
+ *
+ * ⚠ **Presence in [Settings] means "this device has it", not "we can change it".**
+ * Those came apart on 2026-08-16: the XM4 answers `d6 d2` and `f6 06` perfectly well
+ * and then ignores the matching writes, while the QC45 accepts both. So each field
+ * is a value the device reported, and [refuses] says which of them will not move.
+ */
+enum class SettingKind {
+    EQ,
+    MULTIPOINT,
+    AUTO_OFF,
+    SOUND_QUALITY,
+    BUTTON,
+}
+
+/**
+ * What one device reported when asked for everything it has.
+ *
+ * A null field means **not asked, or this device has no such setting** — the two are
+ * the same for rendering, because a device that has never been read shows nothing
+ * either way, and [DeviceState.Busy] is what says a read is in flight.
+ *
+ * ⚠ EQ is two different shapes and is deliberately not unified. Sony has an opaque
+ * preset id with the levels following it; the QC45 has three signed band values and
+ * **no preset on the wire at all**, because Bose Music's preset buttons are the app
+ * writing three numbers. A single type would have to invent an id for one of them.
+ */
+data class Settings(
+    val eq: EqSetting? = null,
+    val bands: List<Int> = emptyList(),
+    val tone: BoseBands? = null,
+    val multipoint: Boolean? = null,
+    val autoOff: AutoOff? = null,
+    val soundQuality: SoundQuality? = null,
+    val button: String? = null,
+    /**
+     * Settings this device reports but will not let this app change.
+     *
+     * ⚠ **Rendered as a value, never as a control.** A switch that flips and springs
+     * back is exactly what the XM4's multipoint does in Sony's own app, and offering
+     * one here would be this repo's oldest mistake in a new place — a reply that is
+     * not an answer. Showing the value read-only is honest and still useful; you can
+     * see multipoint is off, you just cannot change it from here.
+     */
+    val refuses: Set<SettingKind> = emptySet(),
+) {
+    /** Whether there is anything at all to draw. */
+    val any: Boolean
+        get() =
+            eq != null || tone != null || multipoint != null ||
+                autoOff != null || soundQuality != null || button != null
+
+    fun writable(kind: SettingKind): Boolean = kind !in refuses
+}
+
 sealed interface DeviceState {
     /** Bonded and known to be drivable, but nothing has been opened yet. */
     data object Idle : DeviceState
@@ -40,6 +96,14 @@ sealed interface DeviceState {
         val modes: List<AncMode>,
         val mode: AncMode?,
         val note: Note? = null,
+        /**
+         * ⚠ Null until asked, and asking is a separate act. Reading all of the XM4's
+         * settings is six round trips and about three seconds; doing it while listing
+         * devices would make every card wait on the slowest one. The card opens on
+         * ANC, which is what the tile and the widget are for, and settings are read
+         * when their owner expands them.
+         */
+        val settings: Settings? = null,
     ) : DeviceState
 
     /** Not drivable, with the reason kept rather than flattened to "error". */
@@ -115,6 +179,27 @@ data class Screen(
     /** Replace one card by address, leaving the rest and the order alone. */
     fun with(address: String, state: DeviceState): Screen =
         copy(cards = cards.map { if (it.address == address) it.copy(state = state) else it })
+
+    /**
+     * Attach what a device reported when asked for its settings.
+     *
+     * ⚠ **Only touches a card that is [DeviceState.Ready], and silently leaves the
+     * rest.** A settings read takes seconds, and in that time its device can go — at
+     * which point the card is already `Unavailable` and writing settings onto it
+     * would resurrect a dead one with a full set of controls.
+     */
+    fun withSettings(address: String, settings: Settings): Screen =
+        copy(
+            cards =
+                cards.map {
+                    val s = it.state
+                    if (it.address == address && s is DeviceState.Ready) {
+                        it.copy(state = s.copy(settings = settings))
+                    } else {
+                        it
+                    }
+                },
+        )
 
     /**
      * Take the name the device itself reports.
@@ -200,4 +285,29 @@ fun Confirmation<AncMode>.resulting(requested: AncMode): AncMode? =
         is Confirmation.Confirmed -> requested
         is Confirmation.Contradicted -> actual
         is Confirmation.Unverifiable -> null
+    }
+
+/**
+ * The same rule as [note], for a setting that is not a mode.
+ *
+ * ⚠ Separate from [note] rather than made generic over it, because the *wording*
+ * differs where it matters: a contradicted ANC write means the headphones are in a
+ * mode you did not ask for, and a contradicted settings write on these devices means
+ * the device refused outright — [Settings.refuses] is populated from exactly this.
+ *
+ * [describe] renders the value, and stays in `:app` with the rest of the words.
+ */
+fun <T> Confirmation<T>.settingNote(describe: (T) -> String): Note? =
+    when (this) {
+        is Confirmation.Confirmed -> {
+            null
+        }
+
+        is Confirmation.Contradicted -> {
+            Note("this pair refused that; it still reports ${describe(actual)}", NoteKind.PROBLEM)
+        }
+
+        is Confirmation.Unverifiable -> {
+            Note("sent — this one cannot confirm it", NoteKind.CAUTION)
+        }
     }

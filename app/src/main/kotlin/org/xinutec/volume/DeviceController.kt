@@ -5,17 +5,30 @@ import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
 import org.xinutec.volume.protocol.AncMode
+import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.BoseBands
+import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
+import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
+import org.xinutec.volume.protocol.EqSetting
+import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Screen
+import org.xinutec.volume.protocol.SettingKind
+import org.xinutec.volume.protocol.Settings
+import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
+import org.xinutec.volume.protocol.setEq
+import org.xinutec.volume.protocol.setMultipoint
+import org.xinutec.volume.protocol.settingNote
 
 /**
  * Tag for the one thing about this app that cannot be established off-device:
@@ -44,7 +57,7 @@ class DeviceController(
     private val context: Context,
     private val adapter: BluetoothAdapter?,
     private val onScreen: (Screen) -> Unit,
-) {
+) : SettingActions {
     // ⚠ NOT this object's sessions. The tile and the widget drive the same
     // headphones from the same process, and a second control channel to a device
     // that already has one simply fails — so the process owns them, not the screen.
@@ -187,6 +200,160 @@ class DeviceController(
             ),
         )
     }
+
+    /**
+     * Ask a device for everything it has beyond ANC.
+     *
+     * ⚠ **On demand, not on connect.** The XM4 answers six separate round trips and
+     * takes about three seconds; doing this while listing devices would hold every
+     * card behind the slowest one, for settings most openings of the app do not want.
+     *
+     * ⚠ **Reads only.** Nothing here writes, so it is safe to run against a pair
+     * somebody is wearing — which is also why it is the thing the screen does first.
+     */
+    override fun loadSettings(address: String) =
+        work.execute {
+            holding(address) {
+                val s = openIfNeeded(address) ?: return@holding
+                update(address, DeviceState.Busy("reading settings…"))
+                val settings = runCatching { readSettings(s) }.getOrNull()
+                if (settings == null) {
+                    drop(address)
+                    update(address, DeviceState.Unavailable("lost the connection while reading"))
+                    return@holding
+                }
+                // Put the card back to Ready before attaching, or `withSettings`
+                // finds a Busy card and drops the read on the floor.
+                describe(address, s)
+                emit(screen.withSettings(address, settings))
+            }
+        }
+
+    /**
+     * ⚠ **`refuses` is not a guess about the device — it is measured, on 2026-08-16.**
+     * The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and then ignores both, and Sony's
+     * own app fails at multipoint identically. The QC45 accepts the same two settings
+     * from this code. So the set is per-driver and is stated where a future session
+     * will see it next to the evidence, rather than being rediscovered by a user
+     * watching a switch spring back.
+     */
+    private fun readSettings(s: Session): Settings =
+        when (val d = s.headphones.driver) {
+            is Drivers.SonyXm4 -> {
+                Settings(
+                    eq = d.readEq(s.transport),
+                    bands = d.bands(s.transport),
+                    multipoint = d.readMultipoint(s.transport),
+                    autoOff = d.readAutoOff(s.transport),
+                    soundQuality = d.readSoundQuality(s.transport),
+                    button = d.readButton(s.transport)?.name,
+                    refuses = setOf(SettingKind.MULTIPOINT, SettingKind.BUTTON),
+                )
+            }
+
+            // ⚠ Not `d.` — matching an `object` does not smart-cast, so this names
+            // it again rather than going through the `AncDriver` it is typed as.
+            Drivers.BoseQc45 -> {
+                Settings(
+                    tone = Drivers.BoseQc45.readEq(s.transport),
+                    multipoint = Drivers.BoseQc45.readMultipoint(s.transport),
+                    button = Drivers.BoseQc45.readButton(s.transport)?.name,
+                )
+            }
+
+            else -> {
+                Settings()
+            }
+        }
+
+    /** Every settings write goes through here: drive it, then re-read the truth. */
+    private fun <T> applied(
+        address: String,
+        what: String,
+        describe: (T) -> String,
+        body: (Session) -> Confirmation<T>,
+    ) = work.execute {
+        holding(address) {
+            val s = openIfNeeded(address) ?: return@holding
+            update(address, DeviceState.Busy("$what…"))
+            val c = runCatching { body(s) }
+            c.onFailure {
+                drop(address)
+                update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
+            }
+            val outcome = c.getOrNull() ?: return@holding
+            // ⚠ Re-read rather than assume. `Confirmed` already means a read agreed,
+            // but the other two do not, and the row must show what the device says.
+            val settings = runCatching { readSettings(s) }.getOrNull() ?: return@holding
+            update(
+                address,
+                DeviceState.Ready(
+                    s.headphones.model,
+                    s.headphones.driver.modes
+                        .toList(),
+                    runCatching { s.headphones.driver.read(s.transport) }.getOrNull(),
+                    outcome.settingNote(describe),
+                ),
+            )
+            emit(screen.withSettings(address, settings))
+        }
+    }
+
+    override fun setEqPreset(address: String, preset: Int) =
+        applied<EqSetting>(address, "setting the equaliser", { "preset ${it.preset}" }) {
+            (it.headphones.driver as Drivers.SonyXm4).setEq(it.transport, preset)
+        }
+
+    override fun setTone(address: String, bands: BoseBands) =
+        applied<BoseBands>(address, "setting the tone controls", { "$it" }) {
+            val after =
+                Drivers.BoseQc45.writeEq(it.transport, bands)
+                    ?: Drivers.BoseQc45.readEq(it.transport)
+            when (after) {
+                null -> Confirmation.Unverifiable
+                bands -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setMultipoint(address: String, on: Boolean) =
+        applied<Boolean>(address, "setting multipoint", { if (it) "on" else "off" }) {
+            (it.headphones.driver as MultipointDriver).setMultipoint(it.transport, on)
+        }
+
+    override fun setAutoOff(address: String, mode: AutoOff) =
+        applied<AutoOff>(address, "setting power off", { it.name }) {
+            val d = it.headphones.driver as Drivers.SonyXm4
+            when (val after = d.writeAutoOff(it.transport, mode) ?: d.readAutoOff(it.transport)) {
+                null -> Confirmation.Unverifiable
+                mode -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setSoundQuality(address: String, mode: SoundQuality) =
+        applied<SoundQuality>(address, "setting sound quality", { it.name }) {
+            val d = it.headphones.driver as Drivers.SonyXm4
+            val after =
+                d.writeSoundQuality(it.transport, mode) ?: d.readSoundQuality(it.transport)
+            when (after) {
+                null -> Confirmation.Unverifiable
+                mode -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setButton(address: String, action: BoseButton.Action) =
+        applied<BoseButton.Action>(address, "setting the button", { it.name }) {
+            val after =
+                Drivers.BoseQc45.writeButton(it.transport, action)
+                    ?: Drivers.BoseQc45.readButton(it.transport)
+            when (after) {
+                null -> Confirmation.Unverifiable
+                action -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
 
     private fun openIfNeeded(address: String): Session? {
         Sessions.existing(address)?.let { return describe(address, it) }

@@ -1,6 +1,7 @@
 package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -227,5 +228,86 @@ class ScreenTest {
     fun `unavailability carries why`() {
         val s = DeviceState.Unavailable("not advertising right now")
         assertTrue(s.why.isNotBlank())
+    }
+
+    // ---- settings ----------------------------------------------------------
+
+    private val ready = DeviceState.Ready("Sony WH-1000XM4", listOf(AncMode.ANC), AncMode.ANC)
+
+    @Test
+    fun `settings attach to a ready card`() {
+        val next =
+            screen
+                .with("E4:58:BC:3E:9D:AA", ready)
+                .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
+        val s = next.cards.first().state as DeviceState.Ready
+        assertEquals(false, s.settings?.multipoint)
+    }
+
+    /**
+     * ⚠ The read takes seconds and the device can go in that time. Landing settings
+     * on a card that is no longer Ready would resurrect a dead one, fully furnished
+     * with controls, over a socket that is gone.
+     */
+    @Test
+    fun `settings do not resurrect a card that went away`() {
+        val next =
+            screen
+                .with("E4:58:BC:3E:9D:AA", DeviceState.Unavailable("switched off"))
+                .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
+        assertTrue(next.cards.first().state is DeviceState.Unavailable)
+    }
+
+    /** Nothing read yet and nothing to draw are the same thing for a renderer. */
+    @Test
+    fun `empty settings have nothing to show`() {
+        assertFalse(Settings().any)
+        assertTrue(Settings(multipoint = true).any)
+        assertTrue(Settings(tone = BoseBands(0, 0, 0)).any)
+    }
+
+    /**
+     * ⚠ **Reported and changeable are different questions**, and this is the whole
+     * reason [Settings.refuses] exists. The XM4 answers `d6 d2` and then ignores
+     * `d8 d2 01 01`; the QC45 accepts both. A screen that inferred "we can set it"
+     * from "it told us" would offer a switch that springs back.
+     */
+    @Test
+    fun `a setting can be reported and still not be writable`() {
+        val xm4 =
+            Settings(
+                multipoint = false,
+                button = "Ambient Sound Control",
+                refuses = setOf(SettingKind.MULTIPOINT, SettingKind.BUTTON),
+            )
+        assertEquals(false, xm4.multipoint)
+        assertFalse(xm4.writable(SettingKind.MULTIPOINT))
+        assertFalse(xm4.writable(SettingKind.BUTTON))
+        assertTrue(xm4.writable(SettingKind.EQ))
+
+        val qc45 = Settings(multipoint = false, tone = BoseBands(0, 0, 0))
+        assertTrue(qc45.writable(SettingKind.MULTIPOINT))
+    }
+
+    /** A confirmed settings write says nothing: the row already shows the new value. */
+    @Test
+    fun `a confirmed setting write is silent`() {
+        assertNull(Confirmation.Confirmed.settingNote<Boolean> { "$it" })
+    }
+
+    /** ⚠ A refusal must read as a refusal, not as an unexplained value change. */
+    @Test
+    fun `a refused setting write names what the device still reports`() {
+        val note = Confirmation.Contradicted(false).settingNote { if (it) "on" else "off" }
+        assertEquals(NoteKind.PROBLEM, note?.kind)
+        assertTrue(note!!.text.contains("refused"))
+        assertTrue(note.text.contains("off"))
+    }
+
+    /** ⚠ And "sent, unverifiable" must never render as success. */
+    @Test
+    fun `an unconfirmable setting write is a caution, not silence`() {
+        val note = Confirmation.Unverifiable.settingNote<Boolean> { "$it" }
+        assertEquals(NoteKind.CAUTION, note?.kind)
     }
 }

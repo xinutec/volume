@@ -16,10 +16,12 @@ Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces th
   a reconnect its owner feels. See `Leases`.
 - **Anything they still do exclusively is something Pippijn loses on uninstall
   day.** The "Next" list below is therefore parity work, not exploration.
-  ⚠ **The screen shows ANC and nothing else** — EQ, multipoint, auto-off and the
-  button live only in the vendor apps *for the user*, even though `:protocol` now
-  has drivers for most of them. Driver code nobody can reach is not parity; the
-  `settings` probe op reaches them, and a probe op is not a screen either.
+  ✅ **The screen now shows the settings too** — expand a card and it reads what that
+  pair has: EQ or tone, multipoint, power off, sound quality, the button. Driven from
+  the UI and verified on the QC45 (tone → Bass boost → back to Flat, each read back
+  from the device). ⚠ **A setting the device refuses is drawn as a VALUE, never a
+  control** — the XM4 reports multipoint and its [CUSTOM] button and then ignores
+  writes to both, so a switch there would flip and spring back.
 
 **The app** is `VolumeActivity`: every *connected* headphone it knows how to drive,
 its model once identified, and its ANC modes as chips. It follows the radio while on

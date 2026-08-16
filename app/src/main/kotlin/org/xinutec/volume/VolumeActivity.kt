@@ -14,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,12 +27,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,11 +44,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import org.xinutec.volume.protocol.AncMode
+import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.BoseBands
+import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Screen
+import org.xinutec.volume.protocol.SettingKind
+import org.xinutec.volume.protocol.Settings
+import org.xinutec.volume.protocol.SoundQuality
 
 /**
  * The app: every headphone that is bonded and drivable, and its ANC.
@@ -76,6 +86,7 @@ class VolumeActivity : ComponentActivity() {
                     screen = screen,
                     onConnect = control::connect,
                     onSet = control::set,
+                    actions = control,
                 )
             }
         }
@@ -165,9 +176,37 @@ class VolumeActivity : ComponentActivity() {
     }
 }
 
+/**
+ * What the settings section can ask for.
+ *
+ * An interface rather than eight lambdas threaded through three composables — and
+ * `:app`-side, because unlike [Screen] it is plumbing rather than a decision.
+ * [DeviceController] is the only implementation; a preview can pass an empty one.
+ */
+interface SettingActions {
+    fun loadSettings(address: String)
+
+    fun setEqPreset(address: String, preset: Int)
+
+    fun setTone(address: String, bands: BoseBands)
+
+    fun setMultipoint(address: String, on: Boolean)
+
+    fun setAutoOff(address: String, mode: AutoOff)
+
+    fun setSoundQuality(address: String, mode: SoundQuality)
+
+    fun setButton(address: String, action: BoseButton.Action)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VolumeScreen(screen: Screen, onConnect: (String) -> Unit, onSet: (String, AncMode) -> Unit) {
+fun VolumeScreen(
+    screen: Screen,
+    onConnect: (String) -> Unit,
+    onSet: (String, AncMode) -> Unit,
+    actions: SettingActions,
+) {
     Scaffold(topBar = { TopAppBar(title = { Text("Volume") }) }) { pad ->
         screen.emptiness?.let { why ->
             Column(
@@ -198,7 +237,7 @@ fun VolumeScreen(screen: Screen, onConnect: (String) -> Unit, onSet: (String, An
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(screen.cards, key = { it.address }) { card ->
-                DeviceRow(card, onConnect, onSet)
+                DeviceRow(card, onConnect, onSet, actions)
             }
         }
     }
@@ -209,7 +248,12 @@ private fun DeviceRow(
     card: DeviceCard,
     onConnect: (String) -> Unit,
     onSet: (String, AncMode) -> Unit,
+    actions: SettingActions,
 ) {
+    // ⚠ Per card and remembered by address, so a refresh — which happens every time
+    // any pair connects or disconnects — does not fold an open section shut under
+    // someone mid-adjustment.
+    var expanded by rememberSaveable(card.address) { mutableStateOf(false) }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // ⚠ The bonded name, and it may be anything: this phone's QC35 is called
@@ -295,9 +339,256 @@ private fun DeviceRow(
                     label = { Text("Connect") },
                 )
             }
+
+            // Settings hang off a Ready card only: there is nothing to read over a
+            // link that is not open, and offering the row would promise otherwise.
+            val ready = card.state as? DeviceState.Ready
+            if (ready != null) {
+                TextButton(
+                    onClick = {
+                        expanded = !expanded
+                        if (expanded && ready.settings == null) actions.loadSettings(card.address)
+                    },
+                    contentPadding =
+                        androidx.compose.foundation.layout
+                            .PaddingValues(0.dp),
+                ) {
+                    Text(if (expanded) "Hide settings" else "Settings")
+                }
+                if (expanded) {
+                    SettingsSection(card.address, ready.settings, actions)
+                }
+            }
         }
     }
 }
+
+/**
+ * Everything a device has beyond ANC.
+ *
+ * ⚠ **A setting the device refuses is drawn as a value, not a control.** The XM4
+ * reports its multipoint and its [CUSTOM] button and then ignores writes to both —
+ * measured, and Sony's own app fails the same way — so a switch here would flip and
+ * spring back, which is this repo's oldest trap wearing a new hat. The value is still
+ * worth showing; the control is not.
+ */
+@Composable
+private fun SettingsSection(address: String, settings: Settings?, actions: SettingActions) {
+    if (settings == null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator(Modifier.padding(2.dp))
+            Text("reading…", style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
+    if (!settings.any) {
+        Text(
+            "Nothing beyond noise cancelling is decoded for this pair yet.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        settings.eq?.let { eq ->
+            // ⚠ The preset id is opaque and the vendor's names for it were never
+            // captured, so it is shown as a number rather than given an invented
+            // name. The levels underneath are the part that means something.
+            SettingLabel("Equaliser", "preset ${eq.preset} · ${eq.levels.joinToString(", ")} dB")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (p in SONY_PRESETS) {
+                    FilterChip(
+                        selected = p == eq.preset,
+                        onClick = { actions.setEqPreset(address, p) },
+                        label = { Text("preset $p") },
+                    )
+                }
+            }
+            if (settings.bands.isNotEmpty()) {
+                Text(
+                    "bands: ${settings.bands.joinToString(" · ") { hz(it) }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        settings.tone?.let { t ->
+            SettingLabel(
+                "Tone",
+                "bass ${signed(t.bass)} · mid ${signed(t.mid)} · treble ${signed(t.treble)} dB",
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Bose Music's own buttons, with its own numbers — these are the
+                // app's presets, not the device's, so they are three band writes.
+                for ((name, bands) in BOSE_TONE) {
+                    FilterChip(
+                        selected = bands == t,
+                        onClick = { actions.setTone(address, bands) },
+                        label = { Text(name) },
+                    )
+                }
+            }
+        }
+
+        settings.multipoint?.let { on ->
+            SettingRow(
+                "Two devices at once",
+                if (on) "on" else "off",
+                writable = settings.writable(SettingKind.MULTIPOINT),
+                checked = on,
+                onChange = { actions.setMultipoint(address, it) },
+            )
+        }
+
+        settings.autoOff?.let { mode ->
+            SettingLabel("Power off", autoOffLabel(mode))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in AutoOff.entries) {
+                    FilterChip(
+                        selected = m == mode,
+                        onClick = { actions.setAutoOff(address, m) },
+                        label = { Text(autoOffLabel(m)) },
+                    )
+                }
+            }
+        }
+
+        settings.soundQuality?.let { mode ->
+            SettingLabel("Sound quality", qualityLabel(mode))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in SoundQuality.entries) {
+                    FilterChip(
+                        selected = m == mode,
+                        onClick = { actions.setSoundQuality(address, m) },
+                        label = { Text(qualityLabel(m)) },
+                    )
+                }
+            }
+            // ⚠ Said before it is tapped, not after: this one drops the link and
+            // brings it back, which without warning reads as the app crashing.
+            Text(
+                "changing this reconnects the headphones",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        settings.button?.let { current ->
+            SettingLabel("Button", prettyAction(current))
+            if (settings.writable(SettingKind.BUTTON)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (a in BoseButton.Action.entries) {
+                        FilterChip(
+                            selected = a.name == current,
+                            onClick = { actions.setButton(address, a) },
+                            label = { Text(prettyAction(a.name)) },
+                        )
+                    }
+                }
+            } else {
+                RefusedNote()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingLabel(title: String, value: String) {
+    Column {
+        Text(title, style = MaterialTheme.typography.labelLarge)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** A switch, or the value with the reason there is no switch. */
+@Composable
+private fun SettingRow(
+    title: String,
+    value: String,
+    writable: Boolean,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        // ⚠ `weight(1f)` — without it the label column takes its full intrinsic
+        // width and pushes the switch off a narrow screen entirely.
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.labelLarge)
+            Text(
+                value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!writable) RefusedNote()
+        }
+        if (writable) {
+            Switch(checked = checked, onCheckedChange = onChange)
+        }
+    }
+}
+
+/** ⚠ The one sentence that keeps a missing control from reading as a missing feature. */
+@Composable
+private fun RefusedNote() {
+    Text(
+        "this pair will not let anything change it — not even its own app",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.tertiary,
+    )
+}
+
+/**
+ * ⚠ Preset ids only, no invented names. These are the ones seen on the wire
+ * (`docs/sony-settings.md`); the XM4's menu holds more and nothing captured
+ * enumerates them, so a fuller list would be guesswork rendered as fact.
+ */
+private val SONY_PRESETS = listOf(0xa0, 0xa1, 0xa2)
+
+/** Bose Music's four buttons, with the numbers it actually sends. */
+private val BOSE_TONE =
+    listOf(
+        "Flat" to BoseBands(0, 0, 0),
+        "Bass boost" to BoseBands(bass = 8, mid = 0, treble = 0),
+        "Treble boost" to BoseBands(bass = 0, mid = 0, treble = 6),
+    )
+
+private fun signed(v: Int) = if (v > 0) "+$v" else "$v"
+
+private fun hz(v: Int) = if (v >= 1000) "${v / 1000.0}k".removeSuffix(".0k") + "k" else "$v"
+
+private fun autoOffLabel(m: AutoOff) =
+    when (m) {
+        AutoOff.NEVER -> "Never"
+        AutoOff.WHEN_REMOVED -> "When taken off"
+    }
+
+private fun qualityLabel(m: SoundQuality) =
+    when (m) {
+        SoundQuality.QUALITY -> "Quality (LDAC)"
+        SoundQuality.STABLE -> "Stable connection"
+    }
+
+/** `HEAR_BATTERY_LEVEL` is not a thing to show anyone. */
+private fun prettyAction(name: String) =
+    name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
 
 /**
  * What an empty list means, in words.
