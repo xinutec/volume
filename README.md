@@ -83,16 +83,28 @@ Fast Pair — battery, model, firmware, and the LE address, but no ANC or EQ —
 took Fast Pair for JBL/JLab's own protocol and built a command map out of its
 acknowledgements. `docs/protocols.md` has the correction.
 
-## Next — parity work, in three states
+## Next — parity work, in four states
 
 ⚠ **Read the state before picking one up.** *Captured* means the bytes are on disk
-but nobody has looked; *decoded* means the frames are written down; *driven* means
-there is code and a test. Only ANC is driven.
+but nobody has looked; *decoded* means the frames are written down; *written* means
+there is driver code and a replay test; *driven* means **this code has changed a
+setting on a headphone**. Only ANC is driven.
+
+⚠ The gap between the last two is the one that matters, and it is where every wrong
+conclusion in this repo has lived. A replay test proves the driver agrees with the
+vendor app's bytes. It cannot show the device answers *us* — the Sony needed a
+session opener nobody knew about, the Bose refuses an untransacted write on one
+function and accepts it on three others, and both look identical to a green suite.
+
+**Written, needs hardware** — code, replay tests against captured frames, no device
+- **Sony EQ** — `SonyXm4.readEq`/`writeEq`/`bands`, `docs/sony-settings.md`.
+  ⚠ Writing a custom *curve* (`58 01 <preset> <count> <levels>`) is structurally
+  certain and unexercised: no band was dragged during the capture.
 
 **Decoded, needs a driver** — the frames are exact and encoded in `:protocol` with
-the capture as fixtures; what is missing is a driver, a screen, and hardware proof
-- **Sony EQ, auto-off, multipoint** — `docs/sony-settings.md`, `SonyEq`. The session
-  mechanism (opener, acked frames, alternating sequence byte) is in `SonyXm4`.
+the capture as fixtures
+- **Sony auto-off, multipoint** — `docs/sony-settings.md`. ⚠ The multipoint pair is
+  the one asymmetric row in that file; re-capture before writing it.
 - **Bose EQ, multipoint, Action button** — `docs/bose-settings.md`, `BoseSettings.kt`.
   ⚠ The presets are the *app's*, not the device's: three signed band values, no
   preset id on the wire.
