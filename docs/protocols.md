@@ -332,6 +332,30 @@ on the stable `21 55 35 33` run inside its `fe2c` service data instead.
 ones), so `Channels.kt` names both by device name and says so.
 `com.harman.ble.jbllink` is the speaker app; headphones are `jbl.stc.com`.
 
+## The vendors' own apps
+
+Every device's protocol was read out of its vendor app, and each capture starts by
+launching one. They were scattered through this document and **Bose was missing
+entirely**, so here they are in one place:
+
+| device | app package | app name |
+|---|---|---|
+| Bose QC45 | `com.bose.bosemusic` | Bose Music |
+| Bose QC35 | `com.bose.monet` | Bose Connect |
+| Sony WH-1000XM4 | `com.sony.songpal.mdr` | Sony \| Headphones Connect |
+| JBL Tour One M2 | `jbl.stc.com` | JBL Headphones |
+| JLab JBuds Sport ANC 4 | `com.jlab.app` | JLab |
+
+⚠ **Two packages per vendor, and the wrong one looks plausible.** `com.bose.monet`
+drives the QC35 and *will not* see the QC45; `com.harman.ble.jbllink` is JBL's
+**speaker** app, not the headphone one. Both mistakes cost a capture that recorded
+nothing and read as "the device does not answer".
+
+⚠ **These are due to be uninstalled** once this app replaces them (Pippijn,
+2026-08-16), so coexisting with them is explicitly NOT a design goal — see
+`Leases`. Keep the APKs (`~/.cache/volume-apks`) regardless: they are the reference
+for every byte here, and an uninstall does not remove the need to re-read them.
+
 ## Capturing
 
 1. Developer options → **Enable Bluetooth HCI snoop log**, then cycle Bluetooth.
