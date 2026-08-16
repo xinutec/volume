@@ -63,6 +63,12 @@ CLEAR BASS and the remaining five are the graphic bands. ⚠ **Levels are offset
 10**: `0a` is 0 dB, so the range −10…+10 maps to `00`…`14`. A flat preset reads
 `0a 0a 0a 0a 0a 0a`; one measured preset read `00 0e 0d 0b 0c 00`.
 
+✅ **Driven on hardware 2026-08-16 evening.** `56 01` read back
+`preset=a2, levels=[3, 0, 0, 2, 4, 6]` — byte-identical to the morning capture's
+`57 01 a2 06 0d 0a 0a 0c 0e 10`, reached by this repo's own driver rather than by
+replay. Presets `a1` and `a2` were then each written and confirmed by read-back, and
+`a2` restored. `a1` reads flat, `[0, 0, 0, 0, 0, 0]`.
+
 The `5b` frame carries the band centre frequencies as 16-bit values, and they match
 the app's own axis labels **exactly**:
 
@@ -76,6 +82,10 @@ only captured frame containing a marker byte, its declared length of 21 matches 
 after unescaping 22 bytes, and its checksum `54` holds only over the unescaped body.
 Length counts the unescaped payload; the sum is taken before escaping.
 
+✅ **And that is now proven on hardware**, not just in a replay: asking the XM4 for
+its band table returns `[400, 1000, 2500, 6300, 16000]`. A wrong unescape would put
+15662 at the end, so the reading is what the escape rules predict.
+
 ## Automatic power off — block `f0` (SYSTEM), type `04`
 
     → f6 04              GET_PARAM
@@ -86,8 +96,9 @@ Length counts the unescaped payload; the sum is taken before escaping.
     ← f9 04 01 10 00
 
 One byte, `10` vs `11`, and its notify **does** echo the value set — so unlike
-multipoint, this one is confirmable from its own reply. ⚠ Only these two values were
-exercised; the XM4's menu offered no timed options, so a timer encoding — if one
+multipoint, this one is confirmable from its own reply. ✅ **Driven on hardware
+2026-08-16 evening**, both directions, each confirmed by read-back and restored.
+⚠ Only these two values were exercised; the XM4's menu offered no timed options, so a timer encoding — if one
 exists — is unmeasured, and an unknown value must read as "not understood".
 
 ## Multipoint — block `d0`, type `d2`
@@ -96,25 +107,41 @@ exists — is unmeasured, and an unknown value must read as "not understood".
     ← d7 d2 01 <on>      RET_PARAM — read at connect, 10:58:23, value 00
     → d8 d2 01 01        SET_PARAM
 
-⚠ **The reply to a multipoint write is about a DIFFERENT setting**, and this is the
-trap in the file. Setting `d2` to `01` drew `99 01 06 01`, a `90`-block
-notification; setting that `90`-block parameter back to `00` drew `d9 d2 01 00`. In
-both directions the device acked what it was told and then notified *the other
-thing*.
+⚠ **THE XM4 REFUSES TO ENABLE MULTIPOINT.** Driven on hardware 2026-08-16 evening:
 
-An earlier reading of this called it a mis-tap — the screen was driven blind by
-coordinate, so the layout might have shifted. ⚠ **That is now ruled out.** Decoded
-with the acks in view, both taps are complete, well-formed transactions: SET, ack,
-one notification, our ack. Nothing was lost and nothing landed astray.
+    → d8 d2 01 01        SET_PARAM, multipoint on
+    ← (ack) then d9 d2 01 00     NTFY_PARAM — still OFF
 
-*Inference*, and labelled as one: enabling multipoint forces the connection-quality
-setting off LDAC, and putting that setting back turns multipoint off — so each write
-has a side effect on the other, and what the device volunteers is the side effect.
-The consequence for code holds whatever the cause: **read back with `d6 d2`.**
+and a following `d6 d2` reads `d7 d2 01 00`. The device acknowledges the frame and
+reports the unchanged state. ⚠ **This is not a fault in the frame.** Sony Headphones
+Connect gets the same answer: its switch flips on and immediately back, both when
+driven over adb and when pressed by hand. So `d8 d2 01 01` is what the app sends and
+what the app fails with.
 
-⚠ **`d8 d2 01 00` has never been sent.** Multipoint was turned off through the
-`90`-block parameter, not this one. That `00` is this field's off value is known
-only because the GET and the notification both reported it.
+Not the codec, though the app's screen invites that guess. It was refused with Sound
+Quality Mode on **both** settings — re-tested over RFCOMM, because the first attempt
+at the second mode was a tap that missed the switch and sent nothing while the screen
+looked like a refusal (`docs/captures.md`). The app's own words are that LDAC "is not
+possible" *during* multipoint — a consequence, not a precondition. The cause is
+unknown and is not worth another hypothesis without evidence.
+
+⚠ **A multipoint reply is NOT always about a different setting.** An earlier reading
+of the morning capture said it always is — `d8 d2 01 01` there drew `99 01 06 01`, a
+`90`-block notification, and a `90`-block write drew `d9 d2 01 00`. Today the same
+SET drew `d9 d2 01 00`, its **own** opcode. The reply names whichever parameter the
+device considers changed, so it is sometimes this one and sometimes not. Either way
+the consequence for code is unchanged: **read back with `d6 d2`**, never trust the
+reply, which is why [`setMultipoint`] always does a real read.
+
+⚠ **`d8 d2 01 00` has still never been sent.** Multipoint has never been on for this
+code to turn off. That `00` is this field's off value is known only because the GET
+and the notification both report it.
+
+⚠ The `90` block answers **no reads at all**: `90 01`, `92 01`, `94 01`, `96 01`,
+`96 02` and `96 06` each drew a bare ack and no DATA frame. A hand-built
+`98 01 06 01` — guessed from the notification's shape — also drew only an ack and
+changed nothing. The block's payload shape is **not** established; do not copy that
+guess out of this paragraph.
 
 ## Everything the app asked, on connecting
 
@@ -142,24 +169,69 @@ that reads a Sony session has to expect unsolicited traffic between its question
 its answer — which is exactly why `SonyEq.state` refuses a frame that is not its own
 opcode rather than decoding whatever turned up.
 
-## Not captured
+## Sound Quality Mode — block `e0` (AUDIO), type `01`
 
-**Button assignment** (`[CUSTOM]` button → Digital assistant and back), performed at
-11:07:56 and 11:08:23. Two separate reasons, and the second is the one that matters:
+    → e6 01              GET_PARAM
+    ← e7 01 00 00        RET_PARAM — "Prioritize Sound Quality", i.e. LDAC
+    → e8 01 00 01        SET_PARAM — "Priority on Stable Connection"
+    ← e9 01 00 01        NTFY_PARAM, echoing the value
 
-⚠ **The snoop log flushes lazily.** The first bugreport's log ended at 11:06:44
+✅ **Decoded and driven the same evening**, both directions, each confirmed by its own
+echo and by `e6 01`, and restored. Found by accident: changing it was a step in
+testing multipoint, and the frames were in the capture.
+
+⚠ **The third byte is `00` here and `01` in every other setting on this page.**
+Auto-off sends `f8 04 01 <v> 00`, multipoint `d8 d2 01 <v>`, the button
+`f8 06 01 <v>`; this one sends `e8 01 00 <v>`. Whatever that byte is, it is not one
+thing — carried verbatim rather than tidied into a "count".
+
+Changing it renegotiates the codec: the link drops and comes back, and the vendor app
+warns "Reconnects to the audio device" first. Treat it as connection-disturbing.
+
+## The [CUSTOM] button — block `f0` (SYSTEM), type `06`
+
+This is what #955 went looking for, after the morning's attempt sent nothing at all.
+
+    → f0 06              GET_CAPABILITY
+    ← f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34
+    → f6 06              GET_PARAM
+    ← f7 06 01 00        RET_PARAM — 00 "Ambient Sound Control", 31 "Digital assistant"
+    → f8 06 01 31        SET_PARAM
+    ← 99 01 02 01        ⚠ a 90-block frame: the device asking for a reconnect
+    → 98 01 02 01        the app agreeing, once the owner accepts its dialog
+    ← f9 06 01 31        NTFY_PARAM — only now
+
+⚠ **THE WRITE WORKS FROM THE VENDOR APP AND NOT FROM THIS REPO.** `f8 06 01 31` sent
+from the probe is acked and then ignored: no `99`, no `f9`, and `f6 06` still reads
+the old value. Tried across a plain session, a session that also sent
+`98 01 02 01`, a session that sent both in one socket, and a session that read the
+capability first. The vendor app sending the byte-identical frame gets `99 01 02 01`
+back inside 400 ms.
+
+⚠ **This is a DIFFERENT failure from multipoint**, and collapsing them would throw
+away the only clue. Multipoint is refused for everyone, including Sony's own app.
+The button is refused only for us — so there is something about the app's session
+that this probe does not reproduce, and *that* is the thing to look for. The reads
+(`f0 06`, `f2 06`, `f6 06`) all answer us fine.
+
+⚠ Only two actions have codes. "Amazon Alexa" was in the menu and never selected. The
+capability reply plainly contains more values than two, but reading `21 31 33 22 32
+32 34` as *the list* would be inventing a structure for a byte string.
+
+## Method notes that cost something
+
+⚠ **The snoop log flushes lazily.** The morning bugreport's log ended at 11:06:44
 though its mtime was 11:10 — the last minutes were still in memory. Wait a few
 minutes before pulling, and check the LAST FRAME's timestamp against what you did;
 size and mtime both lie.
 
-⚠ **But a second pull showed the frames do not exist.** That capture spans
-09:19–11:17 and has 425 frames in the 11:06–11:09 window, of which **every one is
-`HCI_EVT` or `HCI_CMD` — no ACL data at all**. So nothing was sent to the
-headphones: the app changed its own UI and reported success, having lost the link,
-almost certainly when the multipoint toggle at 11:06:42 renegotiated the connection.
+⚠ **A settings app renders changes it has not delivered.** The morning's button
+attempt produced 425 frames in its window, **every one `HCI_EVT` or `HCI_CMD`, no ACL
+data at all** — the app changed its own UI having lost the link. Confirm the app is
+still connected *immediately before each action*, not just at the start.
 
-**Method, for the next attempt:** confirm the vendor app is still connected
-*immediately before each action*, not just at the start. A settings app will happily
-render a change it has not delivered, which is indistinguishable from one it has —
-and is the same shape as this repo's oldest trap, an answer that was never an answer.
-Do the connection-disturbing settings (multipoint) LAST.
+⚠ **A UI toggle that springs back cannot tell you whether anything was sent.** The
+evening run wrote up a multipoint retry as "refused" when the tap had missed the
+switch entirely. Take the coordinates from `uiautomator dump` bounds, and prefer
+RFCOMM — the probe echoes every byte it sends, so "not asked" can never read as "asked
+and refused".

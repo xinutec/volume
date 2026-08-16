@@ -18,7 +18,9 @@ import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Hex
+import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyFrame
+import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Sweep
 import org.xinutec.volume.protocol.Transport
 import org.xinutec.volume.protocol.set
@@ -485,6 +487,8 @@ class MainActivity : Activity() {
         emit("  bands:      ${d.bands(t).ifEmpty { "(no answer)" }}")
         emit("  auto-off:   ${d.readAutoOff(t) ?: "(no answer)"}")
         emit("  multipoint: ${d.readMultipoint(t) ?: "(no answer)"}")
+        emit("  quality:    ${d.readSoundQuality(t) ?: "(no answer)"}")
+        emit("  button:     ${d.readButton(t) ?: "(unexercised code, or no answer)"}")
 
         intent.getStringExtra("eq")?.let { arg ->
             val preset = arg.toIntOrNull(16)
@@ -515,6 +519,39 @@ class MainActivity : Activity() {
             val on = onOff(arg) ?: return@let emit("  ✗ multipoint wants on|off, not '$arg'")
             emit("  → multipoint $arg")
             report(d.setMultipoint(t, on))
+        }
+        intent.getStringExtra("quality")?.let { arg ->
+            val mode = SoundQuality.entries.firstOrNull { it.name.equals(arg, ignoreCase = true) }
+            if (mode == null) {
+                emit("  ✗ '$arg' is not one of ${SoundQuality.entries}")
+            } else {
+                emit("  → $mode (this renegotiates the codec; the link drops and returns)")
+                val after = d.writeSoundQuality(t, mode) ?: d.readSoundQuality(t)
+                when (after) {
+                    null -> emit("  ⚠ sent; nothing came back to check it against")
+                    mode -> emit("  ✓ confirmed")
+                    else -> emit("  ✗ it reads back as $after")
+                }
+            }
+        }
+        intent.getStringExtra("button")?.let { arg ->
+            val action =
+                SonyButton.Action.entries.firstOrNull { it.name.equals(arg, ignoreCase = true) }
+            if (action == null) {
+                emit("  ✗ '$arg' is not one of ${SonyButton.Action.entries}")
+                return@let
+            }
+            // ⚠ Expected to fail. The device acks this and ignores it; the vendor app
+            // sending the identical bytes succeeds. Left reachable because the next
+            // person to attack that asymmetry will want to run it — see SonyButton.
+            emit("  → $action ⚠ known not to take from this code")
+            d.writeButton(t, action)
+            val after = d.readButton(t)
+            when (after) {
+                null -> emit("  ⚠ sent; nothing came back to check it against")
+                action -> emit("  ✓ confirmed — ⚠ THIS HAS NEVER HAPPENED; re-read SonyButton")
+                else -> emit("  ✗ it reads back as $after, as expected")
+            }
         }
     }
 

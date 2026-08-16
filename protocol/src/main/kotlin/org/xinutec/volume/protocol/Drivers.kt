@@ -264,14 +264,16 @@ object Drivers {
         /**
          * The equaliser, decoded 2026-08-16 (`docs/sony-settings.md`).
          *
-         * ⚠ **Nothing here has been sent to a headphone by this code.** The frames
-         * are the vendor app's, replayed in tests; the driver is written and
-         * unproven. That distinction is the whole reason [Confirmation] exists, and
-         * it applies to the driver as much as to a single write.
+         * ✅ **Driven against the XM4 on 2026-08-16**, read and write. The read
+         * returned `preset=a2, levels=[3, 0, 0, 2, 4, 6]`, byte-identical to what the
+         * vendor app's capture had shown the day it was decoded — the same answer by
+         * two independent routes. Presets `a1` and `a2` were each written and
+         * confirmed by read-back.
          *
          * Preset ids seen going past: `a0`, `a1`, `a2` — the Customs, one of which
          * the owner had set to CLEAR BASS +3 and which read back as `0d` = +3 — and
          * `16`, `17`. The XM4's menu holds more, and no frame enumerates them.
+         * `a1` reads flat.
          */
         override fun readEq(t: Transport): EqSetting? =
             exchangeFramed(t, SonyEq.get())?.let(SonyEq::state)
@@ -296,9 +298,31 @@ object Drivers {
         fun readAutoOff(t: Transport): AutoOff? =
             exchangeFramed(t, SonyAutoOff.get())?.let(SonyAutoOff::state)
 
-        /** ⚠ Its notify echoes the value set, so this one really is confirmable. */
+        /**
+         * ⚠ Its notify echoes the value set, so this one really is confirmable.
+         * ✅ Driven on hardware 2026-08-16, both directions, and restored.
+         */
         fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
             exchangeFramed(t, SonyAutoOff.set(mode))?.let(SonyAutoOff::state)
+
+        /** ✅ Driven on hardware 2026-08-16, both directions, and restored. */
+        fun readSoundQuality(t: Transport): SoundQuality? =
+            exchangeFramed(t, SonySoundQuality.get())?.let(SonySoundQuality::state)
+
+        fun writeSoundQuality(t: Transport, mode: SoundQuality): SoundQuality? =
+            exchangeFramed(t, SonySoundQuality.set(mode))?.let(SonySoundQuality::state)
+
+        fun readButton(t: Transport): SonyButton.Action? =
+            exchangeFramed(t, SonyButton.get())?.let(SonyButton::state)
+
+        /**
+         * ⚠ **Known not to take**, and kept because the frame is right and the failure
+         * is the finding — see [SonyButton]. The device acks and ignores it, so this
+         * returns null and [readButton] will still report the old value. That is the
+         * honest outcome, not a bug to paper over with a retry.
+         */
+        fun writeButton(t: Transport, action: SonyButton.Action): SonyButton.Action? =
+            exchangeFramed(t, SonyButton.set(action))?.let(SonyButton::state)
 
         override fun readMultipoint(t: Transport): Boolean? =
             exchangeFramed(t, SonyMultipoint.get())?.let(SonyMultipoint::state)

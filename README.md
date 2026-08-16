@@ -18,7 +18,8 @@ Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces th
   day.** The "Next" list below is therefore parity work, not exploration.
   ⚠ **The screen shows ANC and nothing else** — EQ, multipoint, auto-off and the
   button live only in the vendor apps *for the user*, even though `:protocol` now
-  has drivers for most of them. Driver code nobody can reach is not parity.
+  has drivers for most of them. Driver code nobody can reach is not parity; the
+  `settings` probe op reaches them, and a probe op is not a screen either.
 
 **The app** is `VolumeActivity`: every *connected* headphone it knows how to drive,
 its model once identified, and its ANC modes as chips. It follows the radio while on
@@ -97,17 +98,36 @@ vendor app's bytes. It cannot show the device answers *us* — the Sony needed a
 session opener nobody knew about, the Bose refuses an untransacted write on one
 function and accepts it on three others, and both look identical to a green suite.
 
+**Driven on hardware** — sent to the headphone by this code, and confirmed
+- **Sony EQ** — `SonyXm4.readEq`/`writeEq`/`bands`, 2026-08-16. Read matched the
+  vendor capture byte for byte; presets `a1` and `a2` each written, confirmed and
+  restored. The band table read `[400, 1000, 2500, 6300, 16000]`, which is also the
+  escaping rules proven on a device rather than in a replay.
+  ⚠ Writing a custom *curve* (`58 01 <preset> <count> <levels>`) is structurally
+  certain and still unexercised: no band was dragged during the capture.
+- **Sony auto-off** — `readAutoOff`/`writeAutoOff`, both directions, confirmed and
+  restored. Two values; no timer exists in this model's menu, so an unknown value
+  reads as not-understood.
+- **Sony Sound Quality Mode** — `readSoundQuality`/`writeSoundQuality`, block `e0`.
+  Decoded and driven the same evening, both directions, confirmed and restored.
+  ⚠ Changing it renegotiates the codec, so the link drops and returns.
+
+**Decoded, and the write is refused** — the frames are right and the device says no
+- **Sony multipoint** — ⚠ **the XM4 refuses to enable it at all**, for this repo, for
+  Sony Headphones Connect driven over adb, and for a finger on the switch. All three
+  send `d8 d2 01 01`; all three get `d9 d2 01 00`. Not the codec — retested in both
+  Sound Quality Modes. `d8 d2 01 00` has never been sent, because it has never been
+  on to turn off.
+- **Sony [CUSTOM] button** — `SonyButton`, block `f0` type `06`, `00` Ambient Sound
+  Control / `31` Digital assistant. ⚠ **The reads work and the write does not — but
+  the vendor app's identical frame does.** That asymmetry is the lead, and it is
+  #965; do not merge it with multipoint above, which fails for everyone.
+
 **Written, needs hardware** — code, replay tests against captured frames, no device
-- **Sony EQ** — `SonyXm4.readEq`/`writeEq`/`bands`. ⚠ Writing a custom *curve*
-  (`58 01 <preset> <count> <levels>`) is structurally certain and unexercised: no
-  band was dragged during the capture.
-- **Sony auto-off** — `readAutoOff`/`writeAutoOff`. Two values; no timer exists in
-  this model's menu, so an unknown value reads as not-understood.
-- **Multipoint, both vendors** — `MultipointDriver`, on `SonyXm4` and `BoseQc45`.
-  ⚠ **Neither device's reply to a multipoint write answers the question**: the Sony
-  volunteers a notification about a *different* parameter, the Bose a flags byte
-  that never equals what was written. Both are read back with a real Get.
-  ⚠ Sony's `d8 d2 01 00` has never been sent — only turning it *on* was captured.
+- **Bose multipoint** — `MultipointDriver` on `BoseQc45`. ⚠ **Its reply to a write
+  never answers the question**: a flags byte that never equals what was written, so
+  it is read back with a real Get. Same hazard as the Sony's, reached from a
+  completely different direction.
 
 - **Bose EQ and Action button** — `BoseQc45.readEq`/`writeEq`/`readButton`/
   `writeButton`, `docs/bose-settings.md`. ⚠ The presets are the *app's*, not the

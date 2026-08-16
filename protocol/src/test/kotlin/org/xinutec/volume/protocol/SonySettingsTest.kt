@@ -144,4 +144,141 @@ class SonySettingsTest {
         assertEquals(Confirmation.Confirmed, Drivers.BoseQc45.setMultipoint(off, on = false))
         off.assertDrained()
     }
+
+    // ---- Sound Quality Mode ------------------------------------------------
+
+    /** 18:08:33, the vendor app's connect-time read. Seq `01`, so `prepare` runs first. */
+    @Test
+    fun `sound quality reads as prioritise quality`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 00 00 0e 3c" to "3e 0c 01 00 00 00 04 01 00 70 00 82 3c",
+                "3e 0c 01 00 00 00 02 e6 01 f6 3c" to "3e 0c 00 00 00 00 04 e7 01 00 00 f8 3c",
+            )
+        sony.prepare(t)
+        assertEquals(SoundQuality.QUALITY, sony.readSoundQuality(t))
+        t.assertDrained()
+    }
+
+    /** 18:16:54 — and ⚠ its notify echoes the value, so this one confirms itself. */
+    @Test
+    fun `sound quality is set to stable and echoed back`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 00 00 0e 3c" to "3e 0c 01 00 00 00 04 01 00 70 00 82 3c",
+                "3e 0c 01 00 00 00 04 e8 01 00 01 fb 3c" to
+                    "3e 01 00 00 00 00 00 01 3c" +
+                    "3e 0c 01 00 00 00 04 e9 01 00 01 fc 3c",
+            )
+        sony.prepare(t)
+        assertEquals(SoundQuality.STABLE, sony.writeSoundQuality(t, SoundQuality.STABLE))
+        t.assertDrained()
+    }
+
+    /** 18:20:00, the inverse. A fresh driver starts at seq `00`, which is what this is. */
+    @Test
+    fun `sound quality is set back to quality`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 04 e8 01 00 00 f9 3c" to
+                    "3e 01 01 00 00 00 00 02 3c" +
+                    "3e 0c 00 00 00 00 04 e9 01 00 00 fa 3c",
+            )
+        assertEquals(
+            SoundQuality.QUALITY,
+            Drivers.SonyXm4().writeSoundQuality(t, SoundQuality.QUALITY),
+        )
+        t.assertDrained()
+    }
+
+    /** ⚠ The third byte is `00` here and `01` everywhere else — don't normalise it. */
+    @Test
+    fun `sound quality set carries the zero byte the capture has`() {
+        assertEquals("e8 01 00 01", Hex.format(SonySoundQuality.set(SoundQuality.STABLE)))
+        assertEquals("e8 01 00 00", Hex.format(SonySoundQuality.set(SoundQuality.QUALITY)))
+    }
+
+    // ---- the [CUSTOM] button -----------------------------------------------
+
+    /** 18:08:33, read straight after the vendor app assigned Digital assistant. */
+    @Test
+    fun `button reads as the action the app assigned`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 f6 06 0a 3c" to "3e 0c 01 00 00 00 04 f7 06 01 31 40 3c",
+            )
+        assertEquals(SonyButton.Action.DIGITAL_ASSISTANT, Drivers.SonyXm4().readButton(t))
+        t.assertDrained()
+    }
+
+    /** 18:09:48, after the app put it back. */
+    @Test
+    fun `button reads as ambient sound control once restored`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 f6 06 0a 3c" to "3e 0c 01 00 00 00 04 f7 06 01 00 0f 3c",
+            )
+        assertEquals(SonyButton.Action.AMBIENT_SOUND_CONTROL, Drivers.SonyXm4().readButton(t))
+        t.assertDrained()
+    }
+
+    /**
+     * 18:07:48. ⚠ **The reply to the button write is not about the button** — it is
+     * `99 01 02 01`, the device asking for the reconnect its dialog warns about. So
+     * [Drivers.SonyXm4.writeButton] yields null and a caller must read back, exactly
+     * as multipoint must.
+     */
+    @Test
+    fun `the reply to a button write asks for a reconnect`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 00 00 0e 3c" to "3e 0c 01 00 00 00 04 01 00 70 00 82 3c",
+                "3e 0c 01 00 00 00 04 f8 06 01 31 41 3c" to
+                    "3e 01 00 00 00 00 00 01 3c" +
+                    "3e 0c 00 00 00 00 04 99 01 02 01 ad 3c",
+            )
+        sony.prepare(t)
+        assertNull(sony.writeButton(t, SonyButton.Action.DIGITAL_ASSISTANT))
+        t.assertDrained()
+    }
+
+    /** 18:08:16, the notify that arrives only after the commit — and it does decode. */
+    @Test
+    fun `the notify after the commit carries the new action`() {
+        assertEquals(
+            SonyButton.Action.DIGITAL_ASSISTANT,
+            SonyButton.state(Hex.parse("f9060131")),
+        )
+        assertEquals(
+            SonyButton.Action.AMBIENT_SOUND_CONTROL,
+            SonyButton.state(Hex.parse("f9060100")),
+        )
+    }
+
+    /** ⚠ Amazon Alexa was in the menu and never selected, so it has no code. */
+    @Test
+    fun `an unexercised button code decodes to null, not to a guess`() {
+        assertNull(SonyButton.state(Hex.parse("f7060133")))
+        assertNull(SonyButton.state(Hex.parse("f7060121")))
+    }
+
+    /** The `90`-block commit the vendor app sends once the owner accepts the dialog. */
+    @Test
+    fun `the commit frame is the one the app sent`() {
+        assertEquals("98 01 02 01", Hex.format(SonyButton.commitReconnect()))
+    }
+
+    /**
+     * ⚠ The capability read answers us perfectly well — which is half of why the
+     * *write* being ignored is strange, and is the frame #965 starts from. Its reply
+     * is deliberately **not** decoded: it plainly holds more action codes than the two
+     * that were exercised, and turning that byte string into a list would be inventing
+     * a structure rather than reading one.
+     */
+    @Test
+    fun `the capability frame is asked for but its reply is not decoded`() {
+        assertEquals("f0 06", Hex.format(SonyButton.capabilities()))
+        val reply = "f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34"
+        assertNull(SonyButton.state(Hex.parse(reply.replace(" ", ""))))
+    }
 }

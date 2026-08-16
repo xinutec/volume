@@ -40,6 +40,25 @@ watch_log() {
   wait "$pid" 2>/dev/null || true
 }
 
+# ⚠ Start the activity so THIS run's extras are the ones handled.
+#
+# `am start` compares intents with `filterEquals` — action, data, type, component,
+# categories — and **extras are not part of it**. Two ops differing only in their
+# `--es` values are therefore the same intent: the activity is resumed rather than
+# re-delivered ("its current task has been brought to the front"), and
+# `handle(getIntent())` re-runs the OLD extras. That is not a display bug, it
+# silently REPEATS THE PREVIOUS WRITE. Caught when a read-only `settings XM4`
+# printed "→ multipoint on", having re-sent the write from the run before it.
+#
+# ⚠ **The fix is a unique `-d`, NOT `am force-stop`.** Both work, and force-stop
+# also tears the activity out of a split-screen pair and off whatever Pippijn had
+# on screen — see the doc's "do not drive the phone while he is using it". A URI
+# nobody reads makes `filterEquals` false, so `singleTask` delivers `onNewIntent`
+# and the task stack is left alone.
+start_op() {
+  "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RANDOM$$" "$@" >/dev/null
+}
+
 case "${1:-list}" in
   install)
     # deploy.sh owns build + install + grant, and selects the phone by model.
@@ -52,7 +71,7 @@ case "${1:-list}" in
     echo "force-stopped ${#VENDOR_APPS[@]} vendor apps"
     ;;
   list)
-    "${ADB[@]}" shell am start -n "$ACT" --es op list >/dev/null
+    start_op --es op list
     watch_log 4
     ;;
   sweep)
@@ -61,7 +80,7 @@ case "${1:-list}" in
     args=(--es op sweep --es mac "$mac" --es uuid "$uuid" --es proto "$proto")
     [ -n "${5:-}" ] && args+=(--es blocks "$5")
     [ -n "${6:-}" ] && args+=(--es fns "$6")
-    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    start_op "${args[@]}"
     watch_log "${SWEEP_WAIT:-180}"
     ;;
   seq)
@@ -74,18 +93,18 @@ case "${1:-list}" in
     # SONY_SEQ=1 frames each payload and acks the device's data frames — its PARAM
     # reads only answer inside a session that does both.
     [ -n "${SONY_SEQ:-}" ] && args+=(--ez sony true)
-    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    start_op "${args[@]}"
     watch_log "${SEQ_WAIT:-30}"
     ;;
   scan)
-    "${ADB[@]}" shell am start -n "$ACT" --es op scan >/dev/null
+    start_op --es op scan
     watch_log 14
     ;;
   gattmap)
     # What a device's GATT actually offers. Cheaper than guessing which of a chip
     # vendor's published UUID pairs this particular model implements.
     who="${2:?device name substring}"
-    "${ADB[@]}" shell am start -n "$ACT" --es op gattmap --es name "'$who'" >/dev/null
+    start_op --es op gattmap --es name "'$who'"
     watch_log "${GATT_WAIT:-60}"
     ;;
   gatt)
@@ -104,7 +123,7 @@ case "${1:-list}" in
       args=(--es op gatt --es name "'$who'" --es packets "$packets")
     fi
     [ -n "${4:-}" ] && args+=(--es service "$4")
-    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    start_op "${args[@]}"
     watch_log "${GATT_WAIT:-40}"
     ;;
   anc)
@@ -113,7 +132,7 @@ case "${1:-list}" in
     who="${2:?device name substring}"
     args=(--es op anc --es device "'$who'")
     [ -n "${3:-}" ] && args+=(--es mode "$3")
-    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    start_op "${args[@]}"
     watch_log "${ANC_WAIT:-40}"
     ;;
   settings)
@@ -138,7 +157,7 @@ case "${1:-list}" in
         *) echo "unknown setting '$key' — eq, multipoint, autooff, button" >&2; exit 2 ;;
       esac
     done
-    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    start_op "${args[@]}"
     watch_log "${SETTINGS_WAIT:-60}"
     ;;
   send|raw)
@@ -151,7 +170,7 @@ case "${1:-list}" in
     [ "$1" = raw ] && args+=(--ez raw true)
     [ -n "${5:-}" ] && args+=(--es type "$5")
     [ -n "${6:-}" ] && args+=(--es seq "$6")
-    "${ADB[@]}" shell am start -n "$ACT" "${args[@]}" >/dev/null
+    start_op "${args[@]}"
     watch_log 8
     ;;
   *)
