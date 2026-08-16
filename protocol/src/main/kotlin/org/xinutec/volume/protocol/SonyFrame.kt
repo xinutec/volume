@@ -3,11 +3,17 @@ package org.xinutec.volume.protocol
 /**
  * Sony's framing on the `96cc203e-…` RFCOMM channel.
  *
- * ⚠ **Written from memory of the open-source SonyHeadphonesClient, NOT from a
- * capture, and the probe exists to find out whether it is right.** Every constant
- * below is a hypothesis. Treat a malformed reply as evidence against this file
- * before suspecting the headphones — and when a capture settles it, replace this
- * comment with the measurement.
+ * Written from memory of the open-source SonyHeadphonesClient, and **settled by the
+ * 2026-08-16 capture** (`docs/sony-settings.md`), which is what this note used to
+ * ask for. The band-table reply
+ * `3e 0c 00 00000015 5b…01 3d 2e 80 54 3c` decides all three open questions at once:
+ * its declared length of 21 matches only *after* unescaping 22 bytes, its checksum
+ * holds only over the *unescaped* body, and the `3d 2e` unescapes to `3e`.
+ *
+ * ⚠ That last one is not academic. Read literally, the top band reads 15662 Hz —
+ * plausible, near enough to the app's "16k" label to pass — and unescaped it is
+ * exactly 16000. A fixture taken at the wire layer and handed to a payload decoder
+ * asserted the wrong number for a day.
  *
  * Shape:
  * ```
@@ -34,8 +40,9 @@ object SonyFrame {
      * `0x3c`→`0x2c`, `0x3d`→`0x2d`) behind an `0x3d` lead byte, so the escaped form
      * can never itself be mistaken for a marker.
      *
-     * ⚠ Unverified — see the class note. The first probe command carries no
-     * escapable byte, so a green first round-trip says nothing about this path.
+     * ⚠ Verified against the capture — see the class note. It went unexercised for a
+     * long time because the first probe command carries no escapable byte, so a green
+     * round-trip said nothing about this path.
      */
     fun escape(body: ByteArray): ByteArray {
         val out = ArrayList<Byte>(body.size + 4)

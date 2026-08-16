@@ -66,11 +66,16 @@ class SonyEqTest {
     /**
      * Captured at 11:01:41. The frequencies match the app's own axis labels, which
      * is the independent check — they were not read off this frame.
+     *
+     * ⚠ **The UNESCAPED payload**, as [SonyFrame.decodeAll] returns it. This fixture
+     * was originally the wire bytes, ending `01 3d 2e 80`, and asserted 15662 for the
+     * top band — a number the driver could never produce, close enough to "16k" to
+     * survive review. See [SonyFrameTest] for the frame it comes out of.
      */
     @Test
     fun `the capability frame carries the band centre frequencies`() {
-        val f = SonyEq.bands(bytes("5b01061000010101900103e80109c401189c013d2e80"))
-        assertEquals(listOf(400, 1000, 2500, 6300, 15662), f)
+        val f = SonyEq.bands(bytes("5b01061000010101900103e80109c401189c013e80"))
+        assertEquals(listOf(400, 1000, 2500, 6300, 16000), f)
     }
 
     @Test

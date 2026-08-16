@@ -79,18 +79,25 @@ interface AncDriver {
     fun name(t: Transport): String? = null
 }
 
-/** What happened when a write was checked. */
-sealed interface Confirmation {
+/**
+ * What happened when a write was checked.
+ *
+ * Generic in what was read back because the discipline is not about ANC: an EQ
+ * preset, a multipoint flag and a mode all have the same three outcomes, and a
+ * second copy of this taxonomy would be a second place for "it replied, so it
+ * worked" to creep back in.
+ */
+sealed interface Confirmation<out T> {
     /** The device read back as asked. */
-    data object Confirmed : Confirmation
+    data object Confirmed : Confirmation<Nothing>
 
     /** It read back as something else — [actual] — so the write did not take. */
-    data class Contradicted(
-        val actual: AncMode,
-    ) : Confirmation
+    data class Contradicted<T>(
+        val actual: T,
+    ) : Confirmation<T>
 
     /** This device has no read command, so the write cannot be checked from here. */
-    data object Unverifiable : Confirmation
+    data object Unverifiable : Confirmation<Nothing>
 }
 
 /**
@@ -103,7 +110,7 @@ sealed interface Confirmation {
  * Both read exactly like success. The only evidence a setting moved is reading it
  * back — or, where that is impossible, saying so out loud rather than assuming.
  */
-fun AncDriver.set(t: Transport, mode: AncMode): Confirmation {
+fun AncDriver.set(t: Transport, mode: AncMode): Confirmation<AncMode> {
     require(mode in modes) { "$mode is not one of $modes" }
     write(t, mode)
     val after = read(t) ?: return Confirmation.Unverifiable

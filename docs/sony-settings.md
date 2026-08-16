@@ -25,29 +25,56 @@ blocks of ten, `…8` = `SET_PARAM` and `…9` = `NTFY_PARAM`. That predicts `58
 for EQ in the `50` EQEBB block and `f8`/`f9` for auto-off in the `f0` SYSTEM block —
 which is exactly what the wire shows. Two independent routes to the same answer.
 
-## Equalizer — `0x58` set, `0x59` state, `0x5b` capability
+## Equalizer — block `0x50` (EQEBB), type `01`
 
-    → 58 01 <preset> 00                 set preset
-    ← 59 01 <preset> 06 <6 bytes>       resulting state: preset + 6 levels
+    → 56 01                             GET_PARAM
+    ← 57 01 <preset> 06 <6 levels>      RET_PARAM
+    → 58 01 <preset> 00                 SET_PARAM
+    ← (ack) then 59 01 <preset> 06 <6 levels>    NTFY_PARAM, unsolicited
     → 5a 01                             request the band table
     ← 5b 01 06 10 00 01 01 01 90 01 03 e8 01 09 c4 01 18 9c 01 3d 2e 80
+
+`52 01` → `53 01 00` is the status, asked once on connecting; the `52 00` in
+`docs/protocols.md` is the same command with a different type byte and is not
+interchangeable with it.
 
 ⚠ `5a` is a REQUEST the phone sends, not another notification — the app asks for the
 band table after every preset change. Directions verified from the capture.
 
-Observed presets: `a1`, `a0` (the two Customs), `17`, `16`.
+**`56`/`57` were predicted from the SDK's blocks of ten and then found on the wire**,
+once, at 10:58:21 when the app connected: `→ 56 01` drew
+`← 57 01 a2 06 0d 0a 0a 0c 0e 10`. So the read command is measured, not inferred —
+and its first level, `0d` = +3, is the CLEAR BASS +3 the owner had actually set.
+
+⚠ **A SET's own reply carries the resulting state.** The device acks, then sends an
+unsolicited `59` with the whole state, in the same window. That is a state report,
+not a confirmation — it becomes evidence only by comparing its preset with the one
+asked for, because a device that ignored the write reports the *old* preset there.
+
+⚠ **The trailing `00` of a SET is a level COUNT**, sitting where `59`'s `06` sits —
+so `58 01 <preset> 06 <6 levels>` is what writing a custom curve must look like.
+Structurally certain, **never exercised**: no band was dragged during the capture.
+
+Observed presets: `a0`, `a1`, `a2` (Customs), `17`, `16`. The menu holds more and
+nothing captured enumerates them.
 
 **Six levels, not five.** `06` is the count, then one byte per band. The first is
 CLEAR BASS and the remaining five are the graphic bands. ⚠ **Levels are offset by
 10**: `0a` is 0 dB, so the range −10…+10 maps to `00`…`14`. A flat preset reads
 `0a 0a 0a 0a 0a 0a`; one measured preset read `00 0e 0d 0b 0c 00`.
 
-The `5b` capability frame carries the band centre frequencies as 16-bit values,
-and they match the app's own axis labels exactly — `0190`=400, `03e8`=1000,
-`09c4`=2500, `189c`=6300, `3d2e`=15662 (shown as 16k):
+The `5b` frame carries the band centre frequencies as 16-bit values, and they match
+the app's own axis labels **exactly**:
 
     01 90 → 400 Hz    03 e8 → 1 kHz    09 c4 → 2.5 kHz
-    18 9c → 6.3 kHz   3d 2e → 16 kHz
+    18 9c → 6.3 kHz   3e 80 → 16000 Hz
+
+⚠ **On the wire that last one reads `3d 2e`, and it is an ESCAPED `3e`.** Taken
+literally it decodes to 15662 — wrong, and close enough to the app's "16k" label to
+pass for a rounding. This frame is also what settles the framing itself: it is the
+only captured frame containing a marker byte, its declared length of 21 matches only
+after unescaping 22 bytes, and its checksum `54` holds only over the unescaped body.
+Length counts the unescaped payload; the sum is taken before escaping.
 
 ## Automatic power off — `0xf8` set, `0xf9` state
 

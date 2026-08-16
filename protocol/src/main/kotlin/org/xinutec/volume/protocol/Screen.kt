@@ -179,7 +179,7 @@ data class Note(
  * [label] is passed in so the vendors' words ("Noise cancelling") stay in the UI
  * and out of here, while the *decision* of whether to speak stays testable.
  */
-fun Confirmation.note(requested: AncMode, label: (AncMode) -> String): Note? =
+fun Confirmation<AncMode>.note(requested: AncMode, label: (AncMode) -> String): Note? =
     when (this) {
         is Confirmation.Confirmed -> {
             null
@@ -195,7 +195,7 @@ fun Confirmation.note(requested: AncMode, label: (AncMode) -> String): Note? =
     }
 
 /** The mode to show after a set, which is only known when it was confirmed. */
-fun Confirmation.resulting(requested: AncMode): AncMode? =
+fun Confirmation<AncMode>.resulting(requested: AncMode): AncMode? =
     when (this) {
         is Confirmation.Confirmed -> requested
         is Confirmation.Contradicted -> actual

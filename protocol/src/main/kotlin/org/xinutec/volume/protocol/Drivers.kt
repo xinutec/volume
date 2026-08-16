@@ -162,7 +162,9 @@ object Drivers {
      * and re-reading. Bytes 1, 3 and 4 held `02 01 00` in every state and are NOT
      * identified — they are echoed back verbatim rather than reasoned about.
      */
-    class SonyXm4 : AncDriver {
+    class SonyXm4 :
+        AncDriver,
+        EqDriver {
         /**
          * ⚠ **Sony frames carry an alternating sequence bit, and it is not
          * decoration.** Send two frames with the same one and the device treats the
@@ -222,6 +224,38 @@ object Drivers {
             val ambient: Byte = if (mode == AncMode.ANC) 0x00 else AMBIENT_MAX
             exchangeFramed(t, byteArrayOf(0x68, TYPE, on, 0x02, nc, 0x01, 0x00, ambient))
         }
+
+        /**
+         * The equaliser, decoded 2026-08-16 (`docs/sony-settings.md`).
+         *
+         * ⚠ **Nothing here has been sent to a headphone by this code.** The frames
+         * are the vendor app's, replayed in tests; the driver is written and
+         * unproven. That distinction is the whole reason [Confirmation] exists, and
+         * it applies to the driver as much as to a single write.
+         *
+         * Preset ids seen going past: `a0`, `a1`, `a2` — the Customs, one of which
+         * the owner had set to CLEAR BASS +3 and which read back as `0d` = +3 — and
+         * `16`, `17`. The XM4's menu holds more, and no frame enumerates them.
+         */
+        override fun readEq(t: Transport): EqSetting? =
+            exchangeFramed(t, SonyEq.get())?.let(SonyEq::state)
+
+        /**
+         * ⚠ The reply window holds **two** frames: the ack, then a `NTFY_PARAM`
+         * carrying the resulting state. [exchangeFramed] takes the last DATA frame,
+         * so the ack does not shadow it — and the state comes back for [setEq] to
+         * compare, which is the only thing that makes it evidence.
+         */
+        override fun writeEq(t: Transport, preset: Int): EqSetting? =
+            exchangeFramed(t, SonyEq.set(preset))?.let(SonyEq::state)
+
+        /**
+         * ⚠ The band table is **not** re-read per preset because it changes — it
+         * was byte-identical in all eleven captured replies. Sony Headphones Connect
+         * asks after every change; this asks when someone wants the axis.
+         */
+        override fun bands(t: Transport): List<Int> =
+            exchangeFramed(t, SonyEq.getBands())?.let(SonyEq::bands) ?: emptyList()
 
         /** Send one framed payload, ack the device's answer, return its payload. */
         private fun exchangeFramed(t: Transport, payload: ByteArray): ByteArray? {
