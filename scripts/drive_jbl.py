@@ -319,7 +319,21 @@ def group_leaudio(d: Driver) -> None:
     d.cycle("LE Audio")
 
 
+def group_maxvol(d: Driver) -> None:
+    """⚠ Hearing protection, driven ONCE with Pippijn's explicit approval.
+
+    Driven through the app's own switch rather than by composing a write: the set
+    frame for `aa a5` has never been observed, and guessing bytes at the one command
+    that governs how loud these can get is the guess not to make. Off and straight
+    back on, both halves verified by reading the switch.
+    """
+    say("--- Max Volume Limiter (found ON) — ⚠ approved once, restored immediately ---")
+    if not d.cycle("Max Volume Limiter"):
+        say("!! the limiter did not cycle cleanly — CHECK IT BY HAND")
+
+
 GROUPS: dict[str, Callable[[Driver], None]] = {
+    "maxvol": group_maxvol,
     "screens": group_screens,
     "asc": group_asc,
     "lvdeq": group_lvdeq,
