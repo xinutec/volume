@@ -51,6 +51,22 @@ class DeviceController(
     private var screen = Screen(emptyList(), Emptiness.LOOKING)
 
     /**
+     * The tile changed a mode; re-read that one card.
+     *
+     * ⚠ Re-reads rather than trusting what the tile reported, because the tile's word
+     * for it went through a [org.xinutec.volume.protocol.Confirmation] that may have
+     * been `Unverifiable` — and copying that across would launder an unconfirmed
+     * write into a selected chip. Cheap: the session is already open.
+     */
+    private val watcher: (String) -> Unit = { address ->
+        work.execute { Sessions.existing(address)?.let { describe(address, it) } }
+    }
+
+    init {
+        Sessions.watch(watcher)
+    }
+
+    /**
      * The headphones that are actually here, opened as soon as they are listed.
      *
      * ⚠ **Connected, not merely bonded.** Nothing here can be driven over a link
@@ -259,8 +275,17 @@ class DeviceController(
      */
     fun release() = Sessions.releaseAll()
 
-    /** The activity is going; the process and its channels are not. */
-    fun closeAll() = Sessions.releaseAll()
+    /**
+     * The activity is going; the process and its channels are not.
+     *
+     * ⚠ Unwatch, or this controller outlives its screen: [Sessions] is a process-level
+     * object, so a retained callback would keep a destroyed activity's closure alive
+     * and push updates at a screen nobody can see.
+     */
+    fun closeAll() {
+        Sessions.unwatch(watcher)
+        Sessions.releaseAll()
+    }
 
     private fun update(address: String, state: DeviceState) = emit(screen.with(address, state))
 

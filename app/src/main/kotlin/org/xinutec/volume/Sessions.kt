@@ -3,6 +3,7 @@ package org.xinutec.volume
 import android.util.Log
 import org.xinutec.volume.protocol.Leases
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -42,6 +43,30 @@ object Sessions {
     init {
         work.scheduleWithFixedDelay(::sweep, IDLE_MS, IDLE_MS, TimeUnit.MILLISECONDS)
     }
+
+    /**
+     * Anyone who wants telling when a device's mode was changed from elsewhere.
+     *
+     * ⚠ Exists because the tile and the screen are now two views of one device. A
+     * tap from the shade drove the JBL between ANC and Ambient while the card still
+     * read "Noise cancelling" — the surfaces shared a session but not the news.
+     *
+     * ⚠ A *notification*, not a poll. Nothing here may go and ask a device what it
+     * is doing; re-reading a headphone nobody is looking at is exactly what
+     * `onStop`'s release exists to prevent.
+     */
+    private val watchers = CopyOnWriteArrayList<(String) -> Unit>()
+
+    fun watch(f: (String) -> Unit) {
+        watchers += f
+    }
+
+    fun unwatch(f: (String) -> Unit) {
+        watchers -= f
+    }
+
+    /** Something changed [address] — tell whoever is showing it. */
+    fun changed(address: String) = watchers.forEach { runCatching { it(address) } }
 
     fun existing(address: String): Session? = open[address]
 

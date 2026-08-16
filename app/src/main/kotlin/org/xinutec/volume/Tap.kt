@@ -127,6 +127,9 @@ object Tap {
         val to = OneButton.next(driver.modes.toList(), current)
         val confirmation = runCatching { driver.set(s.transport, to) }.getOrNull()
         Log.i(LIVE, "tap: $target $current -> $to ($confirmation)")
+        // ⚠ Tell the screen. It shares the session but would otherwise keep showing
+        // the mode it last read, while the shade changed it underneath.
+        Sessions.changed(target)
         return State(
             available = true,
             label = s.headphones.model,
