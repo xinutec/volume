@@ -225,6 +225,40 @@ Per-feature status is one byte each, and cheaper to read than the `30` bundle:
 → aa 91 01 21   ← aa 91 09 22 01 01 04 07 05 01 a1 07     ANC capability, undecoded
 ```
 
+### ✅ Auto power off — driven 2026-08-16
+
+```
+→ aa 21 01 33        ← aa 22 04 33 <on> <minutes> <?>     00 1e 00 = off, 30 min
+→ aa 33 03 <on> <minutes> <?>   ← aa 00 02 33 00          the ack, not the answer
+```
+Driven both ways from this code and confirmed by read-back. ⚠ **The shape was
+guessed from the status reply and worked first time** — the setter mirrors the
+getter here, as it does on all four vendors. ⚠ `1e` = 30 was never varied, so the
+units are still "minutes, unverified"; only the on/off byte is measured.
+
+### ✅ Equalizer — `aa a2`, and it is a CURVE, not a preset
+
+```
+→ aa a2 02 01 ff     read the current curve
+← aa a2 74 00 02 01 <16-byte header> <10 records> 01
+→ aa a2 74 00 00 01 <16-byte header> <10 records> 01      write (byte 4/5 differ)
+```
+Each record is 10 bytes: `01 01 <gain float32 LE> <frequency float32 LE>`, and the
+ten frequencies are **exactly the app's axis** — 32, 64, 125, 250, 500, 1k, 2k, 4k,
+8k, 16k. JAZZ is `+4 +2 +1 +2.5 −1.5 −1.5 0 +1 +2 +4`; flat is all zeroes. Read and
+write both driven from this code, and the curve restored to the flat one it started
+on.
+
+⚠ **The named presets are the APP's, not the device's** — same as Bose, opposite of
+Sony. Selecting JAZZ sends a curve; nothing sends a preset id.
+
+⚠ **`aa 21 01 34` is NOT the EQ preset**, though it was written down as one. It read
+`00` before selecting JAZZ and `00` after. A status field that does not move when the
+setting moves is about something else.
+
+⚠ **`aa 40 01 01` drew nothing and changed nothing.** `aa 40`/`aa 41`/`aa 42` are
+named in the SDK tables but none of them is the path the app uses; `aa a2` is.
+
 ### Gestures — read and decoded
 
 ```
@@ -249,11 +283,11 @@ action   00 default 01 vol+ 02 vol- 03 ambient 04 talkthru 05 next 06 prev
 button to a volume change — the one thing this repo will not do casually. Read
 gestures freely; leave the writes until there is a reason.
 ```
-aa 21 01 <30..3a>   status: 30 all · 31 ANC · 32 ambient · 33 auto-off · 34 EQ
+aa 21 01 <30..3a>   status: 30 all · 31 ANC · 32 ambient · 33 auto-off · 34 ⚠ NOT EQ
                     35 multi-AI · 36 BT connection · 37 OTA · 38 auto play/pause
                     39 TWS · 3a PersoniFi
 aa 31  set ANC          aa 32  set ambient aware    aa 33  set auto-off
-aa 40  set EQ preset    aa 41  set custom EQ        aa 42  read custom EQ
+aa 40/41/42  named in the SDK, ⚠ none is the EQ path — aa a2 is, and is driven
 aa 71  set gesture      aa 72  read gesture         aa 77  gesture batch
 aa 91  ANC modes (`aa 91 01 11` reads)              aa 11  device info
 aa 25  battery          aa 94  serial               aa 9b  multi-status

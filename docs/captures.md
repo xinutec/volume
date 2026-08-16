@@ -8,15 +8,69 @@ megabytes and carry the phone's whole radio traffic for the period, not just our
 
 ## Method that works
 
+### Before capturing anything
+
+**Ask whether the thing you want even exists.** A capture is an hour; these are
+minutes.
+
+- ⚠ **To find out whether a device has a READ at all, make the vendor app tell
+  you.** Set the value from *this* repo's probe, then launch the vendor app **cold**
+  and look at what its UI draws. If it shows the state you just set, it read the
+  device and a read command exists — go and capture the launch, the frames are in
+  it. If it shows something stale, it is remembering. This found the JLab's read on
+  2026-08-16 after months of "the app appears to track mode locally", which was
+  never tested and was wrong. Do it **both ways round**: one direction can agree by
+  luck.
+- **Read the status surface first.** `aa 21 01 3x` on the JBL, a Bose sweep, a Sony
+  `f0`/`f2`/`f6` block — reads are safe on worn headphones and cost nothing.
+- ⚠ **Check that a status field actually TRACKS the setting before believing it is
+  the read.** The JBL's `34` was written down as "EQ preset"; selecting JAZZ in the
+  app left it at `00`. A field that does not move when the thing moves is a field
+  about something else.
+
+### Guessing — where it works and where it has always failed
+
+⚠ **Frame SHAPE can be guessed from a status reply. VALUE bytes cannot.**
+
+- Shape: the JBL's auto-off status reads `aa 22 04 33 <en> <min> <?>`, so
+  `aa 33 03 <en> <min> <?>` was tried and worked first time. Sony/Bose/JLab all
+  follow the same "the setter mirrors the getter" habit.
+- Values: guessing has failed **every** time it has been tried here — Sony's mode
+  bytes, the JLab's `03`, the Bose slot order. Capture them.
+- **Allow yourself ONE bounded guess with a read-back, then stop.** `aa 40 01 01`
+  for the JBL's EQ preset drew nothing and moved nothing; that is the signal to go
+  and capture rather than to try `aa 40 02 01`.
+
+### Driving the vendor app
+
 1. **Each change immediately followed by its inverse.** The differing bytes between
    two known states are the field. A single change tells you far less.
-2. **Connection-disturbing settings LAST** (multipoint). On the Sony it renegotiated
-   the link mid-session and everything after it was never sent.
+2. **Connection-disturbing settings LAST.** On the Sony, multipoint renegotiated the
+   link mid-session and everything after it was never sent — and ⚠ the [CUSTOM]
+   button change is connection-disturbing too, which its own dialog says
+   ("Reconnects to the headphones") and which is the better explanation for that
+   capture's missing frames.
 3. **Confirm the vendor app is still connected AFTER the actions**, not just before.
    A settings app renders a change it has not delivered exactly like one it has.
-4. **Wait ~3 minutes before pulling the bugreport.** The snoop log flushes lazily;
+4. ⚠ **Take tap coordinates from `uiautomator dump` bounds, never from a
+   screenshot's proportions.** A tap that lands on the row instead of the switch
+   opens a detail screen, and the toggle you were watching keeps its old value —
+   which is indistinguishable from a refusal.
+5. ⚠ **A UI toggle that springs back cannot tell you whether anything was sent.**
+   Prefer driving over RFCOMM/GATT, where the probe echoes `[n] → <bytes>` and
+   "never asked" cannot read as "asked and refused".
+
+### Pulling and believing it
+
+6. **Wait ~3 minutes before pulling the bugreport.** The snoop log flushes lazily;
    its mtime is later than its last frame, so a truncated log looks complete.
-5. **Check the last frame's timestamp against this log** before believing a capture.
+7. **Check the last frame's timestamp against this log** before believing a capture.
+8. ⚠ **An empty window is evidence too.** 425 frames of `HCI_EVT`/`HCI_CMD` and no
+   ACL means nothing was sent — the app changed its own UI over a dead link. Do not
+   read it as "the capture missed it".
+9. ⚠ **A reply's checksum need not follow the request's rule.** The JLab's replies
+   come out exactly 2 less than the sum-mod-256 its requests use. Leave a rule you
+   cannot derive unchecked rather than "fixing" the frames to fit it.
 
 ## 2026-08-16 — Sony WH-1000XM4 (`~/.cache/volume-captures/2026-08-16-sony/`)
 
