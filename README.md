@@ -108,15 +108,15 @@ function and accepts it on three others, and both look identical to a green suit
   that never equals what was written. Both are read back with a real Get.
   ⚠ Sony's `d8 d2 01 00` has never been sent — only turning it *on* was captured.
 
-**Decoded, needs a driver** — the frames are exact and encoded in `:protocol` with
-the capture as fixtures
-- **Bose EQ and Action button** — `docs/bose-settings.md`, `BoseSettings.kt`.
-  ⚠ The presets are the *app's*, not the device's: three signed band values, no
-  preset id on the wire.
+- **Bose EQ and Action button** — `BoseQc45.readEq`/`writeEq`/`readButton`/
+  `writeButton`, `docs/bose-settings.md`. ⚠ The presets are the *app's*, not the
+  device's: three signed band values, no preset id on the wire, so this is
+  deliberately **not** `EqDriver`. ⚠ Only two of the button's actions were driven.
 
-**Captured, needs decoding** — `docs/captures.md` has the action log
+**Decoded, needs a driver** / **Captured, needs decoding**
 
-*(nothing outstanding)*
+*(nothing outstanding — every captured byte is decoded, and every decoded frame has
+a driver. What is missing everywhere now is a screen and a headphone.)*
 
 **Not captured**
 - **JBL EQ, auto-off, gestures.** Reads are done (`docs/protocols.md`): status,
