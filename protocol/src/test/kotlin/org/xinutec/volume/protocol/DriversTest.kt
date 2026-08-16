@@ -374,9 +374,15 @@ class DriversTest {
         assertTrue(e is IllegalArgumentException)
     }
 
-    /** Nobody claims TALK_THRU: it is named from the JBL's UI and never exercised. */
+    /**
+     * ⚠ **TALK_THRU is claimed by exactly one driver, and only since it was driven.**
+     * This test used to assert that *nobody* claimed it, as a guard against naming a
+     * mode from a vendor's UI without ever sending it. On 2026-08-16 it was sent to
+     * the JBL and confirmed against that app's own selector, so the guard is now
+     * "only the device it was proved on" rather than "nobody".
+     */
     @Test
-    fun `no driver claims a mode that was never driven`() {
+    fun `only the driver it was proved on claims talk thru`() {
         val all =
             listOf(
                 Drivers.BoseQc45,
@@ -385,7 +391,37 @@ class DriversTest {
                 sony,
                 Drivers.JLabQcy,
             )
-        assertTrue(all.none { AncMode.TALK_THRU in it.modes })
+        assertEquals(
+            listOf(Drivers.JblBes),
+            all.filter { AncMode.TALK_THRU in it.modes },
+        )
         assertTrue(all.all { it.modes.isNotEmpty() })
+    }
+
+    /**
+     * ⚠ **The JBL reported TalkThru as OFF until 2026-08-16.** [Drivers.JblBes.read]
+     * checked the first two TLV slots and fell through to OFF, so a mode the device
+     * was really in rendered as the one state it cannot be put into from here — and
+     * nothing noticed, because nothing had ever set the third slot.
+     */
+    @Test
+    fun `jbl reads talk thru rather than falling through to off`() {
+        val talk = Replay("aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 01")
+        assertEquals(AncMode.TALK_THRU, Drivers.JblBes.read(talk))
+
+        val off = Replay("aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 00")
+        assertEquals(AncMode.OFF, Drivers.JblBes.read(off))
+    }
+
+    /** The frame that was driven, byte for byte. */
+    @Test
+    fun `jbl writes talk thru into the third slot`() {
+        val t =
+            Replay(
+                "aa 91 07 10 01 00 02 00 03 01" to "aa 91 07 12 01 00 02 00 03 01",
+                "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 01",
+            )
+        assertEquals(Confirmation.Confirmed, Drivers.JblBes.set(t, AncMode.TALK_THRU))
+        t.assertDrained()
     }
 }

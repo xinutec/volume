@@ -136,21 +136,31 @@ object Drivers {
      * JBL Tour One M2, over **GATT** — the one device here whose control is not
      * RFCOMM at all.
      *
-     * The body is TLV pairs. `01` is ANC, `02` ambient, `03` presumably TalkThru:
-     * the first two were read against the vendor app's own screen, the third is
-     * named from its UI and has **not** been exercised, which is why it is absent
-     * from [modes].
+     * The body is TLV pairs: `01` ANC, `02` ambient, `03` TalkThru.
+     *
+     * ✅ **All three driven, TalkThru on 2026-08-16** — and confirmed against the
+     * vendor app's own selector, which is what makes it TalkThru rather than merely
+     * "the third slot went to 1". Its screen showed TalkThru highlighted.
      */
     object JblBes : AncDriver {
-        override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
+        override val modes = setOf(AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
 
+        /**
+         * `aa 91 07 12 01 <anc> 02 <amb> 03 <talkthru>`.
+         *
+         * ⚠ **This used to report TalkThru as OFF**, because it only looked at the
+         * first two slots and fell through to OFF — so a real mode the device was
+         * actually in rendered as the one state the JBL cannot be put into from
+         * here. Found the moment TalkThru was first driven. ⚠ The length guard was
+         * `< 9` while the byte it now reads is index 9, which needs 10.
+         */
         override fun read(t: Transport): AncMode? {
             val r = t.exchange(byteArrayOf(0xaa.toByte(), 0x91.toByte(), 0x01, 0x11))
-            // aa 91 07 12 <01 anc> <02 amb> <03 talkthru>
-            if (r.size < 9 || r[0] != 0xaa.toByte()) return null
+            if (r.size < 10 || r[0] != 0xaa.toByte()) return null
             return when {
                 r[5] == 0x01.toByte() -> AncMode.ANC
                 r[7] == 0x01.toByte() -> AncMode.AMBIENT
+                r[9] == 0x01.toByte() -> AncMode.TALK_THRU
                 else -> AncMode.OFF
             }
         }
@@ -169,6 +179,9 @@ object Drivers {
         override fun write(t: Transport, mode: AncMode) {
             val anc = if (mode == AncMode.ANC) 1 else 0
             val amb = if (mode == AncMode.AMBIENT) 1 else 0
+            // ⚠ Exactly one slot is set; OFF is all three zero, which is how the
+            // device reports the state and how its app writes it.
+            val talk = if (mode == AncMode.TALK_THRU) 1 else 0
             t.exchange(
                 byteArrayOf(
                     0xaa.toByte(),
@@ -180,7 +193,7 @@ object Drivers {
                     0x02,
                     amb.toByte(),
                     0x03,
-                    0x00,
+                    talk.toByte(),
                 ),
             )
         }
