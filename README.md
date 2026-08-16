@@ -89,16 +89,17 @@ acknowledgements. `docs/protocols.md` has the correction.
 but nobody has looked; *decoded* means the frames are written down; *driven* means
 there is code and a test. Only ANC is driven.
 
-**Decoded, needs a driver**
-- **Sony EQ, auto-off, multipoint** — `docs/sony-settings.md`, exact frames, and
-  `SonyEq` in `:protocol` already encodes EQ with the capture as fixtures. The
-  session mechanism (opener, acked frames, alternating sequence byte) is in
-  `SonyXm4`. This is the shortest path to a second feature in the app.
+**Decoded, needs a driver** — the frames are exact and encoded in `:protocol` with
+the capture as fixtures; what is missing is a driver, a screen, and hardware proof
+- **Sony EQ, auto-off, multipoint** — `docs/sony-settings.md`, `SonyEq`. The session
+  mechanism (opener, acked frames, alternating sequence byte) is in `SonyXm4`.
+- **Bose EQ, multipoint, Action button** — `docs/bose-settings.md`, `BoseSettings.kt`.
+  ⚠ The presets are the *app's*, not the device's: three signed band values, no
+  preset id on the wire.
 
 **Captured, needs decoding** — `docs/captures.md` has the action log
-- **Bose EQ, Action-button shortcut, multipoint** — captured 2026-08-16. The EQ
-  screen is Bass/Mid/Treble sliders plus four preset buttons, so expect a
-  three-value write rather than Sony's opaque preset id.
+
+*(nothing outstanding)*
 
 **Not captured**
 - **JBL EQ, auto-off, gestures.** Reads are done (`docs/protocols.md`): status,
@@ -190,9 +191,9 @@ vendor app drives which device (⚠ each vendor ships two plausible ones).
 `docs/liveness.md` — why the profile broadcasts, not ACL, keep the list live;
 measured timings, and the traps in measuring it.
 `docs/sony-settings.md` — Sony EQ, auto-off and multipoint frames.
+`docs/bose-settings.md` — Bose EQ, multipoint and Action-button frames.
 `docs/captures.md` — ⚠ WHAT WAS DONE AND WHEN for each capture, and the method
 that works. A capture without its action log is a haystack.
-measured timings, and the traps in measuring it.
 
 ## Tools
 

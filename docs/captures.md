@@ -36,7 +36,8 @@ had dropped the link, and the app rendered the change anyway. See #955.
 
 ## 2026-08-16 — Bose QC45 (`~/.cache/volume-captures/2026-08-16-bose/`)
 
-Bose Music (`com.bose.bosemusic`), driven over adb. ⚠ Not yet decoded.
+Bose Music (`com.bose.bosemusic`), driven over adb. Decoded in
+`docs/bose-settings.md`.
 
 | time | action |
 |---|---|
@@ -48,30 +49,13 @@ Bose Music (`com.bose.bosemusic`), driven over adb. ⚠ Not yet decoded.
 | 11:26:45 | restored → **Hear Battery Level** |
 | 11:27:34 / 11:27:44 | multipoint toggled, then restored |
 
-The EQ screen is Bass/Mid/Treble sliders plus four preset buttons (Bass Boost, Bass
-Reducer, Treble Boost, Treble Reducer) — so the presets are almost certainly a
-three-value write, not an opaque preset id like Sony's.
-
-### ⚠ First look at the EQ frames — UNVERIFIED, a lead not a result
-
-    11:25:33 → 01 07 02 02  08 00        Bass Boost
-    11:25:33 ← 01 07 03 0c  f60a0800 f60a0001 f60a0002
-    11:25:41 → 01 07 02 02  06 02        Treble Boost
-    11:25:41 ← 01 07 03 0c  f60a0800 f60a0001 f60a0602
-
-Reading it as Bose's `<block> <fn> <operator> <len> <payload>`: block `01` fn `07`
-is EQ, operator `02` is Set and `03` the status. The status carries **three groups
-of four**, one per band, and each looks like `f6 0a <value> <band>` — `f6`/`0a` being
-−10/+10 as the limits, and bands `00`/`01`/`02` = Bass/Mid/Treble. The value moved
-only in the band whose button was pressed, which is what makes the reading
-plausible.
-
-⚠ **Not confirmed:** the `f6 0a` prefix is a guess from the numbers looking like a
-range, nothing more. A Reset frame and a slider drag would settle it. Verify against
-the 15 write-capable functions in `docs/bose-read-surface.md` before writing code.
-
 Link confirmed still up after the last action, and the app still showed the QC45 —
-so unlike the Sony run, everything here should be on the wire.
+so unlike the Sony run, everything here was on the wire. **All three settings
+decoded**, each Set paired with the Status it drew: `docs/bose-settings.md`.
+
+The one thing this capture cannot answer is the EQ's range. The presets were pressed
+but no slider was dragged, so the `f6`/`0a` that lead every band group are still only
+plausibly −10/+10.
 
 ## Extracting
 
