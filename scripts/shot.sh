@@ -21,12 +21,15 @@ readonly OUT=${1:-/tmp/volume-shot.png}
 readonly ACTIVITY=org.xinutec.volume/org.xinutec.volume.VolumeActivity
 
 # The window's own frame, not the task's and not a guessed fraction.
+#
+# ⚠ `dumpsys` is read into a variable FIRST rather than piped. A pipeline ending in
+# an early-exiting `awk`/`head` kills the producer with SIGPIPE, which `pipefail`
+# turns into a failure of the whole script — intermittently, depending on how much
+# output raced through before the reader left. This script did exactly that.
+windows=$(adb shell dumpsys window windows | tr -d '\r')
 frame=$(
-    adb shell dumpsys window windows |
-        tr -d '\r' |
-        awk -v a="$ACTIVITY" '$0 ~ "Window #.*" a {f=1} f && /Frames:/ {print; exit}' |
-        grep -oE 'frame=\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]' |
-        head -1
+    awk -v a="$ACTIVITY" '$0 ~ "Window #.*" a {f=1} f && /Frames:/ {print; exit}' <<<"$windows" |
+        grep -oE 'frame=\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]'
 )
 if [[ -z $frame ]]; then
     echo "no window for $ACTIVITY — is it on screen?" >&2

@@ -45,11 +45,29 @@ echo "=== $serial (model:$MODEL) ==="
 # control channel, which no bonded-device list can supply.
 "$ADB" -s "$serial" shell pm grant "$PKG" android.permission.BLUETOOTH_CONNECT
 "$ADB" -s "$serial" shell pm grant "$PKG" android.permission.BLUETOOTH_SCAN
-# -S force-stops first. Without it the intent is delivered to the *existing* task
-# (adb says "intent has been delivered to currently running top-most instance"),
-# so a deploy can appear to succeed while the old build is still on screen.
+# dev-lint: android-deploy allow=launch,fresh-launch
 #
-# VolumeActivity, not MainActivity: the app is what a deploy should put on screen.
-# probe.sh starts the probe by name when it wants it.
-"$ADB" -s "$serial" shell am start -S -n "$PKG/.VolumeActivity" >/dev/null
-echo "installed on $serial — drive it with ./probe.sh"
+# ⚠ **Waived deliberately, not because the rule is noise.** Its two invariants exist
+# so a deploy cannot appear to succeed while the OLD build is still on screen — `am
+# start` on an existing task resumes it rather than recreating it. That hazard does
+# not arise here: `install -r` above kills the running process, so whatever comes
+# back is necessarily the new build. What `-S` would additionally buy is a reset to
+# a freshly-created activity, and that is the precise thing we must NOT do — see
+# below.
+#
+# ⚠ **No `am start` by default, and never `-S`.** The phone keeps Volume in a split
+# screen with the agent console below it, and `am start` re-creates the task in
+# FULLSCREEN — which throws the console out of the split and costs Pippijn a manual
+# rebuild of his layout. `install -r` already kills the running process, so the old
+# build cannot survive on screen; the system relaunches the activity in place, in
+# its own half, with the new code. That is the whole reason `-S` was here, and it is
+# handled without it.
+#
+# Pass --start when the app genuinely needs foregrounding, knowing it costs the
+# split. probe.sh starts the probe by name when it wants it.
+if [[ ${1:-} == --start ]]; then
+    "$ADB" -s "$serial" shell am start -n "$PKG/.VolumeActivity" >/dev/null
+    echo "installed and FOREGROUNDED on $serial (this drops the split screen)"
+else
+    echo "installed on $serial — it relaunches in place; --start to foreground it"
+fi

@@ -123,9 +123,20 @@ class VolumeActivity : ComponentActivity() {
         control.refresh()
     }
 
+    /**
+     * Off screen: stop following the radio, and **give the channels back**.
+     *
+     * ⚠ **This is the mechanism that matters**, not the idle lease. Until it existed,
+     * a backgrounded Volume kept a live control link to every connected pair until
+     * Android got round to destroying the activity — which can be many minutes, or
+     * never. An app nobody is looking at has no business holding five radio links.
+     *
+     * The cards stay on screen; only the links go, and coming back re-opens them.
+     */
     override fun onStop() {
         super.onStop()
         runCatching { unregisterReceiver(links) }
+        control.release()
     }
 
     private val links =

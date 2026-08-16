@@ -8,6 +8,7 @@ import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
+import org.xinutec.volume.protocol.Leases
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Registry
@@ -17,6 +18,7 @@ import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * Tag for the one thing about this app that cannot be established off-device:
@@ -46,9 +48,16 @@ class DeviceController(
     private val adapter: BluetoothAdapter?,
     private val onScreen: (Screen) -> Unit,
 ) {
-    private val work = Executors.newSingleThreadExecutor()
+    // ⚠ Scheduled, but still SINGLE-threaded: the lease sweep has to run on the same
+    // thread as every read and write, or it could close a channel mid-exchange.
+    private val work = Executors.newSingleThreadScheduledExecutor()
     private val sessions = ConcurrentHashMap<String, Session>()
+    private val leases = Leases(IDLE_MS)
     private var screen = Screen(emptyList(), Emptiness.LOOKING)
+
+    init {
+        work.scheduleWithFixedDelay(::sweep, IDLE_MS, IDLE_MS, TimeUnit.MILLISECONDS)
+    }
 
     /**
      * The headphones that are actually here, opened as soon as they are listed.
@@ -105,7 +114,7 @@ class DeviceController(
             sessions.keys.filterNot { a -> listed.any { it.address == a } }.forEach(::drop)
             // Sequentially, on this one thread: two connects at once contend for the
             // radio, and what that produces looks like a protocol fault.
-            listed.forEach { openIfNeeded(it.address) }
+            listed.forEach { holding(it.address) { openIfNeeded(it.address) } }
         }
 
     /**
@@ -136,29 +145,62 @@ class DeviceController(
         return org.xinutec.volume.protocol.Channels.SPP in uuids.map { it.lowercase() }
     }
 
-    fun connect(address: String) = work.execute { openIfNeeded(address) }
+    fun connect(address: String) = work.execute { holding(address) { openIfNeeded(address) } }
+
+    /**
+     * Run [body] with [address]'s lease held, and give it back however that ends.
+     *
+     * ⚠ The `finally` is the point. An early return — the device is gone, the socket
+     * would not open — would otherwise leave the address marked in-flight for ever,
+     * and [Leases] deliberately never expires in-flight work, so the channel would be
+     * held until the app died. That is the bug this whole change is about, rebuilt by
+     * accident one level down.
+     *
+     * ⚠ Not reentrant, so [openIfNeeded] does NOT bracket itself; its callers do.
+     */
+    private fun <T> holding(address: String, body: () -> T): T {
+        leases.begin(address)
+        try {
+            return body()
+        } finally {
+            // ⚠ `containsKey`, spelled out: `address in sessions` on a
+            // ConcurrentHashMap resolves to `containsValue` (KT-18053), so it would
+            // compare an address against Session objects, always miss, and forget
+            // every lease instead of holding it. Kotlin refuses to compile the
+            // ambiguous form, which is the only reason this is not a silent bug.
+            if (sessions.containsKey(address)) {
+                leases.end(address, System.currentTimeMillis())
+            } else {
+                leases.forget(address)
+            }
+        }
+    }
 
     fun set(address: String, mode: AncMode) =
         work.execute {
-            val s = openIfNeeded(address) ?: return@execute
-            update(address, DeviceState.Busy("setting ${mode.name.lowercase()}…"))
-            val result = runCatching { s.headphones.driver.set(s.transport, mode) }
-            result.onFailure {
-                drop(address)
-                update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
-            }
-            val c = result.getOrNull() ?: return@execute
-            update(
-                address,
-                DeviceState.Ready(
-                    s.headphones.model,
-                    s.headphones.driver.modes
-                        .toList(),
-                    c.resulting(mode),
-                    c.note(mode, ::label),
-                ),
-            )
+            holding(address) { drive(address, mode) }
         }
+
+    private fun drive(address: String, mode: AncMode) {
+        val s = openIfNeeded(address) ?: return
+        update(address, DeviceState.Busy("setting ${mode.name.lowercase()}…"))
+        val result = runCatching { s.headphones.driver.set(s.transport, mode) }
+        result.onFailure {
+            drop(address)
+            update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
+        }
+        val c = result.getOrNull() ?: return
+        update(
+            address,
+            DeviceState.Ready(
+                s.headphones.model,
+                s.headphones.driver.modes
+                    .toList(),
+                c.resulting(mode),
+                c.note(mode, ::label),
+            ),
+        )
+    }
 
     private fun openIfNeeded(address: String): Session? {
         sessions[address]?.let { return it }
@@ -223,8 +265,42 @@ class DeviceController(
     }
 
     private fun drop(address: String) {
+        leases.forget(address)
         sessions.remove(address)?.let { runCatching { it.close() } }
     }
+
+    /**
+     * Give back every channel whose lease has run out.
+     *
+     * ⚠ Runs on [work], the same single thread as every other radio operation, so it
+     * cannot close a channel that a read or write is part-way through. The [Leases]
+     * bookkeeping would refuse anyway; this makes it structurally impossible rather
+     * than merely correct.
+     */
+    private fun sweep() {
+        // Already ON the work thread — scheduled there — so no `execute` wrapper.
+        val due = leases.expired(System.currentTimeMillis())
+        if (due.isEmpty()) return
+        Log.i(LIVE, "lease expired, releasing: ${due.joinToString()}")
+        due.forEach(::drop)
+    }
+
+    /**
+     * Let go of everything, now — the app is no longer on screen.
+     *
+     * ⚠ **Not the same as [closeAll].** The screen's contents are kept, so coming
+     * back shows the cards immediately rather than blinking through "connecting"; it
+     * is only the radio links that go. Before this existed, a backgrounded Volume
+     * held every headphone's control channel until Android got round to destroying
+     * the activity, which can be many minutes — the vendor apps were locked out that
+     * whole time, with Volume nowhere in sight to explain it.
+     */
+    fun release() =
+        work.execute {
+            if (sessions.isEmpty()) return@execute
+            Log.i(LIVE, "backgrounded, releasing: ${sessions.keys.joinToString()}")
+            sessions.keys.toList().forEach(::drop)
+        }
 
     fun closeAll() {
         sessions.keys.toList().forEach(::drop)
@@ -241,6 +317,24 @@ class DeviceController(
     }
 
     private companion object {
+        /**
+         * How long a control channel is kept after the last thing that needed it.
+         *
+         * ⚠ **A backstop, not the mechanism.** Releasing on background ([release],
+         * from `onStop`) is what actually stops this app squatting on the radio; this
+         * only catches a screen left open and forgotten, holding links for an hour.
+         *
+         * ⚠ **Deliberately long, and it used to be 8 s.** Coexisting with the vendor
+         * apps was the original reason to let go quickly — and that reason is gone:
+         * Bose Music, Sony Headphones, JBL and JLab are to be uninstalled once this
+         * app replaces them (Pippijn, 2026-08-16). With nothing to yield to, an eager
+         * release only buys a reconnect the next time its owner taps — a second on
+         * RFCOMM and up to 25 on the JBL, whose rotating address must be found by an
+         * LE scan first. Two minutes is long enough that no interaction pays that,
+         * and short enough that a forgotten screen does not hold five links all day.
+         */
+        const val IDLE_MS = 120_000L
+
         /**
          * What a device calls itself over LE, where that differs from its bonded
          * name. ⚠ The JLab advertises no name at all, so it is matched on a stable
