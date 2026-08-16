@@ -50,11 +50,18 @@ watch_log() {
 # silently REPEATS THE PREVIOUS WRITE. Caught when a read-only `settings XM4`
 # printed "→ multipoint on", having re-sent the write from the run before it.
 #
-# ⚠ **The fix is a unique `-d`, NOT `am force-stop`.** Both work, and force-stop
-# also tears the activity out of a split-screen pair and off whatever Pippijn had
-# on screen — see the doc's "do not drive the phone while he is using it". A URI
-# nobody reads makes `filterEquals` false, so `singleTask` delivers `onNewIntent`
-# and the task stack is left alone.
+# ⚠ **A unique `-d` mostly fixes it, and `am force-stop` is NOT the answer** — that
+# also works but tears the activity out of a split-screen pair and off whatever
+# Pippijn had on screen (see the doc's "do not drive the phone while he is using
+# it"). A URI nobody reads makes `filterEquals` false, so `singleTask` delivers
+# `onNewIntent` and the task stack is left alone.
+#
+# ⚠ **MOSTLY. It recurred once WITH the unique `-d` in place**, on 2026-08-16 at
+# 18:32:53: a run asking for `0000,e8010001,…` executed the packet list from 18:01
+# instead, five for five. No explanation was found. So do not treat the `-d` as a
+# guarantee — **read the echoed `[n] →` bytes in the log and check they are the ones
+# you asked for.** That is what caught it both times, and it is the only check here
+# that does not depend on understanding the cause.
 start_op() {
   "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RANDOM$$" "$@" >/dev/null
 }

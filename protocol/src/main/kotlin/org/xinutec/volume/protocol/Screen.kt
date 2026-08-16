@@ -14,6 +14,19 @@ data class DeviceCard(
     val name: String,
     val address: String,
     val state: DeviceState,
+    /**
+     * What this device reported when asked for its settings, or null if never asked.
+     *
+     * ⚠ **On the CARD, not on [DeviceState.Ready], and that is the fix for a real
+     * bug.** It lived on `Ready` first, and every write transitions the card
+     * `Ready → Busy → Ready` — [DeviceState.Busy] has no settings field, so the
+     * values were structurally destroyed by every ANC change and every refresh. The
+     * section then showed a "reading…" spinner that could never resolve, because the
+     * read is only triggered by opening it. Settings describe the headphones, not
+     * the state of this moment's connection, so they belong to the thing that
+     * persists across those transitions.
+     */
+    val settings: Settings? = null,
 ) {
     /** Modes to offer, empty until we know what it is. */
     val offer: List<AncMode>
@@ -96,14 +109,6 @@ sealed interface DeviceState {
         val modes: List<AncMode>,
         val mode: AncMode?,
         val note: Note? = null,
-        /**
-         * ⚠ Null until asked, and asking is a separate act. Reading all of the XM4's
-         * settings is six round trips and about three seconds; doing it while listing
-         * devices would make every card wait on the slowest one. The card opens on
-         * ANC, which is what the tile and the widget are for, and settings are read
-         * when their owner expands them.
-         */
-        val settings: Settings? = null,
     ) : DeviceState
 
     /** Not drivable, with the reason kept rather than flattened to "error". */
@@ -192,9 +197,8 @@ data class Screen(
         copy(
             cards =
                 cards.map {
-                    val s = it.state
-                    if (it.address == address && s is DeviceState.Ready) {
-                        it.copy(state = s.copy(settings = settings))
+                    if (it.address == address && it.state is DeviceState.Ready) {
+                        it.copy(settings = settings)
                     } else {
                         it
                     }

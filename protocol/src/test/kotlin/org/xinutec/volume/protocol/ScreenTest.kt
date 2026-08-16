@@ -240,8 +240,58 @@ class ScreenTest {
             screen
                 .with("E4:58:BC:3E:9D:AA", ready)
                 .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
-        val s = next.cards.first().state as DeviceState.Ready
-        assertEquals(false, s.settings?.multipoint)
+        assertEquals(
+            false,
+            next.cards
+                .first()
+                .settings
+                ?.multipoint,
+        )
+    }
+
+    /**
+     * ⚠ **The regression this type was reshaped for.** Every write goes
+     * `Ready → Busy → Ready`, and while `settings` lived on [DeviceState.Ready] the
+     * `Busy` in the middle — which has no such field — destroyed them. On screen the
+     * open settings section fell back to a "reading…" spinner that could never
+     * resolve, because the read is only triggered by opening the section. Reproduced
+     * on the XM4 by expanding settings and then tapping an ANC chip.
+     */
+    @Test
+    fun `settings survive the busy state that every write passes through`() {
+        val next =
+            screen
+                .with("E4:58:BC:3E:9D:AA", ready)
+                .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
+                .with("E4:58:BC:3E:9D:AA", DeviceState.Busy("setting ambient…"))
+                .with("E4:58:BC:3E:9D:AA", ready)
+        assertEquals(
+            false,
+            next.cards
+                .first()
+                .settings
+                ?.multipoint,
+        )
+    }
+
+    /** And a plain refresh, which rebuilds `Ready` from scratch, keeps them too. */
+    @Test
+    fun `settings survive a reconcile that keeps the card`() {
+        val next =
+            screen
+                .with("E4:58:BC:3E:9D:AA", ready)
+                .withSettings("E4:58:BC:3E:9D:AA", Settings(autoOff = AutoOff.NEVER))
+                .reconciled(
+                    listOf("E4:58:BC:3E:9D:AA" to "Bose QC Headphones"),
+                    Emptiness.NONE_CONNECTED,
+                )
+        assertEquals(
+            AutoOff.NEVER,
+            next.cards
+                .single()
+                .settings
+                ?.autoOff,
+        )
     }
 
     /**
@@ -250,12 +300,13 @@ class ScreenTest {
      * with controls, over a socket that is gone.
      */
     @Test
-    fun `settings do not resurrect a card that went away`() {
+    fun `settings do not land on a card that went away mid-read`() {
         val next =
             screen
                 .with("E4:58:BC:3E:9D:AA", DeviceState.Unavailable("switched off"))
                 .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
         assertTrue(next.cards.first().state is DeviceState.Unavailable)
+        assertNull(next.cards.first().settings)
     }
 
     /** Nothing read yet and nothing to draw are the same thing for a renderer. */

@@ -33,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -347,7 +348,7 @@ private fun DeviceRow(
                 TextButton(
                     onClick = {
                         expanded = !expanded
-                        if (expanded && ready.settings == null) actions.loadSettings(card.address)
+                        if (expanded && card.settings == null) actions.loadSettings(card.address)
                     },
                     contentPadding =
                         androidx.compose.foundation.layout
@@ -356,7 +357,15 @@ private fun DeviceRow(
                     Text(if (expanded) "Hide settings" else "Settings")
                 }
                 if (expanded) {
-                    SettingsSection(card.address, ready.settings, actions)
+                    // ⚠ A safety net, not the mechanism: [DeviceCard.settings] now
+                    // survives the Busy transitions that used to wipe it, and this
+                    // catches any other path that leaves the section open with
+                    // nothing — which is otherwise a spinner that never resolves,
+                    // because the read is triggered by opening the section.
+                    LaunchedEffect(card.address, card.settings == null) {
+                        if (card.settings == null) actions.loadSettings(card.address)
+                    }
+                    SettingsSection(card.address, card.settings, actions)
                 }
             }
         }
