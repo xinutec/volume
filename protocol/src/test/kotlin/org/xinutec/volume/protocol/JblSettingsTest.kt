@@ -152,6 +152,11 @@ class JblSettingsTest {
      */
     @Test
     fun `the volume limiter is read, and its offset is the SDK's`() {
+        // ✅ Both frames are now REAL: driven 23:29:49 and 23:29:58, once, by
+        // agreement. The off frame is what the connect sweep could not supply —
+        // there both payload bytes were `01`, so index 4 and index 5 were
+        // indistinguishable and the SDK's offset was the only evidence. Here index
+        // 5 moves and index 4 does not, which is that offset measured.
         assertEquals(true, JblSafeSound.state(bytes("aaa503020101")))
         assertEquals(false, JblSafeSound.state(bytes("aaa503020100")))
         assertEquals("aaa50101", hex(JblSafeSound.get()))

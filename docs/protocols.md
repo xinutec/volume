@@ -335,7 +335,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Twenty of twenty-three rows have a wire identity, seven are decoded well enough to
+status sweep taken minutes later. **Twenty-two of twenty-three rows have a wire identity, ten are decoded well enough to
 drive, and four are in our app.** ⚠ Those three numbers are different questions and
 collapsing them flatters the work: knowing a row is `aa 98` is not knowing what its
 Low/Mid/High byte means. Written down
@@ -344,8 +344,8 @@ and answering it from what `docs/` happened to mention would have flattered us.
 
 | the app's row | wire | us |
 | --- | --- | --- |
-| battery % | in `aa 12`, and `aa 25` | — |
-| ⏻ power off | ? | — |
+| battery % | ✅ `aa 25`, matched to the app | — |
+| ⏻ power off | ✅ `aa 97 00` | — |
 | Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
 | Customize ANC | ✅ `aa 91 01 21` | — |
@@ -365,13 +365,13 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Left / Right Sound Balance | ✅ `aa a8` | — |
 | Voice Assistant | ✅ `aa 92`, measured | — |
 | Voice Prompts (language) | ✅ `aa 93`, measured | — |
-| Max Volume Limiter | ✅ `aa a5` SafeSound | ✅ read-only, ⚠ hearing |
+| Max Volume Limiter | ✅ `aa a5 03 00 01 <on>` | ✅ read-only by choice, ⚠ hearing |
 | Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
 
-⚠ **Two rows still have no wire identity**: the ⏻ remote power off, and the LE Audio
-toggle — which is NOT `aa b0`, since that turned out to be Auracast. SilentNow has a
-screen that sends nothing, so it is app-local until committed. The next place to look
-for all three is `aa b1` `GetSetFeatureCmd`.
+⚠ **One row has no wire identity: the LE Audio toggle** — and it is NOT `aa b0`, since
+that turned out to be Auracast. SilentNow has a screen that sends nothing when opened,
+which is a finding rather than a gap. `aa b1` `GetSetFeatureCmd` is where both most
+likely live.
 
 ⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
 of the app touching that one control, and the method in `docs/captures.md` applies
@@ -537,6 +537,34 @@ the app's own (obfuscated) layer. Naming them therefore needs an experiment, not
 reading: drive one of the unidentified rows and watch which key moves. That is the
 same ablation the unidentified status byte `34` needs, and it is the honest next step
 for the ⏻ power off, SilentNow, Auracast, Voice Assistant and Voice Prompts.
+
+### ✅ Max Volume Limiter and remote power off — driven 2026-08-16 23:29, once, by agreement
+
+```
+→ aa a5 03 00 01 <on>    ← aa a5 03 02 01 <on>     SafeSound = Max Volume Limiter
+→ aa 97 00               ← aa 00 02 97 00          POWER OFF, and that is the whole command
+```
+
+✅ **The limiter's status offset is now proven, not inferred.** The connect-sweep frame
+was `aa a5 03 02 01 01` — both payload bytes `01`, so the capture could not say which
+was the status, and the offset came from the SDK's `SafeSoundCmd.setStatus` reading
+frame index 5. Driving it produced `…02 01 00` when off and `…02 01 01` when on: index
+5 moves, index 4 does not. The SDK's answer was right, and the byte that would have
+been a coin-flip is now measured.
+
+⚠ **The limiter was off for nine seconds, with nothing playing, by explicit agreement,
+and no writer was added to this repo.** Knowing the frame does not change the rule:
+`JblSafeSound` still has only a getter. Hearing protection is not a thing to expose
+because it turned out to be easy.
+
+⚠ **`aa 97 00` ends the session, and its dialog says the way back is physical** — "To
+power on again, press a power button on a headphone". So it is the last thing any run
+can do, and it costs someone getting up.
+
+✅ **Battery is `aa 25`**, volunteered every ten seconds without being asked:
+`aa 25 0d 01 00 00 5a 5a ff ff ff ff ff ff ff ff`, and `5a` = 90 matched the app's
+"90%" on screen at the time. Two copies of the value; which cup, or cup versus case,
+is not established on an over-ear.
 
 ✅ **Three rows are readable RIGHT NOW with values already captured**, from the vendor
 app's own connect sweep, with no driving at all:
