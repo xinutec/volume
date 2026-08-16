@@ -80,6 +80,23 @@ in  { name = "volume"
               [ "./gradlew", "--console=plain", ":app:assembleDebug" ]
         , timeout_s = 1800
         }
+      , {-  ⚠ **The capture driver is typed and gated, and that is a correction.**
+            It was shell, and grew a state machine, retry loops, restore tracking
+            and an embedded Python XML parser — at which point FOUR preconditions
+            were missing at once and nothing anywhere went red, because shell has
+            no gate and a heredoc'd language is invisible to every engine here.
+            The worst of the four: it never checked which app was in front, and
+            drove a whole run into the agent console.
+
+            `--strict` rather than plain mypy: the faults were all "this value can
+            be absent and nobody said so", which is exactly what the optional-type
+            rules catch and what a permissive run would let through again.
+        -}
+        G.Check::{
+        , name = "scripts type-check"
+        , argv = [ "nix", "shell", "nixpkgs#mypy", "-c", "mypy", "--strict", "scripts/" ]
+        , timeout_s = 900
+        }
       , G.checkTable "../dev-lint"
       ]
     }

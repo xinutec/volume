@@ -170,7 +170,7 @@ frame is what caught it. Comparing the part you were thinking about would not ha
 ## 2026-08-16 evening — JBL feature sweep (`…/2026-08-16-jbl-features{,-2}/`)
 
 Driving the vendor app through its own rows to answer "is all of it understood?".
-`scripts/drive-jbl.sh` prints the timeline; `/tmp/jbl-timeline*.txt` are the two runs.
+`scripts/drive_jbl.py` prints the timeline; `/tmp/jbl-timeline*.txt` are the two runs.
 
 | time | action |
 |---|---|
@@ -184,20 +184,33 @@ reading its own output rather than by it failing loudly**:
 ⚠ **A tap on a row clipped by the header can hit the NEIGHBOUR's switch.** The switch
 belonging to a label was found by vertical overlap, and a clipped band overlaps the
 next row. The wrong setting moves while the log prints the label you asked for.
-`scripts/tap.sh` now refuses a clipped row outright.
+The driver now refuses a clipped row outright.
 
 ⚠ **The vendor app cannot reach the headphones while OUR app holds the link.** JBL
 control is LE GATT and takes one client; with Volume connected the app greys out,
 says "Loading…", and every tap lands on a dead UI. **Nothing reaches the wire, which
 in the capture is indistinguishable from a control the app keeps to itself** — the
 exact false conclusion "an empty window is evidence" invites when the link was never
-checked. `drive-jbl.sh` now force-stops our app first and waits for the app to render
+checked. The driver now force-stops our app first and waits for the app to render
 a battery percentage, which it only does when it has the device.
 
 ⚠ **A run that aborts between a change and its inverse leaves the setting changed.**
 One did: Smart Audio & Video was left off, and only a switch-read-back check caught
 it. Every toggle is now verified by reading the switch, and anything outstanding is
 named at exit.
+
+⚠ **The driver never checked WHICH APP was in front, and a whole run drove the agent
+console.** `uiautomator dump` returns the FOCUSED window; the vendor app had not been
+launched; and the readiness check — "is a battery percentage on screen" — matched a
+different app entirely. Ten minutes of swiping someone else's transcript, and the log
+said "app is connected" throughout. ⚠ **A precondition that can pass for the wrong
+reason is worse than no precondition**, because it also silences the question.
+
+That was the fourth missing check in a row, and the driver is now typed Python under
+`mypy --strict` in the gate rather than shell: it had grown a state machine, retry
+loops, restore tracking and an embedded Python XML parser, and shell has no gate — so
+each missing precondition arrived without anything going red. It asserts the focused
+package before every dump and every tap.
 
 ⚠ **`adb bugreport` leaves a wedged `dumpstate` if its shell is killed**, and every
 later bugreport is refused with "Failed to connect to dumpstatez service". It cannot
