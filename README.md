@@ -68,14 +68,15 @@ need a transaction, reads that need an ack. So the fixtures are real captures, a
 | Bose QC35 | `4C:87:5D:CC:A0:23` | RFCOMM, SPP `00001101` | Bose | ✅ r/w |
 | JBL Tour One M2 | scan for it | **GATT**, `65786365-…0000` | BES `aa` | ✅ r/w |
 | Sony XM4 | `80:99:E7:F9:D0:61` | RFCOMM, `96cc203e-…` | Sony framed | ✅ r/w |
-| JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | RFCOMM, SPP `00001101` | JLab `c0 ff` | ✅ write |
+| JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | RFCOMM, SPP `00001101` | JLab `c0 ff` | ✅ r/w |
 
 ```
 QC45   1f 03 05 02 <slot> 01              slot 0=Quiet 1=Aware 2=Home 3=unnamed
 QC35   01 06 02 01 <value>                00 / 01 / 03
 JBL    aa 91 07 10 01 <anc> 02 <amb> 03 <talkthru>     read with aa 91 01 11
 Sony   68 02 <on> 02 <nc> 01 00 <ambient>               read with 66 02
-JLab   c0 ff 00 46 03 00 <mode> 04 04 01 00 <sum>      01=NC on, 02=Be Aware
+JLab   c0 ff 00 46 03 00 <mode> 04 04 01 00 <sum>      00=off 01=NC on 02=Be Aware
+       read with c0 ff 00 44 00 00 01 00 04 → 45 03 00 <mode> …
 ```
 All driven from our own socket. The Bose announced each mode aloud; the JBL and
 the Sony were confirmed by an independent read-back and against the vendor app's
@@ -92,7 +93,8 @@ acknowledgements. `docs/protocols.md` has the correction.
 ⚠ **Read the state before picking one up.** *Captured* means the bytes are on disk
 but nobody has looked; *decoded* means the frames are written down; *written* means
 there is driver code and a replay test; *driven* means **this code has changed a
-setting on a headphone**. Only ANC is driven.
+setting on a headphone**. On the XM4, the QC45 and the JLab that now covers every
+decoded setting bar the two the devices refuse.
 
 ⚠ The gap between the last two is the one that matters, and it is where every wrong
 conclusion in this repo has lived. A replay test proves the driver agrees with the
@@ -153,8 +155,9 @@ device. The two are named above, and both are the device saying no.)*
   proves the field moved, not that it sounds right.
 - **Sony CUSTOM button** — attempted and **sent nothing** (the link was down); #955.
 - **Bose auto-off** — not found in the app's device page; may not exist on the QC45.
-- **JLab reads.** ANC writes work, no read command is known — its periodic
-  broadcast carries battery, not mode. Capture the app opening its dashboard.
+- ~~**JLab reads.**~~ ✅ Found 2026-08-16: `c0 ff 00 44 00 00 01 00 04`. All three
+  modes driven and read back, and `00` = off went from "untested" to measured the
+  moment there was a read to check it with.
 
 ## Probe
 
@@ -212,9 +215,12 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
 - ⚠ **A BLE device is several sightings**, and only one of them carries the name.
   Merge them; keeping the first hid the JBL behind "(no name)".
 - ⚠ **"Answers nothing" and "has nothing to answer" look identical**, and this has
-  now cost three findings. The JLab genuinely has no read command; the Sony was
-  being ignored for repeating a sequence byte. Both rendered as "reports no mode".
-  Only comparing against a state you already know tells them apart.
+  now cost four findings. The Sony was being ignored for repeating a sequence byte.
+  ⚠ **And the JLab was written up here as "genuinely has no read command" — which
+  was wrong.** It has one; nobody had asked the right byte. Both rendered as
+  "reports no mode". Only comparing against a state you already know tells them
+  apart — which is exactly how the JLab's read was finally found: set a mode from
+  this code, launch the vendor app cold, and watch whose story its UI tells.
 - ⚠ **Connected is not on-a-profile.** Presence comes from the A2DP and headset
   proxies, which populate *after* the ACL link, so a pair already connected when
   the app starts can be invisible with no ACL event to follow. Listen for the

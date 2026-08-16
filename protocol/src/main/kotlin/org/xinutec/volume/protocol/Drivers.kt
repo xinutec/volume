@@ -363,17 +363,72 @@ object Drivers {
      * JLab JBuds Sport ANC 4, on plain SPP — the channel that looked dead because
      * it only ever emitted an unsolicited broadcast.
      *
-     * ⚠ **No read command is known**, so [read] returns null and every write is
-     * [Confirmation.Unverifiable]. Its `47` reply is not a success signal: a mode
-     * that does not exist draws the identical one.
+     * ✅ **The read was found on 2026-08-16 and this device is now confirmable.**
+     * Until then [read] returned null and every write was
+     * [Confirmation.Unverifiable]. Its `47` reply is still not a success signal — a
+     * mode that does not exist draws the identical one — so confirmation comes from
+     * [read], never from the reply.
+     *
+     * ⚠ **It was found by disproving "the app tracks the mode locally"**, which is
+     * what this file used to say. The test was to set a mode from *this* code, then
+     * launch `com.jlab.app` cold and see what its UI drew: it showed the mode the
+     * device was actually in, both ways round. So a read had to exist, and the
+     * capture of that launch contained it.
      */
     object JLabQcy : AncDriver {
-        override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
+        override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT)
 
-        override fun read(t: Transport): AncMode? = null
+        /**
+         * `c0 ff 00 44 00 00 01 00 04` → `00 ff 01 45 03 00 <mode> <a> <b> 00 <sum> 00`.
+         *
+         * ⚠ **The mode is the SEVENTH byte**, and the two after it are not constant:
+         * they read `04 04` in either ANC mode and `00 00` when ANC is off, so a
+         * decoder keying on them would be reading something else's field.
+         *
+         * ⚠ The reply's checksum does not follow the requests' sum-mod-256 rule. It
+         * came out **exactly 2 less** than that sum in all three states measured,
+         * which is consistent enough to be a rule and is not one anybody here has
+         * worked out — so it is left unchecked rather than guessed at.
+         */
+        override fun read(t: Transport): AncMode? {
+            val r =
+                t.exchange(
+                    checksummed(
+                        byteArrayOf(
+                            0xc0.toByte(),
+                            0xff.toByte(),
+                            0x00,
+                            0x44,
+                            0x00,
+                            0x00,
+                            0x01,
+                            0x00,
+                        ),
+                    ),
+                )
+            if (r.size < 7 || r[3] != 0x45.toByte()) return null
+            return when (r[6]) {
+                0x00.toByte() -> AncMode.OFF
+                0x01.toByte() -> AncMode.ANC
+                0x02.toByte() -> AncMode.AMBIENT
+                else -> null
+            }
+        }
 
+        /**
+         * ⚠ **`00` is Off, and that is now measured rather than assumed.** It was
+         * written down as "untested" for as long as there was no read to check it
+         * with; with [read] in hand it was driven and read back, and the whole
+         * payload came back `00 00 00`. ⚠ The trailing `04 04` is still sent for
+         * Off, because that is what was driven — the device normalises it.
+         */
         override fun write(t: Transport, mode: AncMode) {
-            val m: Byte = if (mode == AncMode.ANC) 0x01 else 0x02
+            val m: Byte =
+                when (mode) {
+                    AncMode.OFF -> 0x00
+                    AncMode.ANC -> 0x01
+                    else -> 0x02
+                }
             t.exchange(
                 checksummed(
                     byteArrayOf(

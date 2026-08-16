@@ -203,15 +203,76 @@ class DriversTest {
     }
 
     /**
-     * ⚠ The JLab has no read, so a write there is honestly unverifiable rather
-     * than optimistically fine. Its `47` reply looks like success for a mode that
-     * does not exist.
+     * ✅ **The read, found 2026-08-16.** Frames captured from `com.jlab.app` opening
+     * cold with the device in each state, then driven from this code.
+     *
+     * ⚠ **The mode is the seventh byte.** The two after it read `04 04` in either
+     * ANC mode and `00 00` with ANC off, so they are not a constant to key on.
      */
     @Test
-    fun `jlab reports its writes as unverifiable`() {
-        assertNull(Drivers.JLabQcy.read(Replay()))
-        val t = Replay("c0 ff 00 46 03 00 01 04 04 01 00 12" to "00 ff 01 47 01 00 01 00 47 00")
-        assertEquals(Confirmation.Unverifiable, Drivers.JLabQcy.set(t, AncMode.ANC))
+    fun `jlab reads back each of its three modes`() {
+        val request = "c0 ff 00 44 00 00 01 00 04"
+        assertEquals(
+            AncMode.ANC,
+            Drivers.JLabQcy.read(Replay(request to "00 ff 01 45 03 00 01 04 04 00 4f 00")),
+        )
+        assertEquals(
+            AncMode.AMBIENT,
+            Drivers.JLabQcy.read(Replay(request to "00 ff 01 45 03 00 02 04 04 00 50 00")),
+        )
+        assertEquals(
+            AncMode.OFF,
+            Drivers.JLabQcy.read(Replay(request to "00 ff 01 45 03 00 00 00 00 00 46 00")),
+        )
+    }
+
+    /**
+     * ⚠ **The `47` reply is not the answer, and this is why the read matters.** A
+     * mode that does not exist draws the identical `47`, so a write is confirmed by
+     * reading the state back and never by what the write returned.
+     */
+    @Test
+    fun `a jlab write is confirmed by the read, not by its own reply`() {
+        val t =
+            Replay(
+                "c0 ff 00 46 03 00 02 04 04 01 00 13" to "00 ff 01 47 01 00 01 00 47 00",
+                "c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 02 04 04 00 50 00",
+            )
+        assertEquals(Confirmation.Confirmed, Drivers.JLabQcy.set(t, AncMode.AMBIENT))
+        t.assertDrained()
+    }
+
+    /** And a write the device ignored is now catchable rather than invisible. */
+    @Test
+    fun `a jlab write that did not take is contradicted`() {
+        val t =
+            Replay(
+                "c0 ff 00 46 03 00 02 04 04 01 00 13" to "00 ff 01 47 01 00 01 00 47 00",
+                "c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 01 04 04 00 4f 00",
+            )
+        assertEquals(
+            Confirmation.Contradicted(AncMode.ANC),
+            Drivers.JLabQcy.set(t, AncMode.AMBIENT),
+        )
+    }
+
+    /** ⚠ Off is `00` and was measured only once a read existed to check it with. */
+    @Test
+    fun `jlab off is a real mode now that it can be read back`() {
+        assertTrue(AncMode.OFF in Drivers.JLabQcy.modes)
+        val t =
+            Replay(
+                "c0 ff 00 46 03 00 00 04 04 01 00 11" to "00 ff 01 47 01 00 01 00 47 00",
+                "c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 00 00 00 00 46 00",
+            )
+        assertEquals(Confirmation.Confirmed, Drivers.JLabQcy.set(t, AncMode.OFF))
+    }
+
+    /** An unknown mode byte reads as "not understood", not as the nearest match. */
+    @Test
+    fun `an unexercised jlab mode byte decodes to null`() {
+        val t = Replay("c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 07 04 04 00 55 00")
+        assertNull(Drivers.JLabQcy.read(t))
     }
 
     /**

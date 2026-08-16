@@ -284,18 +284,55 @@ frame with it omitted, so it does not appear to be verified; send it anyway.
 Driven from our socket and confirmed in the vendor app's own UI, then restored to
 Noise Cancelling On where it started.
 
+✅ **The read, found 2026-08-16:**
+
+```
+read   c0 ff 00 | 44 00 00 | 01 00 | 04
+reply  00 ff 01 | 45 03 00 | <mode> <a> <b> | 00 <sum> 00
+       mode  00 = off   01 = Noise Cancelling On   02 = Be Aware
+```
+All three driven from this code and read back. ⚠ **The mode is the SEVENTH byte,
+and `<a> <b>` are not constant** — they read `04 04` in either ANC mode and `00 00`
+with ANC off, so a decoder keying on them is reading a different field.
+
+⚠ **`00` = off is now measured**, not assumed. It could not be checked while there
+was no read; with one it was driven and read back, whole payload `00 00 00`.
+
+⚠ The reply's checksum does **not** follow the request's sum-mod-256 rule. It came
+out **exactly 2 less** than that sum in all three states — consistent enough to be a
+rule, and not one anybody has worked out, so the driver does not check it.
+
 ⚠ **The `47` reply is not a success signal.** A write with `mode = 03` drew the
 identical `47` and changed nothing. Verify a JLab write by reading the state back,
-never by the reply.
+never by the reply — which is now possible.
 
 ⚠ **Guessing the mode byte failed and measuring worked**, as with the Sony. The
 values came from capturing the app twice, once per mode; `03` was invented and is
 simply not a mode.
 
-Unsolved: the device's periodic `00 ff 01 31 01 00 <L> <R> 04 00 02 00 00 <x>`
-broadcast carries the two battery levels but **not** the ANC mode, and its last
-byte does not follow the same checksum rule. No read command is known — the app
-appears to track mode locally.
+The device's periodic `00 ff 01 31 01 00 <L> <R> 04 00 02 00 00 <x>` broadcast
+carries the two battery levels but **not** the ANC mode, and its last byte does not
+follow the request checksum rule either. `c0 ff 00 30 00 00 01 00 f0` asks for that
+same frame on demand.
+
+⚠ **"The app appears to track mode locally" was WRONG, and disproving it is what
+found the read.** The test is worth keeping because it needs no capture: set a mode
+from *this* code, then launch `com.jlab.app` cold and look at what its UI draws. It
+showed the mode the device was actually in, both ways round — so a read had to
+exist, and the capture of that launch contained it. Reading the app's own behaviour
+beat reading its bundled SDKs, again.
+
+The rest of what the app asks on opening, all `c0 ff 00 <cmd> 00 00 01 00 <sum>`
+and answered by `<cmd>+1` — ⚠ **a map of where to look, not a decode**, since only
+`44`/`45` above has been read:
+
+```
+30 → 31  battery, the same frame as the broadcast      44 → 45  ANC mode  ← decoded
+48 → 49  0b 00 03 78 78 5a 78 78 78 5a 78 78 78 06     4c → 4d  1b 00 …
+50 → 51  02 00 …    58 → 59  01 00 …    62 → 63  04 00 04 04 04 04
+66 → 67  01 00 …    70 → 71  1e 00 78 78 … (30 bytes)  76 → 76  echoes its own cmd
+7a → 7a  01 00 …    7e → 7f  01 00 01 01 01 00
+```
 
 ### How the JLab was found — it is a Realtek chip, and none of that mattered
 

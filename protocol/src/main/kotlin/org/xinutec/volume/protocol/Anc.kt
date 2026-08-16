@@ -48,9 +48,14 @@ interface AncDriver {
     val modes: Set<AncMode>
 
     /**
-     * The mode the device reports, or **null when it has no read command** — which
-     * is a real state, not a failure: the JLab has none, and its app appears to
-     * track the mode locally.
+     * The mode the device reports, or **null when it cannot be read** — which is a
+     * real state, not a failure, and the screen must not spin on it.
+     *
+     * ⚠ **No device here is in that state any more.** The JLab was the example for
+     * months, on the reasoning that its app tracked the mode locally; that was
+     * disproved on 2026-08-16 — the app draws whatever the device is actually in —
+     * and its read was found the same evening. Null now means a device nobody has
+     * found the read for **yet**, which is a claim about this repo, not about it.
      */
     fun read(t: Transport): AncMode?
 
@@ -97,7 +102,14 @@ sealed interface Confirmation<out T> {
         val actual: T,
     ) : Confirmation<T>
 
-    /** This device has no read command, so the write cannot be checked from here. */
+    /**
+     * Nothing could be read back, so the write cannot be checked from here.
+     *
+     * ⚠ **Must never render as success.** It was the JLab's normal answer until its
+     * read was found, and that device returns an identical `47` for a mode that does
+     * not exist — so treating this as fine would have laundered exactly the
+     * uncertainty it exists to carry.
+     */
     data object Unverifiable : Confirmation<Nothing>
 }
 
