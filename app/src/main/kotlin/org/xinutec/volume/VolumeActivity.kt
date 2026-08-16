@@ -570,9 +570,22 @@ private val BOSE_TONE =
         "Treble boost" to BoseBands(bass = 0, mid = 0, treble = 6),
     )
 
-private fun signed(v: Int) = if (v > 0) "+$v" else "$v"
+internal fun signed(v: Int) = if (v > 0) "+$v" else "$v"
 
-private fun hz(v: Int) = if (v >= 1000) "${v / 1000.0}k".removeSuffix(".0k") + "k" else "$v"
+/**
+ * A band centre as the vendor app labels it: `400`, `1k`, `2.5k`, `16k`.
+ *
+ * ⚠ **This rendered `2.5kk` on the first look at it**, from a `removeSuffix(".0k")`
+ * that only fired on whole thousands followed by an unconditional `+ "k"`. Every
+ * exact multiple came out right and the two in between did not, which is why the
+ * arithmetic is now integer and why [VolumeFormatTest] names all five real bands.
+ */
+internal fun hz(v: Int): String =
+    when {
+        v < 1000 -> "$v"
+        v % 1000 == 0 -> "${v / 1000}k"
+        else -> "${v / 1000}.${v % 1000 / 100}k"
+    }
 
 private fun autoOffLabel(m: AutoOff) =
     when (m) {
