@@ -63,5 +63,7 @@ so unlike the Sony run, everything here should be on the wire.
       -T fields -e frame.time -e data.data
 
 ⚠ `mergecap`/`tshark` are not on the Mac's PATH: `nix shell nixpkgs#wireshark-cli`.
+⚠ Add `-e hci_h4.direction` — the Sony frame does NOT carry direction, and inferring
+it from the opcode got a command pair backwards. `0x00` sent, `0x01` received.
 ⚠ Filter by ACL handle, not address — the dissector does not resolve BD_ADDRs.
 ⚠ Bare `3e01xx00000000…3c` frames are **acks**, not replies.

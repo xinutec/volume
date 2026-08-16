@@ -13,12 +13,27 @@ Framing is the one in `docs/protocols.md`: `3e | type | seq | len(4 BE) | payloa
 not commands. Reading an ack as a reply is the mistake this repo has already made
 three times.
 
+⚠ **Direction is NOT in the frame — take it from the capture.** The byte after `3e`
+is the type and the next is the sequence; neither says who spoke. Add
+`-e hci_h4.direction` to the `tshark` fields: **`0x00` is sent, `0x01` is
+received**. Inferring direction from the opcode instead got the multipoint pair
+backwards here, and a driver built on that would have sent the device its own
+notification.
+
+**Cross-check against the SDK table** (`docs/protocols.md`): subsystems run in
+blocks of ten, `…8` = `SET_PARAM` and `…9` = `NTFY_PARAM`. That predicts `58`/`59`
+for EQ in the `50` EQEBB block and `f8`/`f9` for auto-off in the `f0` SYSTEM block —
+which is exactly what the wire shows. Two independent routes to the same answer.
+
 ## Equalizer — `0x58` set, `0x59` state, `0x5b` capability
 
     → 58 01 <preset> 00                 set preset
     ← 59 01 <preset> 06 <6 bytes>       resulting state: preset + 6 levels
+    → 5a 01                             request the band table
     ← 5b 01 06 10 00 01 01 01 90 01 03 e8 01 09 c4 01 18 9c 01 3d 2e 80
-                                         band table (see below)
+
+⚠ `5a` is a REQUEST the phone sends, not another notification — the app asks for the
+band table after every preset change. Directions verified from the capture.
 
 Observed presets: `a1`, `a0` (the two Customs), `17`, `16`.
 
@@ -44,16 +59,24 @@ and they match the app's own axis labels exactly — `0190`=400, `03e8`=1000,
 One byte, `10` vs `11`. ⚠ Only these two values were exercised; the XM4's menu
 offered no timed options, so a timer encoding — if one exists — is unmeasured.
 
-## Multipoint — `0xd8` set, `0x98`/`0x99` state
+## Multipoint — ⚠ two different subsystems, and it is not understood
 
-    → d8 d2 01 01        connect to 2 devices: on
-    ← 99 01 06 01
-    → d9 d2 01 00        off
-    ← 98 01 06 00
+With direction read from the capture rather than guessed:
 
-⚠ The set and state opcodes do NOT pair the way the others do (`d8`/`d9` going
-out, `98`/`99` coming back), so do not assume "reply = command + 1" here. That
-rule holds for the BES `aa` protocol, not for this.
+    on      → d8 d2 01 01        ← 99 01 06 01
+    off     → 98 01 06 00        ← d9 d2 01 00
+
+⚠ **The two taps did not use the same command**, and that is a fact about the
+capture, not a typo. Turning it on sent a `d0`-block command and drew a `90`-block
+reply; turning it off sent a `90`-block command and drew a `d0`-block reply. Under
+the SDK's blocks-of-ten that reads as two subsystems each SET_PARAM-ing while the
+other NTFY_PARAM-s.
+
+The likeliest explanation is that the second tap did not land on the same control —
+the screen was driven blind by coordinate, and the layout may have shifted after the
+first toggle. **Do not build a driver on this pair until it is re-captured**, with
+the app's state checked between taps. Everything else in this file is symmetric and
+was confirmed twice; this is the one row that is not.
 
 ## Not captured
 

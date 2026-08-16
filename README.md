@@ -1,8 +1,8 @@
 # volume — headphone control over the vendor channels
 
-The wire formats in `docs/` were measured against the real headphones on
-2026-08-15; the app's own behaviour (`docs/liveness.md`) on 2026-08-16.
-**Re-measure; firmware moves things.**
+Everything in `docs/` was measured against the real headphones: the ANC wire formats
+on 2026-08-15, the app's own behaviour and the Sony/Bose settings captures on
+2026-08-16. **Re-measure; firmware moves things.**
 
 ## ⚠ This app is a replacement, not an addition
 
@@ -11,18 +11,25 @@ Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces th
 (2026-08-16). Two consequences, and both change what counts as done:
 
 - **Coexisting with them is not a goal.** Never trade away responsiveness to leave a
-  channel free for an app that is going to be deleted; that mistake set the channel
-  lease to 8 s when nothing was waiting for it. See `Leases`.
+  channel free for an app that is going to be deleted — nothing is waiting for it,
+  so the only cost of holding a channel is power and the only cost of dropping it is
+  a reconnect its owner feels. See `Leases`.
 - **Anything they still do exclusively is something Pippijn loses on uninstall
   day.** Today this app does ANC and nothing else. The "Next" list below is
   therefore parity work, not exploration — EQ, multipoint, auto-off and button
   assignment all live only in the vendor apps right now.
 
 **The app** is `VolumeActivity`: every *connected* headphone it knows how to drive,
-its model once identified, and its ANC modes as chips. It follows the radio while
-on screen, so a pair switched on appears without anyone touching it
-(`docs/liveness.md`), and it **gives every control channel back when backgrounded**
-— an app nobody is looking at has no business holding a live link to five devices.
+its model once identified, and its ANC modes as chips. It follows the radio while on
+screen, so a pair switched on appears without anyone touching it
+(`docs/liveness.md`). **ANC is also on a Quick Settings tile and a home-screen
+widget** — `AncTileService`, `AncWidget`, both going through `Tap`.
+
+⚠ **Control channels are owned per PROCESS, not per screen** (`Sessions`). The tile
+and the app drive the same headphones, and a device accepts one control channel, so
+a second one simply fails. They release on backgrounding — but ⚠ **in split screen
+`onStop` never fires**, because both halves stay resumed, so there the idle lease is
+the only thing that lets go. That is the arrangement on this phone.
 
 The **probe** (`MainActivity`, `probe.sh`) stays — it is the only tool that can
 investigate a device the app cannot drive, and both share `:protocol`, so a byte
@@ -76,19 +83,32 @@ Fast Pair — battery, model, firmware, and the LE address, but no ANC or EQ —
 took Fast Pair for JBL/JLab's own protocol and built a command map out of its
 acknowledgements. `docs/protocols.md` has the correction.
 
-## Next
+## Next — parity work, in three states
 
-1. **JBL EQ and auto-off writes.** Reads are all done (`docs/protocols.md`):
-   status, gestures and the ANC capability answer. Writing is `aa 40` EQ preset,
-   `aa 41` custom EQ, `aa 33` auto-off, each read back through `aa 21 01 3x`.
-   EQ needs ears — a read-back proves the field moved, not that it sounds right.
-2. **Sony EQ** — `50`–`5b` EQEBB, same session mechanism, `SONY_SEQ=1`.
-3. **Bose multipoint** — `04 04`/`04 09` read the paired list + active device;
-   writes untried.
-4. **Bose EQ / auto-off / buttons** — among the 15 write-capable fns in
-   `docs/bose-read-surface.md`.
-5. **JLab reads.** ANC writes work, but no read command is known — its periodic
-   broadcast carries battery, not mode. Capture the app opening its dashboard.
+⚠ **Read the state before picking one up.** *Captured* means the bytes are on disk
+but nobody has looked; *decoded* means the frames are written down; *driven* means
+there is code and a test. Only ANC is driven.
+
+**Decoded, needs a driver**
+- **Sony EQ, auto-off, multipoint** — `docs/sony-settings.md`, exact frames, and
+  `SonyEq` in `:protocol` already encodes EQ with the capture as fixtures. The
+  session mechanism (opener, acked frames, alternating sequence byte) is in
+  `SonyXm4`. This is the shortest path to a second feature in the app.
+
+**Captured, needs decoding** — `docs/captures.md` has the action log
+- **Bose EQ, Action-button shortcut, multipoint** — captured 2026-08-16. The EQ
+  screen is Bass/Mid/Treble sliders plus four preset buttons, so expect a
+  three-value write rather than Sony's opaque preset id.
+
+**Not captured**
+- **JBL EQ, auto-off, gestures.** Reads are done (`docs/protocols.md`): status,
+  gestures, ANC capability. Writes are `aa 40` EQ preset, `aa 41` custom EQ,
+  `aa 33` auto-off, read back through `aa 21 01 3x`. ⚠ EQ needs ears — a read-back
+  proves the field moved, not that it sounds right.
+- **Sony CUSTOM button** — attempted and **sent nothing** (the link was down); #955.
+- **Bose auto-off** — not found in the app's device page; may not exist on the QC45.
+- **JLab reads.** ANC writes work, no read command is known — its periodic
+  broadcast carries battery, not mode. Capture the app opening its dashboard.
 
 ## Probe
 
