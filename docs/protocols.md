@@ -300,7 +300,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Three of twenty-two are driven by us; eleven are now decoded.** Written down
+status sweep taken minutes later. **Three of twenty-two are driven by us; seventeen now have a wire identity.** Written down
 because "is it all understood?" could not be answered before without opening the app,
 and answering it from what `docs/` happened to mention would have flattered us.
 
@@ -310,8 +310,8 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | ⏻ power off | ? | — |
 | Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
-| Customize ANC | `aa 74`/`aa 75`? | — |
-| Personi-Fi | `3a` **answers nothing** | — |
+| Customize ANC | `aa 91` AdvancedAnc + `aa 99` | — |
+| Personi-Fi | `aa 9a` EarCanalTesting | — |
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | — |
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, ⚠ modes silent | — |
@@ -321,14 +321,18 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
 | SilentNow | ? | — |
 | Auracast | ? | — |
-| LE Audio | ? | — |
+| LE Audio | ✅ `aa b0` LeaAudio, read | — |
 | Auto Play & Pause | ✅ `aa 35 01 <on>` | — |
-| Personal Sound Amplification | ? | — |
+| Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
 | Left / Right Sound Balance | ✅ `aa a8` | — |
 | Voice Assistant | `35` = `df`? | — |
 | Voice Prompts (language) | ? | — |
-| Max Volume Limiter | ? | — |
+| Max Volume Limiter | ✅ `aa a5` SafeSound, read ⚠ hearing | — |
 | Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
+
+⚠ **Five rows still have no wire identity at all**: the ⏻ remote power off, SilentNow,
+Auracast, Voice Assistant and Voice Prompts. None has a command class of its own, so
+the next place to look is `aa b1` `GetSetFeatureCmd` rather than another capture.
 
 ⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
 of the app touching that one control, and the method in `docs/captures.md` applies
@@ -396,6 +400,66 @@ shape of a capability list and is undecoded.
 mirror rule, and the ones still unnamed — `93`, `a5`, `90`, `b0`, `9b`, `a0` — are
 that many of the app's remaining rows.
 
+### ✅ The SDK names the opcodes — no capture needed, 2026-08-16 22:30
+
+`jbl.stc.com` carries the BES SDK with **a class per command**, and each sets its own
+byte in its constructor:
+
+```
+const/16 v0, 0xaa   iput ...->header:I
+const/16 v0, 0x9f   iput ...->cmd:I          ← the opcode
+const/4  v0, 0x1    iput-byte ...->subReqCmd:B    ← get
+const/4  v0, 0x2    iput-byte ...->subRetCmd:B    ← status
+```
+`apktool d base.apk`, then read `com/harman/bluetooth/imp/cmd/*Cmd.smali`.
+
+| opcode | SDK class | the app's row |
+| --- | --- | --- |
+| `23` | BeepingCmd | — |
+| `77` | GestureCmd | Gestures |
+| `91` | AdvancedAncCmd | ANC, and Customize ANC |
+| `98` | VoiceAwareCmd | VoiceAware |
+| `99` | EnvironmentNoiseCheckCmd | (inside Customize ANC) |
+| `9a` | EarCanalTestingCmd | Personi-Fi |
+| `9c` | TipsTypeCmd | — |
+| `9d` | SpatialStatus3DCmd | Spatial Sound |
+| `9e` | LowEQCompensationCmd | Low Volume Dynamic EQ |
+| `9f` | SpeakToChatCmd | Smart Talk |
+| `a0` | PSAPCmd | Personal Sound Amplification |
+| `a5` | SafeSoundCmd | **Max Volume Limiter** |
+| `a7` | SyncTimeToDeviceCmd | — |
+| `a8` | LeftRightSoundBalanceCmd | Left / Right Sound Balance |
+| `aa` | PreserveSettingsCmd | — |
+| `b0` | LeaAudioCmd | LE Audio |
+| `b1` | GetSetFeatureCmd | ⚠ see below |
+
+✅ **This was checked before it was trusted**: five opcodes decoded from captures the
+hour before — `98`, `9d`, `9e`, `9f`, `a8` — land on the classes whose names match the
+rows they were decoded from, and `77` matches the gesture command already known. Six
+independent agreements, so the extraction is not being read hopefully.
+
+✅ `reqimp/CmdGen.smali` names the ANC sub-ops outright: `genSetANCModes` → `10`,
+`genReqANCModes` → `11`, **`genSetANCModeOFF` → `13`**. That last one is the master
+Ambient Sound Control switch, decoded from a capture and now confirmed by name.
+
+⚠ **`aa b1` is NOT a keepalive**, as this file said. It is `GetSetFeatureCmd`, and the
+four-second traffic is a real poll with a real answer — `aa b1 04 01 00 01 00` out,
+`aa b1 04 02 00 01 00` back, 313 times in one capture — plus **writes** with operator
+`00` (`aa b1 03 00 01 00`). Calling it a keepalive is what made it easy to filter out
+and ignore; it is a generic feature channel and may be the route to several rows that
+have no command class of their own.
+
+✅ **Three rows are readable RIGHT NOW with values already captured**, from the vendor
+app's own connect sweep, with no driving at all:
+```
+aa a5 01 01  → aa a5 03 02 01 01     SafeSound   = Max Volume Limiter, on
+aa a0 01 01  → aa a0 07 02 01 00 02 64 03 00     PSAP, disabled
+aa b0 01 00  → aa b0 02 10 01        LeaAudio
+```
+⚠ **Max Volume Limiter is hearing protection and is ON.** It can be shown from the
+getter above without ever being written, which is the only way this repo should touch
+it.
+
 ### Gestures — read and decoded
 
 ```
@@ -432,8 +496,9 @@ aa 74/75  ANC tuning    aa 81/82  smart switch      aa 95  factory reset
 ```
 Replies are `aa <cmd+1>` (`aa 11` → `aa 12`), per `RetHeader`. Seen on the wire:
 `aa 12` device info with the name and battery, `aa 22` status, `aa 94` the serial,
-`aa 77` the gesture map, `aa a2` EQ as IEEE floats. `aa b1 …` every four seconds
-is a keepalive, and it is the bulk of any capture.
+`aa 77` the gesture map, `aa a2` EQ as IEEE floats. ⚠ `aa b1 …` every four seconds is
+`GetSetFeatureCmd` polling, **not a keepalive** — it is the bulk of any capture and it
+carries writes too.
 
 ⚠ **Never sweep this protocol.** It has no Get operator; `aa 31`, `aa 33`, `aa 40`
 and `aa 95` are writes, and `Sweep` deliberately cannot emit them.
