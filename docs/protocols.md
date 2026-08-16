@@ -302,6 +302,16 @@ Unexplained; the vendor app sends it too, so a write copies the read frame and
 substitutes only the gains. Doing that reproduces the app's JAZZ frame **byte for
 byte**, which is what `JblSettingsTest` asserts.
 
+✅ **The table id is `EnumEqPresetIdx`**, an SDK enum, and it names the app's whole
+preset menu:
+```
+00 OFF   01 JAZZ   02 VOCAL   03 BASS   04 USER   05 ROCK   06 PIANO   07 CLUB   08 STUDIO
+```
+Which matches what was captured without knowing it: the flat curve read back as `00`
+and the app's JAZZ write used `01`. ⚠ Only those two curves' gains have been seen, and
+a write carries the gains as well as the id, so the other seven cannot be synthesised
+from this list — the names are known, the numbers are not.
+
 ⚠ **A write carries both a curve and an id, so "nothing sends a preset id" was
 wrong.** Payload byte 2 is a table selector: `aa a2 02 01 c9` and `…ca` are echoed
 back in it, `ff` comes back as the id actually in use, the flat curve read as `00`,
@@ -549,15 +559,29 @@ Pairs of `<gesture><action>`, so as shipped: left tap → ANC/ambient cycle, lef
 double tap → TalkThru, and the other six unassigned. Both tables are the app's
 own, indexed by enum ordinal through `CmdBase.values` / `values_Action`:
 
+✅ **Both tables are SDK enums and the ordinal IS the wire value** — `GestureType` and
+`GestureActionType` in `constantsimp`. Calibrated against the captured map before being
+trusted: `06`→`0b` is LEFT_TAP → ANC_AMBIENT, and the app's own screen labels the left
+cup "Ambient Sound Control"; `07`→`04` is LEFT_DOUBLE_TAP → TALK_THRU; `09`→`00` is
+RIGHT_TAP → DEFAULT, and the app says "None".
+
 ```
 gesture  00 L-whole 01 R-whole 02/03 L-swipe fwd/back 04/05 R-swipe fwd/back
          06/07/08 L tap/double/triple   09/0a/0b R tap/double/triple
          0c/0d L hold/double-hold       0e/0f R hold/double-hold
-         fd L-all  fe R-all  ff all     10 balance dial  11 volume dial
+         10 L-all  11 R-all  12 all     13 balance dial  14 volume dial
+         15/16 mic button short/long
 action   00 default 01 vol+ 02 vol- 03 ambient 04 talkthru 05 next 06 prev
          07 anc 08 play/pause 09 anc+ambient 0a play/dismiss-VA 0b anc-ambient
-         0c anc-off 0d ambient-off       a0…ac assistant actions
+         0c anc-off 0d ambient-off  0e/0f cancel/talk default assistant
+         10/11/12 Google  13/14 Alexa  15/16 Xiaowei
+         17 game-chat balance  18 volume  19 mic mute  1a LED
 ```
+⚠ **This file previously said "`a0…ac` assistant actions" and "`fd`/`fe`/`ff`" for the
+all-variants.** The assistant range was wrong outright — they are `0e`–`16`. The
+sentinels are subtler: the enum puts LEFT_ALL/RIGHT_ALL/ALL at `10`/`11`/`12`, and the
+wire uses **`ff` for ALL** (`aa 77 02 01 ff` is what the app sends and what answers).
+So the ordinal is the value for every real gesture and NOT for the sentinels.
 
 ⚠ **`01` and `02` are volume up and down.** A gesture write can therefore bind a
 button to a volume change — the one thing this repo will not do casually. Read
