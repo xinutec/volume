@@ -168,7 +168,7 @@ class DeviceController(
     }
 
     private fun openIfNeeded(address: String): Session? {
-        Sessions.existing(address)?.let { return it }
+        Sessions.existing(address)?.let { return describe(address, it) }
         val device =
             try {
                 adapter?.bondedDevices?.firstOrNull { it.address == address }
@@ -203,6 +203,20 @@ class DeviceController(
             return null
         }
         Sessions.remember(address, session)
+        return describe(address, session)
+    }
+
+    /**
+     * Fill in a card from an open session: model, modes and the mode it reports.
+     *
+     * ⚠ **Called on the reused path too, and that is the whole point.** Sessions are
+     * owned by the process now, so the Quick Settings tile can have opened this
+     * channel before the screen ever asked. Returning early with "we already have a
+     * session" left the card on [DeviceState.Idle] — reading *"Not connected"*, with
+     * a Connect button, for a device the tile was driving at that moment. Measured
+     * 2026-08-16.
+     */
+    private fun describe(address: String, session: Session): Session {
         update(address, DeviceState.Busy("reading…"))
         val mode = runCatching { session.headphones.driver.read(session.transport) }.getOrNull()
         // The name the device holds beats the bonded record, which for this phone's
