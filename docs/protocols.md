@@ -325,7 +325,10 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Four of twenty-two are driven by us; twenty now have a wire identity.** Written down
+status sweep taken minutes later. **Twenty of twenty-three rows have a wire identity, seven are decoded well enough to
+drive, and four are in our app.** ⚠ Those three numbers are different questions and
+collapsing them flatters the work: knowing a row is `aa 98` is not knowing what its
+Low/Mid/High byte means. Written down
 because "is it all understood?" could not be answered before without opening the app,
 and answering it from what `docs/` happened to mention would have flattered us.
 
@@ -346,7 +349,7 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
 | SilentNow | ⚠ opening it sends nothing | — |
 | Auracast | ✅ `aa b0`, measured | — |
-| LE Audio | ✅ `aa b0` LeaAudio, read | — |
+| LE Audio | ⚠ **unplaced** — NOT `aa b0`, that is Auracast | — |
 | Auto Play & Pause | ✅ set `aa 35 01 <on>`, status `38` | — |
 | Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
 | Left / Right Sound Balance | ✅ `aa a8` | — |
