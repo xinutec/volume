@@ -52,6 +52,11 @@ OURS = "org.xinutec.volume"
 SAFE_TOP = 380
 SAFE_BOTTOM = 2200
 
+# ⚠ One swipe's travel, capped so a long move is several short ones. A single big
+# swipe is read as a FLING and carries well past where it was aimed, which is a
+# scroll that cannot be aimed at all.
+MAX_SWIPE = 800
+
 REMOTE_DUMP = "/sdcard/window_dump.xml"
 
 
@@ -110,6 +115,23 @@ class Node:
     def clipped(self) -> bool:
         return self.y0 < SAFE_TOP or self.y1 > SAFE_BOTTOM
 
+    @property
+    def off_by(self) -> int:
+        """How far to scroll to bring this row into the safe band, signed.
+
+        Positive means the row is below the band and the list must come UP.
+
+        ⚠ **This is the number [Driver.show] used to throw away.** It found the row,
+        saw `clipped`, and then nudged a blind 600 px — up to forty times, which is
+        two and a half minutes of scrolling to place a row it had already located.
+        Knowing where something is and still searching for it is the waste here.
+        """
+        if self.y1 > SAFE_BOTTOM:
+            return self.y1 - SAFE_BOTTOM
+        if self.y0 < SAFE_TOP:
+            return self.y0 - SAFE_TOP
+        return 0
+
 
 def _nodes(root: ET.Element) -> Iterator[Node]:
     for element in root.iter("node"):
@@ -139,6 +161,29 @@ def dump() -> list[Node]:
     raise RuntimeError("uiautomator returned nothing three times")
 
 
+def survey() -> list[str]:
+    """Every label in the scrollable list, in the order it is drawn.
+
+    ⚠ **`--dump` sees ONE viewport and the device screen is longer than one.**
+    Concluding that a control is absent from a single dump is how a row that is
+    merely below the fold gets written down as missing — the same mistake as reading
+    a capture's silence as a decision. This scrolls from the top and accumulates, so
+    an absence here is an absence from the whole screen.
+
+    Stops early when a full nudge adds nothing, so it costs no more than the list is
+    long. Read-only: it scrolls and never taps.
+    """
+    to_top()
+    seen: list[str] = []
+    for _ in range(24):
+        fresh = [n.text for n in dump() if n.text and n.text not in seen]
+        if not fresh:
+            break
+        seen.extend(fresh)
+        nudge()
+    return seen
+
+
 def label(nodes: list[Node], want: str) -> Node | None:
     return next((n for n in nodes if n.text == want), None)
 
@@ -155,9 +200,22 @@ def switch_for(nodes: list[Node], want: str) -> Node | None:
 
 
 def nudge(distance: int = 600) -> None:
-    """⚠ Small and settled. A big swipe FLINGS, carrying past the row wanted."""
-    adb("shell", "input", "swipe", "540", "1500", str(1500 - distance), "400")
-    time.sleep(1)
+    """Scroll by `distance` px; positive brings content UP (moves the list down).
+
+    ⚠ Small and settled. A big swipe FLINGS, carrying past the row wanted — so the
+    travel is capped rather than trusted, and a long move is several short ones.
+
+    ⚠ The original wrote its end coordinate into the X slot:
+    `input swipe 540 1500 <1500-distance> 400`, where argv is `x1 y1 x2 y2`. So every
+    scroll was a DIAGONAL from (540,1500) to (900,400) whatever `distance` said, and
+    the parameter did nothing. That is why a "600 px" nudge and a "60 px" nudge moved
+    the list identically, and why placing a row took twenty tries.
+    """
+    while distance:
+        step = max(-MAX_SWIPE, min(MAX_SWIPE, distance))
+        adb("shell", "input", "swipe", "540", "1500", "540", str(1500 - step), "400")
+        distance -= step
+        time.sleep(0.6)
 
 
 def to_top() -> None:
@@ -172,15 +230,30 @@ class Driver:
     outstanding: list[str] = field(default_factory=list)
 
     def show(self, want: str) -> list[Node] | None:
-        """Bring a label on screen AND clear of both edges."""
+        """Bring a label on screen AND clear of both edges.
+
+        ⚠ **Says what it is doing while it hunts, and that is not decoration.** A
+        lookup can nudge forty times before its one tap, and the old version printed
+        nothing until the tap landed — so a working run and a wedged one looked
+        identical from the outside, which is a thing Pippijn has now had to ask about
+        twice. Scrolling with no explanation is indistinguishable from stuck.
+        """
         for attempt in range(2):
-            for _ in range(20):
+            for step in range(20):
                 nodes = dump()
                 found = label(nodes, want)
                 if found is not None and not found.clipped:
+                    if step:
+                        say(f"    found '{want}' after {step} scrolls")
                     return nodes
-                nudge()
+                if step == 0:
+                    say(f"    scrolling to '{want}'…")
+                # ⚠ If the row IS on screen and merely clipped, scroll by exactly
+                # what it is off by. Only when it is nowhere in the dump is a blind
+                # sweep the right move — and then a whole viewport, not 600 px.
+                nudge(found.off_by if found is not None else 900)
             if attempt == 0:
+                say(f"    '{want}' not seen in one pass — back to the top to retry")
                 to_top()
         say(f"!! '{want}' never came up clear of the edges")
         return None
@@ -264,7 +337,16 @@ def preflight(driver: Driver) -> None:
             continue
         # Connected == the app draws a battery reading. ⚠ Scoped to the vendor app
         # by the focus check above: on its own this regex matched another app.
-        if any(re.fullmatch(r"\d+%", n.text) for n in dump()):
+        #
+        # ⚠ `dump()` asserts focus AGAIN and raises if it has moved, so it must be
+        # caught HERE. Launching the app puts the launcher in front for an instant,
+        # and letting that escape aborts the whole run during the very loop whose job
+        # is to wait for the app to settle — a retry loop that cannot retry.
+        try:
+            settled = any(re.fullmatch(r"\d+%", n.text) for n in dump())
+        except NotInVendorApp:
+            continue
+        if settled:
             say(f"preflight: {VENDOR} is focused and connected")
             return
     raise RuntimeError(f"{VENDOR} never came up focused and connected")
@@ -313,6 +395,63 @@ def group_voiceaware(d: Driver) -> None:
     d.cycle("VoiceAware")
 
 
+def group_vaware_level(d: Driver) -> None:
+    """⚠ The ablation for VoiceAware's unexplained `02` — is it the LEVEL?
+
+    `aa 98 03 00 02 <on>` has a byte nobody has varied, because the Low/Mid/High
+    picker was never touched. Spatial Sound taught the shape of the answer: its mode
+    buttons send NOTHING on their own and the mode rides along with the next on/off
+    write. So picking a level and reading the capture would prove nothing; the level
+    has to be picked and then the switch flipped.
+
+    Two full cycles at two different levels, restoring Mid last. If `02` is the
+    level, the two ON writes differ in exactly that byte and in nothing else.
+    """
+    say("--- VoiceAware LEVEL: Low, then High, restoring Mid ---")
+    for level in ("Low", "High", "Mid"):
+        if not d.pick(level):
+            say(f"!! could not pick '{level}' — stopping before the flip")
+            return
+        say(f"    picked {level}; now the on/off that should carry it")
+        if not d.cycle("VoiceAware"):
+            return
+
+
+def group_spatial_mode(d: Driver) -> None:
+    """⚠ The ablation this file's docs asked for and nobody had run.
+
+    `docs/protocols.md`: "tapping Movie and *then* toggling would show a mode byte
+    other than `01`, and that has not been done." This is that, and it also settles a
+    second question — whether the mode buttons reach the DEVICE at all, or are purely
+    app-side until something commits them.
+
+    Found OFF on Music, and Music is restored last.
+    """
+    say("--- Spatial Sound MODE: Movie then toggle, restoring Music ---")
+    for mode in ("Movie", "Game", "Music"):
+        if not d.pick(mode):
+            say(f"!! could not pick '{mode}'")
+            return
+        say(f"    picked {mode}; now the on/off that should carry it")
+        if not d.cycle("Spatial Sound"):
+            return
+
+
+def group_smartav(d: Driver) -> None:
+    """⚠ Smart Audio & Video's payload is LOCATED, not decoded.
+
+    `aa 81 08 00 01 35 00 <v> 00 ff ff` moves one byte: `e6` off, `96` on. That is
+    not a boolean, and 230/150 looked like milliseconds of latency — written down as
+    a guess. Two named modes sit on this row, so if the byte is latency it should
+    take a third and fourth value here rather than flipping between two.
+    """
+    say("--- Smart Audio & Video: Audio Mode / Video Mode ---")
+    for mode in ("Audio Mode", "Video Mode"):
+        if not d.pick(mode):
+            say(f"!! could not pick '{mode}'")
+            return
+
+
 def group_leaudio(d: Driver) -> None:
     """⚠ Re-negotiates the link, so it runs last of the toggles."""
     say("--- LE Audio (found OFF) — connection-disturbing ---")
@@ -340,6 +479,9 @@ GROUPS: dict[str, Callable[[Driver], None]] = {
     "spatial": group_spatial,
     "smarttalk": group_smarttalk,
     "voiceaware": group_voiceaware,
+    "vaware-level": group_vaware_level,
+    "spatial-mode": group_spatial_mode,
+    "smartav": group_smartav,
     "leaudio": group_leaudio,
 }
 
@@ -348,7 +490,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("groups", nargs="*", help="which groups to run")
     parser.add_argument("--list", action="store_true", help="print group names")
-    parser.add_argument("--dump", action="store_true", help="print every label")
+    parser.add_argument("--dump", action="store_true", help="print every label ON SCREEN")
+    parser.add_argument(
+        "--survey", action="store_true", help="scroll the whole list and print every label"
+    )
     parser.add_argument("--state", metavar="LABEL", help="print a switch's value")
     parser.add_argument("--tap", metavar="LABEL", help="scroll to a label and tap it")
     args = parser.parse_args()
@@ -362,6 +507,14 @@ def main() -> int:
     # audit read states with no such check and would have believed another app.
     if args.dump:
         for text in sorted({n.text for n in dump() if n.text}):
+            print(text)
+        return 0
+
+    # ⚠ Not sorted, unlike --dump: the drawing order is the information. Which rows
+    # sit under which heading is what says whether a level control belongs to
+    # VoiceAware or to the row below it.
+    if args.survey:
+        for text in survey():
             print(text)
         return 0
 
