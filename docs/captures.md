@@ -68,81 +68,54 @@ GATT. A filter that returns 0 rows usually means the wrong field, not a quiet de
 
 ## 2026-08-17 — JBL Tour One M2 (`~/.cache/volume-captures/2026-08-17-jbl-spatial/`)
 
-Driven by `scripts/drive_jbl.py`. Two bugreports, merged with the previous
-`btsnoop_hci.log.last` each time, so the window runs 09:20 → 11:42 and includes the
-*previous* evening's spatial run — which is what let it be re-judged rather than
+Driven by `scripts/drive_jbl.py` except where noted. Five bugreports, each merged with
+the previous `btsnoop_hci.log.last`, so the window runs 09:20 → 12:52 and includes the
+*previous* evening's spatial run — which is what let that be re-judged rather than
 re-argued.
 
 | time | action | on the wire |
 | --- | --- | --- |
-| 09:30:27 | (prev. session) tap mode label `Movie` | nothing |
+| 09:30:27 | (prev. session) tap mode LABEL `Movie` | nothing |
 | 09:30:35 | (prev. session) Spatial Sound on | `aa 9d 03 00 01 01` — mode `01`, Music |
 | 10:40:01 | vendor app cold launch | 30+ getters, paired with replies |
 | 10:47:03 | tap mode LABEL `Movie` | nothing |
 | 10:49:06 | tap mode TILE `Movie` | `aa 9d 03 00 01 02` |
 | 11:11:28/35/43 | pick Movie, Game, Music | `aa 9d 03 00 01 02` / `…03` / `…01` |
 | 11:11:53 | Spatial Sound off | `aa 9d 03 00 00 01` |
-| 11:31:31 | pick `Video Mode` | `aa 81 08 c5 00 2e 00 50 00 ff ff` |
-| 11:36:22 | Smart A/V switch off | `aa 81 08 00 01 35 00 e6 00 ff ff` |
-| 11:37:41 | pick `Audio Mode` | `aa 81 08 00 01 35 00 96 00 ff ff` |
 | 11:34–11:35 | intended VoiceAware Low/High/Mid | ⚠ `aa 9f` — **Smart Talk**, see below |
-
-✅ **The pair at 10:47 and 10:49 is the point of the capture.** Same intended action,
-two tap targets, thirty seconds apart: the label sends nothing, the tile sends the
-write. A finding that had been published from the silent half is retracted in
-`docs/protocols.md`.
-
-⚠ **The capture caught the driver pressing the wrong control while reporting success.**
-`drive_jbl.py` retargets a segmented label onto its tile by matching x-bounds; every
-card in this app uses the same three columns, and VoiceAware is a gradient bar with no
-tiles at all, so `Low` matched *Smart Talk's* tile one card above. The log said
-`tapped Low`; the wire said `aa 9f 03 00 01 05`. Smart Talk was left switched on at 15 s
-and had to be put back to off / 5 s — its resting value being known only because this
-same capture had recorded `aa 9f 03 02 00 05` at 09:20 and again at 10:40.
-
-⚠ A tap that lands is not a tap that lands on the right thing, and only the capture can
-tell the difference.
-
-### 12:50 — Smart A/V, at the third attempt
-
-| time | action | on the wire |
-| --- | --- | --- |
+| 12:13:39–46 | **Pippijn drags** the VoiceAware bar: Mid, Low, High, Mid | `aa 98 03 00 <02/01/03/02> 01` |
 | 12:50:01 | pick Video Mode, switch on | `aa 81 08 c5 00 2e 00 50 00 ff ff` |
 | 12:50:40 | switch off, **Video still selected** | `aa 81 08 00 01 35 00 e6 00 ff ff` |
-| 12:51:25 | switch on, Video still selected | `aa 81 08 c5 00 2e 00 50 00 ff ff` |
 | 12:52:03 | pick Audio Mode | `aa 81 08 00 01 35 00 96 00 ff ff` |
 
-✅ Settles that there is no enable byte: off is its own frame, sent while Video is lit.
+✅ **The pair at 10:47 and 10:49 is the point of the capture.** Same intended action, two
+tap targets, thirty seconds apart: the label sends nothing, the tile sends the write. A
+finding published from the silent half is retracted in `docs/protocols.md`.
 
-⚠ **Two earlier attempts produced the same wrong answer and looked fine.** Both times
-the Video pick missed its tile and sent nothing, so the switch was flipped while the
-mode was still Audio — and the Audio-off frame that came back was a real frame, from a
-real write, that answered a question nobody had asked. The tell was in the capture, not
-the log: no frame at the moment the pick was logged.
+✅ **12:50:40 settles Smart A/V** — off is a frame of its own, sent while Video is lit, so
+no byte in it is the enable.
 
-⚠ **A diagnostic that fires.** Checking where a label resolves meant `--tap`-ing it,
-so verifying the targeting across eight controls wrote eight settings and left Spatial
-Sound on Game and Smart Talk on 20 s, both switched on. `--where` now answers the same
-question and taps nothing.
-
-### 12:13 — the level, by hand
-
-| time | action | on the wire |
-| --- | --- | --- |
-| 12:13:39 | Pippijn drags the VoiceAware bar | `aa 98 03 00 02 01` |
-| 12:13:41 | …to Low | `aa 98 03 00 01 01` |
-| 12:13:45 | …to High | `aa 98 03 00 03 01` |
-| 12:13:46 | …back to Mid | `aa 98 03 00 02 01` |
-
-✅ **Two automated attempts failed at this and a person did it in ten seconds.** The bar
-takes a drag; `drive_jbl` has taps. The first attempt tapped inert labels, the second
-pressed a different feature's control, and both produced logs that read as successful
-runs. Worth remembering before building a third gesture into the driver: the question
-was cheap to answer and expensive to automate.
-
-⚠ The drags come in bursts — a slider emits while it travels, so `01` repeats four
-times. The level is the byte that varies and the run is labelled by what was done, not
+✅ **The bar needs a real drag, and a person did it in ten seconds** after two automated
+attempts failed. ⚠ A slider emits while it travels, so the intermediate values repeat;
+the level is the byte that varies, and the run is labelled by what was done rather than
 by counting frames.
+
+⚠ **Four runs reported success while driving the wrong thing, and only the capture ever
+noticed.** All four look identical from the log:
+
+- `Low` matched *Smart Talk's* tile one card above — every card here uses the same three
+  columns. The log said `tapped Low`, the wire said `aa 9f 03 00 01 05`, and Smart Talk
+  was left switched on at 15 s. Its resting value was recoverable only because this same
+  capture had recorded `aa 9f 03 02 00 05` at 09:20 and again at 10:40.
+- Twice a `Video Mode` pick missed its tile, so the switch was flipped with the mode
+  still on Audio and the Audio-off frame came back looking like an answer.
+- Checking the targeting with `--tap` wrote eight settings, leaving Spatial Sound on Game
+  and Smart Talk on 20 s. `--where` now answers that question and taps nothing.
+
+The tell is always the same: **no frame at the moment the log claims a tap.**
+
+⚠ **The mode tiles are inert while a feature is off**, so a restore that picks the mode
+before switching back on silently does nothing.
 
 ## 2026-08-16 evening — Sony WH-1000XM4 (`~/.cache/volume-captures/2026-08-16-sony-2/`)
 

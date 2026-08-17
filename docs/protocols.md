@@ -336,15 +336,18 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and four are in our app.** ⚠ The twelve is unchanged
-by 2026-08-17 and that is not an oversight: Spatial Sound and Smart Audio & Video were
-already drivable and were already counted. What changed is that both are now decoded
-*completely* — the mode byte and the parameter triple — which this tally cannot show.
-⚠ Those three numbers are different questions and
-collapsing them flatters the work: knowing a row is `aa 98` is not knowing what its
-Low/Mid/High byte means. Written down
-because "is it all understood?" could not be answered before without opening the app,
-and answering it from what `docs/` happened to mention would have flattered us.
+are decoded well enough to drive, and six are in our app.**
+
+⚠ Those three numbers are different questions and collapsing them flatters the work:
+knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
+Written down because "is it all understood?" could not be answered before without
+opening the app, and answering it from what `docs/` happened to mention would have
+flattered us.
+
+⚠ **The twelve did not move on 2026-08-17 and that is not an oversight.** Spatial Sound,
+VoiceAware and Smart Audio & Video were all drivable already and already counted; what
+changed is that all three are now decoded *completely*. A tally of drivable rows cannot
+show that, which is the limit of counting them.
 
 | the app's row | wire | us |
 | --- | --- | --- |
@@ -444,11 +447,8 @@ beforehand as what Video-off should read if the third value carried the enable. 
 appeared — the app does not compute an off-value from the mode, it sends a constant.
 Recorded because the arithmetic was tidy enough to have been believed without the test.
 
-⚠ Two earlier attempts to capture Video-off failed and both produced plausible logs: the
-mode tap missed the tile, so the switch was flipped while the mode was still Audio and
-the resulting Audio-off frame looked like an answer. ⚠ **The mode tiles are inert while
-the feature is off** — a restore that picks the mode before switching back on does
-nothing, which is a second way to leave this row changed while believing otherwise.
+⚠ Two earlier attempts at this returned a plausible wrong answer; how, and the other
+traps around driving this row, are in `docs/captures.md`.
 
 ✅ **VoiceAware's `02` was the LEVEL, and the level is Mid.** Settled 2026-08-17 by
 Pippijn dragging the bar by hand while the capture ran — the driver cannot do it, and
