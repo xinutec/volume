@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
@@ -229,6 +230,11 @@ interface SettingActions {
 
     /** ⚠ Three states and no switch; [SmartAv] says why off is one of them. */
     fun setSmartAv(address: String, v: SmartAv)
+
+    fun setAutoPlay(address: String, on: Boolean)
+
+    /** ⚠ Only the switch moves; the level is sent back as it was read. */
+    fun setBalance(address: String, v: Balance)
 
     fun setSoundQuality(address: String, mode: SoundQuality)
 
@@ -640,6 +646,37 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                     )
                 }
             }
+        }
+
+        settings.autoPlay?.let { on ->
+            SettingRow(
+                "Auto play & pause",
+                if (on) "on" else "off",
+                writable = true,
+                checked = on,
+                onChange = { actions.setAutoPlay(address, it) },
+            )
+        }
+
+        settings.balance?.let { v ->
+            // ⚠ The level is carried, never offered — nothing here has ever moved it,
+            // so its range is unknown and 100 is only known to be this unit's centre.
+            SettingRow(
+                "Left / right balance",
+                if (v.on) "on, level ${v.level}" else "off",
+                writable = true,
+                checked = v.on,
+                onChange = { actions.setBalance(address, v.copy(on = it)) },
+            )
+        }
+
+        settings.psap?.let { on ->
+            SettingLabel("Sound amplification", if (on) "on" else "off")
+            Text(
+                "amplifies the world — this app will read it, never change it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
 
         settings.battery?.let { b ->
