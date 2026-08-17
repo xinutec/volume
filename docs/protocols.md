@@ -336,7 +336,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and ten are in our app.**
+are decoded well enough to drive, and eleven are in our app.**
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -351,7 +351,7 @@ show that, which is the limit of counting them.
 
 | the app's row | wire | us |
 | --- | --- | --- |
-| battery % | ✅ `aa 25`, matched to the app | — |
+| battery % | ✅ `aa 25`, and it can be ASKED | ✅ read |
 | ⏻ power off | ✅ `aa 97 00` | — |
 | Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
@@ -724,10 +724,25 @@ because it turned out to be easy.
 power on again, press a power button on a headphone". So it is the last thing any run
 can do, and it costs someone getting up.
 
-✅ **Battery is `aa 25`**, volunteered every ten seconds without being asked:
-`aa 25 0d 01 00 00 5a 5a ff ff ff ff ff ff ff ff`, and `5a` = 90 matched the app's
-"90%" on screen at the time. Two copies of the value; which cup, or cup versus case,
-is not established on an over-ear.
+✅ **Battery is `aa 25`**, volunteered every ten seconds — **and it answers a getter**,
+`aa 25 01 01`, measured 2026-08-17. Worth knowing: waiting for the notification means a
+blank card for up to ten seconds.
+
+```
+→ aa 25 01 01   ← aa 25 0d 01 00 00 <slave> <master> <box> ff ff ff ff ff ff ff
+```
+✅ **Each level byte is a charging bit and a 7-bit percentage**, and `BatteryInfoCmd`
+discards anything over 100 as *unknown*. So the trailing `ff`s are **absent cells, not
+padding**, and the box slot reads `ff` on this over-ear because there is no case —
+which is the decode explaining an observation rather than the other way round.
+`parseBatteryInfo` puts slave at index 6, master at 7, box at 9, and reads them only
+when the sub-command byte is `01`.
+
+⚠ **Master and slave cannot be told apart from any capture here**, because the two
+bytes have been equal in every frame — `3c 3c` = 60% on 2026-08-17, `5a 5a` = 90% on
+2026-08-16 when it matched the app's "90%". That calibration fixes the SCALE and says
+nothing about the slots. It is precisely the shape of `SafeSound`'s two `01` bytes,
+with one difference: SafeSound could be driven until one moved, and a battery cannot.
 
 ✅ **Three rows are readable RIGHT NOW with values already captured**, from the vendor
 app's own connect sweep, with no driving at all:

@@ -266,6 +266,8 @@ object Drivers {
         fun readGestures(t: Transport): Map<Gesture, GestureAction>? =
             JblGestures.state(t.exchange(JblGestures.get()))
 
+        fun readBattery(t: Transport): Battery? = JblBattery.state(t.exchange(JblBattery.get()))
+
         fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
             JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
 

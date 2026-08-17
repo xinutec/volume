@@ -110,6 +110,8 @@ data class Settings(
      * the editor.
      */
     val gestures: Map<Gesture, GestureAction>? = null,
+    /** How much charge is left — read, never written, because there is nothing to write. */
+    val battery: Battery? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -150,7 +152,7 @@ data class Settings(
                 autoOff != null || timedOff != null || soundQuality != null ||
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
-                smartAv != null || gestures != null
+                smartAv != null || gestures != null || battery != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }
