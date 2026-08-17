@@ -79,6 +79,14 @@ data class Settings(
      * choice and is worth saying out loud rather than leaving as an absent control.
      */
     val volumeLimit: Boolean? = null,
+    /**
+     * The JBL's Spatial Sound — the switch and the mode it renders for.
+     *
+     * ⚠ One field, not two, because the device takes both in one frame: there is no
+     * write that changes the switch without also naming a mode. Splitting them in the
+     * UI would invent a state the headphones cannot be in.
+     */
+    val spatial: Spatial? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**

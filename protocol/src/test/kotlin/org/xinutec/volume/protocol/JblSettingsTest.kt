@@ -247,6 +247,76 @@ class JblSettingsTest {
         assertEquals("aab10401010100", hex(JblFeature.set(JblFeature.LE_AUDIO, false)))
     }
 
+    // ---- spatial sound -----------------------------------------------------
+
+    /** 11:11:28 / :35 / :43 — three picks, three replies, one byte apart. */
+    @Test
+    fun `the spatial mode is read from the last byte`() {
+        val movie = bytes(JblFrames.SPATIAL_MOVIE_ON)
+        val game = bytes(JblFrames.SPATIAL_GAME_ON)
+        val music = bytes(JblFrames.SPATIAL_MUSIC_ON)
+        assertEquals(Spatial(on = true, mode = SpatialMode.MOVIE), JblSpatial.state(movie))
+        assertEquals(Spatial(on = true, mode = SpatialMode.GAME), JblSpatial.state(game))
+        assertEquals(Spatial(on = true, mode = SpatialMode.MUSIC), JblSpatial.state(music))
+    }
+
+    /**
+     * 11:11:53 and the 10:40:01 cold read, which are the same bytes.
+     *
+     * ⚠ Off still carries a mode. A reader that treated `on = false` as "no mode" would
+     * lose the user's choice every time the feature was switched off.
+     */
+    @Test
+    fun `switched off still names a mode`() {
+        assertEquals(
+            Spatial(on = false, mode = SpatialMode.MUSIC),
+            JblSpatial.state(bytes(JblFrames.SPATIAL_OFF_MUSIC)),
+        )
+    }
+
+    /** Byte-identical to what the vendor app sent for each tile. */
+    @Test
+    fun `the spatial frames are the ones the vendor app builds`() {
+        assertEquals("aa9d03000102", hex(JblSpatial.set(Spatial(true, SpatialMode.MOVIE))))
+        assertEquals("aa9d03000103", hex(JblSpatial.set(Spatial(true, SpatialMode.GAME))))
+        assertEquals("aa9d03000101", hex(JblSpatial.set(Spatial(true, SpatialMode.MUSIC))))
+        assertEquals("aa9d03000001", hex(JblSpatial.set(Spatial(false, SpatialMode.MUSIC))))
+        assertEquals("aa9d0101", hex(JblSpatial.get()))
+    }
+
+    /**
+     * ⚠ A frame for another command must not be read as a spatial one.
+     *
+     * ⚠ **The obvious version of this test proved nothing and was replaced.** It used
+     * the real Smart Talk reply `aa 9f 03 02 00 05`, which has the same length and
+     * shape and differs in the command byte — but deleting the command check from
+     * [JblSpatial.state] left it passing, because `05` is not a mode and the *mode*
+     * check rejected it. Ablated and confirmed: the assertion could not fail.
+     *
+     * No captured frame can do this job. Smart Talk's last byte is its timeout, only
+     * ever `05`, `0f` or `14`, and none of those is a valid mode — so the frame below
+     * is SYNTHETIC on purpose: Smart Talk's command with a byte that would decode as
+     * Music. It is the only shape that isolates the command check, and with that check
+     * removed it reads as `on, MUSIC`.
+     */
+    @Test
+    fun `another command with the same shape is refused`() {
+        assertNull(JblSpatial.state(bytes("aa9f03020101")))
+        // And the real one, which is refused for a different reason — both are wanted.
+        assertNull(JblSpatial.state(bytes("aa9f03020005")))
+        // The set operator is not the status operator, and a set is not a reply.
+        assertNull(JblSpatial.state(bytes("aa9d03000101")))
+        // Truncated: the mode byte is missing.
+        assertNull(JblSpatial.state(bytes("aa9d030201")))
+    }
+
+    /** An unknown mode is not silently turned into Music. */
+    @Test
+    fun `a mode byte nobody has seen reads as null`() {
+        assertNull(JblSpatial.state(bytes("aa9d03020104")))
+        assertNull(JblSpatial.state(bytes("aa9d03020100")))
+    }
+
     private fun bytes(s: String) = Hex.parse(s)
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")
