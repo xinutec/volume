@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.DeviceCard
@@ -639,6 +640,13 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                     )
                 }
             }
+        }
+
+        settings.battery?.let { b ->
+            SettingLabel(
+                "Battery",
+                if (b.charging) "${b.percent}%, charging" else "${b.percent}%",
+            )
         }
 
         settings.gestures?.let { map ->
