@@ -100,9 +100,27 @@ tiles at all, so `Low` matched *Smart Talk's* tile one card above. The log said
 and had to be put back to off / 5 s — its resting value being known only because this
 same capture had recorded `aa 9f 03 02 00 05` at 09:20 and again at 10:40.
 
-⚠ So the VoiceAware level is **still** unmeasured, and the run that was supposed to
-settle it produced a clean-looking log. A tap that lands is not a tap that lands on the
-right thing, and only the capture can tell the difference.
+⚠ A tap that lands is not a tap that lands on the right thing, and only the capture can
+tell the difference.
+
+### 12:13 — the level, by hand
+
+| time | action | on the wire |
+| --- | --- | --- |
+| 12:13:39 | Pippijn drags the VoiceAware bar | `aa 98 03 00 02 01` |
+| 12:13:41 | …to Low | `aa 98 03 00 01 01` |
+| 12:13:45 | …to High | `aa 98 03 00 03 01` |
+| 12:13:46 | …back to Mid | `aa 98 03 00 02 01` |
+
+✅ **Two automated attempts failed at this and a person did it in ten seconds.** The bar
+takes a drag; `drive_jbl` has taps. The first attempt tapped inert labels, the second
+pressed a different feature's control, and both produced logs that read as successful
+runs. Worth remembering before building a third gesture into the driver: the question
+was cheap to answer and expensive to automate.
+
+⚠ The drags come in bursts — a slider emits while it travels, so `01` repeats four
+times. The level is the byte that varies and the run is labelled by what was done, not
+by counting frames.
 
 ## 2026-08-16 evening — Sony WH-1000XM4 (`~/.cache/volume-captures/2026-08-16-sony-2/`)
 
