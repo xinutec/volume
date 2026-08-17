@@ -112,7 +112,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
 | Sound quality | — | — | ✅ | — | — |
-| Button / gestures | ✅ | — | ⛔ refused #965 | 👁 read only #970 | — |
+| Button / gestures | ✅ | — | ⛔ refused #965 | ✅ r/w, ⚠ 3 volume actions | — |
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-two device controls and three of them are here — the inventory is in
@@ -130,9 +130,8 @@ alone, so it is not a preset in Sony's sense and nothing establishes which the d
 obeys.
 
 **Open:** #965 Sony button · #967 probe repeats a run's packets · #966 Bose auto-off ·
-#968 QC35 card · #970 JBL gesture writes (⚠ two actions are volume) · #973 the list
-scrolls to the top after a write · #974 19 of the JBL's 22 app features undecoded ·
-#935 refresh/disconnect affordances.
+#968 QC35 card · #973 the list scrolls to the top after a write · #974 19 of the JBL's
+22 app features undecoded · #935 refresh/disconnect affordances.
 
 ## Probe
 

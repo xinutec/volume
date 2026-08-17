@@ -360,7 +360,7 @@ show that, which is the limit of counting them.
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | — |
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | — |
-| Gestures | `aa 77` reads, `aa 71` sets | 👁 read, #970 |
+| Gestures | ✅ `aa 77` reads AND sets, confirmed by ear | 👁 read, #970 |
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | — |
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | — |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | — |
@@ -740,48 +740,89 @@ aa b0 01 00  → aa b0 02 10 01        LeaAudio
 getter above without ever being written, which is the only way this repo should touch
 it.
 
-### Gestures — read and decoded
+### Gestures — read, written, and confirmed by ear
 
 ```
 → aa 77 02 01 ff                        ff = ALL; or one GestureType byte
 ← aa 77 11 02  06 0b  07 04  08 00  0c 00  09 00  0a 00  0b 00  0e 00
+
+→ aa 77 03 00 06 05                     set ONE pair: len 3, operator 00
+← aa 77 03 02 06 05                     status names the gesture it acted on
+→ aa 77 11 00 <8 pairs>                 set the batch: len = 1 + 2N
 ```
 Pairs of `<gesture><action>`, so as shipped: left tap → ANC/ambient cycle, left
-double tap → TalkThru, and the other six unassigned. Both tables are the app's
-own, indexed by enum ordinal through `CmdBase.values` / `values_Action`:
+double tap → TalkThru, and the other six unassigned.
 
-✅ **Both tables are SDK enums and the ordinal IS the wire value** — `GestureType` and
-`GestureActionType` in `constantsimp`. Calibrated against the captured map before being
-trusted: `06`→`0b` is LEFT_TAP → ANC_AMBIENT, and the app's own screen labels the left
-cup "Ambient Sound Control"; `07`→`04` is LEFT_DOUBLE_TAP → TALK_THRU; `09`→`00` is
-RIGHT_TAP → DEFAULT, and the app says "None".
+✅ **Writes work, 2026-08-17.** `aa 77 03 00 06 0b` was accepted and read back while
+the gesture held `00`, so it is a real change and not a write against the value
+already there. Then confirmed physically: bound to `05` NEXT_TRACK the button skipped
+the track and did **not** announce ambient, and restoring `0b` brought the
+announcement back — the same press, one byte apart, which is the only evidence that
+separates "the device stored it" from "the device acts on it".
+
+⚠ **`aa 77` sets as well as reads; `aa 71` is not needed.** `CmdGen` has both
+`genSetGestureInBach77` (used here) and `genSetGestureControlOld71`, whose name says
+what it is. The length byte is `combine()`'s doing — it writes `payload.length` at
+index 2 — and the payload is `00` followed by the pairs, so `1 + 2N`. The read reply's
+own `11` = 1 + 16 is the arithmetic agreeing with the SDK.
+
+⚠ **A REFUSED ACTION IS SILENTLY COERCED TO `00`, WHICH CLEARS THE BINDING.** The
+device does not reject the frame; it answers `aa 77 03 02 <gesture> 00` and the
+gesture is now unassigned. So a failed write is destructive, not inert — save the map
+first and restore in the same connection. This cost the left button its ANC/ambient
+binding for ~1 s while `07` was tried.
+
+**Which actions each gesture accepts, measured by trying them** (the unassigned
+gestures already hold `00`, so a refusal there costs nothing):
+
+| gesture | accepts | refuses |
+| --- | --- | --- |
+| `06` LEFT_TAP | `04` talkthru · `05` next · `06` prev · `09` anc+ambient · `0a` play/dismiss-VA · `0b` anc-ambient · `0c` anc-off · `0d` ambient-off | `03` ambient · `07` anc · `08` play/pause · assistants |
+| `08` LEFT_TRIPLE_TAP | nothing — all 14 tried were coerced to `00` | — |
+
+⚠ **"Unassigned" does not mean "assignable but unset".** Left triple tap refused every
+action, so the six `00` rows are the device declining the gesture, not empty slots.
+The permitted set is also not a prefix or a range: `07` ANC is refused where `0c`
+ANC-off is taken, `03` ambient refused where `0d` ambient-off is taken, `08`
+play/pause refused where `0a` play/pause-with-VA-dismiss is taken.
+
+⚠ **LEFT_TAP is the left cup's physical BUTTON.** The M2's left cup has no touch
+surface at all — touching it everywhere does nothing, which read as "the write is
+dead" until the button was pressed. Only the right cup is a touch panel, and every
+right-cup gesture (`09`/`0a`/`0b`/`0e`) is `00` and refuses writes.
 
 ```
 gesture  00 L-whole 01 R-whole 02/03 L-swipe fwd/back 04/05 R-swipe fwd/back
          06/07/08 L tap/double/triple   09/0a/0b R tap/double/triple
          0c/0d L hold/double-hold       0e/0f R hold/double-hold
-         10 L-all  11 R-all  12 all     13 balance dial  14 volume dial
-         15/16 mic button short/long
+         10 balance dial  11 volume dial  12/13 mic button short/long
+         ⚠ L-all/R-all/ALL are 03/02/01 — they COLLIDE with the swipes
 action   00 default 01 vol+ 02 vol- 03 ambient 04 talkthru 05 next 06 prev
          07 anc 08 play/pause 09 anc+ambient 0a play/dismiss-VA 0b anc-ambient
-         0c anc-off 0d ambient-off  0e/0f cancel/talk default assistant
-         10/11/12 Google  13/14 Alexa  15/16 Xiaowei
-         17 game-chat balance  18 volume  19 mic mute  1a LED
+         0c anc-off 0d ambient-off
+         60/5f cancel/talk default assistant   5e/5d/5c Google
+         5b/5a Alexa   59/58 Xiaowei
+         57 game-chat balance  56 volume  55 mic mute  54 LED
 ```
-⚠ **This file previously said "`a0…ac` assistant actions" and "`fd`/`fe`/`ff`" for the
-all-variants.** The assistant range was wrong outright — they are `0e`–`16`. The
-sentinels are subtler: the enum puts LEFT_ALL/RIGHT_ALL/ALL at `10`/`11`/`12`, and the
-wire uses **`ff` for ALL** (`aa 77 02 01 ff` is what the app sends and what answers).
-So the ordinal is the value for every real gesture and NOT for the sentinels.
+⚠ **The tail of both tables was wrong here twice, and "ordinal IS the wire value" is
+why.** It holds only for the identity prefix — `values` is identity to `0f` and
+`values_Action` to `0d`. After that `values` maps LEFT_ALL/RIGHT_ALL/ALL to
+`03`/`02`/`01` and the dials to `10`–`13`, and `values_Action` runs **downward from
+`60`**, so the assistants are `54`–`60` and not the `0e`–`16` this file claimed in its
+own previous correction. Read the arrays, do not count the enum.
 
-⚠ **`01` and `02` are volume up and down.** A gesture write can therefore bind a
-button to a volume change — the one thing this repo will not do casually. Read
-gestures freely; leave the writes until there is a reason.
+⚠ **THREE actions are volume, not two: `01` vol+, `02` vol-, and `56` VOLUME_CONTROL.**
+The third only became visible once the real table was read. A gesture write can bind a
+button to a volume change, which is the one thing this repo will not do casually, so
+these three stay out of any sweep and out of any writer.
+
+⚠ The `ff` in `aa 77 02 01 ff` is a read sentinel with no entry in `values`;
+`GestureCmd.isReset` recognises `fd`/`fe`/`ff`. The ordinal table does not reach it.
 ```
 aa 21 01 <30..3d>   EnumDeviceStatusType, ordinal + 0x30 — see the list above
 aa 31  set ANC          aa 32  set ambient aware    aa 33  set auto-off
 aa 40/41/42  named in the SDK, ⚠ none is the EQ path — aa a2 is, and is driven
-aa 71  set gesture      aa 72  read gesture         aa 77  gesture batch
+aa 71/72  the OLD gesture set/read — aa 77 does both here, see Gestures
 aa 91  ANC modes (`aa 91 01 11` reads)              aa 11  device info
 aa 25  battery          aa 94  serial               aa 9b  multi-status
 aa 74/75  ANC tuning    aa 81/82  smart switch      aa 95  factory reset
