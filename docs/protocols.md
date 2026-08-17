@@ -335,8 +335,8 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **Twenty-two of twenty-three rows have a wire identity — every one except the LE Audio
-toggle — eleven are decoded well enough to drive, and four are in our app.** ⚠ Those three numbers are different questions and
+status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
+are decoded well enough to drive, and four are in our app.** ⚠ Those three numbers are different questions and
 collapsing them flatters the work: knowing a row is `aa 98` is not knowing what its
 Low/Mid/High byte means. Written down
 because "is it all understood?" could not be answered before without opening the app,
@@ -358,8 +358,8 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level unknown | — |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
 | SilentNow | ⚠ opening it sends nothing | — |
-| Auracast | ✅ `aa b0`, measured | — |
-| LE Audio | ⚠ **unplaced** — NOT `aa b0`, that is Auracast | — |
+| Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | — |
+| LE Audio | ✅ `aa b1` key `01`, measured | — |
 | Auto Play & Pause | ✅ set `aa 35 01 <on>`, status `38` | — |
 | Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
 | Left / Right Sound Balance | ✅ `aa a8` | — |
@@ -368,10 +368,16 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Max Volume Limiter | ✅ `aa a5 03 00 01 <on>` | ✅ read-only by choice, ⚠ hearing |
 | Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
 
-⚠ **One row has no wire identity: the LE Audio toggle** — and it is NOT `aa b0`, since
-that turned out to be Auracast. SilentNow has a screen that sends nothing when opened,
-which is a finding rather than a gap. `aa b1` `GetSetFeatureCmd` is where both most
-likely live.
+✅ **Every row is now placed.** The last one, LE Audio, is `aa b1` key `01`, measured
+2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the
+same reason it was cheap: `GetSetFeatureCmd` names its own keys.
+
+⚠ **SilentNow's screen sends nothing when opened, and that is still not explained.**
+It is not evidence there is no command: the reads that *do* work — Spatial Sound,
+Max Volume Limiter — are also absent from the control layer that looked authoritative
+(`BaseControl`, whose defaults log "not implement" for all 198 methods including
+theirs). Any claim that a feature has no wire form has to survive being run against a
+feature known to have one. This one did not.
 
 ⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
 of the app touching that one control, and the method in `docs/captures.md` applies
@@ -432,8 +438,17 @@ aa 90 01 03      aa 94 01 01   aa b0 01 00   aa 61 02 fe 35   aa 13 01 00 01
 aa a8 01 01
 ```
 ✅ `aa 94 01 01` → `aa 94 11 02 "TL1461-AN0018486"` — the **serial number**, in ASCII.
-✅ `aa 13 01 00 01` → a 37-byte table of `<id> <value> 00` triples, which is the
-shape of a capability list and is undecoded.
+✅ `aa 13` is **`AnalyticsCmd`** — usage telemetry the headphones keep and the app
+harvests, not the capability list this file guessed from the shape. `HandleParse.
+parseAnalyticsInfoData` names the fields: `aNCTimes`, `aAActiveTimes`, `tTActiveTimes`,
+`vAActivityTimes`, `gATimes`, `playPauseTimes`, `prevNextTimes`, `manualPairingTimes`,
+`powerOnDuration`, `playtimeDuration`, `bTConnectionDuration`, `voicecallDuration`,
+`lowBattWarningTimes`, each of the last five split L/R on TWS models.
+
+⚠ **Worth stating plainly, since this app exists to replace the vendor's:** the
+headphones count how often you use each feature and how long you listen, and the
+vendor app collects it. Nothing here reads `aa 13`, and nothing should start without a
+reason better than "the frame is understood".
 
 ⚠ **This sweep is the cheapest lead left.** Every getter above has a setter by the
 mirror rule, and the ones still unnamed — `93`, `a5`, `90`, `b0`, `9b`, `a0` — are
@@ -509,9 +524,11 @@ getters in the connect sweep, and `92` had never been seen at all.
 ✅ **`aa 91 01 21` is Customize ANC.** This file already had that frame, filed as "ANC
 capability, undecoded"; opening the screen is what attributed it.
 
-✅ **Auracast is `aa b0`**, now measured rather than inferred from `LeaAudioCmd`
-parsing into `AuracastGroup`. ⚠ Which means the **LE Audio toggle is still unplaced** —
-it is not `b0`, whatever the class name suggests.
+✅ **Auracast's SESSION is `aa b0`**, now measured rather than inferred from
+`LeaAudioCmd` parsing into `AuracastGroup`. ⚠ This was read at the time as ruling `b0`
+out for LE Audio and leaving that row unplaced. Both halves were half right: `b0` is
+the session, and the *switches* for both Auracast and LE Audio are keys on `aa b1` —
+see the `aa b1` section, where the whole row finally resolved.
 
 ⚠ **Personi-Fi, SilentNow and Equalizer fired NOTHING when opened.** For the equaliser
 that is explained — the curve was already read at connect. For the other two it is a
@@ -542,25 +559,75 @@ without a person volunteering for it.
 no frame carried it. ⚠ And it is someone's hearing profile — a repo this public gets
 the command shape and never the values.
 
-### ⚠ `aa b1` GetSetFeature — the mechanism, not the names
+### ✅ `aa b1` GetSetFeature — grammar and keys, 2026-08-17
 
-`com/harman/commands/GetSetFeatureCmd` is a **generic key → value map**, logging
-`keyId=`, `valueSize=` and "setFeatures: value is not boolean need add other". So it
-is a bag of feature flags rather than one setting, which is why several app rows have
-no command class of their own.
+`com/harman/commands/GetSetFeatureCmd` is a **generic key → value map**, and it names
+its own keys: alongside the generic `getFeatures(List)` / `setFeatures(Map)` it carries
+`getLeAudioStatus`, `setLeAudioStatus`, `getAuracastStatus`, `setAuracastStatus` and
+`doHeartBeat`. Reading what those four build gives the key ids for free.
 
 ```
-→ aa b1 04 01 00 01 00      get      313 of these in one capture, every 4 s
-← aa b1 04 02 00 01 00      status
-→ aa b1 03 00 02 00         set      operator 00
+aa b1 <len> <op> [<keyId> <valueSize> <value…>]…      op  00 get · 01 set · 02 status
 ```
 
-⚠ **The key ids are NOT in the SDK.** `BesDeviceStatusControl.getFeatures`/
-`setFeatures` take the map from their caller and pass it through, so the ids live in
-the app's own (obfuscated) layer. Naming them therefore needs an experiment, not more
-reading: drive one of the unidentified rows and watch which key moves. That is the
-same ablation the unidentified status byte `34` needs, and it is the honest next step
-for the ⏻ power off, SilentNow, Auracast, Voice Assistant and Voice Prompts.
+| key | feature | get | set |
+| --- | --- | --- | --- |
+| `00` | the vendor's keepalive | ⚠ silent | `aa b1 04 01 00 01 00` every 4 s |
+| `01` | **LE Audio** | `aa b1 03 00 01 00` | `aa b1 04 01 01 01 <on>` |
+| `02` | **Auracast** | `aa b1 03 00 02 00` | `aa b1 04 01 02 01 <on>` |
+| `03` | ⚠ **unnamed, and it answers** | `aa b1 03 00 03 00` | (not sent) |
+| `04`–`07` | nothing there | — | — |
+
+✅ **Measured, not only read off the decompile** — 2026-08-17, gets only:
+
+```
+→ aa b1 03 00 01 00     ← aa b1 04 02 01 01 00      LE Audio  off
+→ aa b1 03 00 02 00     ← aa b1 04 02 02 01 01      Auracast  on
+→ aa b1 03 00 03 00     ← aa b1 04 02 03 01 00      ?         off
+→ aa b1 03 00 04 00 … 07     ← (nothing) ×4
+```
+
+⚠ **Key `03` is real and is named nowhere** — not in `GetSetFeatureCmd`, which has a
+`getXxxStatus` pair for `01` and `02` only. Every row of the app's device screen is
+already accounted for elsewhere, so this is a feature the app does not show, or shows
+somewhere that has not been opened. Attributing it needs the same ablation as any
+other unknown: change something and see if it moves. **It reads `00` today**, so a
+future session comparing against that number should read this line first.
+
+⚠ **A get answers about the FIRST key only.** Asking `01` and `02` in one frame
+(`aa b1 05 00 01 00 02 00`) returned `01` alone, and a frame led by key `00` returned
+nothing at all — which is what made an eight-key sweep look like a rejected frame when
+it was really the keepalive key declining to answer. So ask one key per frame; the
+vendor's list form buys nothing on this firmware.
+
+⚠ **Replies arrive CONCATENATED.** Key `03`'s status came back glued to an unsolicited
+battery frame in one notification — `aa b1 04 02 03 01 00 aa 25 0d …`. Any reader that
+scans to the end of the buffer instead of stopping at the length byte will read `aa 25`
+as more key/value triples. `JblFeature.state` bounds its walk for exactly this reason.
+
+⚠ **Three claims this file made about `aa b1` were wrong**, and all three came from
+reading the operator byte as if `b1` shared the `<cmd> <len> <operator>` layout of the
+rest of the protocol. It does not — `b1`'s operator is followed by *key/size/value*
+triples, so a frame can be a get and still start with `00`:
+
+- `aa b1 03 00 02 00` was filed as "a set, operator `00`". It is **`getAuracastStatus`** — a
+  get of key `02`.
+- "`aa b1` is **NOT** a keepalive" was too strong. `doHeartBeat` is a **set of key `00`**
+  every four seconds, so it is a keepalive that happens to be a write.
+- "The key ids are NOT in the SDK" was true of `BesDeviceStatusControl`, which does
+  pass the map through — but false of `GetSetFeatureCmd` one layer down, which names
+  three of them outright. The ablation this file called "the honest next step" was
+  never needed.
+
+⚠ **`aa b0` and `aa b1` are both Auracast, and both readings were right.** `LeaAudioCmd`
+(`b0`) is the *session* — `scanLeAudioSource`, `receiveLeAudioSource`, `cancelReceive…`.
+Key `02` on `b1` is the *switch*. Naming either one "Auracast" alone loses the other.
+
+⚠ **Only these three keys are named anywhere.** `GetSetFeatureCmd` has no other
+`getXxxStatus` pair, so a fourth key would have to come from the app's obfuscated
+layer or from asking the device. `getFeatures` takes a **list**, which is the vendor's
+own way to ask for several at once and the only safe way to look for more — one
+opcode, provably a get. That is not the blind opcode sweep this file forbids.
 
 ### ✅ Max Volume Limiter and remote power off — driven 2026-08-16 23:29, once, by agreement
 
