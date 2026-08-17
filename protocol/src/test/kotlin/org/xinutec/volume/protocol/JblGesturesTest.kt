@@ -65,6 +65,24 @@ class JblGesturesTest {
     }
 
     /**
+     * The map the vendor app's own Touch Panel bundle wrote, read back at 23:23.
+     *
+     * ⚠ **`a1` is in no SDK array**, and a decoder built only from `values_Action`
+     * drops this row — showing seven bindings for a device reporting eight. The value
+     * is the vendor's own: `product_gesture_config.json` calls it
+     * `activateNativeVoiceAssistant`.
+     */
+    @Test
+    fun `the vendor bundle's four right-cup bindings all decode`() {
+        val map = JblGestures.state(Hex.parse("aa771102060b070408000c00090a0a050b060ea1"))!!
+        assertEquals(8, map.size)
+        assertEquals(GestureAction.PLAY_PAUSE_DISMISS_VA, map[Gesture.RIGHT_TAP])
+        assertEquals(GestureAction.NEXT_TRACK, map[Gesture.RIGHT_DOUBLE_TAP])
+        assertEquals(GestureAction.PREVIOUS_TRACK, map[Gesture.RIGHT_TRIPLE_TAP])
+        assertEquals(GestureAction.ACTIVATE_ASSISTANT, map[Gesture.RIGHT_HOLD])
+    }
+
+    /**
      * ⚠ **THREE actions are volume and the offer must derive that, not list it.**
      *
      * `56` VOLUME_CONTROL is the one a hand-kept list misses: it is nowhere near
@@ -92,6 +110,8 @@ class JblGesturesTest {
         assertEquals(0x60.toByte(), GestureAction.CANCEL_ASSISTANT.wire)
         assertEquals(0x5f.toByte(), GestureAction.TALK_TO_ASSISTANT.wire)
         assertEquals(0x54.toByte(), GestureAction.LED_STATUS.wire)
+        // ⚠ And the one the DEVICE actually used, which the array does not contain.
+        assertEquals(0xa1.toByte(), GestureAction.ACTIVATE_ASSISTANT.wire)
     }
 
     /**

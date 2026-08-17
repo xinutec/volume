@@ -41,9 +41,15 @@ enum class Gesture(
  * all three and [offerable] is what any UI may show — see the test that holds it.
  *
  * ⚠ **The ordinal is NOT the wire value past `0x0d`.** `values_Action` is the identity
- * up to there and then runs *downward* from `0x60`, so the assistant actions are
- * `54`–`60`. This file's own docs twice published a wrong tail — first `a0…ac`, then
- * `0e`–`16` as the correction to it. Read the array.
+ * up to there and then runs *downward* from `0x60`.
+ *
+ * ⚠ **AND THE ARRAY IS NOT THE WHOLE SPACE.** This file's docs have now published three
+ * wrong tails: `a0…ac`, then `0e`–`16` correcting it, then `54`–`60` correcting that
+ * from the SDK array. The device then used **`a1`** for the voice assistant, which is
+ * in none of them — and the vendor's own `product_gesture_config.json` lists
+ * `activateNativeVoiceAssistant` as `0xA1` and `eQOnOff` as `0xC8`, both outside the
+ * array. So `values_Action` is *an* encoding, not *the* encoding, and the only values
+ * to state with confidence are the ones a device has been seen to accept.
  */
 enum class GestureAction(
     val wire: Byte,
@@ -70,6 +76,17 @@ enum class GestureAction(
     LED_STATUS(0x54, "LED"),
     CANCEL_ASSISTANT(0x60, "dismiss the assistant"),
     TALK_TO_ASSISTANT(0x5f, "talk to the assistant"),
+
+    /**
+     * ⚠ **`a1`, and it is NOT in `values_Action` at all** — measured 2026-08-17 by
+     * letting the vendor app assign its own Touch Panel bundle and reading the map
+     * back. The device put `a1` on right tap-and-hold while its screen said
+     * "Activating Native Voice Assistant".
+     *
+     * This is the only assistant value here with a device behind it. The `5f`/`60`
+     * above come from the SDK array and have never been accepted by this unit.
+     */
+    ACTIVATE_ASSISTANT(0xa1.toByte(), "activate the voice assistant"),
     ;
 
     companion object {

@@ -795,16 +795,52 @@ gestures already hold `00`, so a refusal there costs nothing):
 | `06` LEFT_TAP | `04` talkthru · `05` next · `06` prev · `09` anc+ambient · `0a` play/dismiss-VA · `0b` anc-ambient · `0c` anc-off · `0d` ambient-off | `03` ambient · `07` anc · `08` play/pause · assistants |
 | `08` LEFT_TRIPLE_TAP | nothing — all 14 tried were coerced to `00` | — |
 
-⚠ **"Unassigned" does not mean "assignable but unset".** Left triple tap refused every
-action, so the six `00` rows are the device declining the gesture, not empty slots.
-The permitted set is also not a prefix or a range: `07` ANC is refused where `0c`
+⚠ **The permitted set is not a prefix or a range**: `07` ANC is refused where `0c`
 ANC-off is taken, `03` ambient refused where `0d` ambient-off is taken, `08`
 play/pause refused where `0a` play/pause-with-VA-dismiss is taken.
 
+⚠ **RETRACTED — "every right-cup gesture refuses writes".** Written here hours earlier
+on a sweep that tried `09` → `08` play/pause and got `00` back. The refusal was about
+the ACTION, not the gesture: `aa 77 03 00 0a 06` — right double-tap → previous track —
+was accepted and read back at 23:26. Right-cup gestures are writable. What is still
+true is that left TRIPLE tap refused all fourteen actions tried.
+
 ⚠ **LEFT_TAP is the left cup's physical BUTTON.** The M2's left cup has no touch
 surface at all — touching it everywhere does nothing, which read as "the write is
-dead" until the button was pressed. Only the right cup is a touch panel, and every
-right-cup gesture (`09`/`0a`/`0b`/`0e`) is `00` and refuses writes.
+dead" until the button was pressed. The right cup is the touch panel.
+
+### ✅ What the vendor app's own Gestures screen offers — 2026-08-17 23:21
+
+Two tabs, and **neither offers a free choice of action**, which is the answer to why a
+sweep meets so many refusals:
+
+- **Action Button** (left cup) — three checkboxes deciding what the tap CYCLES through:
+  Noise Cancelling ✅, Ambient Aware ✅, Off ☐. Double-tap is fixed at TalkThru. So the
+  app never sends "left tap → next track"; it sends a cycle membership, which is what
+  `0b` ANC_AMBIENT is.
+- **Touch Panel** (right cup) — one dropdown with exactly two entries, *Playback & Voice
+  Assistant Control* or *None*.
+
+✅ **The Touch Panel bundle writes FOUR gestures at once**, read back immediately after
+selecting it:
+
+```
+09 0a   right tap        → play/pause, dismiss VA   (NOT 08 play/pause)
+0a 05   right double     → next track
+0b 06   right triple     → previous track
+0e a1   right hold       → activate native voice assistant
+```
+
+⚠ **`a1` is in no SDK array.** `values_Action` runs `54`–`60` for the assistants and
+this is not among them — but the app's own `product_gesture_config.json` lists
+`activateNativeVoiceAssistant` as `0xA1` (and `eQOnOff` as `0xC8`), so the JSON and the
+device agree and the array is simply not the whole space. ⚠ It also means this file's
+`0e`–`16` and `54`–`60` corrections were both wrong in the same way: derived from a
+table rather than from a device.
+
+⚠ **The app cannot express the destructive case**, which is why it needs no warning: it
+never offers an action the device would refuse, so it never sees a binding coerced to
+`00`. Anything with a free action list — ours — has to handle that itself.
 
 ```
 gesture  00 L-whole 01 R-whole 02/03 L-swipe fwd/back 04/05 R-swipe fwd/back
