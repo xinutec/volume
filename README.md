@@ -246,6 +246,10 @@ channel it releases.
 
 ```bash
 nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest
-nix run ../dev-lint#gate -- . gate.json
+./gate.sh                # from anywhere: /Users/pippijn/Code/volume/gate.sh
 ```
+⚠ **Run the gate through `gate.sh`, not the raw `nix run`.** The underlying command is
+relative on three counts, and from the wrong directory it fails as though the *flake*
+were missing rather than the directory wrong. `gate.sh` cds to itself first and the
+pre-commit hook calls the same script, so there is one definition of "the gate".
 No flake of its own; SDK from recall's devshell, like `xinutec-infra/govee-android`.
