@@ -112,10 +112,10 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
 | Sound quality | — | — | ✅ | — | — |
-| Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, ⚠ 3 volume actions | — |
+| Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
-twenty-three device controls and nine of them are here — the inventory is in
+twenty-three device controls and ten of them are here — the inventory is in
 `docs/protocols.md` and the gap is #974. No equivalent audit exists for the other four.
 
 ⛔ **Refused is not broken.** The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and ignores

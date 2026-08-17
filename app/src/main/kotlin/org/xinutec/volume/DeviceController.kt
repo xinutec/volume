@@ -281,6 +281,7 @@ class DeviceController(
                     smartTalk = Drivers.JblBes.readSmartTalk(s.transport),
                     lowVolumeEq = Drivers.JblBes.readLowVolumeEq(s.transport),
                     smartAv = Drivers.JblBes.readSmartAv(s.transport),
+                    gestures = Drivers.JblBes.readGestures(s.transport),
                     attempted = true,
                 )
             }

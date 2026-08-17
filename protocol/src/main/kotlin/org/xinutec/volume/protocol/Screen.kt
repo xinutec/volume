@@ -101,6 +101,15 @@ data class Settings(
      * inventing a state the headphones cannot hold.
      */
     val smartAv: SmartAv? = null,
+    /**
+     * What each control on the headphones does — **shown, not yet editable**.
+     *
+     * ⚠ Read-only for a reason, not for lack of a writer: a refused action is coerced
+     * to `NONE`, so an editor that offers every action would silently WIPE a binding
+     * whenever the device declines one. [JblGestures] has the measurement; #1039 is
+     * the editor.
+     */
+    val gestures: Map<Gesture, GestureAction>? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -141,7 +150,7 @@ data class Settings(
                 autoOff != null || timedOff != null || soundQuality != null ||
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
-                smartAv != null
+                smartAv != null || gestures != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }
