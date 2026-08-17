@@ -414,11 +414,24 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
         return
     }
     if (!settings.any) {
-        Text(
-            "Nothing beyond noise cancelling is decoded for this pair yet.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // ⚠ **Two sentences, because empty means two different things.** This was one,
+        // and it claimed the repo had decoded nothing for the pair — shown on a JBL
+        // with six decoded settings whose reads had every one failed on a stale link.
+        // `attempted` is what separates "nobody asked" from "nothing answered".
+        if (settings.attempted) {
+            Text(
+                "Could not read this pair's settings — the link may have gone. " +
+                    "Reconnect to try again.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else {
+            Text(
+                "Nothing beyond noise cancelling is decoded for this pair yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

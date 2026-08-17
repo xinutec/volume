@@ -101,6 +101,19 @@ data class Settings(
      * see multipoint is off, you just cannot change it from here.
      */
     val refuses: Set<SettingKind> = emptySet(),
+    /**
+     * Whether this device was actually ASKED for settings.
+     *
+     * ⚠ **Empty because nobody asked and empty because nothing answered are different
+     * facts**, and the card had one sentence for both: *"Nothing beyond noise
+     * cancelling is decoded for this pair yet"* — which is about how far this repo has
+     * got, and was shown for a JBL with six decoded settings whose reads had all failed
+     * on a stale link. The same shape as [NoMode], one layer up.
+     *
+     * False for a device this app has no settings reads for, where the old sentence is
+     * exactly right.
+     */
+    val attempted: Boolean = false,
 ) {
     /**
      * Whether there is anything at all to draw.
@@ -286,6 +299,48 @@ data class Note(
     val text: String,
     val kind: NoteKind,
 )
+
+/**
+ * Why a card has no mode to show — two different facts that arrive as the same null.
+ *
+ * ⚠ **They were one sentence, and it was a claim about the HEADPHONES.** A card with
+ * `mode == null` said *"this one reports no mode; it can be set but not read"*, written
+ * when the JLab was believed to have no read command. Every driver here has one now, so
+ * the only way to reach that sentence is a read that did not come back — and on
+ * 2026-08-17 a stale GATT link produced exactly that on the JBL, whose mode reads fine
+ * and six of whose settings are decoded. The app stated a permanent limitation of the
+ * hardware where the truth was a dead link and a relaunch fixed it.
+ *
+ * The distinction is not cosmetic: one of these is a fact to accept and the other is a
+ * thing to retry, and a sentence that cannot tell them apart teaches its reader to
+ * ignore both.
+ */
+enum class NoMode {
+    /**
+     * The driver has no read command at all.
+     *
+     * ⚠ A claim about this repo, never about the device — see [AncDriver.read]. No
+     * driver here is in this state, which is precisely why the other case needs a
+     * sentence of its own.
+     */
+    NO_READ,
+
+    /** There is a read and it did not answer. Transient; retrying is the move. */
+    UNANSWERED,
+}
+
+/**
+ * Which of [NoMode] applies, or null when there is a mode and nothing to explain.
+ *
+ * [reads] is [AncDriver.reads] — asked of the driver rather than guessed from the null,
+ * which is the whole point.
+ */
+fun noMode(reads: Boolean, mode: AncMode?): NoMode? =
+    when {
+        mode != null -> null
+        reads -> NoMode.UNANSWERED
+        else -> NoMode.NO_READ
+    }
 
 /**
  * What to say after a write, or **null when there is nothing to say**.
