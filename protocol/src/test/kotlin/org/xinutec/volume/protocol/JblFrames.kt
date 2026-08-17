@@ -44,6 +44,21 @@ object JblFrames {
             "440201000000000000fa4402010000000000007a450301000000000080bb45040200" +
             "0000400000fa4501010000000000401c4606020000000000803b4601"
 
+    /** 2026-08-17 09:02 — `aa b1 03 00 01 00` answered: LE Audio is off. */
+    const val FEATURE_LE_AUDIO_OFF = "aab10402010100"
+
+    /** …and `aa b1 03 00 02 00`: Auracast is on. */
+    const val FEATURE_AURACAST_ON = "aab10402020101"
+
+    /**
+     * 09:05 — key `03`'s answer, **glued to an unsolicited battery frame**.
+     *
+     * ⚠ This is the frame that says a reader must stop at the length byte. Read to
+     * the end of the buffer and `aa 25 0d …` parses as three more key/value triples.
+     */
+    const val FEATURE_03_OFF_THEN_BATTERY =
+        "aab10402030100aa250d0100004646ffffffffffffffff"
+
     /** As [Replay] wants them: lowercase, space-separated. */
     fun spaced(hex: String): String = Hex.format(Hex.parse(hex))
 }

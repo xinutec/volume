@@ -267,6 +267,68 @@ object JblSafeSound {
 }
 
 /**
+ * `aa b1` — the JBL's key/value feature bag, and the home of the two rows that have
+ * no command of their own.
+ *
+ * ```
+ * aa b1 <len> <op> [<key> <size> <value…>]…      op  00 get · 01 set · 02 status
+ * ```
+ *
+ * ⚠ **The operator is NOT followed by a payload, but by triples**, which is why this
+ * one command needs its own reader rather than [Bes]. Every other command here is
+ * `aa <cmd> <len> <operator> <payload…>`, and reading `b1` that way is what made a
+ * captured `aa b1 03 00 02 00` look like a *set* with operator `00` for a whole
+ * session. It is a *get* of key `02`.
+ *
+ * ⚠ **A get answers about the FIRST key only** — measured 2026-08-17: asking for
+ * `01` and `02` together returned `01` alone. So ask one at a time; the list form
+ * the vendor's SDK offers buys nothing here.
+ */
+object JblFeature {
+    const val CMD: Byte = 0xb1.toByte()
+
+    /** ⚠ Renegotiates the audio link when it changes — see [JblSettings]' callers. */
+    const val LE_AUDIO: Byte = 0x01
+    const val AURACAST: Byte = 0x02
+
+    private const val GET: Byte = 0x00
+    private const val SET: Byte = 0x01
+    private const val STATUS: Byte = 0x02
+
+    fun get(key: Byte): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x03, GET, key, 0x00)
+
+    /**
+     * ⚠ **Built and tested, never sent.** Flipping [LE_AUDIO] renegotiates the link
+     * this app is talking over, so it belongs behind a deliberate control rather than
+     * in a settings read, and nothing wires it yet.
+     */
+    fun set(key: Byte, on: Boolean): ByteArray =
+        byteArrayOf(Bes.HEADER, CMD, 0x04, SET, key, 0x01, if (on) 0x01 else 0x00)
+
+    /**
+     * The value [key] carries in a status reply, or null if this frame has no such key.
+     *
+     * Walks the triples rather than reading a fixed offset: one reply *may* carry
+     * several, and a reader that assumed one would silently return the wrong key's
+     * value the first time the firmware sent two.
+     */
+    fun state(reply: ByteArray, key: Byte): Boolean? {
+        if (reply.size < 4) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD || reply[3] != STATUS) return null
+        val end = minOf(reply.size, 3 + (reply[2].toInt() and 0xff))
+        var at = 4
+        while (at + 1 < end) {
+            val size = reply[at + 1].toInt() and 0xff
+            // at + 1 + size is the last value byte; it has to fall inside the frame.
+            if (size == 0 || at + 1 + size >= end) return null
+            if (reply[at] == key) return reply[at + 2] != 0x00.toByte()
+            at += 2 + size
+        }
+        return null
+    }
+}
+
+/**
  * The BES chip's framing, which the JBL and the JLab share at the byte level.
  *
  * `aa <command> <length> <payload…>`, and a reply comes back under `command + 1`

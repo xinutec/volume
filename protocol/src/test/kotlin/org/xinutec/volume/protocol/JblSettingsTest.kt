@@ -179,6 +179,74 @@ class JblSettingsTest {
         assertEquals("Jazz", JBL_EQ_PRESETS[JblEq.curve(bytes(JblFrames.JAZZ_ECHO))!!.table])
     }
 
+    @Test
+    fun `the feature keys read what the headphones answered`() {
+        // Both frames are off the wire, 2026-08-17, and they disagree in the value
+        // byte only — which is what makes them worth having as a pair.
+        val leAudio = bytes(JblFrames.FEATURE_LE_AUDIO_OFF)
+        val auracast = bytes(JblFrames.FEATURE_AURACAST_ON)
+        assertEquals(false, JblFeature.state(leAudio, JblFeature.LE_AUDIO))
+        assertEquals(true, JblFeature.state(auracast, JblFeature.AURACAST))
+    }
+
+    /**
+     * ⚠ Asking the wrong key must be null, not the other key's value.
+     *
+     * A get answers about one key, so a reader that ignored the key byte would report
+     * Auracast's state under LE Audio's name and be right half the time.
+     */
+    @Test
+    fun `a key that is not in the frame is unknown, not false`() {
+        val leAudio = bytes(JblFrames.FEATURE_LE_AUDIO_OFF)
+        val auracast = bytes(JblFrames.FEATURE_AURACAST_ON)
+        assertNull(JblFeature.state(auracast, JblFeature.LE_AUDIO))
+        assertNull(JblFeature.state(leAudio, JblFeature.AURACAST))
+    }
+
+    /**
+     * The real glued reply decodes to key `03` and ignores the battery frame behind it.
+     *
+     * ⚠ This one does NOT prove the length bound, and saying so matters: with the
+     * bound removed it still answers null for `0x25`, because the battery frame's
+     * `0d` reads as a 13-byte value that runs off the end and fails the size check
+     * anyway. It is here because it is the frame that actually arrived — see
+     * [a trailing frame that parses as a triple is still out of bounds] for the
+     * assertion that the bound is load-bearing.
+     */
+    @Test
+    fun `a concatenated battery frame decodes as its first frame`() {
+        val glued = bytes(JblFrames.FEATURE_03_OFF_THEN_BATTERY)
+        assertEquals(false, JblFeature.state(glued, 0x03))
+        assertNull(JblFeature.state(glued, 0x25))
+    }
+
+    /**
+     * ⚠ **The length bound, measured by ablation.**
+     *
+     * `05 01 01` behind a complete `aa b1` status is a well-formed key/size/value
+     * triple in its own right. Walk to the end of the buffer and key `05` "exists"
+     * and reads true; stop at the length byte and it is correctly unknown. Removing
+     * the bound flips this assertion and nothing else in this file, which is the
+     * whole reason it is written down separately.
+     */
+    @Test
+    fun `a trailing frame that parses as a triple is still out of bounds`() {
+        val trap = bytes("aab10402010100050101")
+        assertEquals(false, JblFeature.state(trap, JblFeature.LE_AUDIO))
+        assertNull(JblFeature.state(trap, 0x05))
+    }
+
+    @Test
+    fun `the feature frames are the ones the vendor app builds`() {
+        // Byte-identical to GetSetFeatureCmd.getLeAudioStatus / getAuracastStatus,
+        // and getLeAudioStatus is the one confirmed against the device.
+        assertEquals("aab103000100", hex(JblFeature.get(JblFeature.LE_AUDIO)))
+        assertEquals("aab103000200", hex(JblFeature.get(JblFeature.AURACAST)))
+        // setLeAudioStatus(true) — built, never sent. See [JblFeature.set].
+        assertEquals("aab10401010101", hex(JblFeature.set(JblFeature.LE_AUDIO, true)))
+        assertEquals("aab10401010100", hex(JblFeature.set(JblFeature.LE_AUDIO, false)))
+    }
+
     private fun bytes(s: String) = Hex.parse(s)
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")
