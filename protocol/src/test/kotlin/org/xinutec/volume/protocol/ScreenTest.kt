@@ -348,6 +348,8 @@ class ScreenTest {
                 "smartTalk" to Settings(smartTalk = SmartTalk(true, TalkTimeout.SEC_5)),
                 "lowVolumeEq" to Settings(lowVolumeEq = true),
                 "smartAv" to Settings(smartAv = SmartAv.AUDIO),
+                "gestures" to
+                    Settings(gestures = mapOf(Gesture.LEFT_TAP to GestureAction.ANC_AMBIENT)),
                 "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),
                 "button" to Settings(button = "a"),
             )

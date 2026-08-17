@@ -52,6 +52,8 @@ import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
+import org.xinutec.volume.protocol.Gesture
+import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.NoteKind
@@ -636,6 +638,25 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                         label = { Text(m.name.lowercase()) },
                     )
                 }
+            }
+        }
+
+        settings.gestures?.let { map ->
+            // ⚠ Read-only, and the sentence says which kind of read-only it is. This
+            // one is not the volume limiter's "we choose not to", nor `refuses`'s "the
+            // device won't": the writes work and are proven. It is that a refused
+            // action is coerced to NONE, so an editor would wipe bindings — #1039.
+            SettingLabel(
+                "Controls",
+                "${map.count { it.value != GestureAction.NONE }} of ${map.size} assigned",
+            )
+            for (g in Gesture.entries) {
+                val action = map[g] ?: continue
+                Text(
+                    "${g.label} — ${action.label}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

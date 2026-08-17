@@ -336,7 +336,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and nine are in our app.**
+are decoded well enough to drive, and ten are in our app.**
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -360,7 +360,7 @@ show that, which is the limit of counting them.
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | ✅ r/w |
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | ✅ r/w |
-| Gestures | ✅ `aa 77` reads AND sets, confirmed by ear | 👁 read, #970 |
+| Gestures | ✅ `aa 77` reads AND sets, confirmed by ear | 👁 shown; editor #1039 |
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | ✅ r/w |
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | ✅ r/w |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | ✅ r/w, 3-way |
