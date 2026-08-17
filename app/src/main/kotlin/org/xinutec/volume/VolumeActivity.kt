@@ -59,6 +59,8 @@ import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SoundQuality
+import org.xinutec.volume.protocol.Spatial
+import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TimedOff
 import java.util.Locale
 
@@ -204,6 +206,9 @@ interface SettingActions {
     fun setTimedOff(address: String, v: TimedOff)
 
     fun setCurve(address: String, curve: EqCurve)
+
+    /** ⚠ Switch and mode together — [Spatial] says why they cannot be sent apart. */
+    fun setSpatial(address: String, v: Spatial)
 
     fun setSoundQuality(address: String, mode: SoundQuality)
 
@@ -503,6 +508,32 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 checked = v.on,
                 onChange = { actions.setTimedOff(address, v.copy(on = it)) },
             )
+        }
+
+        settings.spatial?.let { v ->
+            SettingRow(
+                "Spatial sound",
+                if (v.on) v.mode.name.lowercase() else "off",
+                writable = true,
+                checked = v.on,
+                onChange = { actions.setSpatial(address, v.copy(on = it)) },
+            )
+            // ⚠ **The chips do NOT switch it on, and the vendor app's do.** Tapping
+            // Movie there sends `aa 9d 03 00 01 02` — mode and enable in one frame,
+            // because that is the only frame the device has. Building the write here
+            // means the enable byte can carry `v.on` instead, so choosing what it
+            // should render for is not also a decision to turn it on. The mode is
+            // offered while off for the same reason the device keeps it: it is
+            // remembered, and `off` is not `no mode`.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in SpatialMode.entries) {
+                    FilterChip(
+                        selected = m == v.mode,
+                        onClick = { actions.setSpatial(address, v.copy(mode = m)) },
+                        label = { Text(m.name.lowercase()) },
+                    )
+                }
+            }
         }
 
         settings.volumeLimit?.let { on ->

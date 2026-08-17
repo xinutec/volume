@@ -59,6 +59,24 @@ object JblFrames {
     const val FEATURE_03_OFF_THEN_BATTERY =
         "aab10402030100aa250d0100004646ffffffffffffffff"
 
+    /**
+     * 2026-08-17 11:11:28 / :35 / :43 — Movie, Game, Music, each from ONE tap on the
+     * mode tile with no toggling in between. The three replies differ in the last byte
+     * and nowhere else, which is what makes the mode byte a measurement rather than a
+     * reading of one frame.
+     */
+    const val SPATIAL_MOVIE_ON = "aa9d03020102"
+    const val SPATIAL_GAME_ON = "aa9d03020103"
+    const val SPATIAL_MUSIC_ON = "aa9d03020101"
+
+    /**
+     * 11:11:53 — the switch turned off, and 10:40:01, the cold-launch read.
+     *
+     * ⚠ Identical frames from a *write* and from a *get*, which is the point: the mode
+     * byte survives the feature being switched off, so `off` does not mean `mode 00`.
+     */
+    const val SPATIAL_OFF_MUSIC = "aa9d03020001"
+
     /** As [Replay] wants them: lowercase, space-separated. */
     fun spaced(hex: String): String = Hex.format(Hex.parse(hex))
 }

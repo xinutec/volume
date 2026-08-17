@@ -23,6 +23,7 @@ import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SoundQuality
+import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.note
@@ -268,6 +269,7 @@ class DeviceController(
                     curve = Drivers.JblBes.readCurve(s.transport),
                     timedOff = Drivers.JblBes.readAutoOff(s.transport),
                     volumeLimit = Drivers.JblBes.readVolumeLimit(s.transport),
+                    spatial = Drivers.JblBes.readSpatial(s.transport),
                 )
             }
 
@@ -356,6 +358,22 @@ class DeviceController(
             Drivers.JblBes.writeAutoOff(it.transport, v)
             // ⚠ The write's own reply is an ack, so the truth comes from a re-read.
             when (val after = Drivers.JblBes.readAutoOff(it.transport)) {
+                null -> Confirmation.Unverifiable
+                v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setSpatial(address: String, v: Spatial) =
+        applied<Spatial>(
+            address,
+            "setting spatial sound",
+            { "${if (it.on) "on" else "off"}, ${it.mode.name.lowercase()}" },
+        ) {
+            // ⚠ No re-read: `aa 9d` answers with the status frame, not an ack, so the
+            // reply IS the read-back. Contrast [setTimedOff], where it is an ack and a
+            // second round trip is the only way to know.
+            when (val after = Drivers.JblBes.writeSpatial(it.transport, v)) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)

@@ -267,6 +267,88 @@ object JblSafeSound {
 }
 
 /**
+ * Which spatial rendering the JBL is set to.
+ *
+ * ⚠ The wire values are the vendor's and are measured, one tap each: see [JblSpatial].
+ * They are not consecutive by accident — `01` is Music, the middle button, so the
+ * numbering is not the on-screen order and cannot be derived from it.
+ */
+enum class SpatialMode(
+    val wire: Byte,
+) {
+    MUSIC(0x01),
+    MOVIE(0x02),
+    GAME(0x03),
+    ;
+
+    companion object {
+        fun of(wire: Byte): SpatialMode? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/**
+ * The JBL's Spatial Sound: a switch, and what it is rendering for.
+ *
+ * ⚠ **The mode is carried even when [on] is false.** The headphones remember it, and
+ * the vendor app draws it, so a type with a nullable mode would throw away the user's
+ * choice on every switch-off.
+ */
+data class Spatial(
+    val on: Boolean,
+    val mode: SpatialMode,
+)
+
+/**
+ * JBL Spatial Sound — `aa 9d`, decoded 2026-08-17.
+ *
+ * ```
+ * → aa 9d 01 01                  ← aa 9d 03 02 <on> <mode>
+ * → aa 9d 03 00 <on> <mode>      ← aa 9d 03 02 <on> <mode>
+ * ```
+ *
+ * `mode` is `01` Music · `02` Movie · `03` Game, measured by picking each in turn and
+ * diffing three replies that differ in that byte alone.
+ *
+ * ⚠ **This row was published as "the mode buttons send NOTHING when tapped" and that
+ * was wrong.** The taps behind that claim landed on a `clickable="false"` label rather
+ * than the tile beside it, so the capture window was empty for want of a tap, and the
+ * emptiness was written up as a fact about the headphones. The retraction and the two
+ * windows that settle it are in `docs/protocols.md`. What survives is the other half:
+ * the mode does travel with the on/off write, which is why [set] always sends both.
+ *
+ * ⚠ Unlike [JblAutoOff] this reply is not an ack — the device answers with the status
+ * frame itself, so a caller can trust [state] on the reply to a [set].
+ */
+object JblSpatial {
+    const val CMD: Byte = 0x9d.toByte()
+
+    private const val LEN: Byte = 0x03
+    private const val SET: Byte = 0x00
+    private const val STATUS: Byte = 0x02
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+
+    fun set(v: Spatial): ByteArray =
+        byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.mode.wire)
+
+    /**
+     * The state a status frame reports, or null if this is not one.
+     *
+     * ⚠ Checks the command byte, not just the shape. `aa 9f 03 02 00 05` is Smart
+     * Talk's reply and differs by one byte; this session drove Smart Talk for three
+     * minutes while believing it was driving VoiceAware, so frames that parse under
+     * the wrong command are a live failure here rather than a theoretical one.
+     */
+    fun state(reply: ByteArray): Spatial? {
+        if (reply.size < 6) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
+        if (reply[2] != LEN || reply[3] != STATUS) return null
+        val mode = SpatialMode.of(reply[5]) ?: return null
+        return Spatial(on = reply[4] != 0x00.toByte(), mode = mode)
+    }
+}
+
+/**
  * `aa b1` — the JBL's key/value feature bag, and the home of the two rows that have
  * no command of their own.
  *

@@ -223,6 +223,24 @@ object Drivers {
         fun readVolumeLimit(t: Transport): Boolean? =
             JblSafeSound.state(t.exchange(JblSafeSound.get()))
 
+        fun readSpatial(t: Transport): Spatial? = JblSpatial.state(t.exchange(JblSpatial.get()))
+
+        /**
+         * Write both the switch and the mode, and return what the device then reports.
+         *
+         * ⚠ **Unlike [writeAutoOff] this can return the new state**, because `aa 9d`
+         * answers with the status frame rather than an ack — so the read-back is the
+         * reply itself and costs no extra round trip. Still a read-back and not an
+         * assumption: [JblSpatial.state] returns null if the device answered something
+         * else, and a null here means *unknown*, never *it worked*.
+         *
+         * ⚠ The mode goes with every write because the device takes both in one frame;
+         * there is no way to change the switch alone, which is also why the vendor
+         * app's mode buttons switch the feature on.
+         */
+        fun writeSpatial(t: Transport, v: Spatial): Spatial? =
+            JblSpatial.state(t.exchange(JblSpatial.set(v)))
+
         /**
          * Read the curve, write [table] and [gains] into that frame, and read back.
          *
