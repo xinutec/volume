@@ -239,7 +239,18 @@ scripts/watch-list.sh    does the screen follow the radio? Samples the radio and
                          the semantics tree on one clock, prints only on change.
 scripts/shot.sh          screenshot just Volume's half of the split, cropped to
                          the window frame the window manager reports.
+scripts/drive_jbl.py     drives the JBL VENDOR app while a capture runs, and puts
+                         back whatever it moved. `--list` for the groups;
+                         `--where LABEL` says where a tap would land WITHOUT
+                         tapping, which is the one to reach for first.
 ```
+⚠ **A segmented label in the JBL app is inert** — `Movie`, `5s`, `Audio Mode` are
+`clickable="false"` text, and the touch target is a sibling tile. Tapping the label
+sends nothing, silently, and an empty capture that follows reads as a fact about the
+headphones; that mistake reached `docs/protocols.md` twice. `--where` reports `tile`
+or `LABEL — inert`, and VoiceAware's gradient bar is inert either way: it needs a
+real drag, which this cannot do.
+
 ⚠ `adb logcat -s VolumeLive` is the app's own account of the same thing: every
 broadcast it receives, what the profile proxies said at that moment, and every
 channel it releases.
