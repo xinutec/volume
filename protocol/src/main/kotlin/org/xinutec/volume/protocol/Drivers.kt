@@ -248,6 +248,24 @@ object Drivers {
         fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
             JblVoiceAware.state(t.exchange(JblVoiceAware.set(v)))
 
+        fun readSmartTalk(t: Transport): SmartTalk? =
+            JblSmartTalk.state(t.exchange(JblSmartTalk.get()))
+
+        /** Switch and hold in one frame, and the reply is the read-back — as [writeSpatial]. */
+        fun writeSmartTalk(t: Transport, v: SmartTalk): SmartTalk? =
+            JblSmartTalk.state(t.exchange(JblSmartTalk.set(v)))
+
+        fun readLowVolumeEq(t: Transport): Boolean? =
+            JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.get()))
+
+        fun writeLowVolumeEq(t: Transport, on: Boolean): Boolean? =
+            JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.set(on)))
+
+        fun readSmartAv(t: Transport): SmartAv? = JblSmartAv.state(t.exchange(JblSmartAv.get()))
+
+        fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
+            JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
+
         /**
          * Read the curve, write [table] and [gains] into that frame, and read back.
          *

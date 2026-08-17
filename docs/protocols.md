@@ -332,11 +332,11 @@ setting moves is about something else.
 ⚠ **`aa 40 01 01` drew nothing and changed nothing.** `aa 40`/`aa 41`/`aa 42` are
 named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
-### ⚠ What the app has, and what we have — 2026-08-16
+### ⚠ What the app has, and what we have — 2026-08-16, app column 2026-08-17
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and six are in our app.**
+are decoded well enough to drive, and nine are in our app.**
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -358,12 +358,12 @@ show that, which is the limit of counting them.
 | Customize ANC | ✅ `aa 91 01 21` | — |
 | Personi-Fi | ✅ `aa a1`; ⚠ `aa 9a` is the TEST | — |
 | Equalizer | `aa a2` | ✅ r/w |
-| Low Volume Dynamic EQ | ✅ `aa 9e` | — |
-| Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | — |
+| Low Volume Dynamic EQ | ✅ `aa 9e` | ✅ r/w |
+| Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | ✅ r/w |
 | Gestures | ✅ `aa 77` reads AND sets, confirmed by ear | 👁 read, #970 |
-| Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | — |
-| VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | — |
-| Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | — |
+| Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | ✅ r/w |
+| VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | ✅ r/w |
+| Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | ✅ r/w, 3-way |
 | SilentNow | ⚠ opening it sends nothing | — |
 | Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | — |
 | LE Audio | ✅ `aa b1` key `01`, measured | — |

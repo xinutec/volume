@@ -112,10 +112,10 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
 | Sound quality | — | — | ✅ | — | — |
-| Button / gestures | ✅ | — | ⛔ refused #965 | ✅ r/w, ⚠ 3 volume actions | — |
+| Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, ⚠ 3 volume actions | — |
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
-twenty-two device controls and three of them are here — the inventory is in
+twenty-three device controls and nine of them are here — the inventory is in
 `docs/protocols.md` and the gap is #974. No equivalent audit exists for the other four.
 
 ⛔ **Refused is not broken.** The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and ignores
@@ -130,8 +130,8 @@ alone, so it is not a preset in Sony's sense and nothing establishes which the d
 obeys.
 
 **Open:** #965 Sony button · #967 probe repeats a run's packets · #966 Bose auto-off ·
-#968 QC35 card · #973 the list scrolls to the top after a write · #974 19 of the JBL's
-22 app features undecoded · #935 refresh/disconnect affordances.
+#968 QC35 card · #973 the list scrolls to the top after a write · #974 the JBL rows
+still outside the app · #935 refresh/disconnect affordances · #1038 probe.sh validator.
 
 ## Probe
 

@@ -420,6 +420,171 @@ object JblVoiceAware {
 }
 
 /**
+ * How long Smart Talk stays in TalkThru after you stop speaking.
+ *
+ * ⚠ **The wire value IS the number of seconds**, which is measured on four points and
+ * not inferred from one: `05`/`0f`/`14` are the app's 5 s, 15 s and 20 s. So [seconds]
+ * is not a label chosen here — it is what the byte means, and the two cannot drift.
+ */
+enum class TalkTimeout(
+    val wire: Byte,
+    val seconds: Int,
+) {
+    SEC_5(0x05, 5),
+    SEC_15(0x0f, 15),
+    SEC_20(0x14, 20),
+    ;
+
+    companion object {
+        fun of(wire: Byte): TalkTimeout? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** Smart Talk's switch and its hold, in one value for the reason [Spatial] is one. */
+data class SmartTalk(
+    val on: Boolean,
+    val timeout: TalkTimeout,
+)
+
+/**
+ * JBL Smart Talk — `aa 9f`, decoded 2026-08-16.
+ *
+ * ```
+ * → aa 9f 01 01                       ← aa 9f 03 02 <on> <seconds>
+ * → aa 9f 03 00 <on> <seconds>        ← aa 9f 03 02 <on> <seconds>
+ * ```
+ *
+ * ⚠ **This is the frame that was driven for three minutes under the belief it was
+ * VoiceAware.** `aa 9f 03 02 00 05` and VoiceAware's `aa 98 03 02 02 00` have the same
+ * length and operator, and a segmented tap meant for one card reached the other's
+ * picker. Hence [state]'s command check, and hence the warning repeated on every
+ * decoder in this file.
+ */
+object JblSmartTalk {
+    const val CMD: Byte = 0x9f.toByte()
+
+    private const val LEN: Byte = 0x03
+    private const val SET: Byte = 0x00
+    private const val STATUS: Byte = 0x02
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+
+    fun set(v: SmartTalk): ByteArray =
+        byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.timeout.wire)
+
+    fun state(reply: ByteArray): SmartTalk? {
+        if (reply.size < 6) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
+        if (reply[2] != LEN || reply[3] != STATUS) return null
+        val timeout = TalkTimeout.of(reply[5]) ?: return null
+        return SmartTalk(on = reply[4] != 0x00.toByte(), timeout = timeout)
+    }
+}
+
+/**
+ * JBL Low Volume Dynamic EQ — `aa 9e`, decoded 2026-08-16.
+ *
+ * ```
+ * → aa 9e 01 01            ← aa 9e 02 02 <on>
+ * → aa 9e 02 00 <on>       ← aa 9e 02 02 <on>
+ * ```
+ *
+ * ⚠ **A plain switch, and the length byte is `02` rather than [JblSpatial]'s `03`** —
+ * the operator plus one payload byte. Reusing a `03`-shaped reader here would find the
+ * payload one byte past the end.
+ */
+object JblLowVolumeEq {
+    const val CMD: Byte = 0x9e.toByte()
+
+    private const val LEN: Byte = 0x02
+    private const val SET: Byte = 0x00
+    private const val STATUS: Byte = 0x02
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+
+    fun set(on: Boolean): ByteArray = byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (on) 0x01 else 0x00)
+
+    fun state(reply: ByteArray): Boolean? {
+        if (reply.size < 5) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
+        if (reply[2] != LEN || reply[3] != STATUS) return null
+        return reply[4] != 0x00.toByte()
+    }
+}
+
+/**
+ * Smart Audio & Video — three whole frames, and **no enable byte**.
+ *
+ * ⚠ **[OFF] is a state, not a modifier.** Measured 2026-08-17: with Video lit,
+ * switching off sends the Audio-family payload, not a Video payload with a flag
+ * cleared. So this is one three-way choice rather than a switch plus a mode, and
+ * modelling it as the latter would invent a state — Video-and-off — that the device
+ * never expresses.
+ *
+ * ⚠ The payload numbers are undecoded and look like DSP tuning. They are carried
+ * whole, exactly as [JblEq.set] carries its thirteen unexplained bytes: what is
+ * settled is which frame means which state, which is all that driving needs.
+ *
+ * ⚠ **A tidy prediction was refuted here.** Audio's third value moves `96` → `e6` when
+ * switched off, a step of `0x50`, and Video's is `50` — so `a0` was written down in
+ * advance as Video-off. It never appeared; the app sends a constant rather than
+ * computing one. The arithmetic was neat enough to have been believed unchecked.
+ */
+enum class SmartAv(
+    val payload: String,
+) {
+    OFF("000135 00e600 ffff"),
+    AUDIO("000135 009600 ffff"),
+    VIDEO("c5002e 005000 ffff"),
+    ;
+
+    /** The eight payload bytes, without the grouping this file writes them in. */
+    val bytes: ByteArray get() = Hex.parse(payload.replace(" ", ""))
+
+    companion object {
+        fun of(payload: ByteArray): SmartAv? =
+            entries.firstOrNull { it.bytes.contentEquals(payload) }
+    }
+}
+
+/**
+ * JBL Smart Audio & Video — `aa 81` sets, `aa 82` asks, `aa 83` answers.
+ *
+ * ```
+ * → aa 82 00              ← aa 83 08 <8 bytes>
+ * → aa 81 08 <8 bytes>    ← aa 83 08 <8 bytes>
+ * ```
+ *
+ * ⚠ **Three commands for one row**, unlike every other setting on this device — the
+ * `<cmd> <len> <operator>` convention does not hold here, so the operator-based readers
+ * in this file cannot be reused.
+ */
+object JblSmartAv {
+    const val SET: Byte = 0x81.toByte()
+    const val GET: Byte = 0x82.toByte()
+    const val STATUS: Byte = 0x83.toByte()
+
+    private const val LEN: Byte = 0x08
+    private const val AT = 3
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, GET, 0x00)
+
+    fun set(v: SmartAv): ByteArray = byteArrayOf(Bes.HEADER, SET, LEN) + v.bytes
+
+    /**
+     * ⚠ Returns null for a payload nobody has captured rather than guessing the
+     * nearest. Three frames are known and the space is eight bytes wide; a reader
+     * that fell back to [SmartAv.OFF] would report the headphones off whenever the
+     * firmware said something new.
+     */
+    fun state(reply: ByteArray): SmartAv? {
+        if (reply.size < AT + LEN) return null
+        if (reply[0] != Bes.HEADER || reply[1] != STATUS || reply[2] != LEN) return null
+        return SmartAv.of(reply.copyOfRange(AT, AT + LEN))
+    }
+}
+
+/**
  * `aa b1` — the JBL's key/value feature bag, and the home of the two rows that have
  * no command of their own.
  *

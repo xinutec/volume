@@ -23,6 +23,8 @@ import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
+import org.xinutec.volume.protocol.SmartAv
+import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TimedOff
@@ -276,6 +278,9 @@ class DeviceController(
                     volumeLimit = Drivers.JblBes.readVolumeLimit(s.transport),
                     spatial = Drivers.JblBes.readSpatial(s.transport),
                     voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
+                    smartTalk = Drivers.JblBes.readSmartTalk(s.transport),
+                    lowVolumeEq = Drivers.JblBes.readLowVolumeEq(s.transport),
+                    smartAv = Drivers.JblBes.readSmartAv(s.transport),
                     attempted = true,
                 )
             }
@@ -394,6 +399,41 @@ class DeviceController(
             { "${if (it.on) "on" else "off"}, ${it.level.name.lowercase()}" },
         ) {
             when (val after = Drivers.JblBes.writeVoiceAware(it.transport, v)) {
+                null -> Confirmation.Unverifiable
+                v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setSmartTalk(address: String, v: SmartTalk) =
+        applied<SmartTalk>(
+            address,
+            "setting smart talk",
+            { "${if (it.on) "on" else "off"}, ${it.timeout.seconds} s" },
+        ) {
+            when (val after = Drivers.JblBes.writeSmartTalk(it.transport, v)) {
+                null -> Confirmation.Unverifiable
+                v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setLowVolumeEq(address: String, on: Boolean) =
+        applied<Boolean>(
+            address,
+            "setting low volume dynamic eq",
+            { if (it) "on" else "off" },
+        ) {
+            when (val after = Drivers.JblBes.writeLowVolumeEq(it.transport, on)) {
+                null -> Confirmation.Unverifiable
+                on -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setSmartAv(address: String, v: SmartAv) =
+        applied<SmartAv>(address, "setting smart audio & video", { it.name.lowercase() }) {
+            when (val after = Drivers.JblBes.writeSmartAv(it.transport, v)) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
