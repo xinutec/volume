@@ -89,6 +89,18 @@ data class Settings(
     val spatial: Spatial? = null,
     /** VoiceAware — one field for the same reason [spatial] is one. */
     val voiceAware: VoiceAware? = null,
+    /** Smart Talk — the switch and how long it holds TalkThru after you stop. */
+    val smartTalk: SmartTalk? = null,
+    /** Low Volume Dynamic EQ — a plain switch, unlike its neighbours on this device. */
+    val lowVolumeEq: Boolean? = null,
+    /**
+     * Smart Audio & Video — ⚠ **three states, not a switch plus a mode.**
+     *
+     * [SmartAv] says why: the device has no enable byte, and off carries the Audio
+     * family's numbers even while Video is lit. A switch here would be this repo
+     * inventing a state the headphones cannot hold.
+     */
+    val smartAv: SmartAv? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -128,7 +140,8 @@ data class Settings(
             eq != null || tone != null || curve != null || multipoint != null ||
                 autoOff != null || timedOff != null || soundQuality != null ||
                 button != null || volumeLimit != null || spatial != null ||
-                voiceAware != null
+                voiceAware != null || smartTalk != null || lowVolumeEq != null ||
+                smartAv != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }

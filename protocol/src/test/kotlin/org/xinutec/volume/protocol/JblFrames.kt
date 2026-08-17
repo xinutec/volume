@@ -90,6 +90,14 @@ object JblFrames {
     /** 10:40:01, the cold-launch read: Mid, and off. */
     const val VOICEAWARE_MID_OFF = "aa9803020200"
 
+    /**
+     * 2026-08-17 09:20 and 10:40 — the same frame twice: Smart Talk off, hold 5 s.
+     *
+     * ⚠ This is the frame a whole session mistook for VoiceAware's. It is why every
+     * decoder in `JblSettings.kt` checks the command byte rather than the shape.
+     */
+    const val SMART_TALK_OFF_5S = "aa9f03020005"
+
     /** As [Replay] wants them: lowercase, space-separated. */
     fun spaced(hex: String): String = Hex.format(Hex.parse(hex))
 }

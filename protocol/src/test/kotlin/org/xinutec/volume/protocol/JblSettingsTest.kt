@@ -375,6 +375,128 @@ class JblSettingsTest {
         assertNull(JblVoiceAware.state(bytes("aa9803020001")))
     }
 
+    // ---- smart talk --------------------------------------------------------
+
+    /**
+     * The captured frame, which is also the one this repo once drove by mistake.
+     *
+     * ⚠ Off still names a hold, exactly as [SPATIAL_OFF_MUSIC] still names a mode —
+     * so the same reasoning applies: `off` is not `no timeout`.
+     */
+    @Test
+    fun `smart talk carries its hold while switched off`() {
+        assertEquals(
+            SmartTalk(on = false, timeout = TalkTimeout.SEC_5),
+            JblSmartTalk.state(bytes(JblFrames.SMART_TALK_OFF_5S)),
+        )
+    }
+
+    @Test
+    fun `the smart talk frames are the ones the vendor app builds`() {
+        assertEquals("aa9f03000105", hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_5))))
+        assertEquals("aa9f0300010f", hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_15))))
+        assertEquals("aa9f03000114", hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_20))))
+        assertEquals("aa9f03000005", hex(JblSmartTalk.set(SmartTalk(false, TalkTimeout.SEC_5))))
+        assertEquals("aa9f0101", hex(JblSmartTalk.get()))
+    }
+
+    /**
+     * ⚠ Chosen, not captured, for the reason the spatial version of this spells out.
+     *
+     * `aa 98 03 02 01 05` is VoiceAware's command wearing Smart Talk's shape, with an
+     * `on` byte and a byte that IS a valid hold — so nothing but the command check can
+     * reject it. Ablated: delete that check and this reads as `on, 5 s`.
+     */
+    @Test
+    fun `another command with the same shape is not read as smart talk`() {
+        assertNull(JblSmartTalk.state(bytes("aa9803020105")))
+        // A set is not a reply, and a truncated frame is not a short one.
+        assertNull(JblSmartTalk.state(bytes("aa9f03000105")))
+        assertNull(JblSmartTalk.state(bytes("aa9f030200")))
+    }
+
+    /** `0a` is not one of the three holds the device offers. */
+    @Test
+    fun `a hold nobody has seen reads as null`() {
+        assertNull(JblSmartTalk.state(bytes("aa9f0302010a")))
+        assertNull(JblSmartTalk.state(bytes("aa9f03020100")))
+    }
+
+    // ---- low volume dynamic eq ---------------------------------------------
+
+    @Test
+    fun `the low volume eq switch is read`() {
+        assertEquals(true, JblLowVolumeEq.state(bytes("aa9e020201")))
+        assertEquals(false, JblLowVolumeEq.state(bytes("aa9e020200")))
+    }
+
+    @Test
+    fun `the low volume eq frames are the ones the vendor app builds`() {
+        assertEquals("aa9e020001", hex(JblLowVolumeEq.set(on = true)))
+        assertEquals("aa9e020000", hex(JblLowVolumeEq.set(on = false)))
+        assertEquals("aa9e0101", hex(JblLowVolumeEq.get()))
+    }
+
+    /**
+     * ⚠ Same discipline again: `aa 9f 02 02 01` is Smart Talk's command in this
+     * command's shape, and every byte but the command is one this reader accepts.
+     *
+     * The length check earns its place separately — `aa 9e 03 02 01` would put the
+     * payload where a three-byte command keeps its first field.
+     */
+    @Test
+    fun `another command with the same shape is not read as low volume eq`() {
+        assertNull(JblLowVolumeEq.state(bytes("aa9f020201")))
+        assertNull(JblLowVolumeEq.state(bytes("aa9e030201")))
+        assertNull(JblLowVolumeEq.state(bytes("aa9e020001")))
+        assertNull(JblLowVolumeEq.state(bytes("aa9e0202")))
+    }
+
+    // ---- smart audio & video -----------------------------------------------
+
+    /** The three frames the vendor app sends, and nothing else. */
+    @Test
+    fun `the smart av frames are the ones the vendor app builds`() {
+        assertEquals("aa8108000135009600ffff", hex(JblSmartAv.set(SmartAv.AUDIO)))
+        assertEquals("aa8108c5002e005000ffff", hex(JblSmartAv.set(SmartAv.VIDEO)))
+        assertEquals("aa810800013500e600ffff", hex(JblSmartAv.set(SmartAv.OFF)))
+        assertEquals("aa8200", hex(JblSmartAv.get()))
+    }
+
+    @Test
+    fun `the smart av state is read from the whole payload`() {
+        assertEquals(SmartAv.AUDIO, JblSmartAv.state(bytes("aa8308000135009600ffff")))
+        assertEquals(SmartAv.VIDEO, JblSmartAv.state(bytes("aa8308c5002e005000ffff")))
+        assertEquals(SmartAv.OFF, JblSmartAv.state(bytes("aa830800013500e600ffff")))
+    }
+
+    /**
+     * ⚠ **Off and Audio differ in ONE byte**, `e6` against `96`, and they are otherwise
+     * the same six numbers. A reader matching a prefix, or any byte but the third pair,
+     * cannot tell them apart — so the whole payload is compared.
+     */
+    @Test
+    fun `off and audio are separated by their third value`() {
+        assertEquals(SmartAv.OFF, JblSmartAv.state(bytes("aa830800013500e600ffff")))
+        assertEquals(SmartAv.AUDIO, JblSmartAv.state(bytes("aa8308000135009600ffff")))
+    }
+
+    /**
+     * ⚠ A payload nobody has captured is null, not the nearest match.
+     *
+     * `a0` is the value a stated prediction said Video-off would carry. It never
+     * appeared on the wire, and a reader that rounded to the closest known frame would
+     * have reported it as a state the device was not in — which is how the prediction
+     * would have been "confirmed" by its own decoder.
+     */
+    @Test
+    fun `an unknown payload is not rounded to the nearest state`() {
+        assertNull(JblSmartAv.state(bytes("aa830800013500a000ffff")))
+        // The set command is not the status command.
+        assertNull(JblSmartAv.state(bytes("aa8108000135009600ffff")))
+        assertNull(JblSmartAv.state(bytes("aa83080001350096")))
+    }
+
     private fun bytes(s: String) = Hex.parse(s)
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")

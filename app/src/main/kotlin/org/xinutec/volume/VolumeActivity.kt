@@ -58,9 +58,12 @@ import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
+import org.xinutec.volume.protocol.SmartAv
+import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.SpatialMode
+import org.xinutec.volume.protocol.TalkTimeout
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.VoiceLevel
@@ -214,6 +217,15 @@ interface SettingActions {
 
     /** Likewise switch and level; see [VoiceAware]. */
     fun setVoiceAware(address: String, v: VoiceAware)
+
+    /** Likewise switch and hold; see [SmartTalk]. */
+    fun setSmartTalk(address: String, v: SmartTalk)
+
+    /** ⚠ A plain switch — the only JBL row here that carries nothing alongside it. */
+    fun setLowVolumeEq(address: String, on: Boolean)
+
+    /** ⚠ Three states and no switch; [SmartAv] says why off is one of them. */
+    fun setSmartAv(address: String, v: SmartAv)
 
     fun setSoundQuality(address: String, mode: SoundQuality)
 
@@ -573,6 +585,55 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                         selected = l == v.level,
                         onClick = { actions.setVoiceAware(address, v.copy(level = l)) },
                         label = { Text(l.name.lowercase()) },
+                    )
+                }
+            }
+        }
+
+        settings.smartTalk?.let { v ->
+            SettingRow(
+                "Smart Talk",
+                if (v.on) "hold ${v.timeout.seconds} s" else "off",
+                writable = true,
+                checked = v.on,
+                onChange = { actions.setSmartTalk(address, v.copy(on = it)) },
+            )
+            // The seconds are the wire value, so these labels cannot drift from what
+            // the device is told — see [TalkTimeout]. Same rule as the chips above:
+            // choosing a hold does not switch the feature on.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (t in TalkTimeout.entries) {
+                    FilterChip(
+                        selected = t == v.timeout,
+                        onClick = { actions.setSmartTalk(address, v.copy(timeout = t)) },
+                        label = { Text("${t.seconds} s") },
+                    )
+                }
+            }
+        }
+
+        settings.lowVolumeEq?.let { on ->
+            SettingRow(
+                "Low volume dynamic EQ",
+                if (on) "on" else "off",
+                writable = true,
+                checked = on,
+                onChange = { actions.setLowVolumeEq(address, it) },
+            )
+        }
+
+        settings.smartAv?.let { v ->
+            // ⚠ No switch, deliberately — the device has no enable byte, so `off` is
+            // one of three choices rather than the absence of the other two. The
+            // vendor app draws a switch and a mode here and can therefore show
+            // Video-and-off, a state the headphones never actually hold.
+            SettingLabel("Smart audio & video", v.name.lowercase())
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in SmartAv.entries) {
+                    FilterChip(
+                        selected = m == v,
+                        onClick = { actions.setSmartAv(address, m) },
+                        label = { Text(m.name.lowercase()) },
                     )
                 }
             }

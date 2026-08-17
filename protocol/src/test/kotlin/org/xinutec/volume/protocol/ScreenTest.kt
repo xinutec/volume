@@ -345,6 +345,9 @@ class ScreenTest {
                 "volumeLimit" to Settings(volumeLimit = true),
                 "spatial" to Settings(spatial = Spatial(true, SpatialMode.MUSIC)),
                 "voiceAware" to Settings(voiceAware = VoiceAware(true, VoiceLevel.MID)),
+                "smartTalk" to Settings(smartTalk = SmartTalk(true, TalkTimeout.SEC_5)),
+                "lowVolumeEq" to Settings(lowVolumeEq = true),
+                "smartAv" to Settings(smartAv = SmartAv.AUDIO),
                 "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),
                 "button" to Settings(button = "a"),
             )
