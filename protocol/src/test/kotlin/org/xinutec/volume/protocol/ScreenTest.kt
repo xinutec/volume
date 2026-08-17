@@ -349,6 +349,9 @@ class ScreenTest {
                 "lowVolumeEq" to Settings(lowVolumeEq = true),
                 "smartAv" to Settings(smartAv = SmartAv.AUDIO),
                 "battery" to Settings(battery = Battery(percent = 60, charging = false)),
+                "autoPlay" to Settings(autoPlay = true),
+                "balance" to Settings(balance = Balance(on = false, level = 100)),
+                "psap" to Settings(psap = false),
                 "gestures" to
                     Settings(gestures = mapOf(Gesture.LEFT_TAP to GestureAction.ANC_AMBIENT)),
                 "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),

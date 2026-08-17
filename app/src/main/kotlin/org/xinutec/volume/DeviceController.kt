@@ -6,6 +6,7 @@ import android.content.Context
 import android.util.Log
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.Confirmation
@@ -283,6 +284,9 @@ class DeviceController(
                     smartAv = Drivers.JblBes.readSmartAv(s.transport),
                     gestures = Drivers.JblBes.readGestures(s.transport),
                     battery = Drivers.JblBes.readBattery(s.transport),
+                    autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
+                    balance = Drivers.JblBes.readBalance(s.transport),
+                    psap = Drivers.JblBes.readPsap(s.transport),
                     attempted = true,
                 )
             }
@@ -436,6 +440,24 @@ class DeviceController(
     override fun setSmartAv(address: String, v: SmartAv) =
         applied<SmartAv>(address, "setting smart audio & video", { it.name.lowercase() }) {
             when (val after = Drivers.JblBes.writeSmartAv(it.transport, v)) {
+                null -> Confirmation.Unverifiable
+                v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setAutoPlay(address: String, on: Boolean) =
+        applied<Boolean>(address, "setting auto play and pause", { if (it) "on" else "off" }) {
+            when (val after = Drivers.JblBes.writeAutoPlay(it.transport, on)) {
+                null -> Confirmation.Unverifiable
+                on -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setBalance(address: String, v: Balance) =
+        applied<Balance>(address, "setting the balance", { if (it.on) "on" else "off" }) {
+            when (val after = Drivers.JblBes.writeBalance(it.transport, v)) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)

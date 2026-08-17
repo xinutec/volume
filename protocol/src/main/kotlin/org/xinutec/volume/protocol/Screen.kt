@@ -112,6 +112,18 @@ data class Settings(
     val gestures: Map<Gesture, GestureAction>? = null,
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
+    /** Auto Play & Pause — pauses when you take them off. */
+    val autoPlay: Boolean? = null,
+    /** Left/right balance; ⚠ the switch is offered, the level only carried. */
+    val balance: Balance? = null,
+    /**
+     * Personal Sound Amplification — **shown, never written.**
+     *
+     * ⚠ The second control on this device whose job is to make things louder, so it
+     * gets [volumeLimit]'s treatment rather than a switch. [JblPsap] has the reasoning
+     * and the resolution of the contradiction that kept it off the screen until now.
+     */
+    val psap: Boolean? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -152,7 +164,8 @@ data class Settings(
                 autoOff != null || timedOff != null || soundQuality != null ||
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
-                smartAv != null || gestures != null || battery != null
+                smartAv != null || gestures != null || battery != null ||
+                autoPlay != null || balance != null || psap != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }

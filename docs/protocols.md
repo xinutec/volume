@@ -336,7 +336,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and eleven are in our app.**
+are decoded well enough to drive, and fourteen are in our app.**
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -367,9 +367,9 @@ show that, which is the limit of counting them.
 | SilentNow | ⚠ opening it sends nothing | — |
 | Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | — |
 | LE Audio | ✅ `aa b1` key `01`, measured | — |
-| Auto Play & Pause | ✅ set `aa 35 01 <on>`, status `38` | — |
-| Personal Sound Amplification | ✅ `aa a0` PSAP, read | — |
-| Left / Right Sound Balance | ✅ `aa a8` | — |
+| Auto Play & Pause | ✅ set `aa 35`, status `38`, DRIVEN | ✅ r/w |
+| Personal Sound Amplification | ✅ `aa a0`, contradiction resolved | ✅ read-only, ⚠ hearing |
+| Left / Right Sound Balance | ✅ `aa a8`, DRIVEN | ✅ switch r/w |
 | Voice Assistant | ✅ `aa 92`, measured | — |
 | Voice Prompts (language) | ✅ `aa 93`, measured | — |
 | Max Volume Limiter | ✅ `aa a5 03 00 01 <on>` | ✅ read-only by choice, ⚠ hearing |
@@ -378,6 +378,31 @@ show that, which is the limit of counting them.
 ✅ **Every row is now placed.** The last one, LE Audio, is `aa b1` key `01`, measured
 2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the
 same reason it was cheap: `GetSetFeatureCmd` names its own keys.
+
+### ✅ Three rows settled by one read sweep and two drives — 2026-08-17 23:36
+
+⚠ **PSAP's "contradiction" was OUR misreading, not a device fault — RESOLVED.** This
+file said `PSAPCmd` parses `setOn` from index 4 = `01` while the app's row says
+*Disabled*, and refused to display the row on the strength of it. `PSAPCmd` has **two
+branches**: the one this frame's shape selects reads the switch from index **5**, the
+level from 7 and the index from 9. Index 4 is the KEY `01`; index 5 is `00`.
+
+```
+← aa a0 07 02  01 00  02 64  03 00     PSAP: off, level 100
+← aa a8 05 02  01 00  02 64            balance: off, centre
+```
+So both are **key/value pairs, not positional**, and a positional read reports a feature
+that is off as on. The device and the app agreed the whole time. ⚠ PSAP is still
+read-only here, now by choice rather than by doubt: it amplifies the world into your
+ears, which is [the volume limiter]'s argument in a second place.
+
+✅ **Auto Play & Pause is DRIVEN**, 23:38 — `aa 35 01 00` then `aa 35 01 01`, each
+confirmed by reading `aa 21 01 38`. ⚠ Setter `35`, status `38`: they do **not** mirror,
+and the mirror argument is what retracted this finding once when it was right.
+
+✅ **Balance is DRIVEN**, 23:39 — on at level 100 and off again, both read back.
+Level 100 is this unit's centre, which the app draws as "0"; the range is NOT
+established, so a write carries the level back unchanged.
 
 ⚠ **SilentNow's screen sends nothing when opened, and that is still not explained.**
 It is not evidence there is no command: the reads that *do* work — Spatial Sound,

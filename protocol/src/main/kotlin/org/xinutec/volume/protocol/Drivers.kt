@@ -268,6 +268,26 @@ object Drivers {
 
         fun readBattery(t: Transport): Battery? = JblBattery.state(t.exchange(JblBattery.get()))
 
+        fun readAutoPlay(t: Transport): Boolean? = JblAutoPlay.state(t.exchange(JblAutoPlay.get()))
+
+        /**
+         * ⚠ **The reply to the set is an ACK, not the state** — `aa 00 02 35 <on>` — so
+         * this re-reads, exactly as [writeAutoOff] does and unlike [writeSpatial].
+         */
+        fun writeAutoPlay(t: Transport, on: Boolean): Boolean? {
+            t.exchange(JblAutoPlay.set(on))
+            return readAutoPlay(t)
+        }
+
+        fun readBalance(t: Transport): Balance? = JblBalance.state(t.exchange(JblBalance.get()))
+
+        /** The level goes back as it was read — [Balance] says why it is not offered. */
+        fun writeBalance(t: Transport, v: Balance): Balance? =
+            JblBalance.state(t.exchange(JblBalance.set(v)))
+
+        /** ⚠ Read only, deliberately — see [JblPsap]. */
+        fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
+
         fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
             JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
 
