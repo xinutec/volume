@@ -408,8 +408,77 @@ class ScreenTest {
         assertEquals(NoteKind.CAUTION, note?.kind)
     }
 
+    /**
+     * ⚠ The bug this pair of types exists for: a dead link must not be reported as a
+     * limitation of the headphones.
+     */
+    @Test
+    fun `a read that did not answer is not a device that cannot be read`() {
+        assertEquals(NoMode.UNANSWERED, noMode(reads = true, mode = null))
+        assertEquals(NoMode.NO_READ, noMode(reads = false, mode = null))
+        assertNull(noMode(reads = true, mode = AncMode.ANC))
+        // ⚠ Even a driver with no read command says nothing when it HAS a mode —
+        // the mode is what matters, not how it was come by.
+        assertNull(noMode(reads = false, mode = AncMode.ANC))
+    }
+
+    /**
+     * Every shipped driver reads, which is why [NoMode.UNANSWERED] is the reachable
+     * case and why the old single sentence was always wrong when it appeared.
+     *
+     * ⚠ Checks the LIST against the declared drivers, not just the values: "no driver
+     * is in that state" is exactly the kind of claim that goes stale the day someone
+     * adds one, and it is load-bearing for which sentence the card shows.
+     */
+    @Test
+    fun `every driver here has a read command`() {
+        val drivers =
+            listOf<AncDriver>(
+                Drivers.BoseQc45,
+                Drivers.BoseQc35,
+                Drivers.JblBes,
+                Drivers.JLabQcy,
+                Drivers.SonyXm4(),
+            )
+        for (d in drivers) {
+            assertTrue("${d::class.java.simpleName} should report a read", d.reads)
+        }
+        val declared =
+            Drivers::class.java.declaredClasses
+                .filter { AncDriver::class.java.isAssignableFrom(it) }
+                .map { it.simpleName }
+                .toSet()
+        assertEquals(
+            "a driver was added — decide whether it has a read before trusting NoMode",
+            declared,
+            drivers.map { it::class.java.simpleName }.toSet(),
+        )
+    }
+
+    /**
+     * ⚠ Nobody asked, and asked-but-silent, are different sentences.
+     *
+     * The second was rendered as "nothing is decoded for this pair yet" on a device
+     * with six decoded settings, because every read had failed at once.
+     */
+    @Test
+    fun `settings that were asked for and came back empty are not settings nobody asked for`() {
+        assertFalse(Settings().attempted)
+        assertFalse(Settings().any)
+        val silent = Settings(attempted = true)
+        assertFalse(silent.any)
+        assertTrue(silent.attempted)
+    }
+
     private companion object {
-        /** Fields [Settings.any] deliberately does not count. See the test that uses it. */
-        val IGNORED = setOf("bands", "refuses")
+        /**
+         * Fields [Settings.any] deliberately does not count. See the test that uses it.
+         *
+         * ⚠ `attempted` is here because it is not a setting at all — it says whether
+         * the device was ASKED, and counting it would make every probed device look as
+         * though it had something to show. It was added on 2026-08-17 and this test
+         * caught it immediately, which is what it is for.
+         */
+        val IGNORED = setOf("bands", "refuses", "attempted")
     }
 }

@@ -59,6 +59,17 @@ interface AncDriver {
      */
     fun read(t: Transport): AncMode?
 
+    /**
+     * Whether [read] is implemented at all.
+     *
+     * ⚠ **True for every driver here, and it still has to be asked.** Without it the
+     * only evidence about a null mode is the null itself, which is what let a dead link
+     * be reported as a device that cannot be read — see [NoMode]. A driver that has no
+     * read overrides this to false and says so honestly; the default is the common case
+     * and the one that must not be assumed.
+     */
+    val reads: Boolean get() = true
+
     /** Send the mode. ⚠ Whether it took is [set]'s job, never the reply's. */
     fun write(t: Transport, mode: AncMode)
 

@@ -16,6 +16,7 @@ import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqSetting
 import org.xinutec.volume.protocol.MultipointDriver
+import org.xinutec.volume.protocol.NoMode
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.Registry
@@ -27,6 +28,7 @@ import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.Wearable
+import org.xinutec.volume.protocol.noMode
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
@@ -252,6 +254,7 @@ class DeviceController(
                     soundQuality = d.readSoundQuality(s.transport),
                     button = d.readButton(s.transport)?.name,
                     refuses = setOf(SettingKind.MULTIPOINT, SettingKind.BUTTON),
+                    attempted = true,
                 )
             }
 
@@ -262,6 +265,7 @@ class DeviceController(
                     tone = Drivers.BoseQc45.readEq(s.transport),
                     multipoint = Drivers.BoseQc45.readMultipoint(s.transport),
                     button = Drivers.BoseQc45.readButton(s.transport)?.name,
+                    attempted = true,
                 )
             }
 
@@ -272,6 +276,7 @@ class DeviceController(
                     volumeLimit = Drivers.JblBes.readVolumeLimit(s.transport),
                     spatial = Drivers.JblBes.readSpatial(s.transport),
                     voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
+                    attempted = true,
                 )
             }
 
@@ -494,6 +499,34 @@ class DeviceController(
         runCatching { session.headphones.driver.name(session.transport) }
             .getOrNull()
             ?.let { rename(address, it) }
+        // ⚠ **Which sentence to show is a decision, and it is made in :protocol.** This
+        // used to assume a null mode meant the device had no read command — the JLab's
+        // old case — and said so as a fact about the hardware. Every driver reads now,
+        // so the reachable case is a read that did not answer, and on 2026-08-17 a stale
+        // link had the JBL described as unreadable while its mode was perfectly fine.
+        //
+        // ⚠ PROBLEM rather than CAUTION for the second: it did not work, and unlike an
+        // unconfirmable write there is something the owner can do about it.
+        val note =
+            when (noMode(session.headphones.driver.reads, mode)) {
+                null -> {
+                    null
+                }
+
+                NoMode.NO_READ -> {
+                    Note(
+                        "this one has no read command; it can be set but not read",
+                        NoteKind.CAUTION,
+                    )
+                }
+
+                NoMode.UNANSWERED -> {
+                    Note(
+                        "could not read it — the link may have gone; reconnect to retry",
+                        NoteKind.PROBLEM,
+                    )
+                }
+            }
         update(
             address,
             DeviceState.Ready(
@@ -501,13 +534,7 @@ class DeviceController(
                 session.headphones.driver.modes
                     .toList(),
                 mode,
-                // ⚠ CAUTION, not a failure: this device has no read command, so
-                // "no mode" is its permanent normal state, not a lost reading.
-                if (mode == null) {
-                    Note("this one reports no mode; it can be set but not read", NoteKind.CAUTION)
-                } else {
-                    null
-                },
+                note,
             ),
         )
         return session

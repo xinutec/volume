@@ -304,16 +304,16 @@ def tile_for(nodes: list[Node], row: Node) -> Node | None:
     ]
     if above:
         return max(above, key=lambda n: n.y1)
+    # ⚠ **No width limit here, and there was one for half an hour.** Capping the
+    # container at half the screen looked like cheap insurance against grabbing a whole
+    # card; it also rejects every legitimately full-width row, and the product picker's
+    # `JBL TOUR ONE M2` — whose tappable area is the device image BELOW the label,
+    # inside a `[0,336][1080,1132]` row — stopped opening. The ordering above is what
+    # actually prevents the card case; this was a second fix for an already-fixed bug,
+    # paid for by a working one.
     x, y = row.centre
-    # Half the screen: a column in a two-way split is about that, and a card is wider.
-    widest = max((n.x1 for n in nodes), default=0) // 2
     inside = [
-        n
-        for n in nodes
-        if n.clickable
-        and n.x0 <= x <= n.x1
-        and n.y0 <= y <= n.y1
-        and n.x1 - n.x0 <= widest
+        n for n in nodes if n.clickable and n.x0 <= x <= n.x1 and n.y0 <= y <= n.y1
     ]
     return min(inside, key=lambda n: (n.x1 - n.x0) * (n.y1 - n.y0), default=None)
 
