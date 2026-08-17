@@ -62,6 +62,8 @@ import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TimedOff
+import org.xinutec.volume.protocol.VoiceAware
+import org.xinutec.volume.protocol.VoiceLevel
 import java.util.Locale
 
 /**
@@ -209,6 +211,9 @@ interface SettingActions {
 
     /** ⚠ Switch and mode together — [Spatial] says why they cannot be sent apart. */
     fun setSpatial(address: String, v: Spatial)
+
+    /** Likewise switch and level; see [VoiceAware]. */
+    fun setVoiceAware(address: String, v: VoiceAware)
 
     fun setSoundQuality(address: String, mode: SoundQuality)
 
@@ -531,6 +536,30 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                         selected = m == v.mode,
                         onClick = { actions.setSpatial(address, v.copy(mode = m)) },
                         label = { Text(m.name.lowercase()) },
+                    )
+                }
+            }
+        }
+
+        settings.voiceAware?.let { v ->
+            SettingRow(
+                "VoiceAware",
+                if (v.on) v.level.name.lowercase() else "off",
+                writable = true,
+                checked = v.on,
+                onChange = { actions.setVoiceAware(address, v.copy(on = it)) },
+            )
+            // ⚠ Chips where the vendor app has a slider — deliberately. The device
+            // takes three values, so a continuous bar offers a precision the wire does
+            // not have, and it is the reason this level went undecoded for weeks: a
+            // drag is the one gesture that cannot be automated, and reading the bar
+            // told nobody which of three it had landed on.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (l in VoiceLevel.entries) {
+                    FilterChip(
+                        selected = l == v.level,
+                        onClick = { actions.setVoiceAware(address, v.copy(level = l)) },
+                        label = { Text(l.name.lowercase()) },
                     )
                 }
             }

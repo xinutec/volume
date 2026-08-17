@@ -349,6 +349,77 @@ object JblSpatial {
 }
 
 /**
+ * How much of your own voice VoiceAware lets through.
+ *
+ * ⚠ The wire values run in the on-screen order here, unlike [SpatialMode] — which is a
+ * coincidence of two vendors' enums and not a rule to lean on.
+ */
+enum class VoiceLevel(
+    val wire: Byte,
+) {
+    LOW(0x01),
+    MID(0x02),
+    HIGH(0x03),
+    ;
+
+    companion object {
+        fun of(wire: Byte): VoiceLevel? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** VoiceAware's switch and how much it passes through. [JblVoiceAware] frames it. */
+data class VoiceAware(
+    val on: Boolean,
+    val level: VoiceLevel,
+)
+
+/**
+ * JBL VoiceAware — `aa 98`, level decoded 2026-08-17.
+ *
+ * ```
+ * → aa 98 01 01                     ← aa 98 03 02 <level> <on>
+ * → aa 98 03 00 <level> <on>        ← aa 98 03 02 <level> <on>
+ * ```
+ *
+ * `level` is `01` Low · `02` Mid · `03` High.
+ *
+ * ⚠ **The level byte sat in this repo's docs as an unexplained `02` for weeks**, and
+ * the frame was never wrong — `02` is Mid, and with the slider never moved a level and
+ * a constant look identical. It took a drag to separate them, and the drag had to be
+ * done by hand: the control is a gradient bar, and two attempts to reach it by tapping
+ * produced confident logs and no traffic. `docs/captures.md` has both.
+ *
+ * ⚠ Same shape as [JblSpatial] and the same consequence: the device takes level and
+ * switch in one frame, so the vendor app's slider necessarily turns VoiceAware on.
+ * Building the frame here means it need not.
+ */
+object JblVoiceAware {
+    const val CMD: Byte = 0x98.toByte()
+
+    private const val LEN: Byte = 0x03
+    private const val SET: Byte = 0x00
+    private const val STATUS: Byte = 0x02
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+
+    fun set(v: VoiceAware): ByteArray =
+        byteArrayOf(Bes.HEADER, CMD, LEN, SET, v.level.wire, if (v.on) 0x01 else 0x00)
+
+    /**
+     * ⚠ Checks the command byte. `aa 9d 03 02 01 01` — Spatial Sound, on, Music — has
+     * this exact length and operator and a byte that is a valid level, so the command
+     * is the only thing that tells them apart.
+     */
+    fun state(reply: ByteArray): VoiceAware? {
+        if (reply.size < 6) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
+        if (reply[2] != LEN || reply[3] != STATUS) return null
+        val level = VoiceLevel.of(reply[4]) ?: return null
+        return VoiceAware(on = reply[5] != 0x00.toByte(), level = level)
+    }
+}
+
+/**
  * `aa b1` — the JBL's key/value feature bag, and the home of the two rows that have
  * no command of their own.
  *
