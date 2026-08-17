@@ -359,7 +359,7 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | — |
 | Gestures | `aa 77` reads, `aa 71` sets | 👁 read, #970 |
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | — |
-| VoiceAware + Low/Mid/High | ✅ `aa 98`, level unknown | — |
+| VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | — |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | — |
 | SilentNow | ⚠ opening it sends nothing | — |
 | Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | — |
@@ -402,7 +402,7 @@ Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operat
 | Low Volume Dynamic EQ | `aa 9e 02 00 <on>` | `aa 9e 01 01` | `aa 9e 02 02 <on>` |
 | Spatial Sound | `aa 9d 03 00 <on> <mode>` | `aa 9d 01 01` | `aa 9d 03 02 <on> <mode>` |
 | Smart Talk | `aa 9f 03 00 <on> <seconds>` | `aa 9f 01 01` | `aa 9f 03 02 <on> <seconds>` |
-| VoiceAware | `aa 98 03 00 02 <on>` | `aa 98 01 01` | `aa 98 03 02 02 <on>` |
+| VoiceAware | `aa 98 03 00 <level> <on>` | `aa 98 01 01` | `aa 98 03 02 <level> <on>` |
 | Auto Play & Pause | `aa 35 01 <on>` | ? | ⚠ see above |
 | Left / Right Sound Balance | `aa a8 05 00 01 <on> 02 64` | `aa a8 01 01` | `aa a8 05 02 01 <on> 02 64` |
 | Smart Audio & Video | `aa 81 08 <p1> <p2> <p3> ff ff`, three LE16 | `aa 82 00` | `aa 83 08 …` |
@@ -430,12 +430,21 @@ which is why it looked like a latency in milliseconds — switching mode moves a
 ⚠ Video Mode has only been seen with the switch ON, so nothing here says which of the
 three is the enable.
 
-⚠ **VoiceAware's `02` is still unexplained.** An ablation on 2026-08-17 set out to
-settle it and did not: the driver's taps for `Low`/`High`/`Mid` landed on Smart Talk's
-timeout picker one card above (see below), so the level never moved and `aa 98 03 00 02
-<on>` kept `02` throughout. What the run does show is that the byte is NOT disturbed by
-cycling the switch. VoiceAware is a gradient bar, not three buttons, so settling this
-needs a drag — which the driver cannot do.
+✅ **VoiceAware's `02` was the LEVEL, and the level is Mid.** Settled 2026-08-17 by
+Pippijn dragging the bar by hand while the capture ran — the driver cannot do it, and
+two attempts to reach the levels by tapping had failed, the second by pressing another
+card's control (`docs/captures.md`). Three drags, Low then High then Mid:
+
+    12:13:39  → aa 98 03 00 02 01     the switch coming on, at Mid
+    12:13:41  → aa 98 03 00 01 01     Low   — repeats while the drag travels
+    12:13:45  → aa 98 03 00 03 01     High
+    12:13:46  → aa 98 03 00 02 01     Mid
+
+So **`01` Low · `02` Mid · `03` High**, and the byte that had been written down as an
+unexplained constant was simply the level nobody had moved off its default. ⚠ Like the
+mode pickers, a level change carries `on = 01`: dragging the bar switches VoiceAware on.
+The resting read `aa 98 03 02 02 00` — Mid, off — says the same thing from the other
+side, and had done all along.
 
 ⚠ **RETRACTED — "Spatial Sound's Movie / Music / Game buttons send NOTHING when
 tapped."** They send. This section previously said the opposite, "confirmed twice, the
