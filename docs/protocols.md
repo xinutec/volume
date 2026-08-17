@@ -405,7 +405,7 @@ Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operat
 | VoiceAware | `aa 98 03 00 <level> <on>` | `aa 98 01 01` | `aa 98 03 02 <level> <on>` |
 | Auto Play & Pause | `aa 35 01 <on>` | ? | ⚠ see above |
 | Left / Right Sound Balance | `aa a8 05 00 01 <on> 02 64` | `aa a8 01 01` | `aa a8 05 02 01 <on> 02 64` |
-| Smart Audio & Video | `aa 81 08 <p1> <p2> <p3> ff ff`, three LE16 | `aa 82 00` | `aa 83 08 …` |
+| Smart Audio & Video | one of three fixed `aa 81 08 …` frames | `aa 82 00` | `aa 83 08 …` |
 
 ✅ **Smart Talk's timeout is in SECONDS** — `05`/`0f`/`14` are exactly the app's 5 s,
 15 s and 20 s. Four points, so this is measured rather than inferred from one.
@@ -414,21 +414,41 @@ Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operat
 volunteered `aa 91 07 12 01 00 02 00 03 01` — into TalkThru — and `…01 01 02 00 03 00`
 back twenty seconds later. Notifications, not commands; it is the feature working.
 
-✅ **Smart Audio & Video carries three 16-bit parameters, and the mode picks the set.**
-Measured 2026-08-17:
+✅ **Smart Audio & Video has NO enable byte. There are three whole frames.** Measured
+2026-08-17; the app sends one of exactly these and nothing else:
 
-| what was done | payload after `aa 81 08` |
+| state | payload after `aa 81 08` |
 | --- | --- |
-| Audio Mode, switch on | `00 01  35 00  96 00  ff ff` |
-| Audio Mode, switch off | `00 01  35 00  e6 00  ff ff` |
+| off | `00 01  35 00  e6 00  ff ff` |
+| Audio Mode | `00 01  35 00  96 00  ff ff` |
 | Video Mode | `c5 00  2e 00  50 00  ff ff` |
 
-Grouping into little-endian pairs is a *reading*, not the vendor's word for it: Audio
-`(256, 53, 150)`, Audio off `(256, 53, 230)`, Video `(197, 46, 80)`, terminated `ffff`.
-On that reading the earlier "`e6` off / `96` on" was one of three co-varying numbers,
-which is why it looked like a latency in milliseconds — switching mode moves all three.
-⚠ Video Mode has only been seen with the switch ON, so nothing here says which of the
-three is the enable.
+Grouping into little-endian pairs is a *reading*, not the vendor's word for it: off
+`(256, 53, 230)`, Audio `(256, 53, 150)`, Video `(197, 46, 80)`, terminated `ffff`. The
+numbers themselves are undecoded and look like DSP tuning; what is settled is which
+frame corresponds to which state, which is all that is needed to drive it.
+
+⚠ **The off frame is sent whatever mode is selected**, and that is the measurement that
+matters here — it is why "which of the three bytes is the enable" has no answer:
+
+    12:50:01  pick Video Mode, switch on   → c5 00 2e 00 50 00
+    12:50:40  switch OFF, Video STILL selected → 00 01 35 00 e6 00
+    12:51:25  switch ON,  Video still selected → c5 00 2e 00 50 00
+
+Off carries the Audio-family first two values while Video is lit, so it is a state of
+its own rather than a modifier on the current mode.
+
+⚠ **A stated prediction, refuted.** Audio's third value moves `96` → `e6` when switched
+off, a difference of `0x50`; Video's is `50`, so `0x50 + 0x50 = a0` was written down
+beforehand as what Video-off should read if the third value carried the enable. It never
+appeared — the app does not compute an off-value from the mode, it sends a constant.
+Recorded because the arithmetic was tidy enough to have been believed without the test.
+
+⚠ Two earlier attempts to capture Video-off failed and both produced plausible logs: the
+mode tap missed the tile, so the switch was flipped while the mode was still Audio and
+the resulting Audio-off frame looked like an answer. ⚠ **The mode tiles are inert while
+the feature is off** — a restore that picks the mode before switching back on does
+nothing, which is a second way to leave this row changed while believing otherwise.
 
 ✅ **VoiceAware's `02` was the LEVEL, and the level is Mid.** Settled 2026-08-17 by
 Pippijn dragging the bar by hand while the capture ran — the driver cannot do it, and

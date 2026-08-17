@@ -278,18 +278,22 @@ def tile_for(nodes: list[Node], row: Node) -> Node | None:
     ⚠ **And the two cards are not even built the same way**, so "above" alone is the
     wrong question. Smart Talk nests its label INSIDE the tile (`5s` is
     `[216,556][256,607]`, its tile `[84,513][388,650]`); Spatial Sound puts the label
-    BELOW (`Movie` `[84,866][388,902]`, tile `[84,718][388,855]`, an 11 px gap). So:
-    prefer the clickable that contains the label, fall back to one immediately above
-    it, and otherwise leave it alone — a gradient bar has neither, and tapping its
-    inert label sends nothing, which is the right outcome for a control this cannot
-    drive.
+    BELOW (`Movie` `[84,866][388,902]`, tile `[84,718][388,855]`, an 11 px gap).
+
+    ⚠ **Ask for the twin ABOVE first, and only then for a container.** Taking the
+    smallest clickable *containing* the label first looks equivalent and is not: the
+    whole card is clickable, so for a label that has no tile around it the smallest
+    container is the CARD, and its centre is the seam between two tiles. On 2026-08-17
+    that put both `Video Mode` and `Audio Mode` on the identical point `540,1325` —
+    both selected Video, so a pick and its own restore did the same thing and the
+    restore silently did nothing. Asking for the exact-x twin first settles it: a real
+    tile shares its label's x-bounds, and a card never does.
+
+    A container is still needed for Smart Talk's nested labels, so it stays as the
+    fallback — bounded, because the point of the fallback is a tile and never a card.
+    A control with neither, like VoiceAware's gradient bar, gets its inert label and
+    sends nothing, which is the right outcome for something this cannot drive.
     """
-    x, y = row.centre
-    inside = [
-        n for n in nodes if n.clickable and n.x0 <= x <= n.x1 and n.y0 <= y <= n.y1
-    ]
-    if inside:
-        return min(inside, key=lambda n: (n.x1 - n.x0) * (n.y1 - n.y0))
     above = [
         n
         for n in nodes
@@ -298,7 +302,20 @@ def tile_for(nodes: list[Node], row: Node) -> Node | None:
         and n.x1 == row.x1
         and 0 <= row.y0 - n.y1 < TILE_GAP
     ]
-    return max(above, key=lambda n: n.y1, default=None)
+    if above:
+        return max(above, key=lambda n: n.y1)
+    x, y = row.centre
+    # Half the screen: a column in a two-way split is about that, and a card is wider.
+    widest = max((n.x1 for n in nodes), default=0) // 2
+    inside = [
+        n
+        for n in nodes
+        if n.clickable
+        and n.x0 <= x <= n.x1
+        and n.y0 <= y <= n.y1
+        and n.x1 - n.x0 <= widest
+    ]
+    return min(inside, key=lambda n: (n.x1 - n.x0) * (n.y1 - n.y0), default=None)
 
 
 def nudge(distance: int = 600) -> None:
@@ -745,6 +762,12 @@ def main() -> int:
     # which is the one operation on these headphones where a wrong number is a setting
     # silently changed. `flip` proves the switch moved; the coordinates do not.
     parser.add_argument("--flip", metavar="LABEL", help="flip one switch and prove it moved")
+    # ⚠ **Checking the aim used to mean firing.** `--tap` was the only way to find out
+    # where a label resolves to, so verifying [tile_for] across eight controls meant
+    # eight real writes — which on 2026-08-17 left Spatial Sound on Game, Smart Talk on
+    # 20 s, and both switched on, all from a diagnostic. A question about coordinates
+    # should not cost a setting.
+    parser.add_argument("--where", metavar="LABEL", help="say where a label resolves, tap nothing")
     args = parser.parse_args()
 
     if args.list:
@@ -779,6 +802,18 @@ def main() -> int:
 
     if args.flip:
         return 0 if Driver().flip(args.flip) else 2
+
+    if args.where:
+        driver = Driver()
+        nodes = driver.show(args.where)
+        node = label(nodes, args.where) if nodes is not None else None
+        if nodes is None or node is None:
+            print(f"could not reach '{args.where}'", file=sys.stderr)
+            return 2
+        tile = tile_for(nodes, node)
+        target = tile or node
+        print(f"{target.centre[0]},{target.centre[1]}  {'tile' if tile else 'LABEL — inert'}")
+        return 0
 
     if args.state:
         # ⚠ Scrolls, like `--tap`. It used to read only what was already drawn, so

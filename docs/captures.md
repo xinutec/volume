@@ -103,6 +103,28 @@ same capture had recorded `aa 9f 03 02 00 05` at 09:20 and again at 10:40.
 ⚠ A tap that lands is not a tap that lands on the right thing, and only the capture can
 tell the difference.
 
+### 12:50 — Smart A/V, at the third attempt
+
+| time | action | on the wire |
+| --- | --- | --- |
+| 12:50:01 | pick Video Mode, switch on | `aa 81 08 c5 00 2e 00 50 00 ff ff` |
+| 12:50:40 | switch off, **Video still selected** | `aa 81 08 00 01 35 00 e6 00 ff ff` |
+| 12:51:25 | switch on, Video still selected | `aa 81 08 c5 00 2e 00 50 00 ff ff` |
+| 12:52:03 | pick Audio Mode | `aa 81 08 00 01 35 00 96 00 ff ff` |
+
+✅ Settles that there is no enable byte: off is its own frame, sent while Video is lit.
+
+⚠ **Two earlier attempts produced the same wrong answer and looked fine.** Both times
+the Video pick missed its tile and sent nothing, so the switch was flipped while the
+mode was still Audio — and the Audio-off frame that came back was a real frame, from a
+real write, that answered a question nobody had asked. The tell was in the capture, not
+the log: no frame at the moment the pick was logged.
+
+⚠ **A diagnostic that fires.** Checking where a label resolves meant `--tap`-ing it,
+so verifying the targeting across eight controls wrote eight settings and left Spatial
+Sound on Game and Smart Talk on 20 s, both switched on. `--where` now answers the same
+question and taps nothing.
+
 ### 12:13 — the level, by hand
 
 | time | action | on the wire |
