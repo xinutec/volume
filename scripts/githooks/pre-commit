@@ -11,7 +11,7 @@
 # Bypass a genuine work-in-progress commit with:  git commit --no-verify
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-if ! out=$(nix run ../dev-lint#gate -- . gate.json 2>&1); then
+if ! out=$(./gate.sh 2>&1); then
   printf '%s\n' "$out" >&2
   exit 1
 fi
