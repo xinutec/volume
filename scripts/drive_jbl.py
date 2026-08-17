@@ -57,6 +57,10 @@ SAFE_BOTTOM = 2200
 # scroll that cannot be aimed at all.
 MAX_SWIPE = 800
 
+# How far above its label a segmented tile may sit. Measured at 11 px; the next
+# card's tiles are hundreds away. See [tile_for] for what an unbounded search cost.
+TILE_GAP = 60
+
 REMOTE_DUMP = "/sdcard/window_dump.xml"
 
 
@@ -84,6 +88,41 @@ def focused_package() -> str:
     return found.group(1) if found else ""
 
 
+def screen_timeout(value: str | None = None) -> str:
+    """Read, or set, the display sleep in milliseconds.
+
+    ⚠ **A run can put the phone to sleep and then wait for it to wake.** `dumpsys` and
+    `uiautomator dump` are not touches, so preflight's poll loop — two minutes of
+    reading and no tapping — lets the idle timer run out. On 2026-08-17 the last tap
+    was 10:49:05, the screen went dark at 10:54 on a five-minute timeout, and preflight
+    spent its full budget waiting for an app it had itself sent to the lock screen,
+    then reported "never came up focused and connected". The device was fine.
+    """
+    if value is None:
+        return adb("shell", "settings", "get", "system", "screen_off_timeout", check=False).strip()
+    adb("shell", "settings", "put", "system", "screen_off_timeout", value, check=False)
+    return value
+
+
+def wake() -> None:
+    """Get the screen lit and the shade out of the way. Safe to repeat."""
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP", check=False)
+    adb("shell", "cmd", "statusbar", "collapse", check=False)
+
+
+def locked() -> bool:
+    """Is the keyguard up?
+
+    ⚠ **Distinguish "the app is not ready yet" from "nothing can happen at all".**
+    A locked phone focuses `NotificationShade`, so every check preflight makes reads
+    exactly like an app that is slow to connect — and it waited the full two minutes
+    twice before reporting `jbl.stc.com never came up focused and connected`, which
+    named the wrong thing entirely. Waiting cannot fix this one and neither can the
+    driver: clearing a keyguard means Pippijn's credential, which this does not touch.
+    """
+    return "isKeyguardShowing=true" in adb("shell", "dumpsys", "window", check=False)
+
+
 def require_vendor() -> None:
     """⚠ **The check whose absence drove a whole run into the wrong app.**
 
@@ -106,6 +145,7 @@ class Node:
     y1: int
     checkable: bool
     checked: bool
+    clickable: bool
 
     @property
     def centre(self) -> tuple[int, int]:
@@ -117,7 +157,7 @@ class Node:
 
     @property
     def off_by(self) -> int:
-        """How far to scroll to bring this row into the safe band, signed.
+        """How far to scroll to bring this row to the MIDDLE of the safe band, signed.
 
         Positive means the row is below the band and the list must come UP.
 
@@ -125,12 +165,19 @@ class Node:
         saw `clipped`, and then nudged a blind 600 px — up to forty times, which is
         two and a half minutes of scrolling to place a row it had already located.
         Knowing where something is and still searching for it is the waste here.
+
+        ⚠ **Aim for the middle, not for the edge.** Asking for exactly the overhang is
+        the obvious rule and it does not work: a row hanging 60 px past the bottom asks
+        for a 60 px swipe, which is at or under the system's touch slop, so the list
+        does not move at all — and since it moved *slightly* or not at all, the
+        end-of-travel check does not fire either and the loop creeps through all twenty
+        steps. That is what `'Low' never came up clear of the edges` was, for a row
+        sitting a finger's width off the bottom of a list that scrolls perfectly well.
+        Targeting the centre turns every correction into a decisive scroll.
         """
-        if self.y1 > SAFE_BOTTOM:
-            return self.y1 - SAFE_BOTTOM
-        if self.y0 < SAFE_TOP:
-            return self.y0 - SAFE_TOP
-        return 0
+        if not self.clipped:
+            return 0
+        return (self.y0 + self.y1) // 2 - (SAFE_TOP + SAFE_BOTTOM) // 2
 
 
 def _nodes(root: ET.Element) -> Iterator[Node]:
@@ -147,6 +194,7 @@ def _nodes(root: ET.Element) -> Iterator[Node]:
             y1=numbers[3],
             checkable=element.get("checkable") == "true",
             checked=element.get("checked") == "true",
+            clickable=element.get("clickable") == "true",
         )
 
 
@@ -199,6 +247,60 @@ def switch_for(nodes: list[Node], want: str) -> Node | None:
     return max(same_band, key=lambda n: n.x0, default=None)
 
 
+def tile_for(nodes: list[Node], row: Node) -> Node | None:
+    """The clickable tile a segmented label names — which is NOT the label.
+
+    ⚠ **Every segmented label in this app is `clickable="false"`.** `Movie`, `Music`,
+    `Game`, `Low`, `Mid`, `High`, `Audio Mode`, `Video Mode` are all inert TextViews
+    sitting UNDER the thing that takes the touch: a `relativeLayoutText{1,2,3}` tile
+    holding the icon. Tapping the label's own centre lands on nothing and the app does
+    not move — silently, because a tap that hits nothing looks exactly like a tap that
+    hit something.
+
+    ⚠ **This is why the 2026-08-17 spatial-mode run proved nothing.** It logged
+    `tapped Movie at 236,1232`, then read a capture with no mode traffic in it and
+    concluded the mode buttons "send nothing on their own". They may well not — but
+    that capture cannot say so, because Movie was never selected. Verified by render
+    afterwards: Music stayed lit through the whole thing.
+
+    The tile shares the label's x-bounds EXACTLY (`Movie` is `[84,388]`, its tile is
+    `[84,718][388,855]`), which is what makes this safe to key on: a plain clickable
+    row like `Equalizer` has no such twin above it and falls through to the label.
+
+    ⚠ **The gap has to be bounded, or this drives the WRONG FEATURE and says it worked.**
+    Every segmented card in this app uses the same three columns, so "same x-bounds,
+    somewhere above" also describes the tiles of the card above, and the card above
+    that. `VoiceAware` is a gradient bar with NO per-column tiles, so asking for `Low`
+    reached up into `Smart Talk` and pressed its timeout picker — `tapped Low` in the
+    log, `aa 9f 03 00 01 05` on the wire, and Smart Talk left switched on at a
+    different timeout. Nothing in the run looked wrong; the capture is what noticed.
+
+    ⚠ **And the two cards are not even built the same way**, so "above" alone is the
+    wrong question. Smart Talk nests its label INSIDE the tile (`5s` is
+    `[216,556][256,607]`, its tile `[84,513][388,650]`); Spatial Sound puts the label
+    BELOW (`Movie` `[84,866][388,902]`, tile `[84,718][388,855]`, an 11 px gap). So:
+    prefer the clickable that contains the label, fall back to one immediately above
+    it, and otherwise leave it alone — a gradient bar has neither, and tapping its
+    inert label sends nothing, which is the right outcome for a control this cannot
+    drive.
+    """
+    x, y = row.centre
+    inside = [
+        n for n in nodes if n.clickable and n.x0 <= x <= n.x1 and n.y0 <= y <= n.y1
+    ]
+    if inside:
+        return min(inside, key=lambda n: (n.x1 - n.x0) * (n.y1 - n.y0))
+    above = [
+        n
+        for n in nodes
+        if n.clickable
+        and n.x0 == row.x0
+        and n.x1 == row.x1
+        and 0 <= row.y0 - n.y1 < TILE_GAP
+    ]
+    return max(above, key=lambda n: n.y1, default=None)
+
+
 def nudge(distance: int = 600) -> None:
     """Scroll by `distance` px; positive brings content UP (moves the list down).
 
@@ -227,7 +329,7 @@ def to_top() -> None:
 @dataclass
 class Driver:
     wait: float = 3.0
-    outstanding: list[str] = field(default_factory=list)
+    baseline: dict[str, bool] = field(default_factory=dict)
 
     def show(self, want: str) -> list[Node] | None:
         """Bring a label on screen AND clear of both edges.
@@ -239,6 +341,7 @@ class Driver:
         twice. Scrolling with no explanation is indistinguishable from stuck.
         """
         for attempt in range(2):
+            previous: tuple[tuple[str, int], ...] | None = None
             for step in range(20):
                 nodes = dump()
                 found = label(nodes, want)
@@ -248,6 +351,19 @@ class Driver:
                     return nodes
                 if step == 0:
                     say(f"    scrolling to '{want}'…")
+                # ⚠ **A blind sweep only goes DOWN, so it cannot find a row that is
+                # above it.** Asking for 'Spatial Sound' while parked on 'Smart Audio
+                # & Video' spent twenty nudges pressed against the bottom of the list
+                # and two minutes of wall clock, then found it one scroll after
+                # `to_top`. Nothing was wrong with the aim — the row simply was not
+                # ahead. Detect the end of travel instead of sweeping into it: if a
+                # nudge moved nothing, this is an end of the list and the remaining
+                # steps cannot help.
+                here = tuple((n.text, n.y0) for n in nodes if n.text)
+                if found is None and here == previous:
+                    say(f"    an end of the list, and no '{want}' this way")
+                    break
+                previous = here
                 # ⚠ If the row IS on screen and merely clipped, scroll by exactly
                 # what it is off by. Only when it is nowhere in the dump is a blind
                 # sweep the right move — and then a whole viewport, not 600 px.
@@ -273,28 +389,82 @@ class Driver:
         if before is None:
             say(f"!! '{want}' has no switch on its row")
             return False
-        self.tap(before, want)
-        time.sleep(self.wait)
-        after = switch_for(dump(), want)
-        if after is None or after.checked == before.checked:
-            say(f"!! '{want}' did not move (still {before.checked}) — not driven")
-            return False
-        say(f"    '{want}' {before.checked} -> {after.checked}")
-        if want in self.outstanding:
-            self.outstanding.remove(want)
-        else:
-            self.outstanding.append(want)
-        return True
+        # How it was found, once, before this run touched it. That — not a count of
+        # flips — is what "restored" has to be measured against.
+        self.baseline.setdefault(want, before.checked)
+        # ⚠ **A flip that comes straight after another one can be swallowed**, and the
+        # second half of a cycle is exactly that. `Smart Audio & Video` went True ->
+        # False and then refused the restoring tap seconds later; the identical tap,
+        # by hand and a little later, worked. So one retry, rather than reporting "not
+        # driven" about a switch that is merely busy — the cost of being wrong here is
+        # leaving Pippijn's headphones changed.
+        for attempt in range(2):
+            if attempt:
+                say(f"    '{want}' did not take; one retry")
+                time.sleep(self.wait)
+            self.tap(before, want)
+            time.sleep(self.wait)
+            after = switch_for(dump(), want)
+            if after is not None and after.checked != before.checked:
+                say(f"    '{want}' {before.checked} -> {after.checked}")
+                return True
+        say(f"!! '{want}' did not move (still {before.checked}) — not driven")
+        return False
+
+    def note(self, want: str) -> None:
+        """Record how a switch sits BEFORE the group touches anything.
+
+        ⚠ **`flip` taking its own baseline is too late when a `pick` moves the switch
+        first.** A Spatial Sound pick turns the feature on, so by the time the
+        restoring flip runs, "before" reads `True` — and the run would end by
+        announcing that it had left ON something it had just correctly put back to OFF.
+        The same false alarm as the flip counter, one layer down.
+        """
+        nodes = self.show(want)
+        found = switch_for(nodes, want) if nodes else None
+        if found is not None:
+            self.baseline.setdefault(want, found.checked)
+
+    def unrestored(self) -> list[str]:
+        """Re-READ every switch this run touched and compare with how it was found.
+
+        ⚠ **Replaces a parity counter that could not tell a restore from a change.**
+        The old rule was "odd number of flips means left changed", which is only right
+        when a group's flips come in pairs. `spatial-mode` restores with a SINGLE
+        deliberate flip — the picks having turned the switch on — so the counter cried
+        `LEFT CHANGED, restore by hand: Spatial Sound` about a device that was already
+        back where it started. A warning that fires on a correct restore is one that
+        gets ignored on a real one.
+
+        Costs a scroll per touched switch, at the end of a run, and answers the only
+        question worth asking: is it as Pippijn left it?
+        """
+        changed = []
+        for want, was in self.baseline.items():
+            nodes = self.show(want)
+            now = switch_for(nodes, want) if nodes else None
+            if now is None:
+                changed.append(f"{want} (could not re-read)")
+            elif now.checked != was:
+                changed.append(f"{want} (found {was}, now {now.checked})")
+        return changed
 
     def pick(self, want: str) -> bool:
-        """Tap a segmented option. No state to read back; the capture is the proof."""
+        """Tap a segmented option, on its TILE rather than its label.
+
+        ⚠ Still no state to read back — the selection is drawn in colour and is absent
+        from the accessibility tree (`selected="false"` on the lit one too). So this
+        reports whether it *tapped*, never whether it *took*; confirming a pick needs a
+        screenshot. See [tile_for] for what taking the label at its word cost.
+        """
         nodes = self.show(want)
         if nodes is None:
             return False
         node = label(nodes, want)
         if node is None:
             return False
-        self.tap(node, want)
+        tile = tile_for(nodes, node)
+        self.tap(tile or node, want if tile else f"{want} (no tile — label itself)")
         time.sleep(self.wait)
         return True
 
@@ -325,6 +495,9 @@ def preflight(driver: Driver) -> None:
     FOCUSED (so taps land on it) *and* CONNECTED (so they reach the headphones).
     """
     say("preflight: releasing our own GATT link")
+    wake()
+    if locked():
+        raise RuntimeError("the phone is locked — unlock it and re-run")
     adb("shell", "am", "force-stop", OURS, check=False)
     time.sleep(2)
     adb(
@@ -334,6 +507,12 @@ def preflight(driver: Driver) -> None:
     for _ in range(40):
         time.sleep(3)
         if focused_package() != VENDOR:
+            # ⚠ Not just patience. A dark screen and a pulled-down shade both hold
+            # focus away from the app for as long as the loop is willing to wait, and
+            # neither clears itself — so waiting is the one thing that cannot work.
+            wake()
+            if locked():
+                raise RuntimeError("the phone locked mid-run — unlock it and re-run")
             continue
         # Connected == the app draws a battery reading. ⚠ Scoped to the vendor app
         # by the focus check above: on its own this regex matched another app.
@@ -343,6 +522,15 @@ def preflight(driver: Driver) -> None:
         # and letting that escape aborts the whole run during the very loop whose job
         # is to wait for the app to settle — a retry loop that cannot retry.
         try:
+            # ⚠ **The battery reading is at the TOP of the list, so this check is
+            # only valid from the top.** Left scrolled down by previous work, the app
+            # was focused and connected and drawing its whole settings list, and
+            # preflight still spent its full two minutes concluding the headphones
+            # were not there — the one node it looks for was simply off screen. A
+            # readiness check that depends on scroll position reports the scroll
+            # position. Going to the top first also gives every run the same starting
+            # place, which is what makes a scroll count mean anything.
+            to_top()
             settled = any(re.fullmatch(r"\d+%", n.text) for n in dump())
         except NotInVendorApp:
             continue
@@ -399,20 +587,34 @@ def group_vaware_level(d: Driver) -> None:
     """⚠ The ablation for VoiceAware's unexplained `02` — is it the LEVEL?
 
     `aa 98 03 00 02 <on>` has a byte nobody has varied, because the Low/Mid/High
-    picker was never touched. Spatial Sound taught the shape of the answer: its mode
-    buttons send NOTHING on their own and the mode rides along with the next on/off
-    write. So picking a level and reading the capture would prove nothing; the level
-    has to be picked and then the switch flipped.
+    picker was never touched.
 
-    Two full cycles at two different levels, restoring Mid last. If `02` is the
-    level, the two ON writes differ in exactly that byte and in nothing else.
+    ⚠ **This used to cite Spatial Sound's "the mode buttons send NOTHING on their own"
+    as settled, and build on it.** That claim came from a run whose taps missed (see
+    [tile_for]); on the tile, a Spatial Sound pick both selects the mode and switches
+    the feature on. So the reasoning that a level "has to be picked and then the switch
+    flipped" rested on nothing.
+
+    ⚠ **It does not follow that VoiceAware behaves the same way**, and assuming it does
+    would repeat the original mistake in the other direction — this is a gradient bar
+    with three labels under it, not three tiles. So each level is picked AND the switch
+    cycled: if the pick writes, that frame stands on its own; if it does not, the cycle
+    still carries the level. Dropping the cycle would have been an over-correction that
+    could come back with nothing at all.
+
+    The read already puts a number on the guess: at rest the getter answers
+    `aa 98 01 01` → `aa 98 03 02 02 00` with the render showing Mid, so byte 4 is `02`
+    at Mid. If it is the level, Low and High make it `01` and `03`.
+
+    Found at Mid with the switch OFF, and Mid is picked last.
     """
-    say("--- VoiceAware LEVEL: Low, then High, restoring Mid ---")
+    say("--- VoiceAware LEVEL: pick, then cycle so a write carries it ---")
+    d.note("VoiceAware")
     for level in ("Low", "High", "Mid"):
         if not d.pick(level):
-            say(f"!! could not pick '{level}' — stopping before the flip")
+            say(f"!! could not pick '{level}'")
             return
-        say(f"    picked {level}; now the on/off that should carry it")
+        say(f"    picked {level}; now a cycle to carry it")
         if not d.cycle("VoiceAware"):
             return
 
@@ -425,16 +627,30 @@ def group_spatial_mode(d: Driver) -> None:
     second question — whether the mode buttons reach the DEVICE at all, or are purely
     app-side until something commits them.
 
-    Found OFF on Music, and Music is restored last.
+    ⚠ **REWRITTEN 2026-08-17 — the premise above is wrong, and so was the run.** The
+    old version tapped the mode LABEL, which is inert (see [tile_for]), so it never
+    selected anything; the capture it produced was empty of mode traffic and that
+    emptiness became the "modes send nothing on their own" claim in `docs/protocols.md`.
+
+    On the tile, picking a mode is itself a write: tapping Movie with Spatial Sound OFF
+    selected Movie **and turned the switch ON**, confirmed by render. So the mode does
+    not need a toggle to carry it and there is no need to cycle at all — each pick is
+    one labelled write, and three picks give three frames differing in the mode byte.
+
+    Found on Music with the switch OFF, and that is what the restore returns to.
     """
-    say("--- Spatial Sound MODE: Movie then toggle, restoring Music ---")
+    say("--- Spatial Sound MODE: three picks, each its own write ---")
+    d.note("Spatial Sound")
     for mode in ("Movie", "Game", "Music"):
         if not d.pick(mode):
             say(f"!! could not pick '{mode}'")
             return
-        say(f"    picked {mode}; now the on/off that should carry it")
-        if not d.cycle("Spatial Sound"):
-            return
+    say("    restoring: Music is picked, now the switch back OFF")
+    if switch_for(dump(), "Spatial Sound") is None:
+        say("!! no Spatial Sound switch to restore")
+        return
+    if not d.flip("Spatial Sound"):
+        say("!! LEFT ON — Spatial Sound needs turning off by hand")
 
 
 def group_smartav(d: Driver) -> None:
@@ -444,12 +660,41 @@ def group_smartav(d: Driver) -> None:
     not a boolean, and 230/150 looked like milliseconds of latency — written down as
     a guess. Two named modes sit on this row, so if the byte is latency it should
     take a third and fourth value here rather than flipping between two.
+
+    ⚠ **This group used to pick the two modes and stop**, and it picked the LABEL,
+    which sends nothing at all (see [tile_for]) — so the capture window would have been
+    empty and the emptiness would have read as a finding about the protocol. The picks
+    go to the tile now, and the switch is cycled after each one: whether a pick writes
+    on its own is exactly what is unknown here, and the cycle means the run returns
+    something either way.
+
+    ⚠ **Which mode is live is NOT in the accessibility tree.** Both labels come back
+    `selected="false" checkable="false"` — the selection is drawn in colour only. It
+    was read off a screenshot: Audio Mode, switch ON. So the restore target here is a
+    constant rather than something the driver can check, and that is why Audio Mode is
+    picked last instead of first.
+
+    The read gives the resting value: `aa 82 00` → `aa 83 08 00 01 35 00 96 00 ff ff`,
+    so `96` is Audio Mode with the switch ON. If the byte is the MODE, Video Mode makes
+    it something else; if it is latency, `e6`/`96` should not be the only two values.
     """
-    say("--- Smart Audio & Video: Audio Mode / Video Mode ---")
-    for mode in ("Audio Mode", "Video Mode"):
-        if not d.pick(mode):
-            say(f"!! could not pick '{mode}'")
-            return
+    say("--- Smart Audio & Video: Video Mode, restoring Audio Mode ---")
+    d.note("Smart Audio & Video")
+    try:
+        for mode in ("Video Mode", "Audio Mode"):
+            if not d.pick(mode):
+                say(f"!! could not pick '{mode}'")
+                return
+            say(f"    picked {mode}; now the on/off that should carry it")
+            if not d.cycle("Smart Audio & Video"):
+                return
+    finally:
+        # ⚠ **The mode is restored however this exits.** Bailing out on a failed cycle
+        # used to skip the restoring pick, so a run that stopped to avoid doing harm
+        # left the headphones on Video Mode — and, the selection being invisible to the
+        # tree, `unrestored` could not see it either. The switch was reported; the mode
+        # was silent. A picked mode is cheap to re-assert and the only way back.
+        d.pick("Audio Mode")
 
 
 def group_leaudio(d: Driver) -> None:
@@ -496,6 +741,10 @@ def main() -> int:
     )
     parser.add_argument("--state", metavar="LABEL", help="print a switch's value")
     parser.add_argument("--tap", metavar="LABEL", help="scroll to a label and tap it")
+    # ⚠ Restoring by hand was raw `input tap` at coordinates read out of a dump, twice,
+    # which is the one operation on these headphones where a wrong number is a setting
+    # silently changed. `flip` proves the switch moved; the coordinates do not.
+    parser.add_argument("--flip", metavar="LABEL", help="flip one switch and prove it moved")
     args = parser.parse_args()
 
     if args.list:
@@ -519,19 +768,29 @@ def main() -> int:
         return 0
 
     if args.tap:
-        driver = Driver()
-        nodes = driver.show(args.tap)
-        node = label(nodes, args.tap) if nodes else None
-        if node is None:
+        # ⚠ Goes through `pick`, which retargets a segmented label onto its tile. This
+        # had its own copy of scroll-then-tap-the-label, so `--tap Movie` and a run's
+        # own `pick("Movie")` did different things — and the debug affordance used to
+        # check the driver was the one that was wrong.
+        if not Driver().pick(args.tap):
             print(f"could not reach '{args.tap}'", file=sys.stderr)
             return 2
-        driver.tap(node, args.tap)
         return 0
 
+    if args.flip:
+        return 0 if Driver().flip(args.flip) else 2
+
     if args.state:
-        found = switch_for(dump(), args.state)
+        # ⚠ Scrolls, like `--tap`. It used to read only what was already drawn, so
+        # "no switch for X" meant either *this row has no switch* or *the row is
+        # further down the list* — two answers that want opposite next moves, and
+        # the second is the common one. `show` collapses them: after it returns, a
+        # missing switch is a fact about the row.
+        driver = Driver()
+        nodes = driver.show(args.state)
+        found = switch_for(nodes, args.state) if nodes else None
         if found is None:
-            print(f"no switch for '{args.state}' on screen", file=sys.stderr)
+            print(f"no switch on the '{args.state}' row", file=sys.stderr)
             return 2
         print("true" if found.checked else "false")
         return 0
@@ -544,6 +803,12 @@ def main() -> int:
 
     driver = Driver()
     say("=== JBL capture begins — every change is undone before the next starts ===")
+    # ⚠ The phone's own idle timer is part of the test rig, so it is borrowed for the
+    # run and given back in `finally` — including on Ctrl-C, because leaving someone's
+    # screen set to never sleep is not a thing to do silently.
+    was = screen_timeout()
+    say(f"screen sleep held off for the run (was {was} ms)")
+    screen_timeout("1800000")
     try:
         preflight(driver)
         for name in chosen:
@@ -552,12 +817,24 @@ def main() -> int:
     except (NotInVendorApp, RuntimeError) as failure:
         say(f"!! stopped: {failure}")
     finally:
-        # ⚠ However this ends, say what was left moved. A run that does not print
-        # "all restored" left something on the headphones.
-        if driver.outstanding:
-            say(f"!! LEFT CHANGED, restore by hand: {', '.join(driver.outstanding)}")
+        if was.isdigit():
+            screen_timeout(was)
+        # ⚠ However this ends, say what was left moved — by RE-READING, not by
+        # counting. See [Driver.unrestored].
+        #
+        # ⚠ Still switches only. A `pick` has no state to read back (the selection is
+        # colour, absent from the tree), so a group whose actions are all picks can
+        # leave the device changed and print the reassuring line. `spatial-mode`
+        # handles that by ending on the mode it found; nothing here can verify it.
+        try:
+            left = driver.unrestored()
+        except (NotInVendorApp, RuntimeError) as failure:
+            say(f"!! could not verify the restore: {failure}")
+            left = sorted(driver.baseline)
+        if left:
+            say(f"!! LEFT CHANGED, restore by hand: {', '.join(left)}")
         else:
-            say("=== all restored ===")
+            say("=== every switch this run touched re-reads as it was found ===")
     return 0
 
 

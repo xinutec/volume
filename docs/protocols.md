@@ -336,7 +336,11 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and four are in our app.** ⚠ Those three numbers are different questions and
+are decoded well enough to drive, and four are in our app.** ⚠ The twelve is unchanged
+by 2026-08-17 and that is not an oversight: Spatial Sound and Smart Audio & Video were
+already drivable and were already counted. What changed is that both are now decoded
+*completely* — the mode byte and the parameter triple — which this tally cannot show.
+⚠ Those three numbers are different questions and
 collapsing them flatters the work: knowing a row is `aa 98` is not knowing what its
 Low/Mid/High byte means. Written down
 because "is it all understood?" could not be answered before without opening the app,
@@ -352,11 +356,11 @@ and answering it from what `docs/` happened to mention would have flattered us.
 | Personi-Fi | ✅ `aa a1`; ⚠ `aa 9a` is the TEST | — |
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | — |
-| Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, ⚠ modes silent | — |
+| Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | — |
 | Gestures | `aa 77` reads, `aa 71` sets | 👁 read, #970 |
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | — |
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level unknown | — |
-| Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83` | — |
+| Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | — |
 | SilentNow | ⚠ opening it sends nothing | — |
 | Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | — |
 | LE Audio | ✅ `aa b1` key `01`, measured | — |
@@ -401,7 +405,7 @@ Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operat
 | VoiceAware | `aa 98 03 00 02 <on>` | `aa 98 01 01` | `aa 98 03 02 02 <on>` |
 | Auto Play & Pause | `aa 35 01 <on>` | ? | ⚠ see above |
 | Left / Right Sound Balance | `aa a8 05 00 01 <on> 02 64` | `aa a8 01 01` | `aa a8 05 02 01 <on> 02 64` |
-| Smart Audio & Video | `aa 81 08 00 01 35 00 <v> 00 ff ff` | `aa 82 00` | `aa 83 08 …` |
+| Smart Audio & Video | `aa 81 08 <p1> <p2> <p3> ff ff`, three LE16 | `aa 82 00` | `aa 83 08 …` |
 
 ✅ **Smart Talk's timeout is in SECONDS** — `05`/`0f`/`14` are exactly the app's 5 s,
 15 s and 20 s. Four points, so this is measured rather than inferred from one.
@@ -410,20 +414,59 @@ Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operat
 volunteered `aa 91 07 12 01 00 02 00 03 01` — into TalkThru — and `…01 01 02 00 03 00`
 back twenty seconds later. Notifications, not commands; it is the feature working.
 
-⚠ **Smart Audio & Video's payload is located, not decoded.** The byte that moves is
-`e6` when the switch is turned off and `96` when it is turned on. That is not a
-boolean, and 230/150 look like milliseconds of latency, which is a guess and is
-written here as one.
+✅ **Smart Audio & Video carries three 16-bit parameters, and the mode picks the set.**
+Measured 2026-08-17:
 
-⚠ **VoiceAware's `02` is unexplained** — the Low/Mid/High slider was never dragged,
-so `02` may be that level or may be a field id. One drag would settle it.
+| what was done | payload after `aa 81 08` |
+| --- | --- |
+| Audio Mode, switch on | `00 01  35 00  96 00  ff ff` |
+| Audio Mode, switch off | `00 01  35 00  e6 00  ff ff` |
+| Video Mode | `c5 00  2e 00  50 00  ff ff` |
 
-⚠ **Spatial Sound's Movie / Music / Game buttons send NOTHING when tapped.** Confirmed
-twice, the second time with the three taps landing on one row at identical
-coordinates, so this is no longer a suspected mis-tap. The mode byte travels with the
-on/off write instead. ⚠ It is still NOT established that the buttons reach the device
-at all: tapping Movie and *then* toggling would show a mode byte other than `01`, and
-that has not been done.
+Grouping into little-endian pairs is a *reading*, not the vendor's word for it: Audio
+`(256, 53, 150)`, Audio off `(256, 53, 230)`, Video `(197, 46, 80)`, terminated `ffff`.
+On that reading the earlier "`e6` off / `96` on" was one of three co-varying numbers,
+which is why it looked like a latency in milliseconds — switching mode moves all three.
+⚠ Video Mode has only been seen with the switch ON, so nothing here says which of the
+three is the enable.
+
+⚠ **VoiceAware's `02` is still unexplained.** An ablation on 2026-08-17 set out to
+settle it and did not: the driver's taps for `Low`/`High`/`Mid` landed on Smart Talk's
+timeout picker one card above (see below), so the level never moved and `aa 98 03 00 02
+<on>` kept `02` throughout. What the run does show is that the byte is NOT disturbed by
+cycling the switch. VoiceAware is a gradient bar, not three buttons, so settling this
+needs a drag — which the driver cannot do.
+
+⚠ **RETRACTED — "Spatial Sound's Movie / Music / Game buttons send NOTHING when
+tapped."** They send. This section previously said the opposite, "confirmed twice, the
+second time with the three taps landing on one row at identical coordinates, so this is
+no longer a suspected mis-tap". The identical coordinates were the evidence *for* a
+mis-tap: all three taps hit the mode LABEL, which is a `clickable="false"` TextView with
+the real target — a `relativeLayoutText{1,2,3}` tile — sitting 11 px above it. An empty
+capture window was read as a fact about the headphones when it was a fact about the tap.
+
+✅ **What the tile actually does**, measured 2026-08-17 with both windows in one capture:
+
+    10:47:03  tap the LABEL "Movie"   → nothing on the wire at all
+    10:49:06  tap the TILE  "Movie"   → aa 9d 03 00 01 02
+
+and picking each mode in turn, with no toggling in between:
+
+    11:11:28  Movie  → aa 9d 03 00 01 02    ← aa 9d 03 02 01 02
+    11:11:35  Game   → aa 9d 03 00 01 03    ← aa 9d 03 02 01 03
+    11:11:43  Music  → aa 9d 03 00 01 01    ← aa 9d 03 02 01 01
+    11:11:53  switch → aa 9d 03 00 00 01    ← aa 9d 03 02 00 01
+
+So **mode `01` Music · `02` Movie · `03` Game**, and a pick is its own write which also
+sets the enable byte to `01` — tapping a mode turns Spatial Sound on. Confirmed in the
+render: the switch was OFF before the tile tap and ON after. Smart Audio & Video and
+Smart Talk behave the same way, so "a segmented pick writes" is the rule here, not the
+exception.
+
+⚠ The old claim's other half survives: the mode byte does travel with the on/off write.
+The 09:30 run that produced the retracted finding sent `aa 9d 03 00 01 01` — mode
+`01`, Music — because the Movie tap before it had done nothing. Nothing was ever left
+on Movie.
 
 ### The vendor app's own connect-time sweep — 22:14:25, 40 exchanges in two seconds
 
