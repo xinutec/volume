@@ -317,6 +317,64 @@ class JblSettingsTest {
         assertNull(JblSpatial.state(bytes("aa9d03020100")))
     }
 
+    // ---- voiceaware --------------------------------------------------------
+
+    @Test
+    fun `the voiceaware level is read`() {
+        val low = bytes(JblFrames.VOICEAWARE_LOW_ON)
+        val high = bytes(JblFrames.VOICEAWARE_HIGH_ON)
+        val mid = bytes(JblFrames.VOICEAWARE_MID_ON)
+        assertEquals(VoiceAware(on = true, level = VoiceLevel.LOW), JblVoiceAware.state(low))
+        assertEquals(VoiceAware(on = true, level = VoiceLevel.HIGH), JblVoiceAware.state(high))
+        assertEquals(VoiceAware(on = true, level = VoiceLevel.MID), JblVoiceAware.state(mid))
+    }
+
+    /**
+     * The cold-launch read, which is the frame that carried the answer all along.
+     *
+     * ⚠ Its `02` was written up as an unexplained constant for as long as this row has
+     * been in the docs. Nothing was wrong with the frame; nobody had moved the slider,
+     * so the level and a constant were indistinguishable.
+     */
+    @Test
+    fun `switched off still names a level`() {
+        assertEquals(
+            VoiceAware(on = false, level = VoiceLevel.MID),
+            JblVoiceAware.state(bytes(JblFrames.VOICEAWARE_MID_OFF)),
+        )
+    }
+
+    @Test
+    fun `the voiceaware frames are the ones the vendor app builds`() {
+        assertEquals("aa9803000101", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.LOW))))
+        assertEquals("aa9803000301", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.HIGH))))
+        assertEquals("aa9803000201", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.MID))))
+        assertEquals("aa9803000200", hex(JblVoiceAware.set(VoiceAware(false, VoiceLevel.MID))))
+        assertEquals("aa980101", hex(JblVoiceAware.get()))
+    }
+
+    /**
+     * ⚠ Same discipline as the spatial one, and for the same reason.
+     *
+     * `aa 9d 03 02 01 01` is Spatial Sound: same length, same operator, and its bytes
+     * are a VALID level and a valid on — so only the command byte separates them. A
+     * real captured frame from another command would not isolate this, which is why
+     * this one is chosen rather than found.
+     */
+    @Test
+    fun `a spatial frame is not read as voiceaware`() {
+        assertNull(JblVoiceAware.state(bytes("aa9d03020101")))
+        assertNull(JblVoiceAware.state(bytes("aa9803000201")))
+        assertNull(JblVoiceAware.state(bytes("aa98030202")))
+    }
+
+    /** `04` is not a level, and must not become one. */
+    @Test
+    fun `a level byte nobody has seen reads as null`() {
+        assertNull(JblVoiceAware.state(bytes("aa9803020401")))
+        assertNull(JblVoiceAware.state(bytes("aa9803020001")))
+    }
+
     private fun bytes(s: String) = Hex.parse(s)
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")

@@ -25,6 +25,7 @@ import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TimedOff
+import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
@@ -270,6 +271,7 @@ class DeviceController(
                     timedOff = Drivers.JblBes.readAutoOff(s.transport),
                     volumeLimit = Drivers.JblBes.readVolumeLimit(s.transport),
                     spatial = Drivers.JblBes.readSpatial(s.transport),
+                    voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
                 )
             }
 
@@ -374,6 +376,19 @@ class DeviceController(
             // reply IS the read-back. Contrast [setTimedOff], where it is an ack and a
             // second round trip is the only way to know.
             when (val after = Drivers.JblBes.writeSpatial(it.transport, v)) {
+                null -> Confirmation.Unverifiable
+                v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setVoiceAware(address: String, v: VoiceAware) =
+        applied<VoiceAware>(
+            address,
+            "setting voiceaware",
+            { "${if (it.on) "on" else "off"}, ${it.level.name.lowercase()}" },
+        ) {
+            when (val after = Drivers.JblBes.writeVoiceAware(it.transport, v)) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)

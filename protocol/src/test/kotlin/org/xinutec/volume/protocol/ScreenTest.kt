@@ -318,6 +318,52 @@ class ScreenTest {
     }
 
     /**
+     * ⚠ **Every field of [Settings] must make [Settings.any] true, and this test fails
+     * when a new one is added without being considered.**
+     *
+     * The old test above checked two fields out of eleven, so `spatial` was added on
+     * 2026-08-17 without reaching `any` and nothing noticed: on the JBL the EQ and the
+     * timer are read too, so the section drew anyway, and the bug would have appeared
+     * only as "the settings vanished" on a device whose earlier reads had failed. The
+     * count assertion is the part that matters — enumerating values would have gone
+     * just as stale as the code it checks.
+     *
+     * [IGNORED] is the deliberate exception list, and it is spelled out rather than
+     * implied: `bands` accompanies `eq` and never stands alone, and `refuses` is about
+     * what cannot be written rather than what was read.
+     */
+    @Test
+    fun `every settings field is something to show`() {
+        val each =
+            mapOf(
+                "eq" to Settings(eq = EqSetting(preset = 0, levels = emptyList())),
+                "tone" to Settings(tone = BoseBands(0, 0, 0)),
+                "curve" to Settings(curve = EqCurve(table = 0, bands = emptyList())),
+                "multipoint" to Settings(multipoint = true),
+                "autoOff" to Settings(autoOff = AutoOff.NEVER),
+                "timedOff" to Settings(timedOff = TimedOff(on = true, minutes = 30)),
+                "volumeLimit" to Settings(volumeLimit = true),
+                "spatial" to Settings(spatial = Spatial(true, SpatialMode.MUSIC)),
+                "voiceAware" to Settings(voiceAware = VoiceAware(true, VoiceLevel.MID)),
+                "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),
+                "button" to Settings(button = "a"),
+            )
+        for ((name, one) in each) {
+            assertTrue("$name alone should be something to show", one.any)
+        }
+        val declared =
+            Settings::class.java.declaredFields
+                .filterNot { it.isSynthetic }
+                .map { it.name }
+                .toSet()
+        assertEquals(
+            "Settings gained or lost a field — decide whether `any` should count it",
+            declared,
+            each.keys + IGNORED,
+        )
+    }
+
+    /**
      * ⚠ **Reported and changeable are different questions**, and this is the whole
      * reason [Settings.refuses] exists. The XM4 answers `d6 d2` and then ignores
      * `d8 d2 01 01`; the QC45 accepts both. A screen that inferred "we can set it"
@@ -360,5 +406,10 @@ class ScreenTest {
     fun `an unconfirmable setting write is a caution, not silence`() {
         val note = Confirmation.Unverifiable.settingNote<Boolean> { "$it" }
         assertEquals(NoteKind.CAUTION, note?.kind)
+    }
+
+    private companion object {
+        /** Fields [Settings.any] deliberately does not count. See the test that uses it. */
+        val IGNORED = setOf("bands", "refuses")
     }
 }

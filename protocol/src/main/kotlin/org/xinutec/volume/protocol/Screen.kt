@@ -87,6 +87,8 @@ data class Settings(
      * UI would invent a state the headphones cannot be in.
      */
     val spatial: Spatial? = null,
+    /** VoiceAware — one field for the same reason [spatial] is one. */
+    val voiceAware: VoiceAware? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -100,12 +102,20 @@ data class Settings(
      */
     val refuses: Set<SettingKind> = emptySet(),
 ) {
-    /** Whether there is anything at all to draw. */
+    /**
+     * Whether there is anything at all to draw.
+     *
+     * ⚠ **Every field has to be listed here, and one was not.** `spatial` was added
+     * without it, which hides the whole section for a device reporting *only* that —
+     * on the JBL the EQ and timer reads carry it, so the omission was invisible and
+     * would have surfaced as "settings vanished" the first time an earlier read failed.
+     */
     val any: Boolean
         get() =
             eq != null || tone != null || curve != null || multipoint != null ||
                 autoOff != null || timedOff != null || soundQuality != null ||
-                button != null || volumeLimit != null
+                button != null || volumeLimit != null || spatial != null ||
+                voiceAware != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 }

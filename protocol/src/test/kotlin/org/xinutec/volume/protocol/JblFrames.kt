@@ -77,6 +77,19 @@ object JblFrames {
      */
     const val SPATIAL_OFF_MUSIC = "aa9d03020001"
 
+    /**
+     * 2026-08-17 12:13:41 / :45 / :46 — Low, High, Mid, from Pippijn dragging the bar.
+     *
+     * ⚠ The only way these could be got: the bar takes a gesture, and two runs that
+     * tried to reach it by tapping produced clean logs and no level traffic.
+     */
+    const val VOICEAWARE_LOW_ON = "aa9803020101"
+    const val VOICEAWARE_HIGH_ON = "aa9803020301"
+    const val VOICEAWARE_MID_ON = "aa9803020201"
+
+    /** 10:40:01, the cold-launch read: Mid, and off. */
+    const val VOICEAWARE_MID_OFF = "aa9803020200"
+
     /** As [Replay] wants them: lowercase, space-separated. */
     fun spaced(hex: String): String = Hex.format(Hex.parse(hex))
 }

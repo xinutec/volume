@@ -241,6 +241,13 @@ object Drivers {
         fun writeSpatial(t: Transport, v: Spatial): Spatial? =
             JblSpatial.state(t.exchange(JblSpatial.set(v)))
 
+        fun readVoiceAware(t: Transport): VoiceAware? =
+            JblVoiceAware.state(t.exchange(JblVoiceAware.get()))
+
+        /** Level and switch in one frame, and the reply is the read-back — as [writeSpatial]. */
+        fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
+            JblVoiceAware.state(t.exchange(JblVoiceAware.set(v)))
+
         /**
          * Read the curve, write [table] and [gains] into that frame, and read back.
          *
