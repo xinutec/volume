@@ -353,7 +353,7 @@ show that, which is the limit of counting them.
 | --- | --- | --- |
 | battery % | ✅ `aa 25`, and it can be ASKED | ✅ read |
 | ⏻ power off | ✅ `aa 97 00` | — |
-| Ambient Sound Control master switch | ✅ `aa 91 01 13` | — |
+| Ambient Sound Control master switch | ✅ `aa 91 01 13` | ⚠ MISSING — #1041 |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
 | Customize ANC | ✅ `aa 91 01 21` | — |
 | Personi-Fi | ✅ `aa a1`; ⚠ `aa 9a` is the TEST | — |
@@ -378,6 +378,24 @@ show that, which is the limit of counting them.
 ✅ **Every row is now placed.** The last one, LE Audio, is `aa b1` key `01`, measured
 2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the
 same reason it was cheap: `GetSetFeatureCmd` names its own keys.
+
+### ⚠ THE JBL CANNOT BE SWITCHED OFF FROM OUR APP — found 2026-08-17 23:47
+
+`Drivers.JblBes.modes` is `ANC`, `AMBIENT`, `TALK_THRU`. There is no `OFF`, so the one
+thing a JBL owner most obviously wants — noise cancelling off — cannot be done here at
+all. The vendor app has it as the Ambient Sound Control master switch.
+
+```
+→ aa 91 01 13                             genSetANCModeOFF, named in the SDK
+→ aa 91 01 11   ← aa 91 07 12 01 00 02 00 03 00      off: all three slots 00
+                ← aa 91 07 12 01 01 02 00 03 00      ANC, which is how it reads now
+```
+
+⚠ **It never appeared in the 23-row inventory, and the reason is worth keeping.** That
+table counts the vendor app's ROWS, and this control hides *inside* the ANC row rather
+than beside it — so a gap analysis built from someone else's UI cannot see it. The four
+other devices here all offer OFF; only the JBL's driver omits it, which is why nothing
+looked odd. #1041.
 
 ### ✅ Three rows settled by one read sweep and two drives — 2026-08-17 23:36
 
