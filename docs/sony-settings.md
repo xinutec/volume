@@ -232,18 +232,59 @@ This is what #955 went looking for, after the morning's attempt sent nothing at 
     → f0 06              GET_CAPABILITY
     ← f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34
     → f6 06              GET_PARAM
-    ← f7 06 01 00        RET_PARAM — 00 "Ambient Sound Control", 31 "Digital assistant"
-    → f8 06 01 31        SET_PARAM
-    ← 99 01 02 01        ⚠ a 90-block frame: the device asking for a reconnect
-    → 98 01 02 01        the app agreeing, once the owner accepts its dialog
+    ← f7 06 01 00        RET_PARAM — one key, set to 00 AMBIENT_SOUND_CONTROL
+    → f8 06 01 31        SET_PARAM — one key, to 31 GOOGLE_ASSISTANT
+    ← 99 01 02 01        ALERT_NTFY · FIXED_MESSAGE · 02 DISCONNECT_CAUSED_BY_CHANGING_KEY_ASSIGN
+                         · 01 AlertActionType.POSITIVE_NEGATIVE
+    → 98 01 02 01        ALERT_SET · same message · 01 AlertAction.POSITIVE
     ← f9 06 01 31        NTFY_PARAM — only now
+
+⚠ **The last byte of `99` and of `98` are different enums that happen to share `01`.**
+The notify carries `AlertActionType` (whether the dialog has two buttons); the set
+carries `AlertAction` (which button). Reading them as one type would make
+`98 01 02 00` — answering *no* — look like a malformed frame rather than a refusal.
+
+### The payload grammar, from Sony's own parsers
+
+`SYSTEM_SET_PARAM` does not write the inquired type itself; its payload object does.
+For ASSIGNABLE_SETTINGS the whole frame is a **positional list, one preset per key**:
+
+    f8 06 <numKeys> <preset> × numKeys
+
+so `01` is a count, not a key index, and `f7 06 01 00` says *this device has exactly
+one assignable key*. The capability reply nests three levels deep:
+
+    f1 06 <numKeys>
+      per key:    <key> <keyType> <defaultPreset> <numPresets>
+      per preset: <preset> <numActions>
+      per action: <action> <function>
+
+Which decodes the XM4's 23 bytes exactly, with nothing left over:
+
+    01                    one key
+      02 CUSTOM_KEY  01 BUTTON  00 default=AMBIENT_SOUND_CONTROL  03 presets
+        00 AMBIENT_SOUND_CONTROL  2  00 SINGLE_TAP→01 NC_ASM_OFF
+                                     21 LONG_PRESS_THEN_ACTIVATE→02 NC_OPTIMIZER
+        31 GOOGLE_ASSISTANT       3  00 SINGLE_TAP→31 GET_YOUR_NOTIFICATION
+                                     01 DOUBLE_TAP→33 STOP_GA
+                                     22 LONG_PRESS_DURING_ACTIVATION→32 TALK_TO_GA
+        32 AMAZON_ALEXA           1  00 SINGLE_TAP→34 VOICE_INPUT_CANCEL_AA
 
 ⚠ **THE WRITE WORKS FROM THE VENDOR APP AND NOT FROM THIS REPO.** `f8 06 01 31` sent
 from the probe is acked and then ignored: no `99`, no `f9`, and `f6 06` still reads
-the old value. Tried across a plain session, a session that also sent
-`98 01 02 01`, a session that sent both in one socket, and a session that read the
-capability first. The vendor app sending the byte-identical frame gets `99 01 02 01`
+the old value. The vendor app sending the byte-identical frame gets `99 01 02 01`
 back inside 400 ms.
+
+✅ **The frame is not the problem — that is now settled, not assumed.** The bytes are
+what Sony's own `SYSTEM_SET_PARAM` builder emits for a one-key device, and `31` is one
+of the three presets this key's capability reply advertises. Refuted on hardware
+2026-08-23: a plain session; a session also sending `98 01 02 01`; both in one socket;
+a capability read first; a **4 s** listening window with 3.5 s of quiet after the SET,
+in case the `99` was simply arriving after we stopped reading; the full connect
+handshake (`00 00`, `02 00`, `04 02`, `06 00`, `f0 06`, `f6 06`) in one acked session
+before it; and `90 01` ALERT_GET_CAPABILITY first, in case alerts must be subscribed.
+Every one got a bare ack. `90 01` is itself never answered, which is the one new
+asymmetry: the device does not talk to us about alerts at all.
 
 ⚠ **This is a DIFFERENT failure from multipoint**, and collapsing them would throw
 away the only clue. Multipoint is refused for everyone, including Sony's own app.
@@ -251,9 +292,6 @@ The button is refused only for us — so there is something about the app's sess
 that this probe does not reproduce, and *that* is the thing to look for. The reads
 (`f0 06`, `f2 06`, `f6 06`) all answer us fine.
 
-⚠ Only two actions have codes. "Amazon Alexa" was in the menu and never selected. The
-capability reply plainly contains more values than two, but reading `21 31 33 22 32
-32 34` as *the list* would be inventing a structure for a byte string.
 
 ## Method notes that cost something
 
