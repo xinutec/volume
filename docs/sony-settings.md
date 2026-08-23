@@ -630,3 +630,98 @@ it is what turned up the real cause.
 that all used one type byte in both directions, and the fourth was assumed to match. Three
 agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
 and the SDK had been extracted and was sitting on disk when the assumption was made.
+
+## ⚠ ADAPTIVE SOUND CONTROL IS NOT A SETTING — 2026-08-23 17:56
+
+The XM4's headline feature, and the biggest single gap in the parity table. It cannot be
+implemented the way every other row here is, and the reason is in the command table.
+
+```
+→ 70 01     SENSE_GET_CAPABILITY, SenseInquiredType.AUTO_NC_ASM
+← 71 01 01  ✅ supported, SenseTableType.TYPE1
+```
+
+**The SENSE block has three commands and that is all of them**: `70` GET_CAPABILITY,
+`71` RET_CAPABILITY, `74` SET_STATUS. There is **no** `GET_PARAM`, no `RET_PARAM`, no
+`SET_PARAM`, no `NTFY`. Compare the neighbouring blocks, which all have the full nine.
+
+⚠ **So there is nothing to read.** Every driver in this repo confirms a write by reading
+the value back, and that is not an implementation choice — it is the rule that caught the
+XM4 refusing multipoint and caught Speak-to-Chat being written with the wrong byte. A
+setting with no getter cannot be confirmed by this codebase's own standard.
+
+⚠ **And there is nothing to switch off.** `SenseSettingControl` has exactly two entries,
+`00 NO_USE` and `01 START`. The vendor app's whole Adaptive Sound Control class is one
+method that sends `74 01 01` and nothing else — no stop, no toggle, no query. Checked by
+reading every method on it, not by grepping for "stop" and finding none.
+
+So `74 01 01` is a **trigger**: "begin sensing now". Whatever holds the on/off state, it is
+not in this block, and it is not in the 22 functions the device declares either — the only
+SENSE entry there is `71 AUTO_NC_ASM`, which is this.
+
+⚠ **Do not add a fake toggle.** An Adaptive Sound Control switch in our UI would be a
+control that cannot report its own state and cannot be turned off, drawn as if it were the
+same kind of thing as DSEE. That is the shape of the JBL Ambient Sound Control bug (#1041)
+in reverse — there a real control was missing from the UI, here an unreal one would be
+added to it.
+
+## ✅ GENERAL_SETTING1 IS THE TOUCH PANEL, and the device says so itself
+
+Found while looking for where Adaptive Sound Control keeps its state. `d1` was an
+untouched row named only `GENERAL_SETTING1`.
+
+```
+→ d0 d1     ← d1 d1 02 13 "TOUCH_PANEL_SETTING" 00 01 00
+→ d0 d2     ← d1 d2 02 12 "MULTIPOINT_SETTING" 1a "MULTIPOINT_SETTING_SUMMARY" 01 00
+→ d6 d1     ← d7 d1 01 00      false
+→ d6 d2     ← d7 d2 01 00      false
+```
+
+✅ **The shape was decoded by comparison against a known value, not by guessing.** `d2` is
+multipoint, which this repo has read many times and independently knows to be **off**; its
+capability and its value frame have the identical structure to `d1`'s. So:
+
+```
+<cmd> <GsInquiredType> <GsStringFormat 02 ENUM_NAME> <len> <name> <len> <summary> <GsSettingType> <value>
+```
+
+The lengths check out — `12` = 18 = `len("MULTIPOINT_SETTING")`, `13` = 19 =
+`len("TOUCH_PANEL_SETTING")`, `1a` = 26 for the summary — and `01` is
+`GsSettingType.BOOLEAN_TYPE` in both. `d7 d2 01 00` reading false is the check that the
+byte positions are right, because that answer is already known to be true.
+
+⚠ **These settings are self-describing, which is new here.** Every other setting in this
+file is a fixed byte with a meaning learned from a capture. `d1`/`d2`/`d3` carry their own
+names, so a model that reports "GENERAL_SETTING1" is throwing away a string the device
+sent. ⚠ `d3` GENERAL_SETTING3 is **not** on this unit — it is absent from the 22.
+
+⚠ **Nothing has been written to `d1`, and it should not be assumed writable.** Its
+neighbour `d2` is the one setting the XM4 flatly refuses, using the identical `d8 <type>
+01 <v>` frame. Sharing a frame family with a refused setting is a reason to test, not a
+reason to expect success.
+
+⚠ **The touch panel currently reads OFF.** That is the owner's setting, whatever it is for,
+and nothing here changed it.
+
+## ✅ THE THREE UNIDENTIFIED BYTES IN THE ANC FRAME ARE NAMED
+
+`68 02 <on> 02 <nc> 01 00 <ambient>` — this page has said since the 16th that "bytes 1, 3
+and 4 held `02 01 00` in all three states and are not identified". Every one of them is an
+enum in the SDK:
+
+| byte | enum | value |
+| --- | --- | --- |
+| `02` after `<on>` | `NcAsmSettingType` | `02` DUAL_SINGLE_OFF |
+| `<nc>` | `NcDualSingleValue` | `00` OFF · `01` SINGLE · `02` DUAL |
+| `01` | `AsmSettingType` | `01` LEVEL_ADJUSTMENT |
+| `00` | **`AsmId`** | `00` NORMAL · `01` VOICE |
+| `<on>` | `NcAsmEffect` | `00` OFF · `01` ON |
+
+✅ **`AsmId` is Focus on Voice, and this confirms the guess this page recorded as
+unmeasured.** It sits at the position the earlier note suspected — "byte 4 is very likely
+it, sitting at its default" — and it is `00` NORMAL because nothing has moved it.
+
+✅ **It is drivable for free.** `68 02 01 02 00 01 01 <level>` is the ambient frame with
+`AsmId.VOICE` in place of `NORMAL`, which is a switch this repo can already almost send.
+⚠ Not yet driven, and it changes what the wearer hears, so it wants the same read-write-
+restore treatment as everything else here.
