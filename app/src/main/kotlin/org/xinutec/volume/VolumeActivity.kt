@@ -40,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -393,10 +394,22 @@ private fun DeviceRow(
                 )
             }
 
-            // Settings hang off a Ready card only: there is nothing to read over a
-            // link that is not open, and offering the row would promise otherwise.
-            val ready = card.state as? DeviceState.Ready
-            if (ready != null) {
+            // Settings hang off an OPEN link — Ready, or Busy doing something to it.
+            //
+            // ⚠ **Excluding Busy is what made the list jump to the top after every
+            // write (#973).** A write goes `Ready → Busy → Ready`, and while Busy this
+            // dropped the whole section: the card collapsed from a screenful to a
+            // single spinner line, `LazyColumn` clamped the scroll offset to 0 because
+            // there was no longer that much to scroll, and growing back did not restore
+            // it. Keys were not the cause and stable ones did not help — the content
+            // height was. Keeping the section rendered keeps the card the same size
+            // across the transition, so there is nothing to clamp.
+            //
+            // ⚠ It renders from [DeviceCard.settings], which already survives Busy for
+            // exactly this reason. The values shown mid-write are the pre-write ones,
+            // which is honest: the new value is not known until the refresh lands.
+            val open = card.state is DeviceState.Ready || card.state is DeviceState.Busy
+            if (open) {
                 TextButton(
                     onClick = {
                         expanded = !expanded
@@ -417,7 +430,19 @@ private fun DeviceRow(
                     LaunchedEffect(card.address, card.settings == null) {
                         if (card.settings == null) actions.loadSettings(card.address)
                     }
-                    SettingsSection(card.address, card.settings, actions)
+                    // ⚠ **Dimmed while busy, because the spinner is at the TOP of the
+                    // card and the row you tapped may be a screen below it.** Keeping
+                    // the section rendered through a write took away the only feedback
+                    // a tap used to give — the section vanishing. Without this a tap
+                    // looks like nothing happened for the two seconds the write takes,
+                    // which invites a second one.
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier =
+                            Modifier.alpha(if (card.state is DeviceState.Busy) 0.4f else 1f),
+                    ) {
+                        SettingsSection(card.address, card.settings, actions)
+                    }
                 }
             }
         }
