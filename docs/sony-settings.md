@@ -1,4 +1,41 @@
-# Sony WH-1000XM4 — EQ, auto-off, multipoint
+# Sony WH-1000XM4
+
+## STATE — read this first; everything below is the evidence for it
+
+⚠ **The sections are in DISCOVERY order and later ones correct earlier ones.** Two
+headings asserted what their own bodies retracted until 2026-08-23. Trust this table and
+the dated section it points at; treat anything undated as older than everything dated.
+
+| | frame | where |
+| --- | --- | --- |
+| ANC / ambient | `66 02` / `68 02 <on> 02 <nc> 01 <AsmId> <amb>` | ✅ driven |
+| Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** |
+| EQ preset | `56 01` / `58 01` | ✅ driven; ⚠ band levels never exercised |
+| Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
+| Auto power off | `f6 04` / `f8 04 01 <v> 00` | ✅ driven; 2 of 6 SDK values, ⚠ menu offers 2 |
+| DSEE Extreme | `e6 02` / `e8 02 00 <v>` | ✅ driven |
+| Pause on removal | `f6 03` / `f8 03 00 <v>` | ✅ driven |
+| Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
+| Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
+| Codec, upscaling status | `18 00`, `14 00` | 👁 read only |
+| Touch panel | `d6 d1` | 👁 read; ⚠ never written |
+| Voice guidance | `46 01 01` on frame type **`0e`** | 👁 read; ⚠ **second command table** |
+| Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
+| [CUSTOM] button | `f6 06` | ⛔ refuses **us**; the app succeeds — #965 |
+| Adaptive Sound Control | `70 01` → supported | ⚠ on/off NOT FOUND — #1113 |
+| Volume `a1`, firmware `30`, telemetry `c1` | | ⛔ excluded by rule, not by the device |
+
+⚠ **THE FRAME TYPE BYTE SELECTS THE COMMAND TABLE.** `0c` = table1, `0e` = table2, and
+the ranges overlap: `40`–`49` is VPT on one and VOICE_GUIDANCE on the other. `probe.sh`
+has `SONY_TABLE2=1`; default stays `0c`.
+
+⚠ **Decoded is not reachable.** Battery was decoded and cross-checked on 2026-08-16 and
+sat unused for a week because no driver method existed. Three separate features have now
+been "known" and invisible. A ✅ above means driven **and** on the card.
+
+---
+
+## The original capture — EQ, auto-off, multipoint
 
 Decoded from a snoop capture on 2026-08-16 of Sony Headphones Connect
 (`com.sony.songpal.mdr`) driven through each setting, with the change and its
@@ -285,7 +322,7 @@ v2's `UpdtInquiredType` has no `03` and no `0b` at all, so those two frames coul
 have been produced by a v2 device. Nine values landing on nine names is the check that
 makes the rest of the extraction trustworthy rather than hopeful.
 
-### ✅ `FunctionType` — **the device will list its own features**, and this is the next move
+### ✅ `FunctionType` — the device lists its own features (asked 16:43, see below)
 
 `CONNECT_GET_SUPPORT_FUNCTION` is `06`, its reply `07`, and its payload is a list of
 `FunctionType` bytes. The encoding is *block nibble | inquired type*, so every setting
