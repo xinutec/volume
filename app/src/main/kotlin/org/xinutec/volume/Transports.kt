@@ -77,6 +77,13 @@ class RfcommTransport private constructor(
         socket.outputStream.flush()
     }
 
+    /**
+     * ⚠ A **shorter** window than [exchange] uses. Nothing was sent, so there is no
+     * round trip to wait out — this is only asking whether the device has since said
+     * anything, and paying the full 1.5 s for "no" on every settings read would be felt.
+     */
+    override fun receive(): ByteArray = readFor(perMs / 3, quietMs)
+
     override fun close() {
         runCatching { socket.close() }
     }
@@ -232,6 +239,17 @@ class GattTransport private constructor(
             BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
         )
     }
+
+    /**
+     * ⚠ **Does NOT clear first, and that is the whole difference from [exchange].**
+     * There, a queued frame cannot be the reply to a request not yet sent, so it is
+     * dropped. Here nothing is being asked, so a queued frame is exactly what the
+     * caller wants — it is the late answer or the volunteered notification.
+     *
+     * The two are one line apart on purpose: #953 was caused by the clear being
+     * missing, and this is the one place it must not happen.
+     */
+    override fun receive(): ByteArray = collect(perMs / 3, quietMs)
 
     override fun close() {
         runCatching {

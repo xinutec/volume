@@ -40,6 +40,22 @@ interface Transport {
 
     /** Write [packet] and do not wait. For protocol acks, which draw no reply. */
     fun send(packet: ByteArray)
+
+    /**
+     * Read **without** sending, for what the device volunteered or answered late.
+     *
+     * ⚠ **This exists because [exchange]'s window is not the device's schedule.** The
+     * XM4 emits notifications nobody asked for — changing DSEE makes it announce the
+     * upscaling *effect* as well — and one landing in a reply window pushes the real
+     * answer into the next one. Without a way to read again, a driver either returns
+     * the wrong frame or reports a successful write as unconfirmable. Both happened,
+     * the second one in the shipped app (#1107).
+     *
+     * Returns empty when nothing arrived, which is an ordinary outcome and not an
+     * error — a caller must bound its own retries rather than loop until this is
+     * non-empty.
+     */
+    fun receive(): ByteArray
 }
 
 /** One headphone family's ANC control, in terms of [AncMode]. */

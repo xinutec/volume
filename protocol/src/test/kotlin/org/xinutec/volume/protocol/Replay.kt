@@ -36,6 +36,23 @@ class Replay(
         sent += Hex.format(packet)
     }
 
+    /**
+     * Frames the device volunteers, handed out one per [receive].
+     *
+     * ⚠ Set by the test, not by the constructor, because these are **not** replies to
+     * anything — pairing them with a request in [steps] would model the very thing
+     * that is wrong about the real device.
+     */
+    var volunteered: List<String> = emptyList()
+
+    private var handed = 0
+
+    /** Empty once [volunteered] runs out, which is what a quiet device looks like. */
+    override fun receive(): ByteArray {
+        if (handed >= volunteered.size) return ByteArray(0)
+        return Hex.parse(volunteered[handed++].replace(" ", ""))
+    }
+
     /** Fail if the driver stopped early — a missing write is as wrong as a bad one. */
     fun assertDrained() {
         assertEquals("driver did not perform every recorded exchange", steps.size, at)

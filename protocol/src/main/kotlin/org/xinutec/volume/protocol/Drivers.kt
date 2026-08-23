@@ -377,6 +377,16 @@ object Drivers {
 
             /** `AsmId.VOICE` — Focus on Voice on. */
             const val VOICE: Byte = 0x01
+
+            /**
+             * How many extra reads to spend looking for a displaced answer.
+             *
+             * ⚠ Two, because two is what the measurement showed: one volunteered frame
+             * ahead of the reply. A larger number would turn a device that has stopped
+             * answering into a long stall, and this runs on the settings path where the
+             * user is waiting.
+             */
+            const val EXTRA_READS = 2
         }
 
         override fun read(t: Transport): AncMode? {
@@ -589,16 +599,32 @@ object Drivers {
             payload: ByteArray,
             vararg expect: Byte,
         ): ByteArray? {
-            val got = t.exchange(SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload))
-            val frames = SonyFrame.decodeAll(got).filter { it.type == SonyFrame.TYPE_DATA_MDR }
-            val data =
-                if (expect.isEmpty()) {
-                    frames.lastOrNull()
-                } else {
-                    frames.lastOrNull { it.payload.firstOrNull() in expect.toTypedArray() }
-                } ?: return null
-            ackFor(data)?.let(t::send)
-            return data.payload
+            var got = t.exchange(SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload))
+            var rounds = 0
+            while (true) {
+                val frames = SonyFrame.decodeAll(got).filter { it.type == SonyFrame.TYPE_DATA_MDR }
+                // ⚠ **Every DATA frame gets an ack, not just the one being returned.**
+                // The device asks for one per frame, and the old code acked only its
+                // chosen reply — so a volunteered notification in the same window was
+                // silently left unacknowledged. That is a protocol violation whatever
+                // else is true, and it is the most likely reason the session then ran
+                // one behind for the rest of its life.
+                frames.forEach { f -> ackFor(f)?.let(t::send) }
+                val answer =
+                    if (expect.isEmpty()) {
+                        frames.lastOrNull()
+                    } else {
+                        frames.lastOrNull { it.payload.firstOrNull() in expect.toTypedArray() }
+                    }
+                if (answer != null) return answer.payload
+                // ⚠ Bounded, and small. Nothing here waits for a device to become
+                // agreeable — this covers "the answer was behind one volunteered
+                // frame", which is what was measured. A caller that gets null still
+                // reports honestly rather than retrying forever.
+                if (expect.isEmpty() || rounds++ >= EXTRA_READS) return null
+                got = t.receive()
+                if (got.isEmpty()) return null
+            }
         }
 
         /** The ack a received DATA frame expects: type 01, sequence inverted. */
