@@ -160,6 +160,7 @@ case "${1:-list}" in
     #   ./probe.sh settings XM4 dsee=on            DSEE Extreme
     #   ./probe.sh settings XM4 pause=off          pause when removed
     #   ./probe.sh settings XM4 chat=on            Speak-to-Chat
+    #   ./probe.sh settings XM4 voice=on           Focus on Voice ⚠ ambient mode only
     who="${2:?device name substring}"
     args=(--es op settings --es device "'$who'")
     shift 2
@@ -168,10 +169,10 @@ case "${1:-list}" in
       # future value could hold one too.
       key="${kv%%=*}"; val="${kv#*=}"
       case "$key" in
-        eq|multipoint|autooff|button|quality|dsee|pause|chat)
+        eq|multipoint|autooff|button|quality|dsee|pause|chat|voice)
           args+=(--es "$key" "$val") ;;
         *) echo "unknown setting '$key' — eq, multipoint, autooff, button, quality,\
- dsee, pause, chat" >&2; exit 2 ;;
+ dsee, pause, chat, voice" >&2; exit 2 ;;
       esac
     done
     start_op "${args[@]}"

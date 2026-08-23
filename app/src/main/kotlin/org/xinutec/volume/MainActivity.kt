@@ -465,6 +465,7 @@ class MainActivity : Activity() {
      * --es op settings --es device "XM4" --es dsee on      DSEE Extreme
      * --es op settings --es device "XM4" --es pause off    pause when removed
      * --es op settings --es device "XM4" --es chat on      Speak-to-Chat
+     * --es op settings --es device "XM4" --es voice on     Focus on Voice ⚠ ambient only
      * --es op settings --es device "Bose" --es eq 8,0,0      Bose: bass,mid,treble dB
      * --es op settings --es device "Bose" --es button spotify
      * ```
@@ -498,6 +499,7 @@ class MainActivity : Activity() {
         emit("  dsee:       ${d.readSwitch(t, SonyDsee) ?: "(no answer)"}")
         emit("  pause:      ${d.readSwitch(t, SonyPauseOnRemoval) ?: "(no answer)"}")
         emit("  chat:       ${d.readSwitch(t, SonySpeakToChat) ?: "(no answer)"}")
+        emit("  voice:      ${d.readFocusOnVoice(t) ?: "(no answer)"}")
 
         intent.getStringExtra("eq")?.let { arg ->
             val preset = arg.toIntOrNull(16)
@@ -544,6 +546,13 @@ class MainActivity : Activity() {
                 emit("  → $key $arg")
                 report(d.setSwitch(t, switch, on))
             }
+        }
+        // ⚠ Ambient mode only — see setFocusOnVoice. In ANC this reports the value that
+        // is really there rather than sending a frame the device will drop.
+        intent.getStringExtra("voice")?.let { arg ->
+            val on = onOff(arg) ?: return@let emit("  ✗ voice wants on|off, not '$arg'")
+            emit("  → focus on voice $arg")
+            report(d.setFocusOnVoice(t, on))
         }
         intent.getStringExtra("quality")?.let { arg ->
             val mode = SoundQuality.entries.firstOrNull { it.name.equals(arg, ignoreCase = true) }

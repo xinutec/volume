@@ -286,6 +286,59 @@ class DriversTest {
         )
     }
 
+    /**
+     * ✅ Focus on Voice, driven on the XM4 on 2026-08-23. The three frames below are the
+     * ones that were on the wire, checksums and all.
+     */
+    @Test
+    fun `sony sets focus on voice by moving one byte of the anc frame`() {
+        val d = Drivers.SonyXm4()
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 01 02 00 01 00 14 95 3c",
+                "3e 0c 01 00 00 00 08 68 02 01 02 00 01 01 14 98 3c" to
+                    "3e 0c 01 00 00 00 08 69 02 01 02 00 01 01 14 9a 3c",
+                "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 01 02 00 01 01 14 96 3c",
+            )
+        assertEquals(Confirmation.Confirmed, d.setFocusOnVoice(t, true))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **The regression that a read-back caught and a trusted write would not have.**
+     * Sending `AsmId.NORMAL` while the XM4 is in ANC is accepted and ignored — the tidy-up
+     * after the hardware test did exactly that and left Focus on Voice switched on. So
+     * this refuses in ANC rather than sending a frame that will be dropped, and reports
+     * the value that is actually there.
+     */
+    @Test
+    fun `sony will not set focus on voice while noise cancelling is engaged`() {
+        val d = Drivers.SonyXm4()
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 01 02 02 01 00 00 83 3c",
+            )
+        assertEquals(Confirmation.Contradicted(false), d.setFocusOnVoice(t, true))
+        t.assertDrained()
+    }
+
+    /** And it reads in either mode — only the write is mode-bound. */
+    @Test
+    fun `sony reads focus on voice out of the frame it already fetches`() {
+        assertEquals(
+            true,
+            Drivers.SonyXm4().readFocusOnVoice(
+                Replay(
+                    "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                        "3e 0c 00 00 00 00 08 67 02 01 02 00 01 01 14 96 3c",
+                ),
+            ),
+        )
+    }
+
     // ---- JBL -------------------------------------------------------------------
 
     @Test
