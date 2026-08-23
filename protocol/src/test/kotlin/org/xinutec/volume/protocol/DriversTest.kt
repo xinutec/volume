@@ -399,6 +399,110 @@ class DriversTest {
     }
 
     /**
+     * ⚠ **A driver must not REPORT a mode it cannot be ASKED for.**
+     *
+     * The JBL offered no OFF for a week and no test could tell, because every check
+     * on it asked whether a mode it *does* offer round-trips — and absence is not a
+     * frame. [Drivers.JblBes.read] decoded the all-zero reply as [AncMode.OFF] the
+     * whole time, so the card could draw "off" as the current state with no chip to
+     * return to it.
+     *
+     * ⚠ **The obvious test is the wrong one**, and writing it is how this arrived at
+     * the right one: *"every driver offers OFF"* fails on the **QC45**, which
+     * genuinely has none — its ANC is a slot table of Quiet and Aware, and Bose Music
+     * offers no way to stop it either. That test would have asserted a claim about
+     * hardware that is false, which is worse than the bug it was chasing.
+     *
+     * So the invariant is the asymmetry itself, over every state each device is known
+     * to report. It holds for the QC45 (whose [Drivers.BoseQc45.read] cannot return
+     * OFF) and would have failed on the JBL. ⚠ The fixtures are the captured ones
+     * used above; a mode reachable only by a reply nobody has seen is out of scope
+     * here, as it is everywhere else in this file.
+     */
+    @Test
+    fun `no driver reports a mode it does not offer`() {
+        val states =
+            listOf(
+                Triple(Drivers.BoseQc45, "01 05 01 00" to "01 05 03 03 0b 00 03", AncMode.ANC),
+                Triple(Drivers.BoseQc45, "01 05 01 00" to "01 05 03 03 0b 0a 03", AncMode.AMBIENT),
+                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 00 0b", AncMode.ANC),
+                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 01 0b", AncMode.AMBIENT),
+                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 03 0b", AncMode.OFF),
+                Triple(
+                    Drivers.JblBes,
+                    "aa 91 01 11" to "aa 91 07 12 01 01 02 00 03 00",
+                    AncMode.ANC,
+                ),
+                Triple(
+                    Drivers.JblBes,
+                    "aa 91 01 11" to "aa 91 07 12 01 00 02 01 03 00",
+                    AncMode.AMBIENT,
+                ),
+                Triple(
+                    Drivers.JblBes,
+                    "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 01",
+                    AncMode.TALK_THRU,
+                ),
+                // ⚠ The state that had nothing to return to it until 2026-08-23.
+                Triple(
+                    Drivers.JblBes,
+                    "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 00",
+                    AncMode.OFF,
+                ),
+                Triple(
+                    Drivers.JLabQcy,
+                    "c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 01 04 04 00 4f 00",
+                    AncMode.ANC,
+                ),
+                Triple(
+                    Drivers.JLabQcy,
+                    "c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 02 04 04 00 50 00",
+                    AncMode.AMBIENT,
+                ),
+                Triple(
+                    Drivers.JLabQcy,
+                    "c0 ff 00 44 00 00 01 00 04" to "00 ff 01 45 03 00 00 00 00 00 46 00",
+                    AncMode.OFF,
+                ),
+            )
+        for ((driver, exchange, mode) in states) {
+            val what = "${driver.javaClass.simpleName} on ${exchange.second}"
+            // The fixture has to still decode, or the second assertion proves nothing.
+            assertEquals(what, mode, driver.read(Replay(exchange)))
+            assertTrue("$what reports $mode and does not offer it", mode in driver.modes)
+        }
+        // ⚠ Sony carries per-session sequence state, so it needs a driver of its own
+        // rather than a shared one — the same reason the read tests above build one.
+        for (fixture in listOf(sonyOff to AncMode.OFF, sonyAnc to AncMode.ANC)) {
+            val driver = Drivers.SonyXm4()
+            assertEquals(fixture.second, driver.read(Replay(sonyReadRequest to fixture.first)))
+            assertTrue("sony reports ${fixture.second}", fixture.second in driver.modes)
+        }
+    }
+
+    /**
+     * The frame that will go on the wire for OFF, asserted before it is sent.
+     *
+     * ⚠ **There are two candidate writers and this is the cheaper one.** The vendor
+     * app sends `aa 91 01 13` (`genSetANCModeOFF`, named in the SDK); ours sets all
+     * three TLV slots to zero through the same sub-op `10` every other mode uses.
+     * Both are plausible and only the device settles it — ⚠ and a refusal here looks
+     * like every other refusal on this protocol: an ack, and the old state on
+     * read-back. Which is why [Drivers.JblBes.set] confirms with a real `aa 91 01 11`
+     * rather than with the reply.
+     */
+    @Test
+    fun `jbl writes off as three zero slots`() {
+        val t =
+            Replay(
+                "aa 91 07 10 01 00 02 00 03 00" to "aa 91 07 12 01 00 02 00 03 00",
+                "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 00",
+            )
+        assertEquals(Confirmation.Confirmed, Drivers.JblBes.set(t, AncMode.OFF))
+        t.assertDrained()
+    }
+
+    /**
      * ⚠ **The JBL reported TalkThru as OFF until 2026-08-16.** [Drivers.JblBes.read]
      * checked the first two TLV slots and fell through to OFF, so a mode the device
      * was really in rendered as the one state it cannot be put into from here — and

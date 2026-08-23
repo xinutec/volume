@@ -107,7 +107,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 
 | | QC45 | QC35 | Sony XM4 | JBL M2 | JLab |
 | --- | --- | --- | --- | --- | --- |
-| ANC | ✅ | ✅ | ✅ | ⚠ +TalkThru, no OFF #1041 | ✅ |
+| ANC | ✅ | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
 | EQ / tone | ✅ 3 bands | — | ✅ preset | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
@@ -115,7 +115,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
-twenty-three device controls and fourteen of them are here — the inventory is in
+twenty-three device controls and fifteen of them are here — the inventory is in
 `docs/protocols.md` and the gap is #974.
 
 ⚠ **The other four now have a NAMED surface and no audit**, which are different things.
