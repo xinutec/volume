@@ -347,7 +347,7 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and fourteen are in our app.**
+are decoded well enough to drive, and fifteen are in our app.**
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -364,7 +364,7 @@ show that, which is the limit of counting them.
 | --- | --- | --- |
 | battery % | ✅ `aa 25`, and it can be ASKED | ✅ read |
 | ⏻ power off | ✅ `aa 97 00` | — |
-| Ambient Sound Control master switch | ✅ `aa 91 01 13` | ⚠ MISSING — #1041 |
+| Ambient Sound Control master switch | ✅ `aa 91 07 10` all-zero, driven | ✅ r/w |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
 | Customize ANC | ✅ `aa 91 01 21` | — |
 | Personi-Fi | ✅ `aa a1`; ⚠ `aa 9a` is the TEST | — |
@@ -390,23 +390,43 @@ show that, which is the limit of counting them.
 2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the
 same reason it was cheap: `GetSetFeatureCmd` names its own keys.
 
-### ⚠ THE JBL CANNOT BE SWITCHED OFF FROM OUR APP — found 2026-08-17 23:47
+### ✅ Switching the JBL OFF — found missing 2026-08-17 23:47, driven 2026-08-23 16:32
 
-`Drivers.JblBes.modes` is `ANC`, `AMBIENT`, `TALK_THRU`. There is no `OFF`, so the one
-thing a JBL owner most obviously wants — noise cancelling off — cannot be done here at
-all. The vendor app has it as the Ambient Sound Control master switch.
+The one thing a JBL owner most obviously wants, and for a week this app could not do it:
+`Drivers.JblBes.modes` held `ANC`, `AMBIENT`, `TALK_THRU` and no `OFF`.
+
+✅ **Nothing on the wire was missing, and no new frame was needed.** `read` already
+decoded the all-zero reply as OFF, and `write` already built it, because "exactly one
+slot is set" makes OFF fall out of the same arithmetic as the other three. The gap was
+one element in a set.
 
 ```
-→ aa 91 01 13                             genSetANCModeOFF, named in the SDK
+→ aa 91 07 10 01 00 02 00 03 00           ours: sub-op 10, all three slots zero  ✅ ACCEPTED
+→ aa 91 01 13                             genSetANCModeOFF, what the vendor app sends
 → aa 91 01 11   ← aa 91 07 12 01 00 02 00 03 00      off: all three slots 00
-                ← aa 91 07 12 01 01 02 00 03 00      ANC, which is how it reads now
+                ← aa 91 07 12 01 01 02 00 03 00      ANC
 ```
+
+✅ **Driven both ways and confirmed by ear**, which is the only evidence that separates
+"the device stored it" from "the device acts on it". Going into OFF the M2 announced
+**"ambient sound control off"** — the vendor app's own name for the row — and back to ANC
+it said **"noise cancelling"**. ⚠ The cycle went ANC → OFF → ANC rather than repeating
+OFF, because a write against the value already held is indistinguishable from a broken
+command; it may announce nothing at all, which reads as a refusal.
+
+⚠ **`aa 91 01 13` was never needed and remains unexercised here.** Two plausible writers
+and the device took the cheaper one, so the SDK's dedicated OFF sub-op is still only a
+name. Do not write it down as equivalent — nothing has sent it.
 
 ⚠ **It never appeared in the 23-row inventory, and the reason is worth keeping.** That
 table counts the vendor app's ROWS, and this control hides *inside* the ANC row rather
-than beside it — so a gap analysis built from someone else's UI cannot see it. The four
-other devices here all offer OFF; only the JBL's driver omits it, which is why nothing
-looked odd. #1041.
+than beside it — so a gap analysis built from someone else's UI cannot see it. #1041.
+
+⚠ **And the obvious guard against a repeat is the wrong one.** "Every driver offers OFF"
+fails on the **QC45**, which genuinely has none — its ANC is a slot table of Quiet and
+Aware and Bose Music cannot stop it either, so that test would assert something false
+about the hardware. `DriversTest.no driver reports a mode it does not offer` states the
+actual defect instead: the JBL could *report* a state it could not be *asked* for.
 
 ### ✅ Three rows settled by one read sweep and two drives — 2026-08-17 23:36
 

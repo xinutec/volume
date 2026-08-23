@@ -141,9 +141,20 @@ object Drivers {
      * ✅ **All three driven, TalkThru on 2026-08-16** — and confirmed against the
      * vendor app's own selector, which is what makes it TalkThru rather than merely
      * "the third slot went to 1". Its screen showed TalkThru highlighted.
+     *
+     * ⚠ **[modes] omitted OFF until 2026-08-23, so the one thing a JBL owner most
+     * obviously wants could not be done here at all.** Nothing else was missing:
+     * [read] already decodes the all-zero frame as OFF and [write] already builds
+     * it, because "exactly one slot is set" makes OFF fall out of the same
+     * arithmetic. The gap was three words in a set, and it survived because the
+     * inventory that would have caught it (#974) counts the vendor app's *rows* —
+     * and its Ambient Sound Control master switch lives *inside* the ANC row rather
+     * than beside it. A parity analysis built from someone else's UI cannot see a
+     * gap of that shape. #1041.
      */
     object JblBes : AncDriver {
-        override val modes = setOf(AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
+        override val modes =
+            setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
 
         /**
          * `aa 91 07 12 01 <anc> 02 <amb> 03 <talkthru>`.
