@@ -356,6 +356,10 @@ class ScreenTest {
                     Settings(gestures = mapOf(Gesture.LEFT_TAP to GestureAction.ANC_AMBIENT)),
                 "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),
                 "button" to Settings(button = "a"),
+                "dsee" to Settings(dsee = true),
+                "pauseOnRemoval" to Settings(pauseOnRemoval = true),
+                "speakToChat" to Settings(speakToChat = false),
+                "focusOnVoice" to Settings(focusOnVoice = false),
             )
         for ((name, one) in each) {
             assertTrue("$name alone should be something to show", one.any)
@@ -384,12 +388,24 @@ class ScreenTest {
             Settings(
                 multipoint = false,
                 button = "Ambient Sound Control",
-                refuses = setOf(SettingKind.MULTIPOINT, SettingKind.BUTTON),
+                refuses =
+                    mapOf(
+                        SettingKind.MULTIPOINT to RefusalReason.DEVICE,
+                        SettingKind.BUTTON to RefusalReason.THIS_APP,
+                    ),
             )
         assertEquals(false, xm4.multipoint)
         assertFalse(xm4.writable(SettingKind.MULTIPOINT))
         assertFalse(xm4.writable(SettingKind.BUTTON))
         assertTrue(xm4.writable(SettingKind.EQ))
+
+        // ⚠ **The two are not refused for the same reason and the screen says so.**
+        // Both were a plain Set until 2026-08-23, under one note reading "not even its
+        // own app" — true of multipoint, false of the button, which Sony's own app
+        // changes freely. That is #965's asymmetry, and it was rendered as its opposite.
+        assertEquals(RefusalReason.DEVICE, xm4.refusal(SettingKind.MULTIPOINT))
+        assertEquals(RefusalReason.THIS_APP, xm4.refusal(SettingKind.BUTTON))
+        assertNull(xm4.refusal(SettingKind.EQ))
 
         val qc45 = Settings(multipoint = false, tone = BoseBands(0, 0, 0))
         assertTrue(qc45.writable(SettingKind.MULTIPOINT))
@@ -487,7 +503,11 @@ class ScreenTest {
          * the device was ASKED, and counting it would make every probed device look as
          * though it had something to show. It was added on 2026-08-17 and this test
          * caught it immediately, which is what it is for.
+         *
+         * ⚠ `focusOnVoiceSettable` is here for the same reason: it says whether ONE row
+         * gets a switch, not whether there is a row. A device in ANC would otherwise
+         * count as having something to show purely by being in ANC.
          */
-        val IGNORED = setOf("bands", "refuses", "attempted")
+        val IGNORED = setOf("bands", "refuses", "attempted", "focusOnVoiceSettable")
     }
 }

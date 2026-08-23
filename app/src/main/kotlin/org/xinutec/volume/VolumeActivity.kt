@@ -59,6 +59,7 @@ import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.NoteKind
+import org.xinutec.volume.protocol.RefusalReason
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
@@ -227,6 +228,16 @@ interface SettingActions {
 
     /** ⚠ A plain switch — the only JBL row here that carries nothing alongside it. */
     fun setLowVolumeEq(address: String, on: Boolean)
+
+    /** DSEE Extreme; `true` is `AUTO`. */
+    fun setDsee(address: String, on: Boolean)
+
+    fun setPauseOnRemoval(address: String, on: Boolean)
+
+    fun setSpeakToChat(address: String, on: Boolean)
+
+    /** ⚠ Ambient mode only — the UI offers it only when the device is there. */
+    fun setFocusOnVoice(address: String, on: Boolean)
 
     /** ⚠ Three states and no switch; [SmartAv] says why off is one of them. */
     fun setSmartAv(address: String, v: SmartAv)
@@ -416,11 +427,15 @@ private fun DeviceRow(
 /**
  * Everything a device has beyond ANC.
  *
- * ⚠ **A setting the device refuses is drawn as a value, not a control.** The XM4
- * reports its multipoint and its [CUSTOM] button and then ignores writes to both —
- * measured, and Sony's own app fails the same way — so a switch here would flip and
- * spring back, which is this repo's oldest trap wearing a new hat. The value is still
- * worth showing; the control is not.
+ * ⚠ **A setting that will not move is drawn as a value, not a control.** The XM4
+ * reports its multipoint and its [CUSTOM] button and then ignores writes to both, so a
+ * switch here would flip and spring back — this repo's oldest trap wearing a new hat.
+ * The value is still worth showing; the control is not.
+ *
+ * ⚠ **They do not fail for the same reason and the screen must not say they do.** This
+ * comment used to read "and Sony's own app fails the same way" about both. That is true
+ * of multipoint and false of the button, and the note rendered under them said so out
+ * loud — see [RefusalReason].
  */
 @Composable
 private fun SettingsSection(address: String, settings: Settings?, actions: SettingActions) {
@@ -725,7 +740,58 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 writable = settings.writable(SettingKind.MULTIPOINT),
                 checked = on,
                 onChange = { actions.setMultipoint(address, it) },
+                refusal = settings.refusal(SettingKind.MULTIPOINT),
             )
+        }
+
+        settings.dsee?.let { on ->
+            SettingRow(
+                "DSEE Extreme",
+                if (on) "on" else "off",
+                writable = settings.writable(SettingKind.DSEE),
+                checked = on,
+                onChange = { actions.setDsee(address, it) },
+            )
+        }
+
+        settings.pauseOnRemoval?.let { on ->
+            SettingRow(
+                "Pause when removed",
+                if (on) "on" else "off",
+                writable = settings.writable(SettingKind.PAUSE_ON_REMOVAL),
+                checked = on,
+                onChange = { actions.setPauseOnRemoval(address, it) },
+            )
+        }
+
+        settings.speakToChat?.let { on ->
+            SettingRow(
+                "Speak-to-Chat",
+                if (on) "on" else "off",
+                writable = settings.writable(SettingKind.SPEAK_TO_CHAT),
+                checked = on,
+                onChange = { actions.setSpeakToChat(address, it) },
+            )
+        }
+
+        settings.focusOnVoice?.let { on ->
+            // ⚠ Shown always, switchable only in ambient. The fourth distinct reason a
+            // control is absent on this screen, and the sentence says which one it is —
+            // a missing switch with no explanation reads as a missing feature.
+            SettingRow(
+                "Focus on Voice",
+                if (on) "on" else "off",
+                writable = settings.focusOnVoiceSettable,
+                checked = on,
+                onChange = { actions.setFocusOnVoice(address, it) },
+            )
+            if (!settings.focusOnVoiceSettable) {
+                Text(
+                    "switch to Ambient to change this",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         settings.autoOff?.let { mode ->
@@ -774,7 +840,7 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                     }
                 }
             } else {
-                RefusedNote()
+                RefusedNote(settings.refusal(SettingKind.BUTTON))
             }
         }
     }
@@ -800,6 +866,7 @@ private fun SettingRow(
     writable: Boolean,
     checked: Boolean,
     onChange: (Boolean) -> Unit,
+    refusal: RefusalReason? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -815,7 +882,7 @@ private fun SettingRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (!writable) RefusedNote()
+            RefusedNote(refusal)
         }
         if (writable) {
             Switch(checked = checked, onCheckedChange = onChange)
@@ -825,9 +892,25 @@ private fun SettingRow(
 
 /** ⚠ The one sentence that keeps a missing control from reading as a missing feature. */
 @Composable
-private fun RefusedNote() {
+private fun RefusedNote(reason: RefusalReason?) {
+    // ⚠ Two sentences because there are two facts. One of them used to be said about
+    // both, and was false about the button — see [RefusalReason].
+    val text =
+        when (reason) {
+            RefusalReason.DEVICE -> {
+                "this pair will not let anything change it — not even its own app"
+            }
+
+            RefusalReason.THIS_APP -> {
+                "the headphones ignore this from us; their own app can still change it"
+            }
+
+            null -> {
+                return
+            }
+        }
     Text(
-        "this pair will not let anything change it — not even its own app",
+        text,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.tertiary,
     )

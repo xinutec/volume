@@ -47,7 +47,36 @@ enum class SettingKind {
     AUTO_OFF,
     SOUND_QUALITY,
     BUTTON,
+    DSEE,
+    PAUSE_ON_REMOVAL,
+    SPEAK_TO_CHAT,
+    FOCUS_ON_VOICE,
 }
+
+/**
+ * Why a setting is shown without a control.
+ *
+ * ⚠ **One boolean was carrying two different facts, and the screen asserted the
+ * stronger one for both.** `refuses` held MULTIPOINT and BUTTON together, and the note
+ * under them read *"this pair will not let anything change it — not even its own app"*.
+ * That is true of multipoint, measured. It is **false of the [CUSTOM] button**, which
+ * Sony's app changes freely and only this repo cannot — the asymmetry that is the whole
+ * content of #965. So the app was telling its owner something untrue about their own
+ * hardware, in the one place the reasoning was supposed to be visible.
+ */
+enum class RefusalReason {
+    /** The device refuses everyone, its own app included. Multipoint, measured. */
+    DEVICE,
+
+    /** ⚠ Only us. The vendor app succeeds with the identical bytes — see #965. */
+    THIS_APP,
+}
+
+/** Focus on Voice, and whether the device is in the mode that lets it move. */
+data class Focus(
+    val on: Boolean?,
+    val settable: Boolean,
+)
 
 /**
  * What one device reported when asked for everything it has.
@@ -126,6 +155,23 @@ data class Settings(
     val psap: Boolean? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
+    /** DSEE Extreme — `true` is `UpscalingSettingValue.AUTO`, not a generic "on". */
+    val dsee: Boolean? = null,
+    /** Pause when the headphones come off. ⚠ Not [autoOff], which powers them down. */
+    val pauseOnRemoval: Boolean? = null,
+    val speakToChat: Boolean? = null,
+    /**
+     * Focus on Voice — **readable always, settable only in ambient mode.**
+     *
+     * ⚠ A fourth kind of "no control", and it is none of the other three: not refused,
+     * not a hearing choice, not an editor that would wipe data. The XM4 accepts the
+     * frame in ANC and silently ignores the byte, which is how the tidy-up after the
+     * first hardware test left it switched on. [focusOnVoiceSettable] is what the
+     * screen asks, so the reason lives here rather than being re-derived in the UI.
+     */
+    val focusOnVoice: Boolean? = null,
+    /** Whether the device is in the ambient mode [focusOnVoice] requires. */
+    val focusOnVoiceSettable: Boolean = false,
     /**
      * Settings this device reports but will not let this app change.
      *
@@ -135,7 +181,7 @@ data class Settings(
      * not an answer. Showing the value read-only is honest and still useful; you can
      * see multipoint is off, you just cannot change it from here.
      */
-    val refuses: Set<SettingKind> = emptySet(),
+    val refuses: Map<SettingKind, RefusalReason> = emptyMap(),
     /**
      * Whether this device was actually ASKED for settings.
      *
@@ -165,9 +211,14 @@ data class Settings(
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
-                autoPlay != null || balance != null || psap != null
+                autoPlay != null || balance != null || psap != null ||
+                dsee != null || pauseOnRemoval != null || speakToChat != null ||
+                focusOnVoice != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
+
+    /** Why [kind] has no control, or null when it has one. */
+    fun refusal(kind: SettingKind): RefusalReason? = refuses[kind]
 }
 
 sealed interface DeviceState {
