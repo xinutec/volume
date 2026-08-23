@@ -235,3 +235,217 @@ evening run wrote up a multipoint retry as "refused" when the tap had missed the
 switch entirely. Take the coordinates from `uiautomator dump` bounds, and prefer
 RFCOMM — the probe echoes every byte it sends, so "not asked" can never read as "asked
 and refused".
+
+## ✅ The SDK names the whole XM4 surface — 2026-08-23, offline, no hardware
+
+`apktool d com.sony.songpal.mdr` was already on disk (`~/.cache/volume-apks/sony-smali`)
+and nobody had read its enums. `scripts/smali_enum.py` does, and it turns most of the
+`?` rows on this page into named commands without a capture, a device, or a write.
+
+⚠ **"Each a plain enum whose ordinal IS its byte" — `docs/protocols.md` said that, and
+it is wrong past the first eight entries.** These enums carry the protocol byte as a
+*separate constructor argument*:
+
+    invoke-direct {v0, v1, v2, v3}, …Command;-><init>(Ljava/lang/String;IB)V
+                       ^name ^ordinal ^the byte
+
+`CONNECT_*` are ordinals 0–7 and bytes `00`–`07`, so counting agrees — and then
+`GET_TEST` is ordinal 8 and byte `0f`. This is the third time in this repo that an
+ordinal has been taken for a wire value; the other two are the JBL's gesture tables.
+
+### ✅ The XM4 speaks **v1/table1**, and that is measured rather than assumed
+
+The APK ships `mdr/{v1,v2}/{table1,table2}`, with different meanings for the same
+bytes. Every frame this repo has captured lands on **v1**:
+
+| observed | v1/table1 | v2/table1 would say |
+| --- | --- | --- |
+| `f6 04` auto power off | `04` AUTO_POWER_OFF | `04` VOICE_ASSISTANT_SETTINGS |
+| `f6 06` the [CUSTOM] button | `06` ASSIGNABLE_SETTINGS | `06` WEARING_STATUS_DETECTOR |
+| `56 01` EQ | `01` PRESET_EQ | `01` EBB |
+| `e6 01` sound quality | `01` CONNECTION_MODE | `01` UPSCALING |
+| `66 02` ANC | `02` NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE | `02` NC_MODE_SWITCH_AND_ASM_ON_OFF |
+
+✅ **And the clincher is the nine device-info strings**, which this page has carried
+since 2026-08-16 as "`36 02..0b` device info strings" with no idea what they were. `36`
+is `UPDT_GET_PARAM` and v1's `UpdateInquiredType` names every one:
+
+```
+37 02  CATEGORY_ID                   "HP002"
+37 03  SERVICE_ID                    "MDRID294301"
+37 04  NATION_CODE                   "CE7"
+37 06  SERIAL_NUMBER                 "0000000000502474"
+37 07  BLE_TX_POWER                  cb
+37 08  BATTERY_POWER_THRESHOLD       14 = 20%
+37 09  UPDATE_METHOD                 25
+37 0a  BATTERY_POWER_THRESHOLD_FOR_INTERRUPTING_FW_UPDATE   14
+37 0b  UNIQUE_ID_FOR_DEVICE_BINDING  "8BD1C6930CD0F12E"
+```
+v2's `UpdtInquiredType` has no `03` and no `0b` at all, so those two frames could not
+have been produced by a v2 device. Nine values landing on nine names is the check that
+makes the rest of the extraction trustworthy rather than hopeful.
+
+### ✅ `FunctionType` — **the device will list its own features**, and this is the next move
+
+`CONNECT_GET_SUPPORT_FUNCTION` is `06`, its reply `07`, and its payload is a list of
+`FunctionType` bytes. The encoding is *block nibble | inquired type*, so every setting
+this repo has decoded appears in it at exactly the two bytes it is driven with:
+
+```
+11 BATTERY_LEVEL       12 UPSCALING_INDICATOR   13 CODEC_INDICATOR    14 BLE_SETUP
+15 LEFT_RIGHT_BATTERY_LEVEL   17 LEFT_RIGHT_CONNECTION_STATUS   18 CRADLE_BATTERY_LEVEL
+21 POWER_OFF           22 CONCIERGE_DATA        23 TANDEM_KEEP_ALIVE  30 FW_UPDATE
+38 PAIRING_DEVICE_MANAGEMENT_CLASSIC_BT         39 VOICE_GUIDANCE
+41 VPT                 42 SOUND_POSITION
+51 PRESET_EQ           52 EBB                   53 PRESET_EQ_NONCUSTOMIZABLE
+61 NOISE_CANCELLING    62 NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE     63 AMBIENT_SOUND_MODE
+71 AUTO_NC_ASM         81 NC_OPTIMIZER          92 VIBRATOR_ALERT_NOTIFICATION
+a1 PLAYBACK_CONTROLLER b1 TRAINING_MODE         c1 ACTION_LOG_NOTIFIER
+d1 GENERAL_SETTING1    d2 GENERAL_SETTING2      d3 GENERAL_SETTING3
+e1 CONNECTION_MODE     e2 UPSCALING             f1 VIBRATOR           f2 POWER_SAVING_MODE
+f3 CONTROL_BY_WEARING  f4 AUTO_POWER_OFF        f5 SMART_TALKING_MODE f6 ASSIGNABLE_SETTINGS
+```
+`62` is ANC, `51` the equaliser, `f4` auto power off, `f6` the button, `d2` multipoint —
+all five already driven from this repo, at those bytes. So the table is cross-validated
+five ways before it is used for anything new.
+
+⚠ **This is the Sony answer to "what does this device actually have", and it is ONE
+READ.** The JBL needed twenty-three rows read off a screen by hand (`docs/protocols.md`)
+because its SDK has no such list; Sony's device declares it. Asking is safe — a Get on
+an established session — and it replaces guessing about which of the rows below the XM4
+supports. ⚠ **Nothing here has asked it yet**, and until it does, every row below is a
+thing the *protocol* has, not a thing this *unit* has.
+
+### ✅ The value enums, and the four questions they answer
+
+⚠ Each of these is a claim about the vendor's APK. They are what makes a command
+usable, and none is a measurement — see the caveat at the end.
+
+**`EqPresetId` — the whole preset menu**, which this page said "the menu holds more and
+nothing captured enumerates them":
+```
+00 OFF   01 ROCK   02 POP   03 JAZZ   04 DANCE   05 EDM   06 R_AND_B_HIP_HOP   07 ACOUSTIC
+10 BRIGHT  11 EXCITED  12 MELLOW  13 RELAXED  14 VOCAL  15 TREBLE  16 BASS  17 SPEECH
+a0 CUSTOM  a1..a5 USER_SETTING1..5     ff UNSPECIFIED    (08–0f, 18–1f reserved)
+```
+✅ All five ids ever observed land: `a0`/`a1`/`a2` are CUSTOM and two user slots, `16` is
+BASS and `17` is SPEECH. **`setEqPreset(preset: Int)` can carry names now** instead of a
+number the owner has to recognise.
+
+**`AutoPowerOffElementId`** — this page says only `10`/`11` were exercised and that "a
+timer encoding, if one exists, is unmeasured". It exists and it is named:
+```
+00 POWER_OFF_IN_5_MIN   01 …30_MIN   02 …60_MIN   03 …180_MIN
+10 POWER_OFF_WHEN_REMOVED_FROM_EARS  11 POWER_OFF_DISABLE
+```
+✅ The two driven values are exactly the two the XM4's menu offered. ⚠ **That the other
+four are in the enum is not evidence this unit takes them** — the menu did not offer
+them, which is the device declining before anything is sent. One bounded write with a
+read-back is what would settle it, and `06`/`07` above is the cheaper question.
+
+**`AssignableSettingsPreset` — what the [CUSTOM] button can be.** This page refused to
+read the capability reply's `21 31 33 22 32 32 34` as a list, on the grounds that doing
+so would be inventing a structure. It was right to refuse, and here is the real list:
+```
+00 AMBIENT_SOUND_CONTROL   10 VOLUME_CONTROL   20 PLAYBACK_CONTROL
+30 VOICE_RECOGNITION       31 GOOGLE_ASSISTANT 32 AMAZON_ALEXA   33 TENCENT_XIAOWEI
+ff NO_FUNCTION
+```
+✅ `00` and `31` are the two this repo drove, and they are named exactly as the app's
+screen names them.
+
+⚠ **`10` VOLUME_CONTROL is in that list**, which makes Sony's button the second place in
+this repo where a setting can bind a control to the volume — the JBL's three gesture
+actions are the first. The rule is the same and it is not optional.
+
+### ✅ The capability reply decodes exactly, and it is a NESTED list
+
+`f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34` — 23 bytes
+this page called "plainly more values than two" and declined to parse. With
+`AssignableSettingsKey` (`00` left, `01` right, `02` custom, `03` C), `…Action` and
+`…Function` it reads straight through, and the length lands on the byte:
+
+```
+01                one assignable key
+02                CUSTOM_KEY  ← the XM4's button, and the only key it has
+01 00             ⚠ two bytes NOT attributed; carried, not explained
+03                three presets are offered for it
+  00 02  00 01  21 02          AMBIENT_SOUND_CONTROL: tap → NC_ASM_OFF,
+                               long-press-then-activate → NC_OPTIMIZER
+  31 03  00 31  01 33  22 32   GOOGLE_ASSISTANT: tap → GET_YOUR_NOTIFICATION,
+                               double tap → STOP_GA, hold-during → TALK_TO_GA
+  32 01  00 34                 AMAZON_ALEXA: tap → VOICE_INPUT_CANCEL_AA
+```
+✅ **1 + 1 + 2 + 1 + 6 + 8 + 4 = 23**, and every byte is a legal member of the enum its
+position calls for. A wrong grouping would leave a remainder or an illegal value, and
+this is the check that separates a decode from a story.
+
+✅ **And it answers the hearing question before it was asked.** The XM4 offers exactly
+three presets and VOLUME_CONTROL is not among them, so this unit's button cannot be
+bound to the volume at all. ⚠ That is the DEVICE's answer, not a property of the enum —
+so an editor must offer what `f0 06` returns, never what `AssignableSettingsPreset`
+contains. Reading the enum as the menu is the same mistake as reading `values_Action` as
+the JBL's action space, which cost two published corrections there.
+
+### ✅ `99`/`98` are ALERT, which sharpens #965 considerably
+
+The button write's unexplained exchange — the device sending `99 01 02 01`, the app
+answering `98 01 02 01`, and only then `f9 06 01 31` — is the **ALERT block**:
+`98` `ALERT_SET_PARAM`, `99` `ALERT_NTFY_PARAM`, and v1's `AlertInquiredType` `01` is
+`FIXED_MESSAGE`. So the device is raising a **dialog** and the write commits when the
+app answers it. That is the "Reconnects to the headphones" prompt, on the wire.
+
+⚠ **And this repo never receives the `99` at all** — it sends the identical SET and gets
+a bare ack. So the question in #965 is no longer "what does `98 01 02 01` do"; it is
+**why the device raises no alert for us**. The obvious candidate is now named: the app
+declares itself with `CONNECT_GET_SUPPORT_FUNCTION` (`06`) and this repo never has.
+⚠ Labelled a hypothesis. The test is cheap and read-only up to the last frame: `00 00`,
+then `02`, `04`, `06`, then the SET.
+
+### The rows this names that nothing has touched
+
+⚠ **A wire identity is not a decode.** Each of these is one Get away from a value and
+one capture away from meaning; none of them has been asked.
+
+| frame | feature | note |
+| --- | --- | --- |
+| `10`/`11` | COMMON_GET/RET_BATTERY_LEVEL | the XM4 card has no battery at all today |
+| `18`/`19` | AUDIO_CODEC — `01` SBC `02` AAC `10` LDAC `20`/`21` aptX | which codec is live |
+| `14`/`15` | UPSCALING_EFFECT — `00` OFF `01` VALID `02` INVALID | DSEE, as a status |
+| `e6 02` | UPSCALING — `00` OFF `01` AUTO | **DSEE Extreme**, the setting |
+| `24`/`25` | CONNECTION_STATUS | |
+| `1c`/`1d` | BLUETOOTH_DEVICE_INFO | |
+| `f6 03` | CONTROL_BY_WEARING — `00`/`01` | pause when removed |
+| `f6 05`, `fa 05` | SMART_TALKING_MODE — **Speak-to-Chat** | sensitivity `00` AUTO `01` HIGH `02` LOW; mode-out time `00` FAST `01` MID `02` SLOW `03` NONE |
+| `f6 02` | POWER_SAVING_MODE | |
+| `f6 01` | VIBRATOR | |
+| `70`/`71`/`74` | SENSE — `01` AUTO_NC_ASM | **Adaptive Sound Control** |
+| `82`–`87` | OPT — `01` NC_OPTIMIZER; control `00` CANCEL `01` START | ⚠ plays test tones |
+| `46`–`49` | VPT `01`, SOUND_POSITION `02` | |
+| `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
+| `d6 d1`, `d6 d3` | GENERAL_SETTING1 and 3 | `d2` is multipoint |
+| `22` | COMMON_SET_POWER_OFF | ⚠ ends the session, like the JBL's `aa 97 00` |
+| `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | ⚠ telemetry, see below |
+
+✅ **`AsmId` names a byte this repo carries without understanding.** The ANC write is
+`68 02 <on> 02 <nc> 01 00 <ambient>`, and this page says bytes 1, 3 and 4 "held `02 01
+00` in all three states and are **not** identified". `AsmId` is `00 NORMAL` / `01 VOICE`,
+which is the app's **Focus on Voice** switch — so byte 4 is very likely it, sitting at
+its default. ⚠ **Likely, not measured**: nothing has moved it, and this page's own rule
+is that a byte constant across every captured state is not attributed by a plausible
+name. Flipping Focus on Voice in the vendor app for one capture settles it, and would
+add the switch.
+
+⚠ **`a0`–`a9` PLAY includes the volume, and `a8` is its SET.** The 110 unsolicited
+`a9 01 20 12` frames in the 2026-08-16 capture are this block notifying. Whatever the
+`20 12` is, `PLAY_SET_PARAM` is the one command family on this device that could raise a
+level, and it is out of scope for the same reason the JBL's `56` VOLUME_CONTROL is.
+
+⚠ **Sony's headphones keep usage telemetry too**, and the app uploads it: `c4 01 00` →
+`c9 01 {"v":"M6","logs":[…]}`, already visible in the capture. The same note as the
+JBL's `aa 13` — nothing here reads it, and nothing should start without a better reason
+than the frame being understood.
+
+⚠ **All of the above is the APK's word.** Every row is a claim about Sony's app until it
+is met on the wire; `docs/captures.md` is why that distinction has its own paragraph.
+The five cross-checks above are what make it worth acting on, not what make it true.

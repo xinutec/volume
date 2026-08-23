@@ -81,7 +81,7 @@ Differs from the QC45 — battery moves, ANC moves:
 ```
 00 01  "1.0.4"   00 05  "4.8.1"   00 06  own BD_ADDR
 00 07  "077061Z93573967AZ"        01 02  "Pippijn Bose QC35"
-01 04  3c  ← battery 60% (QC45 keeps it at 02 02)
+01 04  3c  ⚠ NOT battery — see below
 01 06  01 0b  ← ANC       01 03  a1 00 04 cf de     01 09  10 04 02 07
 02 02  46        03 01  01      03 04  ff 00000000 "0.0.0"
 04 04/04 09  paired + active     05 01/05 03/05 04/05 05/05 07  as QC45
@@ -94,8 +94,27 @@ QC35 block `1f` (may not exist — older model).
 
 EQ (`01 07`), multipoint (`01 0a`) and the Action button (`01 09`) are **decoded** —
 `docs/bose-settings.md`, from the 2026-08-16 capture rather than from this sweep.
-⚠ Two things that leaves open about the list above: `01 0a` answers a Get but is not
-among the readable functions recorded here, and auto-off was never located at all.
+⚠ One thing that leaves open about the list above: `01 0a` answers a Get but is not
+among the readable functions recorded here. ✅ Auto-off is no longer among them —
+it is `01 04`, see the correction at the end of this page.
 
 A long sweep ends in `Broken pipe` around block `0d`; the device closes after a
 run of unsupported blocks. Range-limit rather than sweeping to `12` blindly.
+
+## ⚠ `01 04` is the STANDBY TIMER, not the battery — 2026-08-23
+
+The QC35 list above read `01 04  3c` as "battery 60%", and noted that the QC45 keeps
+its battery at `02 02` instead. Bose Connect's own SDK names both, unobfuscated
+(`docs/bose-settings.md`): `02 02` is `STATUS/BATTERY_LEVEL` on **both** devices, and
+`01 04` is `SETTINGS/STANDBY_TIMER` — so `3c` is **sixty minutes**, Bose Connect's
+default auto-power-off, and this page's own QC35 line `02 02  46` is the battery it
+was looking for.
+
+⚠ **0x3c being a believable battery percentage is the whole reason the wrong reading
+stood**, next to a device where the battery really did move. The tell was available:
+the QC45 answers `02 02  5a ff ff 00` and the QC35 `02 02  46`, so neither of them
+lacks the function that `01 04` was invented to replace.
+
+⚠ **Inference, not measurement.** Read `01 04` and `02 02` on the QC35 and compare
+each against Bose Connect's screens. That settles #966 for both devices in one pass —
+the auto power off that "is not on the QC45's device page at all".

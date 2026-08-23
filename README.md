@@ -116,7 +116,15 @@ named in a task; the frames are in `docs/`, not repeated here.
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-three device controls and fourteen of them are here — the inventory is in
-`docs/protocols.md` and the gap is #974. No equivalent audit exists for the other four.
+`docs/protocols.md` and the gap is #974.
+
+⚠ **The other four now have a NAMED surface and no audit**, which are different things.
+As of 2026-08-23 the Sony and Bose command spaces are read out of the vendor APKs —
+every block, function and value enum, in `docs/sony-settings.md` and
+`docs/bose-settings.md` — so the rows below "EQ / tone" are no longer unknown, they are
+unasked. ⚠ Nothing there has been met on the wire; a name from an APK is a claim about
+the vendor's app until a device answers it. Both devices will also **list their own
+features on request** (Sony `06`, Bose `00 04`), and neither has been asked.
 
 ⛔ **Refused is not broken.** The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and ignores
 both; the QC45 accepts the equivalents from this code. Multipoint fails for Sony's own
@@ -242,6 +250,10 @@ scripts/drive_jbl.py     drives the JBL VENDOR app while a capture runs, and put
                          back whatever it moved. `--list` for the groups;
                          `--where LABEL` says where a tap would land WITHOUT
                          tapping, which is the one to reach for first.
+scripts/smali_enum.py    reads a vendor enum's name → WIRE BYTE table out of
+                         apktool's smali. ⚠ The byte is a constructor argument,
+                         not the ordinal — counting the enum has produced three
+                         wrong tables in this repo.
 ```
 ⚠ **A segmented label in the JBL app is inert** — `Movie`, `5s`, `Audio Mode` are
 `clickable="false"` text, and the touch target is a sibling tile. Tapping the label

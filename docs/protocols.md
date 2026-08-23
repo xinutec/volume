@@ -58,9 +58,20 @@ bytes. ACK inverts the sequence number. Driven; see `SonyFrame.kt`. DLCI `0x2b`,
 
 `payload[0]` is the command. The table is `Command.smali` in
 `com.sony.songpal.tandemfamily.message.mdr.{v1,v2}.{table1,table2}` — 152 commands
-in v2/table1 alone, each a plain enum whose ordinal *is* its byte. Subsystems run
-in blocks of ten: `GET_CAPABILITY RET_CAPABILITY GET_STATUS RET_STATUS SET_STATUS
-NTFY_STATUS GET_PARAM RET_PARAM SET_PARAM NTFY_PARAM`.
+in v2/table1 alone. Subsystems run in blocks of ten: `GET_CAPABILITY RET_CAPABILITY
+GET_STATUS RET_STATUS SET_STATUS NTFY_STATUS GET_PARAM RET_PARAM SET_PARAM
+NTFY_PARAM`.
+
+⚠ **RETRACTED — "each a plain enum whose ordinal *is* its byte".** It is not. The
+byte is a **separate constructor argument**, and the two agree only for the eight
+`CONNECT_*` entries before diverging: `GET_TEST` is ordinal 8 and byte `0f`.
+Counting the enum is therefore right often enough to be believed and wrong
+everywhere past the handshake. Third time in this repo — the JBL's gesture and
+action tables are the other two. `scripts/smali_enum.py` reads the argument.
+
+⚠ **And the XM4 is v1, not v2**, which changes what the *type* byte means: `f6 06`
+is ASSIGNABLE_SETTINGS under v1 and WEARING_STATUS_DETECTOR under v2. The evidence
+and the whole named surface are in `docs/sony-settings.md`.
 
 ```
 20 POWER   50 EQEBB (EQ + bass boost)   60 NCASM (noise cancelling / ambient)
@@ -1017,6 +1028,15 @@ Realtek's transport is `AA <type> <length: 2 LE> <payload>`, payload
 GET_STATUS, `0x0c` INFO_REQ, `0x105` GET_LE_ADDR) and the `*Req` classes
 (`0xc44`–`0xc46` ANC scenario, `0x2xx` EQ, `0x7xx` key mapping).
 
+⚠ **A sixth SDK, checked 2026-08-23 and also a dead end.** `com.qcymall.qcylibrary`
+is QCY's own layer — the app is a QCY rebrand, so this was the most promising place
+left for the `c0 ff` framing. It is not there: the only thing in it that builds
+frames is `wq/sdk`, whose `DeviceMutualMapper` wraps payloads in **`0x33`** header
+and footer and is the OTA path. `c0 ff` appears nowhere in the APK. ⚠ Written down
+so the next session does not spend the evening finding the same nothing — **the
+JLab stays capture-only**, and it is the one device of the five with no offline
+route.
+
 ⚠ **Every one of those leads was a dead end**, and they cost the most time of
 anything here. `01000100` accepts writes and answers neither the BES `aa` protocol
 nor Realtek `aa <type> <len:2 LE>` frames at any `type`; QCY's own `ff <len>`
@@ -1100,6 +1120,21 @@ nix run nixpkgs#apktool -- d -r -f jbl.stc.com.apk -o jbl-smali   # -r skips res
 without writing a file (both `-d` and `--single-class`); apktool baksmalis all
 four dex in ~2 min. Smali is verbose but the constants read straight off:
 `.array-data` blocks give byte tables, and `-0x56t` is `0xaa`.
+
+⚠ **An enum's ORDINAL is not its wire byte, and this repo has been caught three
+times.** A vendor enum that carries a protocol byte declares it as its own
+constructor argument, and the two agree for a prefix before diverging — which is
+exactly what makes counting believable. `scripts/smali_enum.py` reads the argument
+and prints `byte=NAME` for a file; the JBL's gesture actions, Sony's whole command
+table and Bose's block map all came out of it.
+
+⚠ **How readable each vendor's APK is does not follow how new it is.** `jbl.stc.com`
+has one named class per command; `com.bose.monet` (Bose Connect, the OLDER app)
+ships the BMAP tables completely unobfuscated as `io.intrepid.bose_bmap`; and
+`com.bose.bosemusic`, which drives the newer QC45, is obfuscated to `BX`/`Og0` and
+gives nothing. `com.jlab.app` bundles six chip SDKs and the one that matters was a
+dead end — that device was decoded by capture. So try the sibling app before
+concluding a vendor cannot be read.
 
 Route in by strings first — `strings classes*.dex | grep -i anc` found
 `com.harman.bluetooth.reqimp.CommandHeader` in one step.
