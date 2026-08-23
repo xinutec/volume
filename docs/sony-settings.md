@@ -338,7 +338,7 @@ this repo has decoded appears in it at exactly the two bytes it is driven with:
 61 NOISE_CANCELLING    62 NOISE_CANCELLING_AND_AMBIENT_SOUND_MODE     63 AMBIENT_SOUND_MODE
 71 AUTO_NC_ASM         81 NC_OPTIMIZER          92 VIBRATOR_ALERT_NOTIFICATION
 a1 PLAYBACK_CONTROLLER b1 TRAINING_MODE         c1 ACTION_LOG_NOTIFIER
-d1 GENERAL_SETTING1    d2 GENERAL_SETTING2      d3 GENERAL_SETTING3
+d1 GENERAL_SETTING1    d2 GENERAL_SETTING2      d3 GENERAL_SETTING3    d4 GENERAL_SETTING4
 e1 CONNECTION_MODE     e2 UPSCALING             f1 VIBRATOR           f2 POWER_SAVING_MODE
 f3 CONTROL_BY_WEARING  f4 AUTO_POWER_OFF        f5 SMART_TALKING_MODE f6 ASSIGNABLE_SETTINGS
 ```
@@ -463,7 +463,7 @@ and are marked below. Anything still unmarked is a name, not a measurement.
 | `46`–`49` | VPT `01`, SOUND_POSITION `02` | ⚠ **only on frame type `0c`.** On `0e` these bytes are VOICE_GUIDANCE — see the second-table section |
 | `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
 | `d6 d1` | GENERAL_SETTING1 | 👁 read — names itself `TOUCH_PANEL_SETTING`, reads false, never written |
-| `d6 d3` | GENERAL_SETTING3 | ⚠ absent from the 22; not on this unit |
+| `d6 d3`, `d6 d4` | GENERAL_SETTING3 and 4 | ⚠ both absent from the 22; not on this unit. ⚠ `d4` was missing from this page until the 2026-08-23 audit |
 | `22` | COMMON_SET_POWER_OFF | ⚠ ends the session, like the JBL's `aa 97 00` |
 | `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | ⚠ telemetry, see below |
 

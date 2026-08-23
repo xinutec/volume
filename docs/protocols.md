@@ -254,12 +254,15 @@ reads are unambiguous and cheaper, so nothing depends on decoding the bundle.
 
 ```
 30 ALL_STATUS      31 ANC            32 AMBIENT_AWARE_MODE   33 AUTO_OFF
-34 EQ_PRESET       35 MULTI_AI       36 BT_CONNECTION        37 OTA_UPGRADE
-38 AUTO_PLAY_PAUSE_ENABLE_STATUS     39 TWS_CONNECTION       3a ANC_TUNING
-3b IN_EAR          3c SEAL_CHECK     3d PERSONIFI_TEST_MODE
+34 EQ_PRESET       35 MULTI_AI       36 BT_CONNECTION_STATUS  37 OTA_UPGRADE_STATUS
+38 AUTO_PLAY_PAUSE_ENABLE_STATUS     39 TWS_CONNECTION_STATUS   3a ANC_TUNING_STATUS
+3b IN_EAR_STATUS   3c SEAL_CHECK_STATUS  3d PERSONIFI_TEST_MODE_STATUS
 ```
 Eight of those were already measured and agree, which is what makes the other six
-trustworthy.
+trustworthy. ⚠ **Six names here were abbreviated when this was written** — `IN_EAR`,
+`SEAL_CHECK`, `BT_CONNECTION`, `OTA_UPGRADE`, `TWS_CONNECTION`, `ANC_TUNING`. The SDK
+spells all six with a `_STATUS` suffix, and they are written out above now: a future
+session grepping the APK for the name in this table would not have found it.
 
 ✅ **`34` is EQ_PRESET after all — and inert on this model.** It was filed here as
 "NOT the EQ preset" because it stayed `00` across a JAZZ selection, which was the
