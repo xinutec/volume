@@ -647,10 +647,15 @@ object Drivers {
                 val frames = SonyFrame.decodeAll(got).filter { it.type == SonyFrame.TYPE_DATA_MDR }
                 // ⚠ **Every DATA frame gets an ack, not just the one being returned.**
                 // The device asks for one per frame, and the old code acked only its
-                // chosen reply — so a volunteered notification in the same window was
-                // silently left unacknowledged. That is a protocol violation whatever
-                // else is true, and it is the most likely reason the session then ran
-                // one behind for the rest of its life.
+                // chosen reply, leaving a volunteered notification unacknowledged.
+                //
+                // ⚠ **That is correct to do and is NOT what causes the desync.** This
+                // note used to call it "the most likely reason the session ran one
+                // behind"; the probe was then given the same ack-every-frame fix and
+                // **still went one behind**, measured 2026-08-23 20:10. The cause is
+                // plainer: the volunteered frame simply arrives in the window and the
+                // real answer arrives after it. What repairs that is reading again,
+                // below — not this.
                 frames.forEach { f -> ackFor(f)?.let(t::send) }
                 val answer =
                     if (expect.isEmpty()) {
