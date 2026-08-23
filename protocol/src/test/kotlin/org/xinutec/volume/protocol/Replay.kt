@@ -23,11 +23,52 @@ class Replay(
     /** Everything the driver sent, so a test can assert on writes with no reply. */
     val sent = mutableListOf<String>()
 
+    /**
+     * ⚠ **A Sony-framed fixture is checked the moment it is used, not in a list.**
+     *
+     * `DriversTest` has a guard that walks named fixtures and asserts their checksums,
+     * because two transcripts were once written by hand with invented ones and every
+     * test still passed. On 2026-08-23 that guard was found to cover **16 of 36** frame
+     * literals in the file — the rest are written inline in `Replay(...)` calls, where
+     * nothing looked at them, and one of those had a checksum that could not occur
+     * (`9a` where the bytes sum to `99`).
+     *
+     * A list someone has to remember to extend is the wrong shape for this. Validating
+     * here catches every fixture, including ones not yet written.
+     *
+     * ⚠ Only frames that look Sony-framed — `3e … 3c`. The JBL and Bose fixtures are
+     * bare payloads with no checksum to check, and must pass through untouched.
+     */
+    private fun validate(hex: String) {
+        for (frame in Regex("3e(?: [0-9a-f]{2})+? 3c").findAll(hex).map { it.value }) {
+            val b = SonyFrame.unescape(Hex.parse(frame.replace(" ", "")))
+            if (b.size < 9) continue
+            val body = b.copyOfRange(1, b.size - 1)
+            val declared =
+                ((body[2].toInt() and 0xff) shl 24) or
+                    ((body[3].toInt() and 0xff) shl 16) or
+                    ((body[4].toInt() and 0xff) shl 8) or
+                    (body[5].toInt() and 0xff)
+            assertEquals(
+                "$frame declares a payload length it does not carry",
+                declared,
+                body.size - 7,
+            )
+            val sum = body.dropLast(1).fold(0) { a, x -> a + (x.toInt() and 0xff) } and 0xff
+            assertEquals(
+                "$frame has a checksum the device could not have sent",
+                sum,
+                body.last().toInt() and 0xff,
+            )
+        }
+    }
+
     override fun exchange(packet: ByteArray): ByteArray {
         val hex = Hex.format(packet)
         sent += hex
         check(at < steps.size) { "unexpected extra exchange: $hex" }
         val (expected, reply) = steps[at++]
+        validate(reply)
         assertEquals("exchange ${at - 1} sent the wrong bytes", expected, hex)
         return Hex.parse(reply.replace(" ", ""))
     }
