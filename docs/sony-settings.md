@@ -409,7 +409,7 @@ one capture away from meaning; none of them has been asked.
 
 | frame | feature | note |
 | --- | --- | --- |
-| `10`/`11` | COMMON_GET/RET_BATTERY_LEVEL | the XM4 card has no battery at all today |
+| `10`/`11` | COMMON_GET/RET_BATTERY_LEVEL | ✅ **done** — `SonyBattery`, on the card since 2026-08-23 |
 | `18`/`19` | AUDIO_CODEC — `01` SBC `02` AAC `10` LDAC `20`/`21` aptX | which codec is live |
 | `14`/`15` | UPSCALING_EFFECT — `00` OFF `01` VALID `02` INVALID | DSEE, as a status |
 | `e6 02` | UPSCALING — `00` OFF `01` AUTO | **DSEE Extreme**, the setting |
@@ -773,3 +773,32 @@ this. **On this device an ack means the frame was well-formed and nothing more.*
 
 `Drivers.SonyXm4.setFocusOnVoice` therefore refuses in ANC rather than sending a frame it
 knows will be dropped, and returns the value that is actually there.
+
+## ✅ BATTERY IS ON THE CARD — 2026-08-23 20:17
+
+```
+→ 10 00        BatteryInquiredType.BATTERY
+← 11 00 46 00  0x46 = 70 %, BatteryChargingStatus.NOT_CHARGING
+```
+
+✅ **Every byte lands on a named enum**, so the scale is not inferred from one sample —
+and it was checked twice against the vendor app: `50` = 80 % on the afternoon's reading
+when Sound Connect showed 80, and `46` = 70 % this evening with the card agreeing.
+
+⚠ **`00` BATTERY is the only cell this model has.** `01` LEFT_RIGHT_BATTERY and `02`
+CRADLE_BATTERY belong to earbuds and a case, and the XM4 declares neither — `15`/`17`/`18`
+are absent from the 22 functions it lists. Asking for them would be inventing cells.
+
+⚠ **Unlike the JBL's, it must be ASKED.** `JblBattery` arrives unbidden every ten seconds;
+nothing here has ever seen a `13` COMMON_NTFY_BATTERY_LEVEL from the XM4, so a card that
+waited for one would sit blank.
+
+⚠ **`f0` UNKNOWN decodes to null, not to "on battery".** `BatteryChargingStatus` has three
+values and the third means the device does not know. Defaulting it to `false` would put a
+confident percentage on screen on the strength of a shrug — the same rule `SonyAutoOff`
+applies to an unrecognised value byte.
+
+⚠ **This was decoded and confirmed on 2026-08-16 and sat unused for a week.** The read
+worked, the cross-check passed, and no driver method existed — so the Sony card showed no
+charge while the JBL's did. The same shape as #1041 and #1112: the wire was never the
+problem.
