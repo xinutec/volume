@@ -646,23 +646,16 @@ object Drivers {
             payload: ByteArray,
             vararg expect: Byte,
         ): ByteArray? {
-            var got = t.exchange(SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload))
+            // ⚠ **Every DATA frame is acked, and acked WHILE THE WINDOW IS OPEN.** The
+            // XM4 is stop-and-wait, so acking after the window returns is what made a
+            // single volunteered notification displace every later reply — see
+            // [Transport.exchange]. This is the fix for #1107; [EXTRA_READS] below is
+            // now the fallback rather than the cure.
+            val frame = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload)
+            var got = t.exchange(frame, ::acks)
             var rounds = 0
             while (true) {
                 val frames = SonyFrame.decodeAll(got).filter { it.type == SonyFrame.TYPE_DATA_MDR }
-                // ⚠ **Every DATA frame gets an ack, not just the one being returned.**
-                // The device asks for one per frame, and the old code acked only its
-                // chosen reply, leaving a volunteered notification unacknowledged.
-                //
-                // ⚠ **But acking HERE is already too late, and that is the desync.**
-                // The XM4 is stop-and-wait: it will not send its next DATA frame until
-                // the current one is acked, so a window opening with a volunteered
-                // frame cannot also contain the answer. Acking mid-window fixed it in
-                // `Probe.readAcking` — every packet got its own reply, measured
-                // 2026-08-23. Doing the same here needs a [Transport] that can hand
-                // frames back as they land; until then [EXTRA_READS] recovers instead,
-                // one round trip late.
-                frames.forEach { f -> ackFor(f)?.let(t::send) }
                 val answer =
                     if (expect.isEmpty()) {
                         frames.lastOrNull()
@@ -679,6 +672,16 @@ object Drivers {
                 if (got.isEmpty()) return null
             }
         }
+
+        /**
+         * One ack per DATA frame in [got], in order.
+         *
+         * ⚠ **Order and completeness matter, not just the count.** A transport sends
+         * only the tail it has not sent yet, so dropping a frame here would shift every
+         * later ack onto the wrong sequence number.
+         */
+        private fun acks(got: ByteArray): List<ByteArray> =
+            SonyFrame.decodeAll(got).mapNotNull(::ackFor)
 
         /** The ack a received DATA frame expects: type 01, sequence inverted. */
         private fun ackFor(frame: SonyFrame.Frame): ByteArray? =

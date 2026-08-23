@@ -42,6 +42,23 @@ interface Transport {
     fun send(packet: ByteArray)
 
     /**
+     * [exchange], but acknowledging each frame **while the window is still open**.
+     *
+     * ⚠ **The XM4 is stop-and-wait: it withholds its next DATA frame until the current
+     * one is acked.** Acking after [exchange] returns therefore guarantees that a window
+     * opening with a volunteered frame contains *only* that frame — the device is waiting
+     * on a reply that cannot come until the window it would have filled is already over.
+     * That is #1107, and it is why a session that saw one unsolicited notification ran
+     * one behind for the rest of its life while the device retransmitted every ~600 ms.
+     *
+     * [acksFor] is handed everything received so far and returns one ack per frame, in
+     * order, so the list only grows; a transport sends whatever part of it has not gone
+     * out yet. Returning an empty list is how a device with no acks in its protocol
+     * — the JBL, both Bose — says so.
+     */
+    fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray
+
+    /**
      * Read **without** sending, for what the device volunteered or answered late.
      *
      * ⚠ **This exists because [exchange]'s window is not the device's schedule.** The
