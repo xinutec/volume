@@ -523,3 +523,86 @@ coordinates work. Check the geometry rather than assuming either shape.
 ⚠ **The app is called "Sound Connect" now**, not "Headphones Connect". The package is
 unchanged (`com.sony.songpal.mdr`), so nothing in this repo breaks — but a future session
 looking for the old name in the launcher will not find it.
+
+## ✅ TWO OF THE THREE SWITCHES DRIVEN — 2026-08-23 17:20–17:31
+
+The writers that #1097 asked for, against the XM4, each read first and put back after.
+
+| setting | frame | result |
+| --- | --- | --- |
+| **DSEE Extreme** `e2` UPSCALING | `e8 02 00 <v>` | ✅ **driven both ways**, restored to Off |
+| **Pause when removed** `f3` CONTROL_BY_WEARING | `f8 03 00 <v>` | ✅ **driven both ways**, restored to On |
+| **Speak-to-Chat** `f5` SMART_TALKING_MODE | `f8 05 00 <v>` | ⚠ **sent and acked; the device stays Off** |
+
+Pause-when-removed is the clean one, and its transcript is the whole proof in six frames:
+
+```
+[2] → f6 03        ← f7 03 00 01     On, the value found
+[3] → f8 03 00 00  ← f9 03 00 00     write Off
+[4] → f6 03        ← f7 03 00 00     ✅ Off, by an independent read
+[5] → f8 03 00 01  ← f9 03 00 01     write On again
+[6] → f6 03        ← f7 03 00 01     ✅ back where it started
+```
+
+✅ **The settingType byte is settled.** Every frame above lands on a named SDK enum —
+`ControlByWearingSettingType.ON_OFF` = `00`, `ControlByWearingSettingValue.ON` = `01` —
+and the device answered all of them. The same reading explains two settings that were
+already driven and whose third byte differed: `SonySoundQuality` sends `00`
+(`ConnectionModeSettingType.SOUND_CONNECTION`) and `SonyAutoOff` sends `01`
+(`AutoPowerOffParameterType.ACTIVE_AND_SELECTIME_ID`, whose table has no `00` at all).
+This page used to say only that the byte "is not the same thing in both". It is the same
+kind of thing in both.
+
+### ⚠ THE DEVICE VOLUNTEERS NOTIFICATIONS, AND IT COST A WORKING WRITE
+
+`e8 02 00 01` was reported by the driver as **unverifiable**. It had worked. What happened
+is that the XM4 answered the write with its `e9` NTFY_PARAM *and then* emitted `17`
+COMMON_NTFY_UPSCALING_EFFECT — a second, unrequested frame — which arrived in the window
+the next read was waiting in:
+
+```
+[3] → e8 02 00 00  ← e9 02 00 00                 the write, answered
+[4] → e6 02        ← 17 00 02 00   ⚠ not an answer to anything asked
+```
+
+⚠ **That `17` is not noise, it is causally related**: changing the upscaling *setting*
+makes the device announce the upscaling *effect*. Which is the same two-fields-one-switch
+trap already noted for `15` — and here it does not merely mislead a reader, it displaces a
+reply.
+
+⚠ **On Speak-to-Chat it is worse: the session never recovers.** An `f5` SYSTEM_NTFY_STATUS
+arrives early and from then on every exchange returns the previous one's answer —
+
+```
+[5] → f6 05        ← 11 00 50 00    [4]'s battery answer
+[6] → f8 05 00 00  ← f7 05 00 00    [5]'s answer
+[7] → 10 00        ← f9 05 01 00    [6]'s notify
+```
+
+— and a spacer read does **not** absorb it, which was the first thing tried. `#1107` holds
+the fix; it needs a receive-only `Transport`, which does not exist yet.
+
+✅ **What is already fixed**: `exchangeFramed` now takes the frame whose command byte could
+answer the request, not simply the last DATA frame in the window. That turns a wrong answer
+into no answer, and does find the reply when both are present. It does not resynchronise.
+
+### ⚠ Speak-to-Chat is NOT confirmed, and the reason matters
+
+The write is sent, the device acks it, and a read afterwards still says `f7 05 00 00` — Off.
+So this joins multipoint and the [CUSTOM] button as a write the XM4 does not take from us.
+
+⚠ **Do not file it with those two yet.** There is a mundane explanation neither of them
+has: **the headphones were not being worn.** Speak-to-Chat is driven by the wearing sensor,
+and a device that declines to arm it off-head would look exactly like this. The XM4 also
+powered itself off mid-session during this work — auto-off is WHEN_REMOVED — which is
+independent evidence that it knew nobody had it on.
+
+The test is one line and costs nothing: **put them on, then send `f8 05 00 01`.** Until that
+has been done, "the XM4 refuses Speak-to-Chat" is not a finding, it is an untested guess
+with a transcript attached.
+
+⚠ **Also unexplained: the notify shape.** `f8 05 00 01` draws `f9 05 01 00`, where the two
+trailing bytes are transposed relative to every other setting here — `SmartTalkingModeParameterType`
+has `01 MODE_ON_OFF`, so `f9 05 01 00` may be "mode on/off = 0" rather than a malformed
+echo. That reading is consistent with a refusal and is **not** established. `SonySwitch.state`
+rejects the frame either way rather than guessing at it.

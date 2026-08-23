@@ -218,6 +218,42 @@ class DriversTest {
         t.assertDrained()
     }
 
+    /**
+     * ⚠ **The XM4 volunteers notifications, and one of them cost a working write.**
+     * Driving `e8 02 00 01` on 2026-08-23 made the device emit `17`
+     * COMMON_NTFY_UPSCALING_EFFECT as well as the `e9` that answered the write, and the
+     * `17` arrived in the *next* read's window. The driver took the last DATA frame,
+     * got a frame about something else, and reported the write — which had in fact
+     * taken — as unverifiable.
+     *
+     * The window below is the one the device really sent, byte for byte.
+     */
+    @Test
+    fun `sony does not mistake a volunteered notification for its answer`() {
+        val shadowed = "3e 0c 00 00 00 00 04 17 00 02 00 29 3c 3e 01 00 00 00 00 00 01 3c"
+        assertNull(Drivers.SonyXm4().readSwitch(Replay(dseeGet to shadowed), SonyDsee))
+    }
+
+    /**
+     * And what the fix actually buys, which needs the stray notification to arrive
+     * **after** the answer rather than before it: `lastOrNull` returns the `17` here
+     * and the read comes out null, where selecting the frame that answers the question
+     * returns the `e7`.
+     *
+     * ⚠ **The first fixture written for this had the two the other way round**, where
+     * taking the last DATA frame already lands on the answer — so it passed with the
+     * fix removed and proved nothing. The ablation is what caught that, not review.
+     */
+    @Test
+    fun `sony picks the frame that answers it, not merely the last one`() {
+        val answerThenStray =
+            "3e 0c 00 00 00 00 04 e7 02 00 00 f9 3c 3e 0c 00 00 00 00 04 17 00 02 00 29 3c"
+        assertEquals(
+            false,
+            Drivers.SonyXm4().readSwitch(Replay(dseeGet to answerThenStray), SonyDsee),
+        )
+    }
+
     // ---- JBL -------------------------------------------------------------------
 
     @Test
