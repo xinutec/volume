@@ -659,11 +659,38 @@ So `74 01 01` is a **trigger**: "begin sensing now". Whatever holds the on/off s
 not in this block, and it is not in the 22 functions the device declares either — the only
 SENSE entry there is `71 AUTO_NC_ASM`, which is this.
 
-⚠ **Do not add a fake toggle.** An Adaptive Sound Control switch in our UI would be a
-control that cannot report its own state and cannot be turned off, drawn as if it were the
-same kind of thing as DSEE. That is the shape of the JBL Ambient Sound Control bug (#1041)
-in reverse — there a real control was missing from the UI, here an unreal one would be
-added to it.
+⚠ **Do not add a toggle backed by nothing.** A switch drawn from `74 01 01` alone could
+not report its own state or be turned off. That is #1041 in reverse — there a real control
+was missing from the UI, here an unbacked one would be added to it.
+
+### ⚠ CORRECTION, same evening: "the device blocks it" was NOT established
+
+The paragraph above says what the SENSE block contains, and that part stands. What was
+written next to it — that Adaptive Sound Control is therefore *blocked by the device* —
+does not follow, and it was published anyway. **Sony's app plainly does ASC on this
+model.** An absence in one block is evidence about that block.
+
+What the APK shows on a second look:
+
+- `SenseSettingControl` has **two different tables**. v1, which the XM4 speaks: `00 NO_USE`,
+  `01 START`. v2: `00 START_SETTING`, `01 END_SETTING`. The app class that sends END is on
+  the **v2** path, so it is not the XM4's — but it does show START/END is a bracket around
+  an edit, not an on/off, which is a different reading of `74` than "trigger".
+- There is a whole app-side subsystem: `AscLocationPositionSelectFragment`,
+  `ActivityRecognitionUiTab`, `AscSoundSettingsEditContract`, a places model. ASC on this
+  app is substantially more than one frame.
+- Sony's code uses Google's `DetectedActivity` **only for logging badges**, not for ASC. So
+  the activity detection is not coming from the phone's GMS APIs.
+
+⚠ **None of that says where the on/off lives, and neither did the original claim.** The
+honest state is: *not found yet*, which is not the same as *refused*. The distinction is
+the one this page exists to keep — see multipoint, which **is** refused and has the vendor
+app failing identically as its control. ASC has no such control, because nobody has watched
+the vendor app toggle it.
+
+The test is the method that already worked twice today: **capture Sound Connect turning
+Adaptive Sound Control on and off, and read the frames.** That is what settled the [CUSTOM]
+button's asymmetry and what would have settled Speak-to-Chat in one step instead of three.
 
 ## ✅ GENERAL_SETTING1 IS THE TOUCH PANEL, and the device says so itself
 
