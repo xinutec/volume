@@ -408,8 +408,12 @@ class DriversTest {
     /**
      * ⚠ **Every DATA frame is acked, not just the one returned.** Sony asks for one per
      * frame; the old code acked only its chosen reply, so a volunteered notification
-     * sharing the window was silently left unacknowledged. That is a protocol violation
-     * on its own, and the likeliest reason a session then ran one behind for good.
+     * sharing the window was left unacknowledged.
+     *
+     * ⚠ **This is NOT what causes the desync, and this comment used to say it was.** The
+     * probe was given the identical fix and still ran one behind (#1107, measured
+     * 2026-08-23 20:10). Acking every frame is correct because the device asks for it,
+     * and for no other reason.
      */
     @Test
     fun `sony acks every data frame in the window`() {
@@ -446,8 +450,8 @@ class DriversTest {
         t.volunteered = listOf("3e 0c 01 00 00 00 04 17 00 02 00 2a 3c")
         assertEquals(Confirmation.Confirmed, d.setSwitch(t, SonyDsee, true))
         t.assertDrained()
-        // ⚠ The stray is ACKED, not merely swallowed. An unacknowledged DATA frame is
-        // what put sessions one behind to begin with.
+        // ⚠ The stray is ACKED, not merely swallowed — the device asks for one ack per
+        // DATA frame. ⚠ It is NOT what fixes the desync; see the note above.
         assertEquals(sonyAck, t.sent.last())
     }
 
