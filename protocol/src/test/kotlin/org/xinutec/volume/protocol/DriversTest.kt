@@ -1,5 +1,6 @@
 package org.xinutec.volume.protocol
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -47,7 +48,10 @@ class DriversTest {
     private val wearOnReply = "3e 0c 00 00 00 00 04 f7 03 00 01 0b 3c"
     private val chatGet = "3e 0c 00 00 00 00 02 f6 05 09 3c"
     private val chatOffReply = "3e 0c 00 00 00 00 04 f7 05 00 00 0c 3c"
-    private val chatSetOn = "3e 0c 00 00 00 00 04 f8 05 00 01 0e 3c"
+
+    // ⚠ `f8 05 01 01`, not `f8 05 00 01` — Speak-to-Chat writes with a different type
+    // table than it reads with, and the `00` form is acked and does nothing.
+    private val chatSetOn = "3e 0c 00 00 00 00 04 f8 05 01 01 0f 3c"
 
     @Test
     fun `sony reads the mode the device reported`() {
@@ -188,6 +192,34 @@ class DriversTest {
     }
 
     /**
+     * ⚠ **Speak-to-Chat reads with one type table and writes with another**, and sending
+     * the read's byte in a write is accepted, acked, and does nothing. That cost an hour
+     * and a wrong entry in the docs calling the device refusing — it was not.
+     *
+     * `SmartTalkingModeSettingType.ON_OFF` = `00` answers a get;
+     * `SmartTalkingModeParameterType.MODE_ON_OFF` = `01` is what a set must carry.
+     * Both frames below were driven on the XM4 on 2026-08-23.
+     */
+    @Test
+    fun `sony speak-to-chat writes a different type byte than it reads`() {
+        assertArrayEquals(Hex.parse("f8050101"), SonySpeakToChat.set(true))
+        assertArrayEquals(Hex.parse("f8050100"), SonySpeakToChat.set(false))
+        // the RET, which uses the other table
+        assertEquals(false, SonySpeakToChat.state(Hex.parse("f7050000")))
+        // the NOTIFY, which uses the write's
+        assertEquals(true, SonySpeakToChat.state(Hex.parse("f9050101")))
+    }
+
+    /** The other two agree in both directions, and must keep doing so. */
+    @Test
+    fun `sony dsee and pause use one type byte both ways`() {
+        assertArrayEquals(Hex.parse("e8020001"), SonyDsee.set(true))
+        assertArrayEquals(Hex.parse("f8030000"), SonyPauseOnRemoval.set(false))
+        assertEquals(true, SonyDsee.state(Hex.parse("e9020001")))
+        assertEquals(false, SonyPauseOnRemoval.state(Hex.parse("f9030000")))
+    }
+
+    /**
      * ⚠ **Confirmation comes from the read-back, never from the echo.** [SonyButton]
      * is why: that write is acked and simply does not take. This asserts the driver
      * really asks again — the [Replay] drains only if both exchanges happen.
@@ -210,7 +242,7 @@ class DriversTest {
         val d = Drivers.SonyXm4()
         val t =
             Replay(
-                chatSetOn to "3e 0c 01 00 00 00 04 f7 05 00 01 0e 3c",
+                chatSetOn to "3e 0c 01 00 00 00 04 f9 05 01 01 11 3c",
                 "3e 0c 01 00 00 00 02 f6 05 0a 3c" to
                     "3e 0c 00 00 00 00 04 f7 05 00 00 0c 3c",
             )

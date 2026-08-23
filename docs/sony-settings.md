@@ -532,7 +532,7 @@ The writers that #1097 asked for, against the XM4, each read first and put back 
 | --- | --- | --- |
 | **DSEE Extreme** `e2` UPSCALING | `e8 02 00 <v>` | ✅ **driven both ways**, restored to Off |
 | **Pause when removed** `f3` CONTROL_BY_WEARING | `f8 03 00 <v>` | ✅ **driven both ways**, restored to On |
-| **Speak-to-Chat** `f5` SMART_TALKING_MODE | `f8 05 00 <v>` | ⚠ **sent and acked; the device stays Off** |
+| **Speak-to-Chat** `f5` SMART_TALKING_MODE | `f8 05 01 <v>` | ✅ **driven both ways** (18:50, worn), restored to Off |
 
 Pause-when-removed is the clean one, and its transcript is the whole proof in six frames:
 
@@ -586,23 +586,47 @@ the fix; it needs a receive-only `Transport`, which does not exist yet.
 answer the request, not simply the last DATA frame in the window. That turns a wrong answer
 into no answer, and does find the reply when both are present. It does not resynchronise.
 
-### ⚠ Speak-to-Chat is NOT confirmed, and the reason matters
+### ✅ SPEAK-TO-CHAT READS AND WRITES WITH DIFFERENT TYPE TABLES — 18:50
 
-The write is sent, the device acks it, and a read afterwards still says `f7 05 00 00` — Off.
-So this joins multipoint and the [CUSTOM] button as a write the XM4 does not take from us.
+⚠ **This page said for an hour that the XM4 refused Speak-to-Chat, and that was wrong.**
+It also carried a second wrong explanation on top of the first — that the setting needed
+the headphones worn. Both are struck out below rather than deleted, because the way the
+mistake survived is the reusable part.
 
-⚠ **Do not file it with those two yet.** There is a mundane explanation neither of them
-has: **the headphones were not being worn.** Speak-to-Chat is driven by the wearing sensor,
-and a device that declines to arm it off-head would look exactly like this. The XM4 also
-powered itself off mid-session during this work — auto-off is WHEN_REMOVED — which is
-independent evidence that it knew nobody had it on.
+```
+→ f6 05        ← f7 05 00 00     SmartTalkingModeSettingType.ON_OFF        = 00
+→ f8 05 01 01  ← ack             SmartTalkingModeParameterType.MODE_ON_OFF = 01
+→ f6 05        ← f7 05 00 01     ✅ ON, by an independent read in a fresh session
+→ f8 05 01 00                    ✅ restored, confirmed the same way
+```
 
-The test is one line and costs nothing: **put them on, then send `f8 05 00 01`.** Until that
-has been done, "the XM4 refuses Speak-to-Chat" is not a finding, it is an untested guess
-with a transcript attached.
+**The read's type byte and the write's type byte come from different enums.** Sony's app
+has two payload classes for this one feature and no other: `ve0.c` parses a RET with
+`SmartTalkingModeSettingType`, and `ve0.d` builds a SET with `SmartTalkingModeParameterType`,
+wrapped by `qe0.r3`, which is `Command.SYSTEM_SET_PARAM`. Every other setting on this page
+uses one table in both directions.
 
-⚠ **Also unexplained: the notify shape.** `f8 05 00 01` draws `f9 05 01 00`, where the two
-trailing bytes are transposed relative to every other setting here — `SmartTalkingModeParameterType`
-has `01 MODE_ON_OFF`, so `f9 05 01 00` may be "mode on/off = 0" rather than a malformed
-echo. That reading is consistent with a refusal and is **not** established. `SonySwitch.state`
-rejects the frame either way rather than guessing at it.
+⚠ **`f8 05 00 01` is accepted, acked, and does nothing.** No error, no refusal — the write
+just does not happen. That is the whole trap: an ack is not an outcome, and this device
+will ack a frame it has no intention of acting on.
+
+⚠ **The device named the right table and it was read as noise.** The bad SET drew
+`f9 05 01 00` — a `01` in a slot where `00` had been sent. That transposition was written
+up here as "the notify shape is unexplained, possibly a malformed echo". It was not
+malformed. It was the answer.
+
+~~The write is sent, the device acks it, and a read afterwards still says Off, so this
+joins multipoint and the [CUSTOM] button.~~ **Struck 18:50.** It joins neither. Both of
+those have the vendor app as a control — for multipoint the app fails too, for the
+[CUSTOM] button the app succeeds where we do not. Speak-to-Chat had **no control at all**,
+and was filed next to them on the strength of looking similar.
+
+~~It may need the headphones worn, since it is a wearing-sensor feature.~~ **Struck 18:50
+— tested and false.** Worn, `f8 05 00 01` still did nothing; worn, `f8 05 01 01` worked
+immediately. The wearing hypothesis was plausible, cheap to test, and wrong, and testing
+it is what turned up the real cause.
+
+⚠ **The generalisation failed, not the byte.** `SonySwitch` was built from three settings
+that all used one type byte in both directions, and the fourth was assumed to match. Three
+agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
+and the SDK had been extracted and was sitting on disk when the assumption was made.

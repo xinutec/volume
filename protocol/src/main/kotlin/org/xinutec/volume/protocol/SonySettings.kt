@@ -292,8 +292,16 @@ class SonySwitch(
     private val notifyCmd: Byte,
     /** `SystemInquiredType` or `AudioInquiredType`. */
     val type: Byte,
-    /** The feature's own setting-type table; a single entry for all three below. */
-    private val settingType: Byte,
+    /** The type byte a [get] is answered with — the feature's *SettingType* table. */
+    private val readType: Byte,
+    /**
+     * The type byte a [set] must carry, and the one its notify comes back with.
+     *
+     * ⚠ **Usually the same as [readType], and for Speak-to-Chat it is NOT** — see
+     * [SonySpeakToChat]. Defaulting them equal would have been the tidier signature and
+     * would have re-hidden the bug this exists for.
+     */
+    private val writeType: Byte,
 ) {
     /**
      * The command bytes that would answer a [get] or a [set] — everything else in the
@@ -304,19 +312,28 @@ class SonySwitch(
 
     fun get(): ByteArray = byteArrayOf(getCmd, type)
 
-    fun set(on: Boolean): ByteArray = byteArrayOf(setCmd, type, settingType, onOff(on))
+    fun set(on: Boolean): ByteArray = byteArrayOf(setCmd, type, writeType, onOff(on))
 
     private fun onOff(on: Boolean): Byte = if (on) 0x01 else 0x00
 
     /**
-     * ⚠ Accepts [retCmd] and [notifyCmd] alike, and checks the settingType byte too —
-     * an extended-parameter reply carries a different table in that position, so a
-     * decoder that skipped straight to byte 3 would read a sensitivity as an on/off.
+     * ⚠ **A RET and a NOTIFY do not carry the same type byte**, which is why this
+     * chooses the expected one from the command rather than checking a single field.
+     * The vendor app has two separate parser classes for exactly this reason.
+     *
+     * ⚠ The type byte is checked at all because an extended-parameter reply carries a
+     * different table in that position — a decoder that skipped straight to byte 3
+     * would read a Speak-to-Chat *sensitivity* as an on/off.
      */
     fun state(payload: ByteArray): Boolean? {
         if (payload.size < 4) return null
-        if (payload[0] != retCmd && payload[0] != notifyCmd) return null
-        if (payload[1] != type || payload[2] != settingType) return null
+        val expected =
+            when (payload[0]) {
+                retCmd -> readType
+                notifyCmd -> writeType
+                else -> return null
+            }
+        if (payload[1] != type || payload[2] != expected) return null
         return when (payload[3]) {
             0x00.toByte() -> false
             0x01.toByte() -> true
@@ -326,12 +343,28 @@ class SonySwitch(
 }
 
 /** `f6` SYSTEM_GET_PARAM · `f7` RET · `f8` SET · `f9` NTFY. */
-private fun systemSwitch(type: Byte, settingType: Byte = 0x00) =
-    SonySwitch(0xf6.toByte(), 0xf7.toByte(), 0xf8.toByte(), 0xf9.toByte(), type, settingType)
+private fun systemSwitch(type: Byte, readType: Byte, writeType: Byte) =
+    SonySwitch(
+        getCmd = 0xf6.toByte(),
+        retCmd = 0xf7.toByte(),
+        setCmd = 0xf8.toByte(),
+        notifyCmd = 0xf9.toByte(),
+        type = type,
+        readType = readType,
+        writeType = writeType,
+    )
 
 /** `e6` AUDIO_GET_PARAM · `e7` RET · `e8` SET · `e9` NTFY. */
-private fun audioSwitch(type: Byte, settingType: Byte = 0x00) =
-    SonySwitch(0xe6.toByte(), 0xe7.toByte(), 0xe8.toByte(), 0xe9.toByte(), type, settingType)
+private fun audioSwitch(type: Byte, readType: Byte, writeType: Byte) =
+    SonySwitch(
+        getCmd = 0xe6.toByte(),
+        retCmd = 0xe7.toByte(),
+        setCmd = 0xe8.toByte(),
+        notifyCmd = 0xe9.toByte(),
+        type = type,
+        readType = readType,
+        writeType = writeType,
+    )
 
 /**
  * **DSEE Extreme** — `AudioInquiredType.UPSCALING` (`e2` in the device's own function
@@ -355,7 +388,7 @@ private fun audioSwitch(type: Byte, settingType: Byte = 0x00) =
  * whether upscaling is *doing anything to the current stream*, not whether the setting
  * is on. Two fields, one switch.
  */
-val SonyDsee = audioSwitch(type = 0x02)
+val SonyDsee = audioSwitch(type = 0x02, readType = 0x00, writeType = 0x00)
 
 /**
  * **Pause when headphones are removed** — `SystemInquiredType.CONTROL_BY_WEARING` (`f3`),
@@ -374,19 +407,36 @@ val SonyDsee = audioSwitch(type = 0x02)
  * the headphones *off*; this one pauses playback. Both are wearing-sensor features and the
  * XM4 has both, which is precisely why they are easy to conflate.
  */
-val SonyPauseOnRemoval = systemSwitch(type = 0x03)
+val SonyPauseOnRemoval = systemSwitch(type = 0x03, readType = 0x00, writeType = 0x00)
 
 /**
  * **Speak-to-Chat** — `SystemInquiredType.SMART_TALKING_MODE` (`f5`), settings type `05`.
  *
  * ```
  * → f6 05              read
- * ← f7 05 00 00        SmartTalkingModeSettingValue.OFF
- * → f8 05 00 01        write ON
+ * ← f7 05 00 00        SettingType.ON_OFF,      SmartTalkingModeSettingValue.OFF
+ * → f8 05 01 01        write ON
+ * ← f9 05 01 01        ParameterType.MODE_ON_OFF ⚠ a DIFFERENT table in the same slot
  * ```
  *
- * ✅ **Read on the XM4 2026-08-23 and confirmed**: `f7 05 00 00`, and the app's
- * Speak-to-Chat row read **Off**.
+ * ✅ **Driven both ways on the XM4 2026-08-23 18:50, worn**, and restored to Off.
+ *
+ * ⚠ **THE READ AND THE WRITE USE DIFFERENT TYPE TABLES, and this is the only setting
+ * here that does.** The reply to a [get] carries `SmartTalkingModeSettingType.ON_OFF`
+ * = `00`; a [set] must carry `SmartTalkingModeParameterType.MODE_ON_OFF` = `01`. Sony's
+ * app has two separate payload classes for it — `ve0.c` parses the RET with SettingType,
+ * `ve0.d` builds the SET with ParameterType — which is the shape this file now mirrors.
+ *
+ * ⚠ **`f8 05 00 01` — the same byte as the read — is accepted, acked, and silently does
+ * nothing.** That is what was sent first, and for an hour this file said the XM4 refused
+ * Speak-to-Chat, next to multipoint and the [CUSTOM] button. It does not. The device even
+ * said so: it answered the bad SET with `f9 05 01 00`, echoing a `01` where a `00` had
+ * been sent, and that transposition was read as a malformed echo rather than as the
+ * device naming the table it actually wanted.
+ *
+ * ⚠ **The generalisation is what failed, not the byte.** [SonySwitch] was built from
+ * three settings that all happened to use one type byte in both directions, and a fourth
+ * was then assumed to. Two agreeing samples are not a rule.
  *
  * ⚠ **The sensitivity and mode-out time are NOT reachable through this.** They live on
  * `fa`/`fc` SYSTEM_*_EXTENDED_PARAM with their own tables — `DetectionSensitivity`
@@ -396,8 +446,12 @@ val SonyPauseOnRemoval = systemSwitch(type = 0x03)
  *
  * ⚠ **Turning this ON changes what the headphones do to audio when you talk**, which is
  * the one setting in this file with an effect the wearer cannot miss. Restore it.
+ *
+ * ⚠ **It also needs the headphones ON A HEAD to be worth testing** — not because the
+ * write is refused off-head, which was checked and is false, but because the XM4 powers
+ * itself off shortly after removal when auto-off is WHEN_REMOVED.
  */
-val SonySpeakToChat = systemSwitch(type = 0x05)
+val SonySpeakToChat = systemSwitch(type = 0x05, readType = 0x00, writeType = 0x01)
 
 /**
  * One headphone family's multipoint switch — two devices have it decoded, which is
