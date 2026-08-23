@@ -820,9 +820,14 @@ with a note wondering which one a given model answers — it answers **both**.
 ⚠ **THE RANGES OVERLAP AND MEAN DIFFERENT THINGS, WITH NOTHING IN THE PAYLOAD TO TELL
 THEM APART.** In table1, `40`–`49` is **VPT** — a sound-field feature. In table2 the same
 bytes are **VOICE_GUIDANCE**. So `48` is `VPT_SET_PARAM` on one table and
-`VOICE_GUIDANCE_SET_PARAM` on the other. Sending `48 …` as `0c` intending a voice prompt
-would write a sound-field parameter, and both would be accepted. `probe.sh` gained
-`SONY_TABLE2=1` with that warning attached; the default stays `0c`.
+`VOICE_GUIDANCE_SET_PARAM` on the other, and nothing in the payload says which was meant.
+`probe.sh` gained `SONY_TABLE2=1` with that warning attached; the default stays `0c`.
+
+⚠ **On THIS unit the collision is inert, and the first version of this note overstated
+it.** It said sending `48` as `0c` "would write a sound-field parameter". The XM4 does not
+have VPT — `41` is among the absences listed earlier on this page — so the likeliest
+outcome is that it is ignored. The hazard is real for a model that *does* have VPT, and it
+is a reason to be deliberate about the type byte; it is not a near-miss that happened here.
 
 ✅ **This resolves a contradiction on this page.** The device declares `39` VOICE_GUIDANCE
 in its table1 `FunctionType` list, and table1 has **no** voice-guidance commands at all.
@@ -841,8 +846,14 @@ mistake shape as calling Adaptive Sound Control "device-blocked" earlier the sam
 | `46 01 02` | `47 01 02 01` | language = `01` ENGLISH |
 
 ✅ **The language agrees on both commands and matches the app**, which shows English.
-`VoiceGuidanceLanguage` names all sixteen, and the capability's `0f` = 15 is followed by
-exactly fifteen bytes — `01`–`0b`, `0d`, `0f`, `10`, `f0` — so the count is a count.
+The capability's `0f` = 15 is followed by exactly fifteen bytes, so the count is a count.
+
+⚠ **But they are NOT all languages, and calling them "fifteen languages" was wrong.**
+`VoiceGuidanceLanguage` runs `00`–`0f`; the list ends `… 0d 0f 10 f0`, and **`10` and `f0`
+are outside that enum entirely** — checked, and the enum is complete (16 declared, 16
+read). So thirteen of the fifteen are languages and two are something else. What, is not
+known: no enum in `table2/voiceguidance/param` has a `10`, and `f0` is the shape of an
+"unknown" sentinel elsewhere in this SDK but is not one here.
 
 ⚠ **`42` and `46` DISAGREE about on/off and this page will not pick one.** Status says
 `00`, param says `01`, and the app shows the switch **on**. So `47` is the one consistent
