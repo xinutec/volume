@@ -78,8 +78,13 @@ case "${1:-list}" in
     echo "force-stopped ${#VENDOR_APPS[@]} vendor apps"
     ;;
   list)
+    # ⚠ 4s was too short and the failure looks like nothing happened: `am` prints
+    # "intent has been delivered", the op runs, and the log window shuts before the
+    # first line lands. Twice on 2026-08-23 this read as a broken op. `list` walks
+    # every bonded device's UUIDs, so it is the slowest of the read-only ops, not the
+    # fastest — 12 was still short, and it truncates mid-device rather than failing.
     start_op --es op list
-    watch_log 4
+    watch_log "${LIST_WAIT:-20}"
     ;;
   sweep)
     # Walk a protocol's read surface. GET-shaped packets only — see Sweep.kt.
