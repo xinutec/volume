@@ -4,13 +4,20 @@ Decoded from the 2026-08-16 snoop capture of Bose Music (`docs/captures.md` has 
 action log), by pairing each Set with the Status it drew. Encoded in
 `BoseSettings.kt`, whose tests replay these frames.
 
-Framing is the usual `<block> <fn> <operator> <len> <payload>`. Operators: `01` Get,
-`02` Set, `03` Status, `04` Error, `05` Start.
+Framing is the usual `<block> <fn> <operator> <len> <payload>`. Operators, from Bose
+Connect's own `BmapPacket$OPERATOR`: `00` SET · `01` GET · `02` SET_GET · `03` STATUS ·
+`04` ERROR · `05` START · `06` RESULT · `07` PROCESSING.
+
+⚠ **`02` is SET_GET, not SET** — corrected 2026-08-23 from the enum, having been written
+here as "Set" since the 15th. The byte is unchanged and every Bose write in this repo
+uses it successfully; what was wrong was the name, and it hid the reason these writes
+answer at all. SET_GET returns the resulting state, which is why `setMultipoint` and
+friends get a payload back. Plain `00` SET has never been sent from here.
 
 ⚠ **Direction below is from `hci_h4.direction`**, not inferred: `0x00` sent,
 `0x01` received.
 
-⚠ **A plain `02` Set was enough for all three of these.** Only the ANC mode table
+⚠ **A plain `02` SET_GET was enough for all three of these.** Only the ANC mode table
 (`1f 03`) needs operator `05` Start. "Bose edits are transactional" was written from
 that one function and is not true of the protocol — believing it would have added a
 Start packet these three would then have answered wrongly.

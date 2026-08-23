@@ -223,7 +223,7 @@ class BoseSettingsTest {
     fun `encode writes the length from the payload`() {
         assertArrayEquals(
             bytes("010702020800"),
-            BoseFrame.encode(0x01, 0x07, BoseFrame.SET, bytes("0800")),
+            BoseFrame.encode(0x01, 0x07, BoseFrame.SET_GET, bytes("0800")),
         )
         assertArrayEquals(bytes("010a0100"), BoseFrame.encode(0x01, 0x0a, BoseFrame.GET))
     }

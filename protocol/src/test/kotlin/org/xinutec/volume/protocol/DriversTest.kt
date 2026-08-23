@@ -1,6 +1,7 @@
 package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,6 +31,23 @@ class DriversTest {
     private val sonyAnc = "3e 0c 01 00 00 00 08 67 02 01 02 02 01 00 00 84 3c"
     private val sonyWriteAnc = "3e 0c 00 00 00 00 08 68 02 01 02 02 01 00 00 84 3c"
     private val sonyAck = "3e 01 00 00 00 00 00 01 3c"
+
+    // The three on/off settings. ⚠ The `Reply` fixtures are the payloads the XM4
+    // actually returned on 2026-08-23 — `e7 02 00 00`, `f7 03 00 01`, `f7 05 00 00`,
+    // each cross-checked against Sound Connect's own screen the same minute. The
+    // request and SET frames are this repo's, and the framing of all of them was
+    // computed outside Kotlin so the guard below is not the encoder marking its own
+    // homework.
+    private val dseeGet = "3e 0c 00 00 00 00 02 e6 02 f6 3c"
+    private val dseeOffReply = "3e 0c 00 00 00 00 04 e7 02 00 00 f9 3c"
+    private val dseeSetAuto = "3e 0c 00 00 00 00 04 e8 02 00 01 fb 3c"
+    private val dseeAutoReply1 = "3e 0c 01 00 00 00 04 e7 02 00 01 fb 3c"
+    private val dseeGet1 = "3e 0c 01 00 00 00 02 e6 02 f7 3c"
+    private val wearGet = "3e 0c 00 00 00 00 02 f6 03 07 3c"
+    private val wearOnReply = "3e 0c 00 00 00 00 04 f7 03 00 01 0b 3c"
+    private val chatGet = "3e 0c 00 00 00 00 02 f6 05 09 3c"
+    private val chatOffReply = "3e 0c 00 00 00 00 04 f7 05 00 00 0c 3c"
+    private val chatSetOn = "3e 0c 00 00 00 00 04 f8 05 00 01 0e 3c"
 
     @Test
     fun `sony reads the mode the device reported`() {
@@ -82,12 +100,122 @@ class DriversTest {
     @Test
     fun `every sony fixture is a frame the device could actually have sent`() {
         val fixtures =
-            listOf(sonyReadRequest, sonyOff, sonyAmbient, sonyAnc, sonyWriteAnc, sonyAck)
+            listOf(
+                sonyReadRequest,
+                sonyOff,
+                sonyAmbient,
+                sonyAnc,
+                sonyWriteAnc,
+                sonyAck,
+                dseeGet,
+                dseeOffReply,
+                dseeSetAuto,
+                dseeAutoReply1,
+                dseeGet1,
+                wearGet,
+                wearOnReply,
+                chatGet,
+                chatOffReply,
+                chatSetOn,
+            )
         for (f in fixtures) {
             val frames = SonyFrame.decodeAll(Hex.parse(f.replace(" ", "")))
             assertEquals("$f should hold exactly one frame", 1, frames.size)
             assertTrue("$f has a bad checksum or length", frames.first().checksumOk)
         }
+    }
+
+    /**
+     * The three reads that were confirmed against the XM4 and against the vendor
+     * app's own screens on 2026-08-23. Each fixture is the payload the device sent.
+     */
+    @Test
+    fun `sony reads each on-off setting as the device answered it`() {
+        assertEquals(
+            false,
+            Drivers.SonyXm4().readSwitch(Replay(dseeGet to dseeOffReply), SonyDsee),
+        )
+        assertEquals(
+            true,
+            Drivers.SonyXm4().readSwitch(Replay(wearGet to wearOnReply), SonyPauseOnRemoval),
+        )
+        assertEquals(
+            false,
+            Drivers.SonyXm4().readSwitch(Replay(chatGet to chatOffReply), SonySpeakToChat),
+        )
+    }
+
+    /**
+     * ⚠ **The regression this exists for is a crossed wire, not a wrong byte.**
+     * Pause-on-removal and Speak-to-Chat are both SYSTEM settings, so they share all
+     * four command bytes — `f6`/`f7`/`f8`/`f9` — and differ only in the type byte. A
+     * decoder that checked the command and skipped to the value would report
+     * Speak-to-Chat's state as pause-on-removal's, and both were read in the same
+     * session, so the two would have looked consistent.
+     */
+    @Test
+    fun `no sony switch decodes another switch's reply`() {
+        val replies =
+            mapOf(
+                "dsee" to Hex.parse("e7020000"),
+                "wear" to Hex.parse("f7030001"),
+                "chat" to Hex.parse("f7050000"),
+            )
+        val switches =
+            mapOf("dsee" to SonyDsee, "wear" to SonyPauseOnRemoval, "chat" to SonySpeakToChat)
+        for ((theirs, reply) in replies) {
+            for ((mine, switch) in switches) {
+                val got = switch.state(reply)
+                if (mine == theirs) {
+                    assertNotNull("$mine should decode its own reply", got)
+                } else {
+                    assertNull("$mine decoded $theirs's reply as $got", got)
+                }
+            }
+        }
+    }
+
+    /**
+     * ⚠ **An extended-parameter reply must not read as an on/off.** Speak-to-Chat's
+     * sensitivity and mode-out time live on `fb` SYSTEM_RET_EXTENDED_PARAM with their
+     * own tables, where a `01` in the value position means HIGH or MID rather than
+     * "on". Rejecting it is the settingType check doing its job.
+     */
+    @Test
+    fun `sony ignores a reply whose setting type is not the one asked for`() {
+        assertNull(SonySpeakToChat.state(Hex.parse("fb050001")))
+        assertNull(SonySpeakToChat.state(Hex.parse("f7050101")))
+    }
+
+    /**
+     * ⚠ **Confirmation comes from the read-back, never from the echo.** [SonyButton]
+     * is why: that write is acked and simply does not take. This asserts the driver
+     * really asks again — the [Replay] drains only if both exchanges happen.
+     */
+    @Test
+    fun `sony confirms a switch write by reading it back`() {
+        val d = Drivers.SonyXm4()
+        val t =
+            Replay(
+                dseeSetAuto to dseeAutoReply1,
+                dseeGet1 to "3e 0c 00 00 00 00 04 e7 02 00 01 fa 3c",
+            )
+        assertEquals(Confirmation.Confirmed, d.setSwitch(t, SonyDsee, true))
+        t.assertDrained()
+    }
+
+    /** The other outcome: the device echoed the change and then did not keep it. */
+    @Test
+    fun `sony contradicts a switch write the device did not keep`() {
+        val d = Drivers.SonyXm4()
+        val t =
+            Replay(
+                chatSetOn to "3e 0c 01 00 00 00 04 f7 05 00 01 0e 3c",
+                "3e 0c 01 00 00 00 02 f6 05 0a 3c" to
+                    "3e 0c 00 00 00 00 04 f7 05 00 00 0c 3c",
+            )
+        assertEquals(Confirmation.Contradicted(false), d.setSwitch(t, SonySpeakToChat, true))
+        t.assertDrained()
     }
 
     // ---- JBL -------------------------------------------------------------------
