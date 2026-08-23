@@ -295,11 +295,21 @@ class MainActivity : Activity() {
         // ACK and nothing else, which reads exactly like "this command returns no
         // data". `--ez sony true` frames each payload and acks what comes back.
         val sony = intent.getBooleanExtra("sony", false)
+        // ⚠ Table 2 — see the note on the frame type below. Read-only ops only, for now.
+        val table2 = intent.getBooleanExtra("table2", false)
+        val sonyType = if (table2) SonyFrame.TYPE_DATA_MDR_NO2 else SonyFrame.TYPE_DATA_MDR
         val packets =
             if (sony) {
-                raw.mapIndexed { n, p ->
-                    SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, (n % 2).toByte(), p)
-                }
+                // ⚠ **The frame TYPE selects which command table the bytes mean**, and
+                // the two overlap completely in the ranges that matter. `0c` DATA_MDR is
+                // table1, `0e` DATA_MDR_NO2 is table2. In table1 `40`–`49` is **VPT**;
+                // in table2 the identical bytes are **VOICE_GUIDANCE**. So `48` is a
+                // sound-field write on one and a voice-prompt write on the other, and
+                // nothing in the payload distinguishes them.
+                //
+                // ⚠ Default stays `0c`, because that is what every frame this repo has
+                // driven used and what the XM4 answers device info on.
+                raw.mapIndexed { n, p -> SonyFrame.encode(sonyType, (n % 2).toByte(), p) }
             } else {
                 raw
             }
@@ -317,7 +327,7 @@ class MainActivity : Activity() {
                     // place and still ran one behind. See `Probe.exchangeAll`.
                     SonyFrame
                         .decodeAll(got)
-                        .filter { it.type == SonyFrame.TYPE_DATA_MDR }
+                        .filter { it.type == sonyType }
                         .map { f ->
                             SonyFrame.encode(
                                 SonyFrame.TYPE_ACK,
