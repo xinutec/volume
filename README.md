@@ -112,13 +112,23 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
 | Sound quality | — | — | ✅ | — | — |
+| Battery | — | — | 👁 read | ✅ read | — |
+| DSEE / upscaling | — | — | 👁 read | — | — |
+| Speak-to-Chat | — | — | 👁 read | ✅ r/w (Smart Talk) | — |
+| Pause when removed | — | — | 👁 read | ✅ r/w (Auto Play) | — |
 | Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-three device controls and fifteen of them are here — the inventory is in
 `docs/protocols.md` and the gap is #974.
 
-⚠ **The other four now have a NAMED surface and no audit**, which are different things.
+✅ **The XM4 has now been ASKED, 2026-08-23.** `06 00` returns its own supported-function
+list — 22 entries, count byte matching, every one a legal `FunctionType`. Six new rows
+were read from it and **six were confirmed against Sound Connect's own screens**; the
+absences retired six leads #1097 had listed as worth trying. `docs/sony-settings.md`.
+⚠ 👁 above means read and confirmed, not driven — no writer exists for those four yet.
+
+⚠ **The Bose pair has a NAMED surface and no audit**, which are different things.
 As of 2026-08-23 the Sony and Bose command spaces are read out of the vendor APKs —
 every block, function and value enum, in `docs/sony-settings.md` and
 `docs/bose-settings.md` — so the rows below "EQ / tone" are no longer unknown, they are

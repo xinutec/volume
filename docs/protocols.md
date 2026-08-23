@@ -1086,7 +1086,7 @@ entirely**, so here they are in one place:
 |---|---|---|
 | Bose QC45 | `com.bose.bosemusic` | Bose Music |
 | Bose QC35 | `com.bose.monet` | Bose Connect |
-| Sony WH-1000XM4 | `com.sony.songpal.mdr` | Sony \| Headphones Connect |
+| Sony WH-1000XM4 | `com.sony.songpal.mdr` | Sony \| **Sound Connect** (was Headphones Connect) |
 | JBL Tour One M2 | `jbl.stc.com` | JBL Headphones |
 | JLab JBuds Sport ANC 4 | `com.jlab.app` | JLab |
 
