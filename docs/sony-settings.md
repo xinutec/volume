@@ -402,28 +402,31 @@ declares itself with `CONNECT_GET_SUPPORT_FUNCTION` (`06`) and this repo never h
 ⚠ Labelled a hypothesis. The test is cheap and read-only up to the last frame: `00 00`,
 then `02`, `04`, `06`, then the SET.
 
-### The rows this names that nothing has touched
+### The rows this names, and what has since been asked
 
-⚠ **A wire identity is not a decode.** Each of these is one Get away from a value and
-one capture away from meaning; none of them has been asked.
+⚠ **A wire identity is not a decode**, which is why this table was written. ⚠ **It is no
+longer true that "none of them has been asked"** — six were driven or read on 2026-08-23
+and are marked below. Anything still unmarked is a name, not a measurement.
 
 | frame | feature | note |
 | --- | --- | --- |
 | `10`/`11` | COMMON_GET/RET_BATTERY_LEVEL | ✅ **done** — `SonyBattery`, on the card since 2026-08-23 |
-| `18`/`19` | AUDIO_CODEC — `01` SBC `02` AAC `10` LDAC `20`/`21` aptX | which codec is live |
-| `14`/`15` | UPSCALING_EFFECT — `00` OFF `01` VALID `02` INVALID | DSEE, as a status |
-| `e6 02` | UPSCALING — `00` OFF `01` AUTO | **DSEE Extreme**, the setting |
+| `18`/`19` | AUDIO_CODEC — `01` SBC `02` AAC `10` LDAC `20`/`21` aptX | 👁 read `19 00 10` = LDAC; ⚠ never cross-checked, the app shows a different field |
+| `14`/`15` | UPSCALING_EFFECT — `00` OFF `01` VALID `02` INVALID | 👁 read; ⚠ a status, **not** the DSEE switch |
+| `e6 02` | UPSCALING — `00` OFF `01` AUTO | ✅ **driven** — DSEE Extreme, `SonyDsee` |
 | `24`/`25` | CONNECTION_STATUS | |
 | `1c`/`1d` | BLUETOOTH_DEVICE_INFO | |
-| `f6 03` | CONTROL_BY_WEARING — `00`/`01` | pause when removed |
-| `f6 05`, `fa 05` | SMART_TALKING_MODE — **Speak-to-Chat** | sensitivity `00` AUTO `01` HIGH `02` LOW; mode-out time `00` FAST `01` MID `02` SLOW `03` NONE |
+| `f6 03` | CONTROL_BY_WEARING — `00`/`01` | ✅ **driven** — `SonyPauseOnRemoval` |
+| `f6 05` | SMART_TALKING_MODE — **Speak-to-Chat** | ✅ **driven**, ⚠ writes `f8 05 **01** <v>`, a different type table than it reads |
+| `fa 05` | its sensitivity and mode-out time | ⚠ EXTENDED params, never sent |
 | `f6 02` | POWER_SAVING_MODE | |
 | `f6 01` | VIBRATOR | |
-| `70`/`71`/`74` | SENSE — `01` AUTO_NC_ASM | **Adaptive Sound Control** |
+| `70`/`71`/`74` | SENSE — `01` AUTO_NC_ASM | 👁 `70 01` → `71 01 01` supported; ⚠ on/off not found, #1113 |
 | `82`–`87` | OPT — `01` NC_OPTIMIZER; control `00` CANCEL `01` START | ⚠ plays test tones |
-| `46`–`49` | VPT `01`, SOUND_POSITION `02` | |
+| `46`–`49` | VPT `01`, SOUND_POSITION `02` | ⚠ **only on frame type `0c`.** On `0e` these bytes are VOICE_GUIDANCE — see the second-table section |
 | `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
-| `d6 d1`, `d6 d3` | GENERAL_SETTING1 and 3 | `d2` is multipoint |
+| `d6 d1` | GENERAL_SETTING1 | 👁 read — names itself `TOUCH_PANEL_SETTING`, reads false, never written |
+| `d6 d3` | GENERAL_SETTING3 | ⚠ absent from the 22; not on this unit |
 | `22` | COMMON_SET_POWER_OFF | ⚠ ends the session, like the JBL's `aa 97 00` |
 | `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | ⚠ telemetry, see below |
 
@@ -524,7 +527,7 @@ coordinates work. Check the geometry rather than assuming either shape.
 unchanged (`com.sony.songpal.mdr`), so nothing in this repo breaks — but a future session
 looking for the old name in the launcher will not find it.
 
-## ✅ TWO OF THE THREE SWITCHES DRIVEN — 2026-08-23 17:20–17:31
+## ✅ ALL THREE SWITCHES DRIVEN — 2026-08-23 17:20, Speak-to-Chat at 18:50
 
 The writers that #1097 asked for, against the XM4, each read first and put back after.
 
@@ -631,10 +634,11 @@ that all used one type byte in both directions, and the fourth was assumed to ma
 agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
 and the SDK had been extracted and was sitting on disk when the assumption was made.
 
-## ⚠ ADAPTIVE SOUND CONTROL IS NOT A SETTING — 2026-08-23 17:56
+## ⚠ ADAPTIVE SOUND CONTROL — WHERE ITS ON/OFF LIVES IS NOT FOUND (#1113)
 
-The XM4's headline feature, and the biggest single gap in the parity table. It cannot be
-implemented the way every other row here is, and the reason is in the command table.
+The XM4's headline feature. ⚠ **This section was headed "IS NOT A SETTING" and said the
+device blocked it. Both were wrong** — see the correction at the end. What follows is what
+the SENSE block contains, which is true; the conclusion drawn from it was not.
 
 ```
 → 70 01     SENSE_GET_CAPABILITY, SenseInquiredType.AUTO_NC_ASM
