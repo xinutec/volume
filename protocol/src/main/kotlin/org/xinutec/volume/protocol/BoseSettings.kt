@@ -10,14 +10,33 @@ package org.xinutec.volume.protocol
  */
 object BoseFrame {
     const val GET: Byte = 0x01
-    const val SET: Byte = 0x02
+
+    /**
+     * ⚠ **Bose's own name for `02` is SET_GET, and `00` is the plain SET.** This
+     * constant was called `SET` until 2026-08-23, when `BmapPacket$OPERATOR` was read
+     * out of Bose Connect: `00` SET · `01` GET · `02` SET_GET · `03` STATUS · `04`
+     * ERROR · `05` START · `06` RESULT · `07` PROCESSING.
+     *
+     * The **byte never changed** — `02` is what every Bose write in this repo has been
+     * driven with, on hardware, and it works. Only the label was wrong, and it was
+     * wrong in the direction that invites a mistake: a reader who wanted "just set it,
+     * without the reply" would find this named `SET` and have no reason to look for
+     * `00`. Which also explains the reply shape the drivers already work around —
+     * SET_GET *returns the resulting state*, so a Bose write answering with a status
+     * payload is the operator doing what it says, not the device being awkward.
+     *
+     * ⚠ **`00` has never been sent by this repo**, so nothing here knows what the
+     * QC45 does with it, and finding out is not free — see the `04 07` note in
+     * `docs/bose-settings.md` for what lives in that neighbourhood.
+     */
+    const val SET_GET: Byte = 0x02
     const val STATUS: Byte = 0x03
     const val ERROR: Byte = 0x04
 
     /**
      * ⚠ **Operator `05` is Start, and it is NOT needed for every write.** The ANC
      * mode table (`1f 03`) takes it; EQ, multipoint and the Action button all took a
-     * plain [SET] and the device's echoed state changed, so "Bose edits are
+     * plain [SET_GET] and the device's echoed state changed, so "Bose edits are
      * transactional" is true of one function, not of the protocol.
      */
     const val START: Byte = 0x05
@@ -92,7 +111,7 @@ object BoseEq {
         require(band in BASS..TREBLE) { "no band $band" }
         require(level in RANGE) { "$level dB is outside $RANGE" }
         val payload = byteArrayOf(level.toByte(), band.toByte())
-        return BoseFrame.encode(BLOCK, FN, BoseFrame.SET, payload)
+        return BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, payload)
     }
 
     /**
@@ -157,7 +176,7 @@ object BoseMultipoint {
     fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
 
     fun set(on: Boolean) =
-        BoseFrame.encode(BLOCK, FN, BoseFrame.SET, byteArrayOf(if (on) 0x01 else 0x00))
+        BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, byteArrayOf(if (on) 0x01 else 0x00))
 
     /**
      * Whether it is on, from `01 0a 03 01 <flags>`.
@@ -205,7 +224,7 @@ object BoseButton {
 
     fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
 
-    fun set(action: Action) = BoseFrame.encode(BLOCK, FN, BoseFrame.SET, SELECTOR + action.code)
+    fun set(action: Action) = BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, SELECTOR + action.code)
 
     /**
      * `01 09 03 0b 80 09 <action>` + eight trailing bytes.

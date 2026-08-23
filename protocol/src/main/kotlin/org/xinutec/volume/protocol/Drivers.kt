@@ -454,6 +454,34 @@ object Drivers {
         fun writeButton(t: Transport, action: SonyButton.Action): SonyButton.Action? =
             exchangeFramed(t, SonyButton.set(action))?.let(SonyButton::state)
 
+        /**
+         * The three on/off settings whose **reads** were confirmed on 2026-08-23
+         * against both the XM4 and Sound Connect's own screens — see [SonySwitch].
+         *
+         * ⚠ **The writes had not been driven when this was written.** Each returns the
+         * device's echo so [setSwitch] can compare it against a real read, exactly as
+         * the multipoint path does, because a Sony reply is not a result.
+         */
+        fun readSwitch(t: Transport, switch: SonySwitch): Boolean? =
+            exchangeFramed(t, switch.get())?.let(switch::state)
+
+        fun writeSwitch(t: Transport, switch: SonySwitch, on: Boolean): Boolean? =
+            exchangeFramed(t, switch.set(on))?.let(switch::state)
+
+        /**
+         * Write it, read it back, and say which happened.
+         *
+         * ⚠ **The read is not skipped when the echo already agrees.** [SonyButton] is
+         * the reason: that write is acked, echoes nothing, and does not take — a driver
+         * that reported success from a reply would call it confirmed. So the echo is
+         * only ever a fallback for "nothing came back", never the evidence.
+         */
+        fun setSwitch(t: Transport, switch: SonySwitch, on: Boolean): Confirmation<Boolean> {
+            writeSwitch(t, switch, on)
+            val after = readSwitch(t, switch) ?: return Confirmation.Unverifiable
+            return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+        }
+
         override fun readMultipoint(t: Transport): Boolean? =
             exchangeFramed(t, SonyMultipoint.get())?.let(SonyMultipoint::state)
 

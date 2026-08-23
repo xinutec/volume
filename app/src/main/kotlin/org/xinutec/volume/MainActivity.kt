@@ -19,7 +19,10 @@ import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Hex
 import org.xinutec.volume.protocol.SonyButton
+import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyFrame
+import org.xinutec.volume.protocol.SonyPauseOnRemoval
+import org.xinutec.volume.protocol.SonySpeakToChat
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Sweep
 import org.xinutec.volume.protocol.Transport
@@ -459,6 +462,9 @@ class MainActivity : Activity() {
      * --es op settings --es device "XM4" --es eq a1          Sony: a preset id, hex
      * --es op settings --es device "XM4" --es autooff never  never | when_removed
      * --es op settings --es device "XM4" --es multipoint on
+     * --es op settings --es device "XM4" --es dsee on      DSEE Extreme
+     * --es op settings --es device "XM4" --es pause off    pause when removed
+     * --es op settings --es device "XM4" --es chat on      Speak-to-Chat
      * --es op settings --es device "Bose" --es eq 8,0,0      Bose: bass,mid,treble dB
      * --es op settings --es device "Bose" --es button spotify
      * ```
@@ -489,6 +495,9 @@ class MainActivity : Activity() {
         emit("  multipoint: ${d.readMultipoint(t) ?: "(no answer)"}")
         emit("  quality:    ${d.readSoundQuality(t) ?: "(no answer)"}")
         emit("  button:     ${d.readButton(t) ?: "(unexercised code, or no answer)"}")
+        emit("  dsee:       ${d.readSwitch(t, SonyDsee) ?: "(no answer)"}")
+        emit("  pause:      ${d.readSwitch(t, SonyPauseOnRemoval) ?: "(no answer)"}")
+        emit("  chat:       ${d.readSwitch(t, SonySpeakToChat) ?: "(no answer)"}")
 
         intent.getStringExtra("eq")?.let { arg ->
             val preset = arg.toIntOrNull(16)
@@ -519,6 +528,22 @@ class MainActivity : Activity() {
             val on = onOff(arg) ?: return@let emit("  ✗ multipoint wants on|off, not '$arg'")
             emit("  → multipoint $arg")
             report(d.setMultipoint(t, on))
+        }
+        // The three whose reads were confirmed on 2026-08-23 and whose writes had not
+        // been driven when this was written. ⚠ Each is reversible and each is the
+        // owner's setting — put back what was there.
+        val switches =
+            listOf(
+                "dsee" to SonyDsee,
+                "pause" to SonyPauseOnRemoval,
+                "chat" to SonySpeakToChat,
+            )
+        for ((key, switch) in switches) {
+            intent.getStringExtra(key)?.let { arg ->
+                val on = onOff(arg) ?: return@let emit("  ✗ $key wants on|off, not '$arg'")
+                emit("  → $key $arg")
+                report(d.setSwitch(t, switch, on))
+            }
         }
         intent.getStringExtra("quality")?.let { arg ->
             val mode = SoundQuality.entries.firstOrNull { it.name.equals(arg, ignoreCase = true) }

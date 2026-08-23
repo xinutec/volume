@@ -139,10 +139,14 @@ enum class SoundQuality {
  * ✅ **Driven on hardware 2026-08-16**, both directions, each confirmed by read-back
  * and restored. Decoded the same evening from the vendor app changing it.
  *
- * ⚠ **The third byte is `00` here, where every other setting in this file has `01`.**
- * Auto-off sends `f8 04 01 <v> 00` and multipoint `d8 d2 01 <v>`; this one sends
- * `e8 01 00 <v>`. Carried verbatim from the capture rather than normalised, because
- * whatever that byte counts, it is not the same thing in both.
+ * ✅ **The third byte is the feature's settingType** — see [SonySwitch], which was
+ * written once the SDK named it. This one is `ConnectionModeSettingType.SOUND_CONNECTION`
+ * = `00`, where auto-off's is `AutoPowerOffParameterType.ACTIVE_AND_SELECTIME_ID` = `01`.
+ * The tables differ per feature, so `00` here and `01` there is not an inconsistency.
+ *
+ * ⚠ This supersedes an earlier note saying "whatever that byte counts, it is not the same
+ * thing in both". It is the same *kind* of thing in both; the frames were right and the
+ * explanation was missing. Nothing on the wire changed.
  *
  * Changing it renegotiates the codec, so the link drops and returns — the vendor app
  * warns "Reconnects to the audio device" before doing it.
@@ -244,6 +248,149 @@ object SonyButton {
         return Action.entries.firstOrNull { it.code == payload[3] }
     }
 }
+
+/**
+ * A Sony setting that is simply on or off: `<command> <inquiredType> <settingType> <value>`.
+ *
+ * ✅ **That shape is not a guess from mirroring replies — it is the vendor SDK's own
+ * argument list**, read out of `com.sony.songpal.mdr` on 2026-08-23 with
+ * [scripts/smali_enum.py]. Every byte position lands on a named enum:
+ *
+ * | position | enum | example |
+ * | --- | --- | --- |
+ * | inquiredType | `SystemInquiredType` / `AudioInquiredType` | `03` CONTROL_BY_WEARING |
+ * | settingType | one per feature, usually a single entry | `ControlByWearingSettingType.ON_OFF` = `00` |
+ * | value | one per feature, `00`/`01` | `ControlByWearingSettingValue.ON` = `01` |
+ *
+ * ⚠ **The settingType byte is the one that was previously carried without a name**, and
+ * the reason it is a parameter here rather than a constant `00`: [SonySoundQuality] sends
+ * `00` where [SonyAutoOff] sends `01`, and the file used to say only that "whatever that
+ * byte counts, it is not the same thing in both". It is the same *kind* of thing in both —
+ * a per-feature type selector — and the two features simply have different tables.
+ * `AutoPowerOffParameterType` has no `00` at all; its single entry is
+ * `01 ACTIVE_AND_SELECTIME_ID`, which is exactly the byte that frame carries.
+ *
+ * ✅ **Two settings already driven on hardware confirm the reading**, which is what makes
+ * it usable for settings that have not been: [SonyAutoOff]'s values `11`/`10` are
+ * `AutoPowerOffElementId.POWER_OFF_DISABLE` and `POWER_OFF_WHEN_REMOVED_FROM_EARS`, and
+ * [SonySoundQuality]'s `00`/`01` are `ConnectionModeSettingValue.SOUND_QUALITY_PRIOR` and
+ * `CONNECTION_QUALITY_PRIOR`. Both were decoded from captures long before the SDK was
+ * read, and the SDK agrees with both.
+ *
+ * ⚠ It is still the APK's word about the *app*. The three instances below have had their
+ * **reads** confirmed against the XM4 and against Sound Connect's screens; their **writes**
+ * are marked at each instance and must not be described as working until one lands.
+ */
+class SonySwitch(
+    /** `*_GET_PARAM` for this block — `f6` SYSTEM, `e6` AUDIO. */
+    private val getCmd: Byte,
+    /** `*_RET_PARAM` — the answer to [get]. */
+    private val retCmd: Byte,
+    /** `*_SET_PARAM` — always [getCmd] + 2 on this device, and written out anyway. */
+    private val setCmd: Byte,
+    /** `*_NTFY_PARAM` — unsolicited, and also the echo after a [set]. */
+    private val notifyCmd: Byte,
+    /** `SystemInquiredType` or `AudioInquiredType`. */
+    val type: Byte,
+    /** The feature's own setting-type table; a single entry for all three below. */
+    private val settingType: Byte,
+) {
+    fun get(): ByteArray = byteArrayOf(getCmd, type)
+
+    fun set(on: Boolean): ByteArray = byteArrayOf(setCmd, type, settingType, onOff(on))
+
+    private fun onOff(on: Boolean): Byte = if (on) 0x01 else 0x00
+
+    /**
+     * ⚠ Accepts [retCmd] and [notifyCmd] alike, and checks the settingType byte too —
+     * an extended-parameter reply carries a different table in that position, so a
+     * decoder that skipped straight to byte 3 would read a sensitivity as an on/off.
+     */
+    fun state(payload: ByteArray): Boolean? {
+        if (payload.size < 4) return null
+        if (payload[0] != retCmd && payload[0] != notifyCmd) return null
+        if (payload[1] != type || payload[2] != settingType) return null
+        return when (payload[3]) {
+            0x00.toByte() -> false
+            0x01.toByte() -> true
+            else -> null
+        }
+    }
+}
+
+/** `f6` SYSTEM_GET_PARAM · `f7` RET · `f8` SET · `f9` NTFY. */
+private fun systemSwitch(type: Byte, settingType: Byte = 0x00) =
+    SonySwitch(0xf6.toByte(), 0xf7.toByte(), 0xf8.toByte(), 0xf9.toByte(), type, settingType)
+
+/** `e6` AUDIO_GET_PARAM · `e7` RET · `e8` SET · `e9` NTFY. */
+private fun audioSwitch(type: Byte, settingType: Byte = 0x00) =
+    SonySwitch(0xe6.toByte(), 0xe7.toByte(), 0xe8.toByte(), 0xe9.toByte(), type, settingType)
+
+/**
+ * **DSEE Extreme** — `AudioInquiredType.UPSCALING` (`e2` in the device's own function
+ * list), settings type `02`.
+ *
+ * ```
+ * → e6 02              read
+ * ← e7 02 00 00        UpscalingSettingValue.OFF
+ * → e8 02 00 01        write AUTO
+ * ```
+ *
+ * ✅ **Read on the XM4 2026-08-23 and confirmed**: `e7 02 00 00`, and Sound Connect's
+ * DSEE Extreme row read **Off** at the same moment.
+ *
+ * ⚠ **`true` is `UpscalingSettingValue.AUTO`, not a generic "on"** — the table has
+ * exactly `00 OFF` and `01 AUTO`, so the switch is two-state and the app draws it as a
+ * toggle, but the name it is toggling to is AUTO.
+ *
+ * ⚠ **Do not read DSEE's state from `14`/`15` UPSCALING_INDICATOR.** That answered
+ * `15 00 02 00` — `UpscalingEffectStatus` INVALID — in the same session, which is about
+ * whether upscaling is *doing anything to the current stream*, not whether the setting
+ * is on. Two fields, one switch.
+ */
+val SonyDsee = audioSwitch(type = 0x02)
+
+/**
+ * **Pause when headphones are removed** — `SystemInquiredType.CONTROL_BY_WEARING` (`f3`),
+ * settings type `03`.
+ *
+ * ```
+ * → f6 03              read
+ * ← f7 03 00 01        ControlByWearingSettingValue.ON
+ * → f8 03 00 00        write OFF
+ * ```
+ *
+ * ✅ **Read on the XM4 2026-08-23 and confirmed**: `f7 03 00 01`, and the app's
+ * "Pause when headphones are removed" row read **On**.
+ *
+ * ⚠ **Not the same thing as [SonyAutoOff].** That one is `f4` AUTO_POWER_OFF and switches
+ * the headphones *off*; this one pauses playback. Both are wearing-sensor features and the
+ * XM4 has both, which is precisely why they are easy to conflate.
+ */
+val SonyPauseOnRemoval = systemSwitch(type = 0x03)
+
+/**
+ * **Speak-to-Chat** — `SystemInquiredType.SMART_TALKING_MODE` (`f5`), settings type `05`.
+ *
+ * ```
+ * → f6 05              read
+ * ← f7 05 00 00        SmartTalkingModeSettingValue.OFF
+ * → f8 05 00 01        write ON
+ * ```
+ *
+ * ✅ **Read on the XM4 2026-08-23 and confirmed**: `f7 05 00 00`, and the app's
+ * Speak-to-Chat row read **Off**.
+ *
+ * ⚠ **The sensitivity and mode-out time are NOT reachable through this.** They live on
+ * `fa`/`fc` SYSTEM_*_EXTENDED_PARAM with their own tables — `DetectionSensitivity`
+ * (`00` AUTO, `01` HIGH, `02` LOW) and `ModeOutTime` (`00` FAST, `01` MID, `02` SLOW,
+ * `03` NONE). Nothing here has sent an extended-parameter frame, and [state] rejects one
+ * rather than decoding its first byte as an on/off.
+ *
+ * ⚠ **Turning this ON changes what the headphones do to audio when you talk**, which is
+ * the one setting in this file with an effect the wearer cannot miss. Restore it.
+ */
+val SonySpeakToChat = systemSwitch(type = 0x05)
 
 /**
  * One headphone family's multipoint switch — two devices have it decoded, which is
