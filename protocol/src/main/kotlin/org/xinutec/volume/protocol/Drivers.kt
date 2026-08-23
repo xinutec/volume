@@ -416,6 +416,22 @@ object Drivers {
          */
         fun readFocusOnVoice(t: Transport): Boolean? = focus(current(t) ?: return null)
 
+        /**
+         * Focus on Voice **and** whether it can be set, from ONE read.
+         *
+         * ⚠ Both facts come out of the same `67 02 …` frame, so asking twice is a
+         * wasted round trip — and on this device a round trip is not free: every extra
+         * exchange is another chance for a volunteered notification to put the session
+         * one behind (#1107). The screen needs both, so the driver returns both.
+         */
+        fun readFocus(t: Transport): Focus {
+            val body = current(t) ?: return Focus(null, settable = false)
+            // Ambient means NcAsmEffect on with NcDualSingleValue off — the same two
+            // bytes [read] uses, and the same condition [setFocusOnVoice] enforces.
+            val ambient = body[2] != 0x00.toByte() && body[4] == 0x00.toByte()
+            return Focus(focus(body), settable = ambient)
+        }
+
         fun setFocusOnVoice(t: Transport, on: Boolean): Confirmation<Boolean> {
             val before = current(t) ?: return Confirmation.Unverifiable
             // ⚠ byte 4 is NcDualSingleValue; anything but OFF means noise cancelling is

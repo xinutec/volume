@@ -20,12 +20,17 @@ import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.NoMode
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
+import org.xinutec.volume.protocol.RefusalReason
 import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
+import org.xinutec.volume.protocol.SonyDsee
+import org.xinutec.volume.protocol.SonyPauseOnRemoval
+import org.xinutec.volume.protocol.SonySpeakToChat
+import org.xinutec.volume.protocol.SonySwitch
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TimedOff
@@ -240,15 +245,21 @@ class DeviceController(
 
     /**
      * ⚠ **`refuses` is not a guess about the device — it is measured, on 2026-08-16.**
-     * The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and then ignores both, and Sony's
-     * own app fails at multipoint identically. The QC45 accepts the same two settings
-     * from this code. So the set is per-driver and is stated where a future session
-     * will see it next to the evidence, rather than being rediscovered by a user
-     * watching a switch spring back.
+     * The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and then ignores both. The QC45
+     * accepts the same two settings from this code. So the map is per-driver and is
+     * stated where a future session will see it next to the evidence, rather than
+     * being rediscovered by a user watching a switch spring back.
+     *
+     * ⚠ **The two do NOT fail for the same reason, and it is a Map now because of
+     * that.** Sony's own app fails at multipoint identically — that is [DEVICE]. It
+     * changes the [CUSTOM] button perfectly well, and only this repo cannot — that is
+     * [THIS_APP], and it is #965. Both were a plain `Set` until 2026-08-23, under a
+     * note on screen reading "not even its own app", which was false for the button.
      */
     private fun readSettings(s: Session): Settings =
         when (val d = s.headphones.driver) {
             is Drivers.SonyXm4 -> {
+                val focus = d.readFocus(s.transport)
                 Settings(
                     eq = d.readEq(s.transport),
                     bands = d.bands(s.transport),
@@ -256,7 +267,18 @@ class DeviceController(
                     autoOff = d.readAutoOff(s.transport),
                     soundQuality = d.readSoundQuality(s.transport),
                     button = d.readButton(s.transport)?.name,
-                    refuses = setOf(SettingKind.MULTIPOINT, SettingKind.BUTTON),
+                    dsee = d.readSwitch(s.transport, SonyDsee),
+                    pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
+                    speakToChat = d.readSwitch(s.transport, SonySpeakToChat),
+                    // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
+                    // separately cost an extra `66 02` per settings load.
+                    focusOnVoice = focus.on,
+                    focusOnVoiceSettable = focus.settable,
+                    refuses =
+                        mapOf(
+                            SettingKind.MULTIPOINT to RefusalReason.DEVICE,
+                            SettingKind.BUTTON to RefusalReason.THIS_APP,
+                        ),
                     attempted = true,
                 )
             }
@@ -435,6 +457,44 @@ class DeviceController(
                 on -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
+        }
+
+    /**
+     * The three XM4 on/off settings, all through [SonyXm4.setSwitch], which writes and
+     * then **reads back** — the reply is never the evidence on this device.
+     *
+     * ⚠ Only reachable for the Sony; [sony] returns Unverifiable for anything else
+     * rather than silently doing nothing, because a switch that moves and reports
+     * success while sending no bytes is worse than one that says it could not.
+     */
+    override fun setDsee(address: String, on: Boolean) = sonySwitch(address, "dsee", SonyDsee, on)
+
+    override fun setPauseOnRemoval(address: String, on: Boolean) =
+        sonySwitch(address, "pause on removal", SonyPauseOnRemoval, on)
+
+    override fun setSpeakToChat(address: String, on: Boolean) =
+        sonySwitch(address, "speak-to-chat", SonySpeakToChat, on)
+
+    private fun sonySwitch(address: String, what: String, switch: SonySwitch, on: Boolean) =
+        applied<Boolean>(address, "setting $what", { if (it) "on" else "off" }) {
+            val d =
+                it.headphones.driver as? Drivers.SonyXm4
+                    ?: return@applied Confirmation.Unverifiable
+            d.setSwitch(it.transport, switch, on)
+        }
+
+    /**
+     * ⚠ **Ambient mode only.** [Drivers.SonyXm4.setFocusOnVoice] does the checking — it
+     * refuses in ANC rather than sending a frame the device accepts and ignores. The UI
+     * also hides the switch there, so this is the second of two guards, deliberately:
+     * the screen's copy of the mode can be stale by the time a tap arrives.
+     */
+    override fun setFocusOnVoice(address: String, on: Boolean) =
+        applied<Boolean>(address, "setting focus on voice", { if (it) "on" else "off" }) {
+            val d =
+                it.headphones.driver as? Drivers.SonyXm4
+                    ?: return@applied Confirmation.Unverifiable
+            d.setFocusOnVoice(it.transport, on)
         }
 
     override fun setSmartAv(address: String, v: SmartAv) =

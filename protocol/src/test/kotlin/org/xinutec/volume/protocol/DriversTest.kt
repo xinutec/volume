@@ -339,6 +339,39 @@ class DriversTest {
         )
     }
 
+    /**
+     * ⚠ **One read, both facts.** The controller asked twice at first — once for the
+     * value and once for the mode — which is a wasted `66 02` on a device where every
+     * extra exchange is another chance to end up one window behind (#1107).
+     */
+    @Test
+    fun `sony reads focus on voice and its settability from one frame`() {
+        val ambient =
+            Replay(
+                "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 01 02 00 01 01 14 96 3c",
+            )
+        assertEquals(Focus(on = true, settable = true), Drivers.SonyXm4().readFocus(ambient))
+        ambient.assertDrained()
+
+        // In ANC the value is still readable; only the control goes away.
+        val anc =
+            Replay(
+                "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 01 02 02 01 00 00 83 3c",
+            )
+        assertEquals(Focus(on = false, settable = false), Drivers.SonyXm4().readFocus(anc))
+
+        // ⚠ And OFF is not ambient either — `on` is false there, so the mode check
+        // cannot key on the nc byte alone.
+        val off =
+            Replay(
+                "3e 0c 00 00 00 00 02 66 02 76 3c" to
+                    "3e 0c 00 00 00 00 08 67 02 00 02 00 01 00 14 94 3c",
+            )
+        assertEquals(false, Drivers.SonyXm4().readFocus(off).settable)
+    }
+
     // ---- JBL -------------------------------------------------------------------
 
     @Test
