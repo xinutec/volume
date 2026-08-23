@@ -267,6 +267,7 @@ class DeviceController(
                     autoOff = d.readAutoOff(s.transport),
                     soundQuality = d.readSoundQuality(s.transport),
                     button = d.readButton(s.transport)?.name,
+                    battery = d.readBattery(s.transport),
                     dsee = d.readSwitch(s.transport, SonyDsee),
                     pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
                     speakToChat = d.readSwitch(s.transport, SonySpeakToChat),

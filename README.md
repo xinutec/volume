@@ -112,7 +112,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
 | Sound quality | — | — | ✅ | — | — |
-| Battery | — | — | 👁 read | ✅ read | — |
+| Battery | — | — | ✅ read | ✅ read | — |
 | DSEE / upscaling | — | — | ✅ | — | — |
 | Speak-to-Chat | — | — | ✅ | ✅ r/w (Smart Talk) | — |
 | Pause when removed | — | — | ✅ | ✅ r/w (Auto Play) | — |

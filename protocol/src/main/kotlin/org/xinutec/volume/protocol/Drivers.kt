@@ -603,6 +603,11 @@ object Drivers {
             }
         }
 
+        /** ✅ Confirmed against Sound Connect's own card on 2026-08-23 — see [SonyBattery]. */
+        fun readBattery(t: Transport): Battery? =
+            exchangeFramed(t, SonyBattery.get(), SonyBattery.RET, SonyBattery.NOTIFY)
+                ?.let(SonyBattery::state)
+
         override fun readMultipoint(t: Transport): Boolean? =
             exchangeFramed(t, SonyMultipoint.get())?.let(SonyMultipoint::state)
 

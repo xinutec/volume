@@ -454,6 +454,60 @@ val SonyPauseOnRemoval = systemSwitch(type = 0x03, readType = 0x00, writeType = 
 val SonySpeakToChat = systemSwitch(type = 0x05, readType = 0x00, writeType = 0x01)
 
 /**
+ * Sony battery — `10` COMMON_GET_BATTERY_LEVEL, `11` RET, `13` NTFY.
+ *
+ * ```
+ * → 10 00              BatteryInquiredType.BATTERY
+ * ← 11 00 50 00        80%, BatteryChargingStatus.NOT_CHARGING
+ * ```
+ *
+ * ✅ **Read on the XM4 2026-08-23 and cross-checked**: the reply was `11 00 50 00` and
+ * Sound Connect's own card read **80%** at the same moment. Every byte lands on a named
+ * SDK enum, so this is not a scale inferred from one sample.
+ *
+ * ⚠ **`00` is BatteryInquiredType.BATTERY, the single-cell question**, and it is the
+ * only one this model answers. `01` LEFT_RIGHT_BATTERY and `02` CRADLE_BATTERY are for
+ * earbuds and a case; the XM4 declares neither — `15`/`17`/`18` are absent from the 22
+ * functions it lists. Asking for them here would be inventing cells.
+ *
+ * ⚠ **Unlike the JBL's, this has to be ASKED.** [JblBattery] arrives unbidden every ten
+ * seconds; nothing here has seen a `13` NTFY from the XM4, so a card that waited for one
+ * would stay blank. That is why [get] exists and why the driver reads it per refresh.
+ */
+object SonyBattery {
+    /** `BatteryInquiredType.BATTERY` — the whole-headphone cell. */
+    const val TYPE: Byte = 0x00
+
+    const val GET: Byte = 0x10
+    const val RET: Byte = 0x11
+    const val NOTIFY: Byte = 0x13
+
+    private const val NOT_CHARGING: Byte = 0x00
+    private const val CHARGING: Byte = 0x01
+
+    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+
+    /**
+     * ⚠ **`f0` UNKNOWN is not "not charging"**, and an unrecognised status yields null
+     * rather than a cheerful default. `BatteryChargingStatus` has exactly three values
+     * and the third means the device does not know — reporting that as "on battery"
+     * would be this repo inventing a fact the headphones declined to state.
+     */
+    fun state(payload: ByteArray): Battery? {
+        if (payload.size < 4) return null
+        if (payload[0] != RET && payload[0] != NOTIFY) return null
+        if (payload[1] != TYPE) return null
+        val percent = payload[2].toInt() and 0xff
+        if (percent > 100) return null
+        return when (payload[3]) {
+            NOT_CHARGING -> Battery(percent = percent, charging = false)
+            CHARGING -> Battery(percent = percent, charging = true)
+            else -> null
+        }
+    }
+}
+
+/**
  * One headphone family's multipoint switch — two devices have it decoded, which is
  * what makes this an interface rather than two methods on two drivers.
  */

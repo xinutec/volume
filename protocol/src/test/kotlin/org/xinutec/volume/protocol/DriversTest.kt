@@ -451,6 +451,34 @@ class DriversTest {
         assertEquals(sonyAck, t.sent.last())
     }
 
+    /**
+     * ✅ The frame the XM4 really sent on 2026-08-23, alongside Sound Connect reading
+     * **80%** on the same card at the same moment.
+     */
+    @Test
+    fun `sony reads the battery it reported`() {
+        val t =
+            Replay(
+                "3e 0c 00 00 00 00 02 10 00 1e 3c" to
+                    "3e 0c 00 00 00 00 04 11 00 50 00 71 3c",
+            )
+        assertEquals(Battery(percent = 80, charging = false), Drivers.SonyXm4().readBattery(t))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **`f0` is `BatteryChargingStatus.UNKNOWN` and must not read as "on battery".**
+     * The device is saying it does not know; a decoder that defaulted to false would
+     * put a confident "80%" on the card on the strength of a shrug. Same rule as
+     * [SonyAutoOff]'s unknown value byte.
+     */
+    @Test
+    fun `sony refuses a battery whose charging status it does not know`() {
+        assertNull(SonyBattery.state(Hex.parse("110050f0")))
+        // and a level over 100, which BatteryInquiredType has no cell for
+        assertNull(SonyBattery.state(Hex.parse("1100ff00")))
+    }
+
     // ---- JBL -------------------------------------------------------------------
 
     @Test
