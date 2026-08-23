@@ -372,6 +372,59 @@ class DriversTest {
         assertEquals(false, Drivers.SonyXm4().readFocus(off).settable)
     }
 
+    /**
+     * ✅ **#1107, the fix.** The XM4 volunteers frames, and one arriving before the
+     * reply used to end the read with nothing — which is how tapping DSEE in the app
+     * reported "sent, this one cannot confirm it" for a write that had landed.
+     *
+     * Here the exchange window holds only the volunteered `17`, and the real `e7`
+     * arrives on the next read.
+     */
+    @Test
+    fun `sony reads again when a volunteered frame arrives before the answer`() {
+        val t =
+            Replay(
+                dseeGet to "3e 0c 00 00 00 00 04 17 00 02 00 29 3c 3e 01 00 00 00 00 00 01 3c",
+            )
+        t.volunteered = listOf("3e 0c 00 00 00 00 04 e7 02 00 00 f9 3c")
+        assertEquals(false, Drivers.SonyXm4().readSwitch(t, SonyDsee))
+    }
+
+    /**
+     * ⚠ **And it gives up.** Bounded at [Drivers.SonyXm4] EXTRA_READS — a device that
+     * has stopped answering must produce a null, not a stall, because this runs on the
+     * settings path with someone waiting.
+     */
+    @Test
+    fun `sony stops reading again once its budget is spent`() {
+        val stray = "3e 0c 00 00 00 00 04 17 00 02 00 29 3c"
+        val t = Replay(dseeGet to stray)
+        t.volunteered = List(9) { stray }
+        assertNull(Drivers.SonyXm4().readSwitch(t, SonyDsee))
+        // 1 exchange + at most EXTRA_READS receives, not all nine.
+        assertTrue("spent ${t.sent.size} sends", t.sent.size <= 5)
+    }
+
+    /**
+     * ⚠ **Every DATA frame is acked, not just the one returned.** Sony asks for one per
+     * frame; the old code acked only its chosen reply, so a volunteered notification
+     * sharing the window was silently left unacknowledged. That is a protocol violation
+     * on its own, and the likeliest reason a session then ran one behind for good.
+     */
+    @Test
+    fun `sony acks every data frame in the window`() {
+        // ⚠ Different sequence bits, as consecutive device frames really have — so the
+        // two acks are not interchangeable and a test that acked one twice would fail.
+        val two =
+            "3e 0c 00 00 00 00 04 17 00 02 00 29 3c 3e 0c 01 00 00 00 04 e7 02 00 00 fa 3c"
+        val t = Replay(dseeGet to two)
+        assertEquals(false, Drivers.SonyXm4().readSwitch(t, SonyDsee))
+        // the request, then one ack per DATA frame, each inverting that frame's bit
+        assertEquals(3, t.sent.size)
+        assertEquals("3e 01 01 00 00 00 00 02 3c", t.sent[1])
+        assertEquals(sonyAck, t.sent[2])
+    }
+
     // ---- JBL -------------------------------------------------------------------
 
     @Test
