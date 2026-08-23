@@ -453,7 +453,9 @@ object Drivers {
             want[0] = 0x68
             want[6] = if (on) VOICE else NORMAL
             exchangeFramed(t, want)
-            val after = current(t)?.let(::focus) ?: return Confirmation.Unverifiable
+            val after = current(t)?.let(::focus)
+            settle(t)
+            after ?: return Confirmation.Unverifiable
             return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
         }
 
@@ -557,8 +559,48 @@ object Drivers {
          */
         fun setSwitch(t: Transport, switch: SonySwitch, on: Boolean): Confirmation<Boolean> {
             writeSwitch(t, switch, on)
-            val after = readSwitch(t, switch) ?: return Confirmation.Unverifiable
+            val after = readSwitch(t, switch)
+            settle(t)
+            after ?: return Confirmation.Unverifiable
             return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+        }
+
+        /**
+         * Consume and acknowledge whatever the write left in flight.
+         *
+         * ⚠ **A write on this device emits more than its own answer.** Changing DSEE
+         * draws an `e9` NTFY_PARAM *and* a `17` COMMON_NTFY_UPSCALING_EFFECT, and the
+         * second commonly arrives after the confirming read has finished. It then sits
+         * in the socket waiting for the next request — and the next request, on the
+         * settings path, is a nine-read refresh whose FIRST exchange collects it.
+         *
+         * ⚠ **This did NOT fix the symptom it was written for, and is kept on its own
+         * merits.** The symptom: one tap leaves the XM4 on, the switch drawn on, and the
+         * row's own label reading "off". It was reproduced again *with* this in place,
+         * in a clean run with nothing else touching the channel — so a leftover frame on
+         * the socket is **not** the explanation, or not the whole one. See #1107.
+         *
+         * What it is still worth: acknowledging a DATA frame is required whether or not
+         * anybody wanted its contents, and leaving one unacked is the defect that put
+         * sessions permanently one behind. Retiring them politely is correct in itself.
+         *
+         * ⚠ **This belongs to the driver and not to [Transport].** A transport that
+         * dropped pending bytes would discard Sony DATA frames without acknowledging
+         * them, which is the very thing that put sessions permanently one behind. Only
+         * something that can parse a frame can retire one politely.
+         *
+         * Bounded, and silent about what it finds: these frames are real state, but
+         * nothing here is asking a question, so there is nobody to hand an answer to.
+         */
+        private fun settle(t: Transport) {
+            repeat(EXTRA_READS) {
+                val more = t.receive()
+                if (more.isEmpty()) return
+                SonyFrame
+                    .decodeAll(more)
+                    .filter { f -> f.type == SonyFrame.TYPE_DATA_MDR }
+                    .forEach { f -> ackFor(f)?.let(t::send) }
+            }
         }
 
         override fun readMultipoint(t: Transport): Boolean? =

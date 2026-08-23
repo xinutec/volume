@@ -425,6 +425,32 @@ class DriversTest {
         assertEquals(sonyAck, t.sent[2])
     }
 
+    /**
+     * ✅ **A write retires what it left behind.** The XM4 answers `e8 02 …` with its own
+     * `e9`, and then volunteers `17` COMMON_NTFY_UPSCALING_EFFECT a moment later. That
+     * second frame used to be collected by the FIRST exchange of the settings refresh
+     * that runs next — which is how a tap left the device on, the switch drawn on, and
+     * the row's own label saying "off".
+     *
+     * Here the stray is delivered after the confirming read, and must be consumed AND
+     * acknowledged rather than left for the next caller.
+     */
+    @Test
+    fun `sony settles the frames its write leaves in flight`() {
+        val d = Drivers.SonyXm4()
+        val t =
+            Replay(
+                dseeSetAuto to dseeAutoReply1,
+                dseeGet1 to "3e 0c 00 00 00 00 04 e7 02 00 01 fa 3c",
+            )
+        t.volunteered = listOf("3e 0c 01 00 00 00 04 17 00 02 00 2a 3c")
+        assertEquals(Confirmation.Confirmed, d.setSwitch(t, SonyDsee, true))
+        t.assertDrained()
+        // ⚠ The stray is ACKED, not merely swallowed. An unacknowledged DATA frame is
+        // what put sessions one behind to begin with.
+        assertEquals(sonyAck, t.sent.last())
+    }
+
     // ---- JBL -------------------------------------------------------------------
 
     @Test
