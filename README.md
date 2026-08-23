@@ -114,15 +114,14 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Sound quality | — | — | ✅ | — | — |
 | Battery | — | — | 👁 read | ✅ read | — |
 | DSEE / upscaling | — | — | ✅ | — | — |
-| Speak-to-Chat | — | — | ⚠ sent, not taken | ✅ r/w (Smart Talk) | — |
+| Speak-to-Chat | — | — | ✅ | ✅ r/w (Smart Talk) | — |
 | Pause when removed | — | — | ✅ | ✅ r/w (Auto Play) | — |
 | Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
 
-⚠ **"sent, not taken" is a third state and it is deliberately not ⛔.** Speak-to-Chat's
-write is acked and the XM4 stays Off — but the headphones were **not being worn** during
-the attempt, and that setting is driven by the wearing sensor. Unlike multipoint and the
-[CUSTOM] button, this one has an untested mundane explanation, so it is not yet filed as a
-refusal. `docs/sony-settings.md` has the one-line test.
+⚠ **Speak-to-Chat spent an hour in this table as "sent, not taken" and it was wrong.**
+The write was malformed: it reads with one type table and writes with another, alone among
+these settings. The XM4 acked the bad frame and did nothing, which is indistinguishable
+from a refusal until you look at the vendor SDK. `docs/sony-settings.md` has it.
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-three device controls and fifteen of them are here — the inventory is in
