@@ -131,12 +131,16 @@ object Probe {
          * own ack.** This returned a single reply until 2026-08-23 and acked only the
          * last DATA frame. `Drivers.SonyXm4` had the identical defect.
          *
-         * ⚠ **Fixing it did NOT stop this tool going one behind**, measured right after
-         * the change: `e6 02` still collects the volunteered `17` and the answer turns
-         * up in the next packet's window. Acking every frame is correct on its own
-         * terms; it is not the cure for #1107, and the driver only escapes by reading
-         * again for an answer it can name. This tool cannot — it sends arbitrary bytes
-         * and has no idea what would answer them.
+         * ⚠ **WHEN, not how many.** Acking every frame after the window closed still ran
+         * one behind, because the XM4 is **stop-and-wait**: it withholds its next DATA
+         * frame until the current one is acknowledged. Measured 2026-08-23 — a
+         * volunteered `13` battery notify arrived first, the device retransmitted it
+         * four times across the remaining 2.5 s, the real answer never came, and the
+         * six exchanges after it were each one window late.
+         *
+         * So this is now called from [readAcking], which acks mid-window. That the
+         * mechanism is stop-and-wait is measured; that acking sooner cures the displacement
+         * is the prediction it implies, and is not yet confirmed on hardware.
          */
         acksFor: (ByteArray) -> List<ByteArray> = { emptyList() },
         onResult: (sent: ByteArray, got: ByteArray, killedLink: Boolean) -> Unit,
@@ -151,12 +155,7 @@ object Probe {
                 try {
                     socket.outputStream.write(p)
                     socket.outputStream.flush()
-                    val got = readFor(socket.inputStream, perMs, quietMs)
-                    onResult(p, got, false)
-                    for (ack in acksFor(got)) {
-                        socket.outputStream.write(ack)
-                        socket.outputStream.flush()
-                    }
+                    onResult(p, readAcking(socket, perMs, quietMs, acksFor), false)
                 } catch (e: IOException) {
                     // ⚠ The Fast Pair devices (JBL, JLab) reject a message they do not
                     // like by DROPPING THE LINK rather than answering. A dead socket is
@@ -211,6 +210,53 @@ object Probe {
             if (n > 0) {
                 out.write(buf, 0, n)
                 lastData = System.nanoTime()
+            } else {
+                val quietFor = (System.nanoTime() - lastData) / 1_000_000
+                if (out.size() > 0 && quietFor > quietMs) break
+                Thread.sleep(20)
+            }
+        }
+        return out.toByteArray()
+    }
+
+    /**
+     * [readFor], but acknowledging each frame the moment it completes.
+     *
+     * ⚠ **Aimed at #1107, not yet proven to close it.** The device is stop-and-wait:
+     * it withholds its next DATA frame until the current one is acked. Acking after
+     * the window therefore guarantees that a window holding a volunteered frame holds
+     * *only* that frame, and the answer meant for this packet surfaces against the
+     * next one. Acking mid-window should remove that; the XM4 powered off before the
+     * confirming run, so treat the cure as untested until a transcript says otherwise.
+     *
+     * [acksFor] is called on the buffer so far and returns an ack per DATA frame in
+     * order, so the list only grows; [sent] is how much of it has already gone out.
+     * Sending an ack restarts the quiet timer, because having just prompted the
+     * device is precisely when more is expected.
+     */
+    private fun readAcking(
+        socket: BluetoothSocket,
+        totalMs: Long,
+        quietMs: Long,
+        acksFor: (ByteArray) -> List<ByteArray>,
+    ): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(4096)
+        val start = System.nanoTime()
+        var lastData = start
+        var sent = 0
+        while ((System.nanoTime() - start) / 1_000_000 < totalMs) {
+            val n = if (socket.inputStream.available() > 0) socket.inputStream.read(buf) else 0
+            if (n > 0) {
+                out.write(buf, 0, n)
+                lastData = System.nanoTime()
+                val acks = acksFor(out.toByteArray())
+                acks.drop(sent).forEach { ack ->
+                    socket.outputStream.write(ack)
+                    socket.outputStream.flush()
+                    lastData = System.nanoTime()
+                }
+                sent = acks.size
             } else {
                 val quietFor = (System.nanoTime() - lastData) / 1_000_000
                 if (out.size() > 0 && quietFor > quietMs) break
