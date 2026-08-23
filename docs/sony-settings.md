@@ -449,3 +449,77 @@ than the frame being understood.
 ⚠ **All of the above is the APK's word.** Every row is a claim about Sony's app until it
 is met on the wire; `docs/captures.md` is why that distinction has its own paragraph.
 The five cross-checks above are what make it worth acting on, not what make it true.
+
+## ✅ THE XM4 LISTS ITS OWN FEATURES — driven 2026-08-23 16:43, and it changes the method
+
+```
+→ 06 00        CONNECT_GET_SUPPORT_FUNCTION, CommonCapabilityInquiredType FIXED_VALUE
+← 07 00 16     71 62 f5 81 51 a1 e1 e2 d2 f6 d1 f4 f3 39 12 13 11 30 c1 14 22 21
+```
+`16` = 22 is a **count**, and exactly 22 bytes follow. Every one is a legal
+`FunctionType`, so the whole frame is accounted for with no remainder:
+
+```
+71 AUTO_NC_ASM          62 NC_AND_AMBIENT_SOUND_MODE ✅driven   f5 SMART_TALKING_MODE
+81 NC_OPTIMIZER         51 PRESET_EQ ✅driven                   a1 PLAYBACK_CONTROLLER ⚠volume
+e1 CONNECTION_MODE ✅driven   e2 UPSCALING             d2 GENERAL_SETTING2 ⛔refused
+f6 ASSIGNABLE_SETTINGS #965   d1 GENERAL_SETTING1      f4 AUTO_POWER_OFF ✅driven
+f3 CONTROL_BY_WEARING   39 VOICE_GUIDANCE              12 UPSCALING_INDICATOR
+13 CODEC_INDICATOR      11 BATTERY_LEVEL               30 FW_UPDATE ⚠out of scope
+c1 ACTION_LOG_NOTIFIER ⚠telemetry   14 BLE_SETUP       22 CONCIERGE_DATA
+21 POWER_OFF ⚠ends the session
+```
+
+✅ **This validates the offline extraction against hardware.** 22 of 22 land on names,
+the declared count matches, and all five rows this repo already drives appear at exactly
+the bytes they are driven with.
+
+⚠ **The ABSENCES are worth as much as the entries, and they are the part a hand-built
+list cannot give you.** Not present, therefore not on this unit: `41` VPT, `42`
+SOUND_POSITION, `52` EBB, `f1` VIBRATOR, `f2` POWER_SAVING_MODE, `d3` GENERAL_SETTING3,
+`61`/`63` NC-alone and ambient-alone, `92` VIBRATOR_ALERT, `b1` TRAINING_MODE, and the
+earbud batteries `15`/`17`/`18`. Six of those were named in #1097 as things to go and
+try. **One read retired them**, at no risk and no capture.
+
+⚠ **This is what the JBL has no equivalent of.** That device's twenty-three rows were
+counted off a screen by hand, which is why its Ambient Sound Control master switch hid
+inside another row for a week (#1041). Ask the device, where the device will answer.
+
+### ✅ Six rows read, and six confirmed against the vendor app's own screens
+
+All reads, in one session, no writes:
+
+| sent | reply | reads as | Sound Connect shows |
+| --- | --- | --- | --- |
+| `10 00` | `11 00 50 00` | battery 80%, not charging | **80%** ✅ |
+| `18 00` | `19 00 10` | codec LDAC | ⚠ not displayed — see below |
+| `14 00` | `15 00 02 00` | upscaling effect INVALID | (no row) |
+| `e6 02` | `e7 02 00 00` | DSEE Extreme off | **Off** ✅ |
+| `f6 03` | `f7 03 00 01` | pause when removed on | **On** ✅ |
+| `f6 05` | `f7 05 00 00` | Speak-to-Chat off | **Off** ✅ |
+
+And three already-known rows re-confirmed on the same screens: the equaliser reads `a2`,
+which `EqPresetId` calls `USER_SETTING2` and the app calls **Custom 2**; Sound Quality
+Mode is **Prioritize Sound Quality** (`ConnectionModeSettingValue 00`); the [CUSTOM]
+button is **Ambient Sound Control** (`AssignableSettingsPreset 00`, the value #965 cannot
+move); multipoint is **Off**.
+
+⚠ **The codec is the one that is NOT confirmed**, and the distinction matters. The app
+shows *Sound Quality Mode*, which is `e1` CONNECTION_MODE — a different field from `13`
+CODEC_INDICATOR, which is what was actually negotiated. "Prioritize Sound Quality" is
+**consistent** with LDAC and is not the same claim. Left as a decode.
+
+⚠ **`15 00 02 00` reads INVALID rather than OFF** while `e6 02` says the setting is off,
+and the app has no row for it. Two fields, and only one of them is the switch: a decoder
+must not report "DSEE is off" from the effect status, which is about whether it is
+*doing* anything right now.
+
+⚠ **Nothing was written to reach any of this** — the vendor app was navigated by tapping
+category headers only, never a control. ⚠ And the header labels are `clickable="false"`
+with the tap landing on an enclosing container, which is the JBL's inert-label trap in a
+second app; here the label sits *inside* the clickable row rather than beside it, so the
+coordinates work. Check the geometry rather than assuming either shape.
+
+⚠ **The app is called "Sound Connect" now**, not "Headphones Connect". The package is
+unchanged (`com.sony.songpal.mdr`), so nothing in this repo breaks — but a future session
+looking for the old name in the launcher will not find it.
