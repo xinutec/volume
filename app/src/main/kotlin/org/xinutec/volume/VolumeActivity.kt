@@ -784,14 +784,9 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 writable = settings.focusOnVoiceSettable,
                 checked = on,
                 onChange = { actions.setFocusOnVoice(address, it) },
+                note =
+                    if (settings.focusOnVoiceSettable) null else "switch to Ambient to change this",
             )
-            if (!settings.focusOnVoiceSettable) {
-                Text(
-                    "switch to Ambient to change this",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
 
         settings.autoOff?.let { mode ->
@@ -867,6 +862,7 @@ private fun SettingRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
     refusal: RefusalReason? = null,
+    note: String? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -883,6 +879,18 @@ private fun SettingRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             RefusedNote(refusal)
+            // ⚠ Inside the row's Column, not after the row. Rendered as a sibling it
+            // sat almost equidistant between its own value and the NEXT setting's
+            // title, so "switch to Ambient to change this" read as if it were about
+            // Power off. Caught by looking at the render, not by the dump — the text
+            // was correct and in the right order either way.
+            if (note != null) {
+                Text(
+                    note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         if (writable) {
             Switch(checked = checked, onCheckedChange = onChange)
