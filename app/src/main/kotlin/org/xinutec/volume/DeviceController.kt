@@ -345,6 +345,15 @@ class DeviceController(
             // ⚠ Re-read rather than assume. `Confirmed` already means a read agreed,
             // but the other two do not, and the row must show what the device says.
             val settings = runCatching { readSettings(s) }.getOrNull() ?: return@holding
+            // ⚠ The write's own answer and the refresh's answer, side by side. Three
+            // hypotheses about #1107 were formed by reasoning about frames and none
+            // survived contact; this prints the disagreement instead of predicting it.
+            Log.i(
+                LIVE,
+                "$what: wrote=$outcome refresh: dsee=${settings.dsee} " +
+                    "pause=${settings.pauseOnRemoval} chat=${settings.speakToChat} " +
+                    "voice=${settings.focusOnVoice}",
+            )
             update(
                 address,
                 DeviceState.Ready(

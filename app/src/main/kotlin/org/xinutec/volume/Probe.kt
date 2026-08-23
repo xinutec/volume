@@ -122,12 +122,23 @@ object Probe {
         quietMs: Long,
         reconnect: Boolean = false,
         /**
-         * Given what just arrived, the reply to send back before the next packet, or
-         * null for none. Sony's protocol needs this: the device expects its DATA
-         * frames to be acknowledged, and a peer that never does eventually stops
-         * being told anything — which reads as "that command returns no data".
+         * Given what just arrived, **every** reply to send before the next packet.
+         * Sony's protocol needs this: the device expects its DATA frames to be
+         * acknowledged, and a peer that never does eventually stops being told
+         * anything — which reads as "that command returns no data".
+         *
+         * ⚠ **A list, because a window can hold more than one frame and each wants its
+         * own ack.** This returned a single reply until 2026-08-23 and acked only the
+         * last DATA frame. `Drivers.SonyXm4` had the identical defect.
+         *
+         * ⚠ **Fixing it did NOT stop this tool going one behind**, measured right after
+         * the change: `e6 02` still collects the volunteered `17` and the answer turns
+         * up in the next packet's window. Acking every frame is correct on its own
+         * terms; it is not the cure for #1107, and the driver only escapes by reading
+         * again for an answer it can name. This tool cannot — it sends arbitrary bytes
+         * and has no idea what would answer them.
          */
-        ackWith: (ByteArray) -> ByteArray? = { null },
+        acksFor: (ByteArray) -> List<ByteArray> = { emptyList() },
         onResult: (sent: ByteArray, got: ByteArray, killedLink: Boolean) -> Unit,
     ): String? {
         runCatching { adapter.cancelDiscovery() }
@@ -142,8 +153,8 @@ object Probe {
                     socket.outputStream.flush()
                     val got = readFor(socket.inputStream, perMs, quietMs)
                     onResult(p, got, false)
-                    ackWith(got)?.let {
-                        socket.outputStream.write(it)
+                    for (ack in acksFor(got)) {
+                        socket.outputStream.write(ack)
                         socket.outputStream.flush()
                     }
                 } catch (e: IOException) {

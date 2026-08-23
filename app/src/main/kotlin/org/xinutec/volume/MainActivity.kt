@@ -303,17 +303,22 @@ class MainActivity : Activity() {
             } else {
                 raw
             }
-        val ackWith: (ByteArray) -> ByteArray? =
+        val acksFor: (ByteArray) -> List<ByteArray> =
             if (!sony) {
-                { null }
+                { emptyList() }
             } else {
                 { got ->
                     // Acknowledge only what the device SENT as data; acking its acks
                     // would have us talking to ourselves.
+                    //
+                    // ⚠ **EVERY data frame, not just the last** — the device asks for
+                    // one per frame. ⚠ This does NOT fix the one-behind transcript at
+                    // the top of #1107: the run below was re-measured with this in
+                    // place and still ran one behind. See `Probe.exchangeAll`.
                     SonyFrame
                         .decodeAll(got)
-                        .lastOrNull { it.type == SonyFrame.TYPE_DATA_MDR }
-                        ?.let { f ->
+                        .filter { it.type == SonyFrame.TYPE_DATA_MDR }
+                        .map { f ->
                             SonyFrame.encode(
                                 SonyFrame.TYPE_ACK,
                                 (f.seq.toInt() xor 1).toByte(),
@@ -334,7 +339,7 @@ class MainActivity : Activity() {
                 intent.getIntExtra("per", 900).toLong(),
                 intent.getIntExtra("quiet", 350).toLong(),
                 intent.getBooleanExtra("reconnect", false),
-                ackWith,
+                acksFor,
             ) { sent, got, _ ->
                 i++
                 emit("  [$i] → ${Hex.format(sent)}")
