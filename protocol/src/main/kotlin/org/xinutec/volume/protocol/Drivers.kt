@@ -371,11 +371,22 @@ object Drivers {
 
             /** The maximum of the twenty ambient steps the capability reports. */
             const val AMBIENT_MAX: Byte = 0x14
+
+            /** `AsmId.NORMAL` — Focus on Voice off. */
+            const val NORMAL: Byte = 0x00
+
+            /** `AsmId.VOICE` — Focus on Voice on. */
+            const val VOICE: Byte = 0x01
         }
 
         override fun read(t: Transport): AncMode? {
             val body = exchangeFramed(t, byteArrayOf(0x66, TYPE)) ?: return null
-            // 67 02 <on> 02 <nc> 01 00 <ambient>
+            // 67 02 <NcAsmEffect> 02 <NcDualSingleValue> 01 <AsmId> <ambient 0-20>
+            //
+            // ✅ Every byte is named now. The three that this file called "held 02 01 00
+            // in all three states and are not identified" are NcAsmSettingType.
+            // DUAL_SINGLE_OFF, AsmSettingType.LEVEL_ADJUSTMENT and AsmId — the last of
+            // which is Focus on Voice and moves. See [setFocusOnVoice].
             if (body.size < 8 || body[0] != 0x67.toByte()) return null
             return when {
                 body[2] == 0x00.toByte() -> AncMode.OFF
@@ -388,8 +399,50 @@ object Drivers {
             val on: Byte = if (mode == AncMode.OFF) 0x00 else 0x01
             val nc: Byte = if (mode == AncMode.ANC) 0x02 else 0x00
             val ambient: Byte = if (mode == AncMode.ANC) 0x00 else AMBIENT_MAX
-            exchangeFramed(t, byteArrayOf(0x68, TYPE, on, 0x02, nc, 0x01, 0x00, ambient))
+            exchangeFramed(t, byteArrayOf(0x68, TYPE, on, 0x02, nc, 0x01, NORMAL, ambient))
         }
+
+        /**
+         * **Focus on Voice** — `AsmId`, byte 6 of the frame [write] already sends.
+         *
+         * ✅ **Driven on the XM4 2026-08-23 18:05, worn**, and confirmed by independent
+         * reads: `67 02 01 02 00 01 00 14` then `67 02 01 02 00 01 01 14`.
+         *
+         * ⚠ **It only takes in ambient mode.** Sending `AsmId.NORMAL` while the device is
+         * in ANC is accepted and ignored — the restore after the test did exactly that and
+         * left the setting on, which a read-back caught and a trusted write would not have.
+         * Getting back required going through ambient. Hence the mode check below: this
+         * refuses rather than sending a frame that would be silently dropped.
+         */
+        fun readFocusOnVoice(t: Transport): Boolean? = focus(current(t) ?: return null)
+
+        fun setFocusOnVoice(t: Transport, on: Boolean): Confirmation<Boolean> {
+            val before = current(t) ?: return Confirmation.Unverifiable
+            // ⚠ byte 4 is NcDualSingleValue; anything but OFF means noise cancelling is
+            // engaged and this setting is not the one in play.
+            if (before[4] != 0x00.toByte() || before[2] == 0x00.toByte()) {
+                return Confirmation.Contradicted(focus(before) ?: return Confirmation.Unverifiable)
+            }
+            val want = before.copyOf()
+            want[0] = 0x68
+            want[6] = if (on) VOICE else NORMAL
+            exchangeFramed(t, want)
+            val after = current(t)?.let(::focus) ?: return Confirmation.Unverifiable
+            return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+        }
+
+        /** The whole `67 02 …` frame, or null if the device did not answer with one. */
+        private fun current(t: Transport): ByteArray? {
+            val body = exchangeFramed(t, byteArrayOf(0x66, TYPE)) ?: return null
+            return if (body.size >= 8 && body[0] == 0x67.toByte()) body else null
+        }
+
+        private fun focus(body: ByteArray): Boolean? =
+            when (body[6]) {
+                NORMAL -> false
+                VOICE -> true
+                else -> null
+            }
 
         /**
          * The equaliser, decoded 2026-08-16 (`docs/sony-settings.md`).

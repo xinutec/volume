@@ -721,7 +721,28 @@ enum in the SDK:
 unmeasured.** It sits at the position the earlier note suspected — "byte 4 is very likely
 it, sitting at its default" — and it is `00` NORMAL because nothing has moved it.
 
-✅ **It is drivable for free.** `68 02 01 02 00 01 01 <level>` is the ambient frame with
-`AsmId.VOICE` in place of `NORMAL`, which is a switch this repo can already almost send.
-⚠ Not yet driven, and it changes what the wearer hears, so it wants the same read-write-
-restore treatment as everything else here.
+### ✅ FOCUS ON VOICE DRIVEN — 18:05, worn
+
+```
+→ 68 02 01 02 00 01 00 14  ← 69 02 01 02 00 01 00 14   ambient, AsmId.NORMAL
+→ 66 02                    ← 67 02 01 02 00 01 00 14   ✅ off
+→ 68 02 01 02 00 01 01 14  ← 69 02 01 02 00 01 01 14   ambient, AsmId.VOICE
+→ 66 02                    ← 67 02 01 02 00 01 01 14   ✅ on, by an independent read
+```
+
+⚠ **IT ONLY TAKES IN AMBIENT MODE, and the tidy-up is how that was found.** The restore
+sent `68 02 01 02 02 01 00 00` — the exact frame the device had reported before the test,
+`AsmId.NORMAL` included — and the read-back came back `67 02 01 02 02 01 01 00`. The mode
+was restored; **the AsmId byte was not**. The device had accepted the frame, applied the
+part of it that was about noise cancelling, and silently kept Focus on Voice on.
+
+Getting back required routing through ambient: set `68 02 01 02 00 01 00 14`, *then* the
+ANC frame. After that the read matched the original byte for byte.
+
+⚠ **A trusted write would have left the owner's headphones changed** and reported success
+while doing it. This is the third time today an XM4 write was accepted and ignored —
+`f8 05 00 01` for Speak-to-Chat, `f8 06 01 31` for the [CUSTOM] button in #965, and now
+this. **On this device an ack means the frame was well-formed and nothing more.**
+
+`Drivers.SonyXm4.setFocusOnVoice` therefore refuses in ANC rather than sending a frame it
+knows will be dropped, and returns the value that is actually there.

@@ -116,6 +116,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | DSEE / upscaling | — | — | ✅ | — | — |
 | Speak-to-Chat | — | — | ✅ | ✅ r/w (Smart Talk) | — |
 | Pause when removed | — | — | ✅ | ✅ r/w (Auto Play) | — |
+| Focus on Voice | — | — | ✅ ⚠ ambient only | — | — |
 | Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
 
 ⚠ **Speak-to-Chat spent an hour in this table as "sent, not taken" and it was wrong.**
