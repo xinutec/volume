@@ -105,6 +105,11 @@ case "${1:-list}" in
     # SONY_SEQ=1 frames each payload and acks the device's data frames — its PARAM
     # reads only answer inside a session that does both.
     [ -n "${SONY_SEQ:-}" ] && args+=(--ez sony true)
+    # ⚠ SONY_TABLE2=1 sends DATA_MDR_NO2 (0e) instead of DATA_MDR (0c), which selects
+    # Sony's SECOND command table. The ranges overlap and mean different things: table1
+    # `40`-`49` is VPT, table2 `40`-`49` is VOICE_GUIDANCE. Getting this wrong sends a
+    # sound-field write where a voice-prompt write was meant, with no error either way.
+    [ -n "${SONY_TABLE2:-}" ] && args+=(--ez table2 true)
     start_op "${args[@]}"
     watch_log "${SEQ_WAIT:-30}"
     ;;

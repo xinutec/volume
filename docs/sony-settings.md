@@ -802,3 +802,56 @@ applies to an unrecognised value byte.
 worked, the cross-check passed, and no driver method existed — so the Sony card showed no
 charge while the JBL's did. The same shape as #1041 and #1112: the wire was never the
 problem.
+
+## ✅ THERE IS A SECOND COMMAND TABLE, AND THE XM4 ANSWERS ON IT — 2026-08-23 20:40
+
+Going after `39` VOICE_GUIDANCE turned up something larger than the feature.
+
+⚠ **THE FRAME TYPE BYTE SELECTS WHICH COMMAND TABLE THE PAYLOAD MEANS.** `DataType`
+`0c` is `DATA_MDR` = **table1**; `0e` is `DATA_MDR_NO2` = **table2**. Everything this repo
+had ever sent was `0c`. `SonyFrame` has carried `TYPE_DATA_MDR_NO2` since it was written,
+with a note wondering which one a given model answers — it answers **both**.
+
+```
+→ 3e 0e … 40 01     VOICE_GUIDANCE_GET_CAPABILITY   (type 0e = table2)
+← 41 01 01 01 0f 01 02 03 04 05 06 07 08 09 0a 0b 0d 0f 10 f0
+```
+
+⚠ **THE RANGES OVERLAP AND MEAN DIFFERENT THINGS, WITH NOTHING IN THE PAYLOAD TO TELL
+THEM APART.** In table1, `40`–`49` is **VPT** — a sound-field feature. In table2 the same
+bytes are **VOICE_GUIDANCE**. So `48` is `VPT_SET_PARAM` on one table and
+`VOICE_GUIDANCE_SET_PARAM` on the other. Sending `48 …` as `0c` intending a voice prompt
+would write a sound-field parameter, and both would be accepted. `probe.sh` gained
+`SONY_TABLE2=1` with that warning attached; the default stays `0c`.
+
+✅ **This resolves a contradiction on this page.** The device declares `39` VOICE_GUIDANCE
+in its table1 `FunctionType` list, and table1 has **no** voice-guidance commands at all.
+The function list is the device's feature inventory; the commands for that feature live on
+the other table. An absence in one table is not an absence on the device — the same
+mistake shape as calling Adaptive Sound Control "device-blocked" earlier the same evening.
+
+### What the XM4 says about voice guidance
+
+| sent | reply | reads as |
+| --- | --- | --- |
+| `40 01` | `41 01 01 01 0f …` | supported; `SupportsSwitch.SUPPORT` |
+| `42 01 01` | `43 01 01 00` | ⚠ status ON_OFF = `00` |
+| `46 01 01` | `47 01 01 01` | param ON_OFF = `01` **ON** |
+| `42 01 02` | `43 01 02 01` | language = `01` ENGLISH |
+| `46 01 02` | `47 01 02 01` | language = `01` ENGLISH |
+
+✅ **The language agrees on both commands and matches the app**, which shows English.
+`VoiceGuidanceLanguage` names all sixteen, and the capability's `0f` = 15 is followed by
+exactly fifteen bytes — `01`–`0b`, `0d`, `0f`, `10`, `f0` — so the count is a count.
+
+⚠ **`42` and `46` DISAGREE about on/off and this page will not pick one.** Status says
+`00`, param says `01`, and the app shows the switch **on**. So `47` is the one consistent
+with the app — but `43` is not obviously wrong either, because a *status* on this protocol
+need not be the setting: `15` UPSCALING_EFFECT reads INVALID while `e6 02` says the
+setting is off, which is the same shape one block over. Two fields, one switch, and only
+one of them is the control. **Do not decode `43 01 01` as the voice-guidance switch until
+something has moved it.**
+
+⚠ **Nothing has been written to table2.** The write is `44` SET_STATUS or `48` SET_PARAM
+and which one takes has not been established. `48` is the byte that is VPT on the other
+table, so it is exactly the one worth being careful with.
