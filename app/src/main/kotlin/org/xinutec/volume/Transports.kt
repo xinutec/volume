@@ -72,6 +72,37 @@ class RfcommTransport private constructor(
         return readFor(perMs, quietMs)
     }
 
+    /**
+     * ⚠ **Sending an ack restarts the quiet timer.** Having just unblocked a
+     * stop-and-wait device is precisely when more is expected, and treating that
+     * moment as silence would close the window on the frame the ack just released.
+     */
+    override fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray {
+        send(packet)
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(4096)
+        val start = System.nanoTime()
+        var lastData = start
+        var acked = 0
+        while ((System.nanoTime() - start) / 1_000_000 < perMs) {
+            val n = if (socket.inputStream.available() > 0) socket.inputStream.read(buf) else 0
+            if (n > 0) {
+                out.write(buf, 0, n)
+                lastData = System.nanoTime()
+                val acks = acksFor(out.toByteArray())
+                acks.drop(acked).forEach {
+                    send(it)
+                    lastData = System.nanoTime()
+                }
+                acked = acks.size
+            } else {
+                if (out.size() > 0 && (System.nanoTime() - lastData) / 1_000_000 > quietMs) break
+                Thread.sleep(20)
+            }
+        }
+        return out.toByteArray()
+    }
+
     override fun send(packet: ByteArray) {
         socket.outputStream.write(packet)
         socket.outputStream.flush()
@@ -230,6 +261,33 @@ class GattTransport private constructor(
         notifications.clear()
         send(packet)
         return collect(perMs, quietMs)
+    }
+
+    /**
+     * ⚠ **No device on this transport acks anything**, so [acksFor] returns an empty
+     * list for every one of them and this is [exchange] with a callback that never
+     * fires. It is implemented rather than refused because a transport that threw here
+     * would make the interface a lie about what a caller may do — and the day a GATT
+     * device does want acking, this is where it goes.
+     */
+    override fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray {
+        notifications.clear()
+        send(packet)
+        val out = java.io.ByteArrayOutputStream()
+        val start = System.nanoTime()
+        var acked = 0
+        while ((System.nanoTime() - start) / 1_000_000 < perMs) {
+            val next = notifications.poll(quietMs, TimeUnit.MILLISECONDS)
+            if (next == null) {
+                if (out.size() > 0) break
+            } else {
+                out.write(next)
+                val acks = acksFor(out.toByteArray())
+                acks.drop(acked).forEach { send(it) }
+                acked = acks.size
+            }
+        }
+        return out.toByteArray()
     }
 
     override fun send(packet: ByteArray) {

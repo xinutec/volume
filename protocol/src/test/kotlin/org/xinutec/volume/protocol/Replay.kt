@@ -63,6 +63,18 @@ class Replay(
         }
     }
 
+    /**
+     * ⚠ **The acks land in [sent], in the order a real transport would emit them** —
+     * after the packet that drew the reply and before the next one. On the wire they go
+     * out mid-window rather than at its end, but nothing observable here distinguishes
+     * those, and recording them is what lets a test assert the driver acks at all.
+     */
+    override fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray {
+        val reply = exchange(packet)
+        acksFor(reply).forEach(::send)
+        return reply
+    }
+
     override fun exchange(packet: ByteArray): ByteArray {
         val hex = Hex.format(packet)
         sent += hex
