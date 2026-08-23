@@ -463,10 +463,10 @@ object Drivers {
          * the multipoint path does, because a Sony reply is not a result.
          */
         fun readSwitch(t: Transport, switch: SonySwitch): Boolean? =
-            exchangeFramed(t, switch.get())?.let(switch::state)
+            exchangeFramed(t, switch.get(), *switch.answers)?.let(switch::state)
 
         fun writeSwitch(t: Transport, switch: SonySwitch, on: Boolean): Boolean? =
-            exchangeFramed(t, switch.set(on))?.let(switch::state)
+            exchangeFramed(t, switch.set(on), *switch.answers)?.let(switch::state)
 
         /**
          * Write it, read it back, and say which happened.
@@ -494,12 +494,40 @@ object Drivers {
             exchangeFramed(t, SonyMultipoint.set(on))
         }
 
-        /** Send one framed payload, ack the device's answer, return its payload. */
-        private fun exchangeFramed(t: Transport, payload: ByteArray): ByteArray? {
+        /**
+         * Send one framed payload, ack the device's answer, return its payload.
+         *
+         * ⚠ **[expect] is which command bytes would actually answer this request**, and
+         * without it the last DATA frame in the window is taken whatever it says. That
+         * is not a hypothetical: driving `e8 02 00 01` on 2026-08-23 made the XM4 emit
+         * `17` COMMON_NTFY_UPSCALING_EFFECT *as well as* its `e9` NTFY_PARAM, and the
+         * `17` landed in the next read's window. The read returned it, [SonySwitch.state]
+         * rightly refused to decode it, and the write — **which had worked** — was
+         * reported as unverifiable.
+         *
+         * ⚠ **This narrows the wrong answer to no answer; it does not resynchronise.**
+         * When the extra notification arrives *before* the real reply, every subsequent
+         * exchange in that session is one window behind — measured on Speak-to-Chat,
+         * where six consecutive exchanges each returned the previous one's answer. Fixing
+         * that needs a receive-only [Transport] and is #1107, not this.
+         *
+         * ⚠ Callers that pass nothing keep the old behaviour. The ANC, EQ and multipoint
+         * paths were driven and confirmed against hardware with it, and changing what
+         * they select is not free just because it looks safer.
+         */
+        private fun exchangeFramed(
+            t: Transport,
+            payload: ByteArray,
+            vararg expect: Byte,
+        ): ByteArray? {
             val got = t.exchange(SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload))
+            val frames = SonyFrame.decodeAll(got).filter { it.type == SonyFrame.TYPE_DATA_MDR }
             val data =
-                SonyFrame.decodeAll(got).lastOrNull { it.type == SonyFrame.TYPE_DATA_MDR }
-                    ?: return null
+                if (expect.isEmpty()) {
+                    frames.lastOrNull()
+                } else {
+                    frames.lastOrNull { it.payload.firstOrNull() in expect.toTypedArray() }
+                } ?: return null
             ackFor(data)?.let(t::send)
             return data.payload
         }

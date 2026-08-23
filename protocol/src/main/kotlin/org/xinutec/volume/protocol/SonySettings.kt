@@ -295,6 +295,13 @@ class SonySwitch(
     /** The feature's own setting-type table; a single entry for all three below. */
     private val settingType: Byte,
 ) {
+    /**
+     * The command bytes that would answer a [get] or a [set] — everything else in the
+     * reply window belongs to something else. See `exchangeFramed`, which needs this
+     * because the XM4 volunteers unrelated notifications mid-conversation.
+     */
+    val answers: ByteArray get() = byteArrayOf(retCmd, notifyCmd)
+
     fun get(): ByteArray = byteArrayOf(getCmd, type)
 
     fun set(on: Boolean): ByteArray = byteArrayOf(setCmd, type, settingType, onOff(on))
