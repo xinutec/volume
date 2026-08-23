@@ -634,8 +634,8 @@ object Drivers {
          * ⚠ **This narrows the wrong answer to no answer; it does not resynchronise.**
          * When the extra notification arrives *before* the real reply, every subsequent
          * exchange in that session is one window behind — measured on Speak-to-Chat,
-         * where six consecutive exchanges each returned the previous one's answer. Fixing
-         * that needs a receive-only [Transport] and is #1107, not this.
+         * where six consecutive exchanges each returned the previous one's answer. The
+         * cause is stop-and-wait acking, see below; this only limits the damage.
          *
          * ⚠ Callers that pass nothing keep the old behaviour. The ANC, EQ and multipoint
          * paths were driven and confirmed against hardware with it, and changing what
@@ -654,13 +654,14 @@ object Drivers {
                 // The device asks for one per frame, and the old code acked only its
                 // chosen reply, leaving a volunteered notification unacknowledged.
                 //
-                // ⚠ **That is correct to do and is NOT what causes the desync.** This
-                // note used to call it "the most likely reason the session ran one
-                // behind"; the probe was then given the same ack-every-frame fix and
-                // **still went one behind**, measured 2026-08-23 20:10. The cause is
-                // plainer: the volunteered frame simply arrives in the window and the
-                // real answer arrives after it. What repairs that is reading again,
-                // below — not this.
+                // ⚠ **But acking HERE is already too late, and that is the desync.**
+                // The XM4 is stop-and-wait: it will not send its next DATA frame until
+                // the current one is acked, so a window opening with a volunteered
+                // frame cannot also contain the answer. Acking mid-window fixed it in
+                // `Probe.readAcking` — every packet got its own reply, measured
+                // 2026-08-23. Doing the same here needs a [Transport] that can hand
+                // frames back as they land; until then [EXTRA_READS] recovers instead,
+                // one round trip late.
                 frames.forEach { f -> ackFor(f)?.let(t::send) }
                 val answer =
                     if (expect.isEmpty()) {

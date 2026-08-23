@@ -138,9 +138,9 @@ object Probe {
          * four times across the remaining 2.5 s, the real answer never came, and the
          * six exchanges after it were each one window late.
          *
-         * So this is now called from [readAcking], which acks mid-window. That the
-         * mechanism is stop-and-wait is measured; that acking sooner cures the displacement
-         * is the prediction it implies, and is not yet confirmed on hardware.
+         * So this is now called from [readAcking], which acks mid-window. ✅ **That cures
+         * it**: the same eight-packet run, re-measured, gave every packet its own answer
+         * and exactly one copy of each frame.
          */
         acksFor: (ByteArray) -> List<ByteArray> = { emptyList() },
         onResult: (sent: ByteArray, got: ByteArray, killedLink: Boolean) -> Unit,
@@ -222,12 +222,12 @@ object Probe {
     /**
      * [readFor], but acknowledging each frame the moment it completes.
      *
-     * ⚠ **Aimed at #1107, not yet proven to close it.** The device is stop-and-wait:
-     * it withholds its next DATA frame until the current one is acked. Acking after
-     * the window therefore guarantees that a window holding a volunteered frame holds
-     * *only* that frame, and the answer meant for this packet surfaces against the
-     * next one. Acking mid-window should remove that; the XM4 powered off before the
-     * confirming run, so treat the cure as untested until a transcript says otherwise.
+     * ✅ **This is what closed #1107 for the probe, and [readFor] is what caused it.**
+     * The device is stop-and-wait: it withholds its next DATA frame until the current
+     * one is acked. Acking only after the window therefore guaranteed that a window
+     * opening with a volunteered frame held *only* that frame, with the answer meant
+     * for this packet surfacing against the next one — and the device retransmitting
+     * the unacked frame four to six times meanwhile. Driven on the XM4 2026-08-23.
      *
      * [acksFor] is called on the buffer so far and returns an ack per DATA frame in
      * order, so the list only grows; [sent] is how much of it has already gone out.

@@ -657,12 +657,27 @@ arrives early and from then on every exchange returns the previous one's answer 
 [7] → 10 00        ← f9 05 01 00    [6]'s notify
 ```
 
-— and a spacer read does **not** absorb it, which was the first thing tried. `#1107` holds
-the fix; it needs a receive-only `Transport`, which does not exist yet.
+— and a spacer read does **not** absorb it, which was the first thing tried.
 
-✅ **What is already fixed**: `exchangeFramed` now takes the frame whose command byte could
-answer the request, not simply the last DATA frame in the window. That turns a wrong answer
-into no answer, and does find the reply when both are present. It does not resynchronise.
+### ✅ THE CAUSE: THE XM4 IS STOP-AND-WAIT, AND WE ACKED TOO LATE
+
+**It withholds its next DATA frame until the current one is acknowledged.** Both the probe
+and the driver acked only after the read window closed, so a window that opened with a
+volunteered frame could not also contain the answer — the device was waiting on us. Meanwhile
+it retransmitted the unacked frame every ~600 ms; an eight-packet run showed four to six
+copies of every reply, which is how obvious this was once the raw bytes were read rather than
+the decoded list.
+
+⚠ **This supersedes "acking is not the cause", which was published twice.** That conclusion
+came from acking *every* frame instead of only the returned one and seeing no change. The
+count was never the variable; **when** was.
+
+✅ **Fixed in the probe** (`Probe.readAcking`, acks mid-window) and driven: the same eight
+packets, `00 00` through `f6 04`, each got its own answer and exactly one copy of each frame.
+
+⛔ **Not fixed in the driver.** `exchangeFramed` acks after `Transport.exchange` returns, which
+is the same defect; doing better needs a `Transport` that can hand frames back as they land.
+It escapes instead by re-reading for an answer it can name — correct, one round trip late.
 
 ### ✅ SPEAK-TO-CHAT READS AND WRITES WITH DIFFERENT TYPE TABLES — 18:50
 
