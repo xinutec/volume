@@ -19,7 +19,7 @@ the dated section it points at; treat anything undated as older than everything 
 | Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
 | Speak-to-Chat detail | `fa 05` / `fc 05 00 <s> <f> <t>` | ✅ driven 2026-08-24 — sensitivity · voice focus · mode-out |
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
-| Power off | `22 00 01` | ⚠ **built, confirmed dialog, NOT fired** — needs a hand to undo |
+| Power off | `22 00 01` | ✅ driven 2026-08-24 — confirmed dialog; the link drops and the card goes |
 | BLE setup | `1c 00` / `1c 01` | 👁 read — identifiers, ⚠ **values withheld, public repo** |
 | Concierge data | `28 00` / `29 00 <JSON>` | ⛔ diagnostics for the vendor, like `c1` |
 | Codec | `18 00` / `19 00 <AudioCodec>` | ✅ read, on the card — ⚠ negotiated, not settable |
@@ -932,6 +932,29 @@ So **FAST = 15 s, MID = 30 s, SLOW = 60 s, NONE = 0** — the device's own numbe
 why the card can print seconds instead of Sony's adjectives. ⚠ `0f 1e 3c` was spotted as
 15/30/60 by eye first; that is a guess until the parser says where the array starts and how
 long it is, and it does — `new-array` of 4, read from index 8.
+
+## ✅ POWER OFF — driven 2026-08-24, and the only write with no reply
+
+    → 22 00 01     COMMON_SET_POWER_OFF · FIXED_VALUE · USER_POWER_OFF
+
+⚠ **There is no answer and there cannot be one.** The device acts and the link drops, so a
+read-back is not unavailable, it is a contradiction. This is the one Sony write that
+`Confirmation` does not apply to; calling it unverifiable would imply a check was tried.
+
+**What confirms it is the radio.** Within seconds of the tap:
+
+    VolumeLive: refresh: bonded=13 connected=0 listed=0
+    dumpsys bluetooth_manager: ACL BR/EDR:N
+
+and the card left the list, replaced by "No headphones switched on" — the right one of the
+five [Emptiness] reasons, reached without anything special being written for this case.
+
+⚠ **The screen confirms first, and the dialog names the COST rather than the action**:
+"They can only be switched back on by hand, on the headphones." That someone is switching
+their headphones off is obvious from the button; that this app cannot undo it is not.
+
+⚠ `PowerOffSettingValue` also has `00 NO_USE`. It is the enum's absent value, not an "on" —
+nothing switches a headphone on over a link that requires it to be on.
 
 ## ✅ THE LAST THREE UNASKED FUNCTIONS — read 2026-08-24, and none is a setting
 
