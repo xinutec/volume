@@ -50,6 +50,7 @@ enum class SettingKind {
     DSEE,
     PAUSE_ON_REMOVAL,
     SPEAK_TO_CHAT,
+    TOUCH_PANEL,
     FOCUS_ON_VOICE,
 }
 
@@ -161,6 +162,13 @@ data class Settings(
     val pauseOnRemoval: Boolean? = null,
     val speakToChat: Boolean? = null,
     /**
+     * The XM4's touch sensor control panel, on or off.
+     *
+     * ⚠ **Not the [CUSTOM] button** — that is [SettingKind.BUTTON] and is #965. This is
+     * whether the panel responds at all.
+     */
+    val touchPanel: Boolean? = null,
+    /**
      * Focus on Voice — **readable always, settable only in ambient mode.**
      *
      * ⚠ A fourth kind of "no control", and it is none of the other three: not refused,
@@ -213,6 +221,7 @@ data class Settings(
                 smartAv != null || gestures != null || battery != null ||
                 autoPlay != null || balance != null || psap != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
+                touchPanel != null ||
                 focusOnVoice != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses

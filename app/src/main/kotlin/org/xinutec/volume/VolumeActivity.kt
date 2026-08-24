@@ -237,6 +237,8 @@ interface SettingActions {
 
     fun setSpeakToChat(address: String, on: Boolean)
 
+    fun setTouchPanel(address: String, on: Boolean)
+
     /** ⚠ Ambient mode only — the UI offers it only when the device is there. */
     fun setFocusOnVoice(address: String, on: Boolean)
 
@@ -796,6 +798,20 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 writable = settings.writable(SettingKind.SPEAK_TO_CHAT),
                 checked = on,
                 onChange = { actions.setSpeakToChat(address, it) },
+            )
+        }
+
+        settings.touchPanel?.let { on ->
+            // ⚠ **Sony's own words, shortened**: "control playback, adjust volume,
+            // receive/end phone calls". The note is there because "Touch panel: off" does
+            // not tell an owner that their taps are being ignored on purpose.
+            SettingRow(
+                "Touch sensor control panel",
+                if (on) "on" else "off",
+                writable = settings.writable(SettingKind.TOUCH_PANEL),
+                checked = on,
+                onChange = { actions.setTouchPanel(address, it) },
+                note = "when off, the earcup ignores taps and swipes",
             )
         }
 

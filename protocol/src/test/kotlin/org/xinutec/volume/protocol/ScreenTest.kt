@@ -359,6 +359,7 @@ class ScreenTest {
                 "dsee" to Settings(dsee = true),
                 "pauseOnRemoval" to Settings(pauseOnRemoval = true),
                 "speakToChat" to Settings(speakToChat = false),
+                "touchPanel" to Settings(touchPanel = false),
                 "focusOnVoice" to Settings(focusOnVoice = false),
             )
         for ((name, one) in each) {
