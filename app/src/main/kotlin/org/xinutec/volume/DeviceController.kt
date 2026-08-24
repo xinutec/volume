@@ -549,13 +549,35 @@ class DeviceController(
                 val s = openIfNeeded(address) ?: return@holding
                 val d = s.headphones.driver as? Drivers.SonyXm4 ?: return@holding
                 d.answerButtonAlert(s.transport, yes)
-                if (yes) {
-                    update(address, DeviceState.Busy("reconnecting…"))
-                    drop(address)
-                    Thread.sleep(RECONNECT_MS)
+                if (!yes) {
+                    refresh(address, s)
+                    return@holding
                 }
-                val again = openIfNeeded(address) ?: return@holding
-                refresh(address, again)
+                // ⚠ **A yes has already taken the link down.** Reopening is a race against
+                // the device's own reconnect, so this retries rather than waiting a fixed
+                // time and hoping — measured 2026-08-24, where a single attempt after 6 s
+                // sometimes lost and left the card showing the PRE-CHANGE value. That is
+                // the worst outcome available: the change had committed and the screen
+                // said it had not.
+                update(address, DeviceState.Busy("reconnecting…"))
+                drop(address)
+                repeat(RECONNECT_TRIES) {
+                    Thread.sleep(RECONNECT_STEP_MS)
+                    val again = openIfNeeded(address)
+                    if (again != null) {
+                        refresh(address, again)
+                        return@holding
+                    }
+                }
+                // ⚠ Say so rather than leave the old value on screen. The write almost
+                // certainly landed — that is what took the link down — and this app has
+                // no way to check until the pair is back.
+                update(
+                    address,
+                    DeviceState.Unavailable(
+                        "changed it, but the headphones have not come back yet",
+                    ),
+                )
             }
         }
 
@@ -815,14 +837,17 @@ class DeviceController(
 
     private companion object {
         /**
-         * How long to wait after a commit that drops the link.
+         * How long to wait between attempts to reopen after a commit dropped the link.
          *
-         * ⚠ **The XM4 reconnects on its own; this is waiting, not retrying.** Measured
-         * 2026-08-24: the pair was back within a few seconds of a key-assign commit.
-         * Reopening too early gets a refused socket, which reads exactly like the write
-         * having failed.
+         * ⚠ **The XM4 reconnects on its own, and not on a schedule.** A single wait of
+         * 6 s was tried first and lost the race often enough to show a stale value on
+         * the card, so this retries instead. Reopening too early gets a refused socket,
+         * which reads exactly like the write having failed.
          */
-        const val RECONNECT_MS = 6_000L
+        const val RECONNECT_STEP_MS = 3_000L
+
+        /** ⚠ Bounded — `3 s × 8` is 24 s, after which the card says so rather than lying. */
+        const val RECONNECT_TRIES = 8
 
         /**
          * How long a control channel is kept after the last thing that needed it.
