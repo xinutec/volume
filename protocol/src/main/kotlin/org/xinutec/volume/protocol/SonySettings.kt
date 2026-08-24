@@ -214,17 +214,67 @@ object SonyButton {
     const val NOTIFY: Byte = 0xf9.toByte()
 
     /**
-     * ⚠ **Two of the three the XM4's menu offers.** "Amazon Alexa" was in the dropdown
-     * and was never selected, so it has no code here and an unknown value decodes to
-     * null rather than to a guess. The capability reply carries `21 31 33 22 32 32 34`
-     * among its bytes, which is more codes than this enum names — enumerating them
-     * from that string would be reading a list this repo has not proven is one.
+     * `AssignableSettingsPreset`, in full.
+     *
+     * ⚠ **Naming every code is safe; OFFERING every code is not.** The list a device
+     * actually allows comes from [presets], parsed out of its own `f0 06` reply — the
+     * XM4 allows three of these. ⚠ `VOLUME_CONTROL` is why that distinction is a rule
+     * rather than a preference: a button editor built from this enum would put a volume
+     * control on a device that never offered one.
+     *
+     * ⚠ This enum said "two of the three the menu offers" and called `31`
+     * `DIGITAL_ASSISTANT` until 2026-08-24, when the capability grammar was decoded from
+     * Sony's own parser and the reply turned out to name its values exactly.
      */
     enum class Action(
         val code: Byte,
     ) {
         AMBIENT_SOUND_CONTROL(0x00),
-        DIGITAL_ASSISTANT(0x31),
+        VOLUME_CONTROL(0x10),
+        PLAYBACK_CONTROL(0x20),
+        VOICE_RECOGNITION(0x30),
+        GOOGLE_ASSISTANT(0x31),
+        AMAZON_ALEXA(0x32),
+        TENCENT_XIAOWEI(0x33),
+        NO_FUNCTION(0xff.toByte()),
+    }
+
+    /**
+     * What this device will actually accept for its key, from `f1 06`.
+     *
+     * The reply nests three deep and every length is carried, so this walks rather than
+     * indexes — decoded from Sony's own parser, and the XM4's 23 bytes come out exactly:
+     *
+     * ```
+     * f1 06 <numKeys>
+     *   per key:    <key> <keyType> <defaultPreset> <numPresets>
+     *   per preset: <preset> <numActions>
+     *   per action: <action> <function>
+     * ```
+     *
+     * ⚠ **Returns empty rather than a default when it cannot parse.** An editor with no
+     * options is obviously broken; an editor showing every code in [Action] is not, and
+     * would be offering a volume control nobody advertised.
+     */
+    fun presets(capability: ByteArray): List<Action> {
+        if (capability.size < 3) return emptyList()
+        if (capability[0] != RET_CAPABILITY || capability[1] != TYPE) return emptyList()
+        val out = mutableListOf<Action>()
+        var i = 3
+        repeat(capability[2].toInt() and 0xff) {
+            // <key> <keyType> <defaultPreset> <numPresets>
+            if (i + 3 >= capability.size) return out
+            val presetCount = capability[i + 3].toInt() and 0xff
+            i += 4
+            repeat(presetCount) {
+                if (i + 1 >= capability.size) return out
+                val code = capability[i]
+                Action.entries.firstOrNull { it.code == code }?.let(out::add)
+                // skip this preset's <action> <function> pairs
+                i += 2 + 2 * (capability[i + 1].toInt() and 0xff)
+            }
+        }
+        return out
     }
 
     fun capabilities(): ByteArray = byteArrayOf(GET_CAPABILITY, TYPE)
@@ -234,12 +284,35 @@ object SonyButton {
     fun set(action: Action): ByteArray = byteArrayOf(SET, TYPE, 0x01, action.code)
 
     /**
-     * ⚠ The vendor app sends this **after** the device answers a [set] with
-     * `99 01 02 01`, and only once the owner has agreed to the reconnect its dialog
-     * warns about. Carried because it is part of the observed exchange; on its own it
-     * does nothing, which is measured, not assumed.
+     * `94 01 00` — ALERT_SET_STATUS · FIXED_MESSAGE · ENABLE.
+     *
+     * ✅ **THE FRAME THAT SOLVED #965.** The XM4 sends no alert to a peer that has not
+     * asked for one, and [set] does not commit until its alert is answered. So without
+     * this, a button write is acked and silently dropped — which for eight days read as
+     * the device refusing this app in particular. It draws no reply of its own.
      */
-    fun commitReconnect(): ByteArray = byteArrayOf(0x98.toByte(), 0x01, 0x02, 0x01)
+    fun subscribeAlerts(): ByteArray = byteArrayOf(0x94.toByte(), 0x01, 0x00)
+
+    /**
+     * Answer the device's `99 01 02 01` — `AlertAction.POSITIVE` or `NEGATIVE`.
+     *
+     * ⚠ **The last byte is a different enum in each direction.** The device's `99` ends
+     * with `AlertActionType` (whether the dialog has two buttons); this ends with
+     * `AlertAction` (which button). Both read `01`, which hid the difference.
+     *
+     * ⚠ **A positive answer KILLS THE LINK, and that is success.** The device commits and
+     * reconnects at once, so the write of this frame reports a broken pipe while its bytes
+     * land. Driven both ways 2026-08-24: negative gives an orderly `f9` and no disconnect.
+     */
+    fun answer(yes: Boolean): ByteArray =
+        byteArrayOf(0x98.toByte(), 0x01, 0x02, if (yes) 0x01 else 0x00)
+
+    /** True if this is the device asking about a key-assign change — `99 01 02 …`. */
+    fun asksAboutKeyAssign(payload: ByteArray): Boolean =
+        payload.size >= 3 &&
+            payload[0] == 0x99.toByte() &&
+            payload[1] == 0x01.toByte() &&
+            payload[2] == 0x02.toByte()
 
     fun state(payload: ByteArray): Action? {
         if (payload.size < 4) return null
