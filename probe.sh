@@ -12,12 +12,17 @@
 #   ./probe.sh settings <device> [k=v …]            EQ, multipoint, auto-off, button
 #   ./probe.sh free               force-stop every vendor app holding a channel
 #
+# ⚠ Ops run in ProbeService, NOT the activity — an activity can be told to start and
+# never receive the intent (#967). Set VOLUME_PROBE_ACTIVITY=1 to route to the screen
+# instead, which is the only way to watch a run on the phone itself.
+#
 # ⚠ Hearing safety: probe with reads. Never use a volume command as the proof, and
 # restore any level touched for a test in the same step.
 set -euo pipefail
 
 PKG=org.xinutec.volume
 ACT="$PKG/.MainActivity"
+SVC="$PKG/.ProbeService"
 DEV="${VOLUME_ADB_DEVICE:-10.100.0.12:5555}"   # Pixel 9 over the VPN
 # adb comes from the nix profile (~/.nix-profile/bin/adb) — there is no
 # ~/Library/Android/sdk on this Mac, and ANDROID_HOME is unset outside the devshell.
@@ -107,8 +112,17 @@ start_op() {
   # leaving this empty. Same hazard as hex_arg below, and it hid for a whole session
   # because an empty `-t` makes logcat dump everything, which still CONTAINS the id.
   RUN_SINCE=$("${ADB[@]}" shell "date '+%m-%d %H:%M:%S.000'" | tr -d '\r')
-  "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RUN_ID" --es run "$RUN_ID" "$@" \
-    >/dev/null
+  # ⚠ A SERVICE, not the activity. `am start` on an activity that is already alive
+  # reports success and delivers nothing; `onStartCommand` is called for every start.
+  # #967. `$ACT` is kept for `--activity`, which is still the way to watch a run on
+  # the phone's own screen.
+  if [ -n "${VOLUME_PROBE_ACTIVITY:-}" ]; then
+    "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RUN_ID" --es run "$RUN_ID" "$@" \
+      >/dev/null
+  else
+    "${ADB[@]}" shell am start-foreground-service -n "$SVC" --es run "$RUN_ID" "$@" \
+      >/dev/null
+  fi
 }
 
 # Normalise a hex argument, and refuse anything that is not one.

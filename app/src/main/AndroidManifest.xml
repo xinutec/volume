@@ -8,6 +8,13 @@
          — the probe is driven headlessly and never shows a permission dialog. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
+    <!-- The probe runs as a foreground service so `adb shell am start-foreground-service`
+         can drive it: a BACKGROUND service started from the shell is refused outright,
+         and a run holds an RFCOMM socket for tens of seconds, which is what the
+         connectedDevice type is for. See ProbeService for why it is not an activity. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
     <!-- BLE control channels are reached at an address that ROTATES, so the bonded
          list cannot supply it and a scan is the only way to learn the current one.
          neverForLocation keeps this off the location permission: the probe uses
@@ -44,6 +51,15 @@
             android:exported="true"
             android:label="Volume probe"
             android:launchMode="singleTask" />
+
+        <!-- The #783 probe's real entry point. ⚠ **Not the activity above**, which
+             `am start` can decline to deliver to while reporting success — see
+             ProbeService and #967. Exported for the same reason MainActivity is: the
+             shell is what drives it. -->
+        <service
+            android:name=".ProbeService"
+            android:exported="true"
+            android:foregroundServiceType="connectedDevice" />
 
         <!-- ANC from the Quick Settings shade. This is the thing a native app can do
              that a web page cannot, and it is why #785 went native.
