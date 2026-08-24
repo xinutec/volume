@@ -23,10 +23,45 @@ set -euo pipefail
 PKG=org.xinutec.volume
 ACT="$PKG/.MainActivity"
 SVC="$PKG/.ProbeService"
-DEV="${VOLUME_ADB_DEVICE:-10.100.0.12:5555}"   # Pixel 9 over the VPN
 # adb comes from the nix profile (~/.nix-profile/bin/adb) — there is no
 # ~/Library/Android/sdk on this Mac, and ANDROID_HOME is unset outside the devshell.
-ADB=("${VOLUME_ADB:-adb}" -s "$DEV")
+ADB_BIN="${VOLUME_ADB:-adb}"
+
+# The Pixel 9 over WireGuard. ⚠ **A FALLBACK, not the default.** It is the only way in
+# when the phone is out of the house (mDNS is link-local), but at home the LAN address
+# is a different string for the same phone — and pinning this one meant every call
+# needed `VOLUME_ADB_DEVICE=` in front of it on 2026-08-24.
+FALLBACK=10.100.0.12:5555
+
+# Whichever device is actually attached, or the fallback if none is.
+#
+# ⚠ **`$2 == "device"` is load-bearing.** `adb devices` prints a header line with no
+# second field, and a phone can be listed `offline` or `unauthorized` — neither can be
+# driven, and treating them as usable turns a plug-in problem into a protocol mystery.
+#
+# ⚠ **Two attached devices is an ERROR here, not a guess.** Every command in this repo
+# is a plain `adb` with one `-s`; picking arbitrarily would drive the wrong phone, and
+# on this Mac the other one is a Pixel 5 that shares no bonded headphones.
+pick_device() {
+  [ -z "${VOLUME_ADB_DEVICE:-}" ] || { printf '%s' "$VOLUME_ADB_DEVICE"; return; }
+  local serial state found="" n=0
+  while read -r serial state _; do
+    [ "$state" = "device" ] || continue
+    found="$serial"; n=$((n + 1))
+  done < <("$ADB_BIN" devices 2>/dev/null)
+  case "$n" in
+    1) printf '%s' "$found" ;;
+    0) "$ADB_BIN" connect "$FALLBACK" >/dev/null 2>&1 || true; printf '%s' "$FALLBACK" ;;
+    *)
+      echo "$n devices attached — say which with VOLUME_ADB_DEVICE=" >&2
+      "$ADB_BIN" devices >&2
+      exit 2
+      ;;
+  esac
+}
+
+DEV="$(pick_device)"
+ADB=("$ADB_BIN" -s "$DEV")
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # The vendor apps hold the RFCOMM channel exclusively. A connect failure while one

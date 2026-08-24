@@ -24,9 +24,18 @@ ADDR="${VOLUME_ADDR:-10.100.0.12}"
 MODEL="${VOLUME_MODEL:-Pixel_9}"
 ADB="$ANDROID_HOME/platform-tools/adb"
 
-"$ADB" connect "$ADDR:5555" >/dev/null 2>&1 || true
-
-serial=$("$ADB" devices -l | awk -v m="model:$MODEL" '$0 ~ m && $2 == "device" { print $1; exit }')
+# ⚠ **Only if it is not already here.** Connecting unconditionally adds a SECOND
+# transport for the same phone when it is reachable on the LAN too, and every plain
+# `adb` in this repo then dies with "more than one device" — including probe.sh's,
+# which is how this was found on 2026-08-24.
+find_serial() {
+  "$ADB" devices -l | awk -v m="model:$MODEL" '$0 ~ m && $2 == "device" { print $1; exit }'
+}
+serial=$(find_serial)
+if [ -z "$serial" ]; then
+  "$ADB" connect "$ADDR:5555" >/dev/null 2>&1 || true
+  serial=$(find_serial)
+fi
 if [ -z "$serial" ]; then
   echo "no adb device with model:$MODEL — connected devices:" >&2
   "$ADB" devices -l >&2
