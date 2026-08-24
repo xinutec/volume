@@ -126,9 +126,9 @@ from a refusal until you look at the vendor SDK. `docs/sony-settings.md` has it.
 
 ⚠ **"Refused" means the VENDOR APP FAILS TOO, and only multipoint has earned it.** The
 XM4's [CUSTOM] button is not refused — Sony's app changes it and we cannot, which is #965
-and is an asymmetry, not a wall. Adaptive Sound Control is not refused either; where its
-on/off lives has simply not been found. ⚠ Calling either of them device-blocked was an
-overclaim made on 2026-08-23 and corrected the same evening.
+and is an asymmetry, not a wall. Adaptive Sound Control is not refused either: its on/off
+turns out to be **app-side**, so there is no device toggle to refuse. ⚠ Calling either of
+them device-blocked was an overclaim made on 2026-08-23 and corrected the same evening.
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-three device controls and fifteen of them are here — the inventory is in

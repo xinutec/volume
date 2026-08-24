@@ -22,7 +22,7 @@ the dated section it points at; treat anything undated as older than everything 
 | Voice guidance | `46 01 01` on frame type **`0e`** | 👁 read; ⚠ **second command table** |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
 | [CUSTOM] button | `f6 06` | ⛔ refuses **us**; the app succeeds — #965 |
-| Adaptive Sound Control | `70 01` → supported | ⚠ on/off NOT FOUND — #1113 |
+| Adaptive Sound Control | `70 01` → supported | ⛔ no device toggle exists — app-side, #1113 |
 | Volume `a1`, firmware `30`, telemetry `c1` | | ⛔ excluded by rule, not by the device |
 
 ⚠ **THE FRAME TYPE BYTE SELECTS THE COMMAND TABLE.** `0c` = table1, `0e` = table2, and
@@ -496,7 +496,7 @@ and are marked below. Anything still unmarked is a name, not a measurement.
 | `fa 05` | its sensitivity and mode-out time | ⚠ EXTENDED params, never sent |
 | `f6 02` | POWER_SAVING_MODE | |
 | `f6 01` | VIBRATOR | |
-| `70`/`71`/`74` | SENSE — `01` AUTO_NC_ASM | 👁 `70 01` → `71 01 01` supported; ⚠ on/off not found, #1113 |
+| `70`/`71`/`74` | SENSE — `01` AUTO_NC_ASM | 👁 `70 01` → `71 01 01`; `74 01 00 01` starts sensing, ⛔ no off, #1113 |
 | `82`–`87` | OPT — `01` NC_OPTIMIZER; control `00` CANCEL `01` START | ⚠ plays test tones |
 | `46`–`49` | VPT `01`, SOUND_POSITION `02` | ⚠ **only on frame type `0c`.** On `0e` these bytes are VOICE_GUIDANCE — see the second-table section |
 | `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
@@ -746,12 +746,12 @@ setting with no getter cannot be confirmed by this codebase's own standard.
 
 ⚠ **And there is nothing to switch off.** `SenseSettingControl` has exactly two entries,
 `00 NO_USE` and `01 START`. The vendor app's whole Adaptive Sound Control class is one
-method that sends `74 01 01` and nothing else — no stop, no toggle, no query. Checked by
+method that sends the START and nothing else — no stop, no toggle, no query. Checked by
 reading every method on it, not by grepping for "stop" and finding none.
 
-So `74 01 01` is a **trigger**: "begin sensing now". Whatever holds the on/off state, it is
-not in this block, and it is not in the 22 functions the device declares either — the only
-SENSE entry there is `71 AUTO_NC_ASM`, which is this.
+So it is a **trigger**: "begin sensing now". Whatever holds the on/off state, it is not in
+this block, and it is not in the 22 functions the device declares either — the only SENSE
+entry there is `71 AUTO_NC_ASM`, which is this.
 
 ⚠ **Do not add a toggle backed by nothing.** A switch drawn from `74 01 01` alone could
 not report its own state or be turned off. That is #1041 in reverse — there a real control
@@ -782,9 +782,39 @@ the one this page exists to keep — see multipoint, which **is** refused and ha
 app failing identically as its control. ASC has no such control, because nobody has watched
 the vendor app toggle it.
 
-The test is the method that already worked twice today: **capture Sound Connect turning
-Adaptive Sound Control on and off, and read the frames.** That is what settled the [CUSTOM]
-button's asymmetry and what would have settled Speak-to-Chat in one step instead of three.
+### ✅ RESOLVED FROM THE SDK, 2026-08-24: THE ON/OFF IS APP-SIDE
+
+⚠ **First, this page had the frame wrong.** It said `74 01 01`, three bytes. The payload
+writer emits **four**:
+
+    74 <SenseInquiredType> <CommonStatus> <SenseSettingControl>
+    74 01 AUTO_NC_ASM  ·  00 ENABLE  ·  01 START
+
+⚠ **And `CommonStatus` is hardcoded in the constructor, not a parameter.** The payload class
+takes `(SenseInquiredType, SenseSettingControl)` and assigns `CommonStatus.ENABLE` itself.
+So the wire format has a byte for enable/disable and **the app can never set it to
+disable** — `74 01 01 01` is expressible on the wire and is not a frame Sony's app can
+build. Do not send it on the strength of the enum; nothing observed it.
+
+**Where the state actually lives**: `AutoNcAsmPersistentDataFactory` persists ASC as
+app-side JSON — `enabled`, `ncAsmEffect`, `ncAsmMode`, `ncValue`, `asmId`, `asmValue`,
+`noiseAdaptiveOnOffValue`, `noiseAdaptiveSensitivity`. That is a per-activity preset table
+with its own `enabled` flag, in the phone, not the headphones.
+
+So the mechanism is: the app tells the device **once** to start sensing, then decides what
+the setting should be and writes it with `68 02 …` — the ordinary NCASM_SET_PARAM this repo
+already drives. ⚠ Confirmed by exclusion on the other side too: `NcAsmEffect` is
+`00 OFF · 01 ON · 10 ADJUSTMENT_IN_PROGRESS · 11 ADJUSTMENT_COMPLETION`. **There is no
+adaptive mode in the NCASM block**, so nothing else on the device could be holding it.
+
+**What that means for this app: there is no toggle to mirror.** ASC is not a device setting
+that could be read, written or confirmed. Supporting it would mean reimplementing Sony's
+activity and place detection and driving the ANC writes ourselves — a different and much
+larger feature than remote-controlling a headphone, and one this repo has not chosen.
+
+⚠ **Not yet confirmed by capture.** This is read from the SDK, and the SDK is what the app
+*can* send, not what it *did*. A capture of Sound Connect toggling ASC would settle whether
+anything else goes on the wire, and remains the cheaper check if this is ever doubted.
 
 ## ✅ GENERAL_SETTING1 IS THE TOUCH PANEL, and the device says so itself
 
