@@ -806,6 +806,34 @@ that all used one type byte in both directions, and the fourth was assumed to ma
 agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
 and the SDK had been extracted and was sitting on disk when the assumption was made.
 
+## ⚠ TABLE 2'S PERIPHERAL BLOCK — REACHED 2026-08-24, AND IT CAN UNPAIR
+
+⛔ **DO NOT SWEEP THIS BLOCK.** `ConnectivityActionType` is `00 DISCONNECT · 01 CONNECT ·
+02 UNPAIR`, and it is a parameter of `38` PERI_SET_PARAM. A write here can **unpair a
+device** — the same class of hazard as Bose's `aa 95` factory reset, and the reason this
+was explored with `30`/`32`/`36` reads only.
+
+What the XM4 answers, on frame type `0e`:
+
+    → 30 00   ← (nothing)     PAIRING_DEVICE_MANAGEMENT_CLASSIC_BT
+    → 30 01   ← 31 01 08 02 01   SOURCE_SWITCH_CONTROL — supported
+    → 30 02   ← (nothing)     PAIRING_DEVICE_MANAGEMENT_WITH_BLUETOOTH_CLASS_OF_DEVICE
+    → 30 03   ← (nothing)     MUSIC_HAND_OVER_SETTING
+    → 32 01   ← 33 01 00 00   its status
+    → 36 01   ← (nothing)     no GET_PARAM answer
+
+✅ **One of four peripheral types exists on this device**, and it is source switching —
+choosing which connected device the audio comes from.
+
+⚠ **`08 02 01` and `00 00` are NOT decoded.** The obvious reading of `02` is the multipoint
+device count and it would be a guess; Sony's parser for this payload was not found before
+the search was called off. **Two undecoded byte strings are a better record than three
+invented field names** — see the [CUSTOM] button's capability, which sat here as "more codes
+than this enum names" for a week and then decoded exactly once the parser was read.
+
+⚠ **Curious and unexplained**: this pair refuses multipoint outright, yet declares the
+source-switch control that multipoint is for.
+
 ## ⛔ EQ BAND LEVELS ARE IGNORED, AND THE FRAME IS RIGHT — 2026-08-24
 
 Preset-only writes work and are driven. **Any `58 01` carrying a non-zero count is acked
