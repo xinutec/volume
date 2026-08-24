@@ -85,6 +85,13 @@ class MainActivity : Activity() {
 
     private fun handle(intent: Intent?) {
         val op = intent?.getStringExtra("op") ?: "list"
+        // ⚠ **First, and before anything can fail** — this line is how the caller knows
+        // the op it sent is the op that ran. `am start` can resume this activity without
+        // delivering the new intent, in which case the previous run's extras are what
+        // executes and its transcript is what a reader attributes to the new run. Two
+        // measured instances, and neither was caught by anything but reading the bytes.
+        // `probe.sh` refuses a log that does not carry its own id. #967.
+        intent?.getStringExtra("run")?.let { emit("run $it") }
         // Off the main thread: connect() blocks for seconds and the read loop longer.
         Thread { runCatching { dispatch(op, intent) }.onFailure { emit("FAILED: $it") } }.start()
     }
