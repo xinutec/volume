@@ -19,7 +19,8 @@ the dated section it points at; treat anything undated as older than everything 
 | Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
 | Speak-to-Chat detail | `fa 05` / `fc 05 00 <s> <f> <t>` | ✅ driven 2026-08-24 — sensitivity · voice focus · mode-out |
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
-| Codec, upscaling status | `18 00`, `14 00` | 👁 read only |
+| Codec | `18 00` / `19 00 <AudioCodec>` | ✅ read, on the card — ⚠ negotiated, not settable |
+| Upscaling effect | `14 00` / `15 00 02 00` | 👁 read; ⚠ **not shown** — it is not the DSEE switch |
 | Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
 | Voice guidance | `46 01 01` / `48 01 01 <v>` on type **`0e`** | ✅ driven 2026-08-24 — ⚠ **second command table**; `48` is VPT on table 1 |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |

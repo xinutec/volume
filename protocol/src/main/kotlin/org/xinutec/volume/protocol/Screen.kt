@@ -204,6 +204,14 @@ data class Settings(
      */
     val voiceGuidance: Boolean? = null,
     /**
+     * The codec the link negotiated — LDAC, AAC, SBC.
+     *
+     * ⚠ **Read only, and not a setting.** A codec is agreed between the two ends; what
+     * an owner can actually choose is [soundQuality], which influences it. There is no
+     * [SettingKind] for this because there is nothing to refuse.
+     */
+    val codec: String? = null,
+    /**
      * Focus on Voice — **readable always, settable only in ambient mode.**
      *
      * ⚠ A fourth kind of "no control", and it is none of the other three: not refused,
@@ -257,7 +265,7 @@ data class Settings(
                 autoPlay != null || balance != null || psap != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
-                voiceGuidance != null || focusOnVoice != null
+                voiceGuidance != null || codec != null || focusOnVoice != null
 
     fun writable(kind: SettingKind): Boolean = kind !in refuses
 

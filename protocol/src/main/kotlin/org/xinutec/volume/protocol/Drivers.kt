@@ -574,6 +574,10 @@ object Drivers {
         override fun bands(t: Transport): List<Int> =
             exchangeFramed(t, SonyEq.getBands())?.let(SonyEq::bands) ?: emptyList()
 
+        /** The codec the link settled on. ⚠ Read only — see [SonyCodec]. */
+        fun readCodec(t: Transport): String? =
+            exchangeFramed(t, SonyCodec.get(), SonyCodec.RET)?.let(SonyCodec::state)
+
         fun readAutoOff(t: Transport): AutoOff? =
             exchangeFramed(t, SonyAutoOff.get())?.let(SonyAutoOff::state)
 

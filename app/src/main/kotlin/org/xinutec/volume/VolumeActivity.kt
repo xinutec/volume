@@ -792,6 +792,12 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             )
         }
 
+        settings.codec?.let { c ->
+            // ⚠ A label, not a row with a control: nothing here can set a codec, and a
+            // greyed switch would suggest the app merely refuses to.
+            SettingLabel("Codec", c)
+        }
+
         settings.battery?.let { b ->
             SettingLabel(
                 "Battery",

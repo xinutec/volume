@@ -278,6 +278,7 @@ class DeviceController(
                     speakToChat = d.readSwitch(s.transport, SonySpeakToChat),
                     touchPanel = d.readSwitch(s.transport, SonyTouchPanel),
                     voiceGuidance = d.readVoiceGuidance(s.transport),
+                    codec = d.readCodec(s.transport),
                     chatDetail = d.readChatDetail(s.transport),
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.

@@ -363,6 +363,7 @@ class ScreenTest {
                 "chatDetail" to
                     Settings(chatDetail = ChatDetail(ChatSensitivity.AUTO, false, ModeOutTime.MID)),
                 "voiceGuidance" to Settings(voiceGuidance = false),
+                "codec" to Settings(codec = "LDAC"),
                 "focusOnVoice" to Settings(focusOnVoice = false),
             )
         for ((name, one) in each) {
