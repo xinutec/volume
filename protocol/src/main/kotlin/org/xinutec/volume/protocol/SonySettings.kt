@@ -872,3 +872,31 @@ object SonyCodec {
         }
     }
 }
+
+/**
+ * Switch the headphones off — `22` COMMON_SET_POWER_OFF.
+ *
+ * ⚠ **The only action here that its owner cannot undo from this app.** Everything else
+ * is a setting that can be written back; this ends the session and the headphones come
+ * back only by hand, on the device. So it is not a setting and is deliberately not on
+ * the settings list: callers ask for it explicitly and the screen confirms first.
+ *
+ * ⚠ **There is no reply and there cannot be one.** The device acts on the frame and the
+ * link drops, so a read-back is not merely unavailable — it is a contradiction. This is
+ * the one write in the Sony driver that [Confirmation] does not apply to, and calling it
+ * unverifiable would suggest a check was attempted.
+ *
+ * `PowerOffSettingValue` also has `00 NO_USE`, which is the enum's absent value rather
+ * than an "on": nothing switches a headphone on over a link that needs it on.
+ */
+object SonyPowerOff {
+    const val SET: Byte = 0x22
+
+    /** `PowerOffInquiredType.FIXED_VALUE` — the only value. */
+    const val TYPE: Byte = 0x00
+
+    /** `PowerOffSettingValue.USER_POWER_OFF`. */
+    private const val USER_POWER_OFF: Byte = 0x01
+
+    fun off(): ByteArray = byteArrayOf(SET, TYPE, USER_POWER_OFF)
+}

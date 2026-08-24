@@ -19,6 +19,9 @@ the dated section it points at; treat anything undated as older than everything 
 | Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
 | Speak-to-Chat detail | `fa 05` / `fc 05 00 <s> <f> <t>` | ✅ driven 2026-08-24 — sensitivity · voice focus · mode-out |
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
+| Power off | `22 00 01` | ⚠ **built, confirmed dialog, NOT fired** — needs a hand to undo |
+| BLE setup | `1c 00` / `1c 01` | 👁 read — identifiers, ⚠ **values withheld, public repo** |
+| Concierge data | `28 00` / `29 00 <JSON>` | ⛔ diagnostics for the vendor, like `c1` |
 | Codec | `18 00` / `19 00 <AudioCodec>` | ✅ read, on the card — ⚠ negotiated, not settable |
 | Upscaling effect | `14 00` / `15 00 02 00` | 👁 read; ⚠ **not shown** — it is not the DSEE switch |
 | Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
@@ -929,6 +932,39 @@ So **FAST = 15 s, MID = 30 s, SLOW = 60 s, NONE = 0** — the device's own numbe
 why the card can print seconds instead of Sony's adjectives. ⚠ `0f 1e 3c` was spotted as
 15/30/60 by eye first; that is a guess until the parser says where the array starts and how
 long it is, and it does — `new-array` of 4, read from index 8.
+
+## ✅ THE LAST THREE UNASKED FUNCTIONS — read 2026-08-24, and none is a setting
+
+`14` BLE_SETUP and `22` CONCIERGE_DATA were the only entries in the device's own
+22-function list that nothing had ever asked. Both answer, and neither is something an
+owner could change.
+
+    → 1c 00     ← 1d 00 11 <17 ASCII bytes>    the pair's own Bluetooth address
+    → 1c 01     ← 1d 01 08 <8 ASCII bytes>     a BLE hash
+    → 28 00     ← 29 00 <JSON>                 {"formatVer":"BT02","di":"…"}
+
+⚠ **The values are deliberately not written down. This repo is public**, and two of these
+three are stable identifiers for Pippijn's headphones. The shapes are what a decoder
+needs; the bytes would only be a way to recognise his hardware.
+
+- **`14` BLE_SETUP** is `1c`/`1d` COMMON_*_BLUETOOTH_DEVICE_INFO, with
+  `BluetoothDeviceInfoType` `00 BLUETOOTH_DEVICE_ADDRESS · 01 BLE_HASH_VALUE`. Both are
+  ASCII, length-prefixed. Nothing to set, and the address is one Android already gives us
+  from the bond — so there is no reason to read it at all.
+- **`22` CONCIERGE_DATA** is `28`/`29`, and the payload is a JSON diagnostics blob for
+  Sony's support flow. ⛔ **Same family as `c1` ACTION_LOG_NOTIFIER and excluded for the
+  same reason**: it is data *about* the owner's usage, collected for the vendor, not a
+  control. The `di` field is an opaque encoded run.
+
+⚠ **`24`/`25` CONNECTION_STATUS answers although it is NOT in the 22.** `25 01 01 00`
+decodes — via `se0/z`, which reads **two** `ConnectionStatus` values — as left
+`01 CONNECTED`, right `00 NOT_CONNECTED`. It is an earbud question (the WF series connect
+independently); a single-unit over-ear answers it truthfully and uselessly.
+
+✅ **So the function list is about FEATURES, not about every command the device will
+answer.** That is worth knowing before treating 22 as the whole surface: it is the whole
+surface of *things an owner has*, which is the more useful denominator, but a command
+absent from it may still reply.
 
 ## ⛔ ADAPTIVE SOUND CONTROL — ITS ON/OFF IS APP-SIDE, so there is none here (#1113)
 

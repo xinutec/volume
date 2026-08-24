@@ -279,6 +279,7 @@ class DeviceController(
                     touchPanel = d.readSwitch(s.transport, SonyTouchPanel),
                     voiceGuidance = d.readVoiceGuidance(s.transport),
                     codec = d.readCodec(s.transport),
+                    canPowerOff = true,
                     chatDetail = d.readChatDetail(s.transport),
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.
@@ -515,6 +516,22 @@ class DeviceController(
 
     override fun setSpeakToChat(address: String, on: Boolean) =
         sonySwitch(address, "speak-to-chat", SonySpeakToChat, on)
+
+    /**
+     * ⚠ **No [applied] and no read-back**, and that is not an omission: the link drops as
+     * the device acts, so re-reading would ask a question of something that has gone. The
+     * card follows the radio, which is where the answer actually shows up.
+     */
+    override fun powerOff(address: String) =
+        work.execute {
+            holding(address) {
+                val s = openIfNeeded(address) ?: return@holding
+                update(address, DeviceState.Busy("switching off…"))
+                runCatching { (s.headphones.driver as Drivers.SonyXm4).powerOff(s.transport) }
+                Log.i(LIVE, "power off sent to $address")
+                drop(address)
+            }
+        }
 
     override fun setVoiceGuidance(address: String, on: Boolean) =
         applied<Boolean>(address, "setting voice guidance", { if (it) "on" else "off" }) {
