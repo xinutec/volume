@@ -258,6 +258,13 @@ interface SettingActions {
 
     fun setTouchPanel(address: String, on: Boolean)
 
+    /**
+     * ⚠ **Switching this ON can make the headphones speak.** That is the setting doing
+     * its job, not a side effect — but it is the one control here that is audible to
+     * whoever is wearing them.
+     */
+    fun setVoiceGuidance(address: String, on: Boolean)
+
     fun setChatDetail(address: String, detail: ChatDetail)
 
     fun setSonyButton(address: String, name: String)
@@ -929,6 +936,17 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 checked = on,
                 onChange = { actions.setTouchPanel(address, it) },
                 note = "when off, the earcup ignores taps and swipes",
+            )
+        }
+
+        settings.voiceGuidance?.let { on ->
+            SettingRow(
+                "Voice guidance",
+                if (on) "on" else "off",
+                writable = settings.writable(SettingKind.VOICE_GUIDANCE),
+                checked = on,
+                onChange = { actions.setVoiceGuidance(address, it) },
+                note = "spoken prompts; switching it on may say so out loud",
             )
         }
 

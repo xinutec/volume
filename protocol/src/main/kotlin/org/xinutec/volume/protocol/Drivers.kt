@@ -445,6 +445,32 @@ object Drivers {
         fun readFocusOnVoice(t: Transport): Boolean? = focus(current(t) ?: return null)
 
         /**
+         * Voice guidance — the spoken prompts. ⚠ **Table 2**; see [SonyVoiceGuidance].
+         */
+        fun readVoiceGuidance(t: Transport): Boolean? =
+            exchangeFramed2(t, SonyVoiceGuidance.get(), SonyVoiceGuidance.RET)
+                ?.let(SonyVoiceGuidance::state)
+
+        /**
+         * ⚠ Its notify echoes the value, so this one is confirmable from its own reply —
+         * but [setVoiceGuidance] re-reads anyway, for the reason [setMultipoint] does.
+         *
+         * ⚠ **Turning it ON can make the headphones speak.** That is the device doing what
+         * the setting is for, not a side effect to be suppressed; it is noted because it
+         * is the one write here that is audible to whoever is wearing them.
+         */
+        fun writeVoiceGuidance(t: Transport, on: Boolean): Boolean? =
+            exchangeFramed2(t, SonyVoiceGuidance.set(on), SonyVoiceGuidance.NOTIFY)
+                ?.let(SonyVoiceGuidance::state)
+
+        /** Write it, then establish from a real read what the device holds. */
+        fun setVoiceGuidance(t: Transport, on: Boolean): Confirmation<Boolean> {
+            writeVoiceGuidance(t, on)
+            val after = readVoiceGuidance(t) ?: return Confirmation.Unverifiable
+            return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+        }
+
+        /**
          * Focus on Voice **and** whether it can be set, from ONE read.
          *
          * ⚠ Both facts come out of the same `67 02 …` frame, so asking twice is a
@@ -753,22 +779,44 @@ object Drivers {
             t: Transport,
             payload: ByteArray,
             vararg expect: Byte,
+        ): ByteArray? = exchangeOn(t, SonyFrame.TYPE_DATA_MDR, payload, expect.toList())
+
+        /**
+         * The same exchange, on **table 2**.
+         *
+         * ⚠ **The type byte is the only thing that says which command table a payload
+         * belongs to, and the ranges overlap.** `48` is `VPT_SET_PARAM` on table 1 and
+         * `VOICE_GUIDANCE_SET_PARAM` on table 2, with nothing in the payload to tell
+         * them apart. So this is a separate entry point rather than a flag on the one
+         * above: a caller has to say which table it means.
+         */
+        private fun exchangeFramed2(
+            t: Transport,
+            payload: ByteArray,
+            vararg expect: Byte,
+        ): ByteArray? = exchangeOn(t, SonyFrame.TYPE_DATA_MDR_NO2, payload, expect.toList())
+
+        private fun exchangeOn(
+            t: Transport,
+            type: Byte,
+            payload: ByteArray,
+            expect: List<Byte>,
         ): ByteArray? {
             // ⚠ **Every DATA frame is acked, and acked WHILE THE WINDOW IS OPEN.** The
             // XM4 is stop-and-wait, so acking after the window returns is what made a
             // single volunteered notification displace every later reply — see
             // [Transport.exchange]. This is the fix for #1107; [EXTRA_READS] below is
             // now the fallback rather than the cure.
-            val frame = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), payload)
+            val frame = SonyFrame.encode(type, nextSeq(), payload)
             var got = t.exchange(frame, ::acks)
             var rounds = 0
             while (true) {
-                val frames = SonyFrame.decodeAll(got).filter { it.type == SonyFrame.TYPE_DATA_MDR }
+                val frames = SonyFrame.decodeAll(got).filter { it.type == type }
                 val answer =
                     if (expect.isEmpty()) {
                         frames.lastOrNull()
                     } else {
-                        frames.lastOrNull { it.payload.firstOrNull() in expect.toTypedArray() }
+                        frames.lastOrNull { it.payload.firstOrNull() in expect }
                     }
                 if (answer != null) return answer.payload
                 // ⚠ Bounded, and small. Nothing here waits for a device to become
@@ -791,9 +839,19 @@ object Drivers {
         private fun acks(got: ByteArray): List<ByteArray> =
             SonyFrame.decodeAll(got).mapNotNull(::ackFor)
 
-        /** The ack a received DATA frame expects: type 01, sequence inverted. */
+        /**
+         * The ack a received DATA frame expects: type 01, sequence inverted.
+         *
+         * ⚠ **Both tables, deliberately.** The device is stop-and-wait and it withholds
+         * its next frame until the current one is acknowledged — so acking only `0c`
+         * would leave any table-2 notification unacked and wedge the session from that
+         * point on. What table a frame belongs to is the caller's question, not the
+         * transport's.
+         */
         private fun ackFor(frame: SonyFrame.Frame): ByteArray? =
-            if (frame.type != SonyFrame.TYPE_DATA_MDR) {
+            if (frame.type != SonyFrame.TYPE_DATA_MDR &&
+                frame.type != SonyFrame.TYPE_DATA_MDR_NO2
+            ) {
                 null
             } else {
                 SonyFrame.encode(

@@ -277,6 +277,7 @@ class DeviceController(
                     pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
                     speakToChat = d.readSwitch(s.transport, SonySpeakToChat),
                     touchPanel = d.readSwitch(s.transport, SonyTouchPanel),
+                    voiceGuidance = d.readVoiceGuidance(s.transport),
                     chatDetail = d.readChatDetail(s.transport),
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.
@@ -513,6 +514,11 @@ class DeviceController(
 
     override fun setSpeakToChat(address: String, on: Boolean) =
         sonySwitch(address, "speak-to-chat", SonySpeakToChat, on)
+
+    override fun setVoiceGuidance(address: String, on: Boolean) =
+        applied<Boolean>(address, "setting voice guidance", { if (it) "on" else "off" }) {
+            (it.headphones.driver as Drivers.SonyXm4).setVoiceGuidance(it.transport, on)
+        }
 
     override fun setTouchPanel(address: String, on: Boolean) =
         sonySwitch(address, "the touch panel", SonyTouchPanel, on)

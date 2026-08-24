@@ -362,6 +362,7 @@ class ScreenTest {
                 "touchPanel" to Settings(touchPanel = false),
                 "chatDetail" to
                     Settings(chatDetail = ChatDetail(ChatSensitivity.AUTO, false, ModeOutTime.MID)),
+                "voiceGuidance" to Settings(voiceGuidance = false),
                 "focusOnVoice" to Settings(focusOnVoice = false),
             )
         for ((name, one) in each) {
