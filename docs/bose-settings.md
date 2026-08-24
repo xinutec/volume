@@ -87,9 +87,10 @@ menu offers more, and an unexercised code decodes to unknown rather than the nea
 match.
 
 ✅ **Driven on hardware 2026-08-16** by this repo's own driver: Spotify, then back to
-Hear Battery Level, each confirmed by read-back. ⚠ Worth noting beside the XM4's
-[CUSTOM] button, whose write this repo cannot make stick at all (#965) — the same
-kind of setting, and only one of the two vendors accepts it from us.
+Hear Battery Level, each confirmed by read-back. ⚠ It took eight days longer to reach
+the XM4's equivalent [CUSTOM] button, which needs an alert subscribed and answered
+before the device will commit — the same kind of setting, reached two entirely
+different ways. #965, solved 2026-08-24.
 
 ⚠ `80 09` is unexplained and is carried verbatim. The eight-byte trailer is static —
 identical for both actions here and in the 08-15 sweep — and is **not** a mask of
