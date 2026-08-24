@@ -51,6 +51,8 @@ import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.ChatDetail
+import org.xinutec.volume.protocol.ChatSensitivity
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
@@ -59,6 +61,7 @@ import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
+import org.xinutec.volume.protocol.ModeOutTime
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.RefusalReason
 import org.xinutec.volume.protocol.Screen
@@ -238,6 +241,8 @@ interface SettingActions {
     fun setSpeakToChat(address: String, on: Boolean)
 
     fun setTouchPanel(address: String, on: Boolean)
+
+    fun setChatDetail(address: String, detail: ChatDetail)
 
     /** ⚠ Ambient mode only — the UI offers it only when the device is there. */
     fun setFocusOnVoice(address: String, on: Boolean)
@@ -799,6 +804,47 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 checked = on,
                 onChange = { actions.setSpeakToChat(address, it) },
             )
+        }
+
+        settings.chatDetail?.let { d ->
+            // ⚠ **Three controls, one frame.** Each chip sends the whole [ChatDetail]
+            // with one field changed — see [SonyChatDetail], where the payload has no
+            // field selector, so a partial write would reset the other two.
+            SettingLabel("Speak-to-Chat sensitivity", d.sensitivity.name.lowercase())
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (v in ChatSensitivity.entries) {
+                    FilterChip(
+                        selected = v == d.sensitivity,
+                        onClick = { actions.setChatDetail(address, d.copy(sensitivity = v)) },
+                        label = { Text(v.name.lowercase()) },
+                    )
+                }
+            }
+            SettingRow(
+                "Voice focus",
+                if (d.voiceFocus) "on" else "off",
+                writable = true,
+                checked = d.voiceFocus,
+                onChange = { actions.setChatDetail(address, d.copy(voiceFocus = it)) },
+            )
+            // ⚠ Seconds from the device's own capability reply, not from a table here.
+            SettingLabel(
+                "Back to music after",
+                if (d.modeOutTime == ModeOutTime.NONE) {
+                    "not until you tap"
+                } else {
+                    "${d.modeOutTime.seconds} s"
+                },
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (v in ModeOutTime.entries) {
+                    FilterChip(
+                        selected = v == d.modeOutTime,
+                        onClick = { actions.setChatDetail(address, d.copy(modeOutTime = v)) },
+                        label = { Text(if (v.seconds == 0) "never" else "${v.seconds} s") },
+                    )
+                }
+            }
         }
 
         settings.touchPanel?.let { on ->

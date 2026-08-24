@@ -9,6 +9,7 @@ import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
@@ -273,6 +274,7 @@ class DeviceController(
                     pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
                     speakToChat = d.readSwitch(s.transport, SonySpeakToChat),
                     touchPanel = d.readSwitch(s.transport, SonyTouchPanel),
+                    chatDetail = d.readChatDetail(s.transport),
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.
                     focusOnVoice = focus.on,
@@ -489,6 +491,22 @@ class DeviceController(
 
     override fun setTouchPanel(address: String, on: Boolean) =
         sonySwitch(address, "the touch panel", SonyTouchPanel, on)
+
+    /**
+     * ⚠ **Takes the whole [ChatDetail]**, because the frame carries all three fields.
+     * A per-field setter here would have to invent the other two.
+     */
+    override fun setChatDetail(address: String, detail: ChatDetail) =
+        applied<ChatDetail>(address, "setting speak-to-chat detail", { it.sensitivity.name }) {
+            val d =
+                it.headphones.driver as? Drivers.SonyXm4
+                    ?: return@applied Confirmation.Unverifiable
+            when (d.writeChatDetail(it.transport, detail)) {
+                detail -> Confirmation.Confirmed
+                null -> Confirmation.Unverifiable
+                else -> Confirmation.Contradicted(detail)
+            }
+        }
 
     private fun sonySwitch(address: String, what: String, switch: SonySwitch, on: Boolean) =
         applied<Boolean>(address, "setting $what", { if (it) "on" else "off" }) {

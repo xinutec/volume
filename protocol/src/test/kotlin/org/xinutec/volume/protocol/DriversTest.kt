@@ -230,6 +230,36 @@ class DriversTest {
         assertNull(SonyTouchPanel.state(Hex.parse("d7d20101")))
     }
 
+    /**
+     * Speak-to-Chat's detail frame, in the bytes the XM4 exchanged on 2026-08-24.
+     *
+     * ⚠ **The whole value goes out every time**, so this asserts the round trip rather
+     * than a field: a set built from a state must reproduce the frame that state came
+     * from, or a caller changing one chip silently rewrites the other two.
+     */
+    @Test
+    fun `sony speak-to-chat detail is one frame carrying three settings`() {
+        assertArrayEquals(Hex.parse("fa05"), SonyChatDetail.get())
+        // the real frame: TYPE_1, AUTO, focus off, MID
+        val measured = SonyChatDetail.state(Hex.parse("fb 05 00 00 00 01"))!!
+        assertEquals(ChatSensitivity.AUTO, measured.sensitivity)
+        assertEquals(false, measured.voiceFocus)
+        assertEquals(ModeOutTime.MID, measured.modeOutTime)
+        assertEquals(30, measured.modeOutTime.seconds)
+        // round trip: what was read rebuilds what was sent
+        assertArrayEquals(Hex.parse("fc 05 00 00 00 01"), SonyChatDetail.set(measured))
+        // the notify is an answer too, and the LOW/on/SLOW frame that was driven
+        val other = SonyChatDetail.state(Hex.parse("fd 05 00 02 01 02"))!!
+        assertEquals(ChatSensitivity.LOW, other.sensitivity)
+        assertEquals(true, other.voiceFocus)
+        assertEquals(60, other.modeOutTime.seconds)
+        // ⚠ an unknown byte refuses the WHOLE frame rather than defaulting one field
+        assertNull(SonyChatDetail.state(Hex.parse("fb0500ff0001")))
+        assertNull(SonyChatDetail.state(Hex.parse("fb050000ff01")))
+        // ⚠ and so does a frame one byte short, rather than reading past it
+        assertNull(SonyChatDetail.state(Hex.parse("fb05000000")))
+    }
+
     /** The other two agree in both directions, and must keep doing so. */
     @Test
     fun `sony dsee and pause use one type byte both ways`() {

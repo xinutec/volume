@@ -366,6 +366,123 @@ private fun audioSwitch(type: Byte, readType: Byte, writeType: Byte) =
         writeType = writeType,
     )
 
+/** How hard the XM4 listens before deciding you are talking. */
+enum class ChatSensitivity {
+    /** `00` — the device picks. */
+    AUTO,
+
+    /** `01`. */
+    HIGH,
+
+    /** `02`. */
+    LOW,
+}
+
+/**
+ * How long after you stop talking Speak-to-Chat waits before it hands the music back.
+ *
+ * ⚠ **The seconds are the DEVICE'S numbers, not a guess.** `f0 05` ends with a four-byte
+ * array read at a fixed offset by Sony's own capability parser, indexed by this enum's
+ * ordinal. The XM4 answered `0f 1e 3c 00`.
+ */
+enum class ModeOutTime(
+    val seconds: Int,
+) {
+    /** `00`. */
+    FAST(15),
+
+    /** `01`. */
+    MID(30),
+
+    /** `02`. */
+    SLOW(60),
+
+    /** `03` — stays in Speak-to-Chat until you tap out of it. */
+    NONE(0),
+}
+
+/**
+ * The three Speak-to-Chat detail settings, which share **one** frame.
+ *
+ * ⚠ **They are read and written as a unit and must stay that way.** The payload is
+ * `<sensitivity> <voiceFocus> <modeOutTime>` with no field selector, so writing one
+ * means sending all three — a caller that filled in a default for the other two would
+ * quietly reset them. Modelled as a single value for that reason, not for tidiness.
+ */
+data class ChatDetail(
+    val sensitivity: ChatSensitivity,
+    val voiceFocus: Boolean,
+    val modeOutTime: ModeOutTime,
+)
+
+/**
+ * Speak-to-Chat's detail settings — `fa`/`fc` SYSTEM_*_EXTENDED_PARAM, type `05`.
+ *
+ * ✅ **All three driven on the XM4 2026-08-24**, each confirmed by an independent `fa 05`
+ * read and every one restored:
+ *
+ * ```
+ * → fa 05              ← fb 05 00 00 00 01   AUTO · focus off · MID
+ * → fc 05 00 01 00 01  ← fd 05 00 01 00 01   sensitivity HIGH
+ * → fc 05 00 02 01 02  ← fd 05 00 02 01 02   LOW · focus on · SLOW
+ * → fc 05 00 00 00 01  ← fd 05 00 00 00 01   restored
+ * ```
+ *
+ * ⚠ **This is the first `fa`/`fc` frame family this repo sends**, and it behaves like the
+ * ordinary param frames: the notify echoes the value, so a write is confirmable from its
+ * own reply as well as by re-reading.
+ *
+ * ⚠ **They take while Speak-to-Chat itself is OFF.** Unlike Focus on Voice, which is
+ * silently ignored outside ambient mode, these are not gated on the feature being on — so
+ * a write that appears to do nothing here is a real failure, not a mode problem.
+ *
+ * ⚠ The leading `00` is `SmartTalkingModeDetailSettingType.TYPE_1`, the only value there
+ * is. It is a payload selector, not a setting.
+ */
+object SonyChatDetail {
+    const val TYPE: Byte = 0x05
+
+    const val GET: Byte = 0xfa.toByte()
+    const val RET: Byte = 0xfb.toByte()
+    const val SET: Byte = 0xfc.toByte()
+    const val NOTIFY: Byte = 0xfd.toByte()
+
+    /** `SmartTalkingModeDetailSettingType.TYPE_1`. */
+    private const val DETAIL: Byte = 0x00
+
+    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+
+    fun set(detail: ChatDetail): ByteArray =
+        byteArrayOf(
+            SET,
+            TYPE,
+            DETAIL,
+            detail.sensitivity.ordinal.toByte(),
+            if (detail.voiceFocus) 0x01 else 0x00,
+            detail.modeOutTime.ordinal.toByte(),
+        )
+
+    /**
+     * ⚠ Unknown bytes yield null, field by field. A sensitivity this build has no name
+     * for must not read as [ChatSensitivity.AUTO] — the whole frame is refused instead,
+     * because a partly-understood value would be written back whole.
+     */
+    fun state(payload: ByteArray): ChatDetail? {
+        if (payload.size < 6) return null
+        if (payload[0] != RET && payload[0] != NOTIFY) return null
+        if (payload[1] != TYPE || payload[2] != DETAIL) return null
+        val sensitivity = ChatSensitivity.entries.getOrNull(payload[3].toInt()) ?: return null
+        val focus =
+            when (payload[4]) {
+                0x00.toByte() -> false
+                0x01.toByte() -> true
+                else -> return null
+            }
+        val out = ModeOutTime.entries.getOrNull(payload[5].toInt()) ?: return null
+        return ChatDetail(sensitivity, focus, out)
+    }
+}
+
 /** `d6` GENERAL_SETTING_GET_PARAM · `d7` RET · `d8` SET · `d9` NTFY. */
 private fun generalSwitch(type: Byte) =
     SonySwitch(
