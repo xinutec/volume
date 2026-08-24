@@ -66,6 +66,37 @@ direction, and inferring it from the opcode got a command pair backwards.
 GATT. A filter that returns 0 rows usually means the wrong field, not a quiet device.
 ⚠ Bare `3e01xx00000000…3c` frames are **acks**, not replies.
 
+## 2026-08-24 evening — Sony WH-1000XM4, Adaptive Sound Control (`…/2026-08-24-sony-asc/`)
+
+Taken to settle the one claim in `docs/sony-settings.md` that rested on the SDK alone: that
+ASC's on/off is app-side. **Driven entirely over adb — no hands needed**, because an ASC
+toggle is a tap. The EQ band the same afternoon needed Pippijn only because a *drag* cannot
+be automated.
+
+| time | action | on the wire |
+|---|---|---|
+| 22:48:40 | ASC switched **off** | `68 02 11 02 02 01 00 00` → `69 02 01 …` |
+| ~22:48:52 | ASC switched **on** | **nothing** |
+| 22:49:19 | (link goes idle, then DISC) | |
+
+✅ **Off writes an ordinary NCASM frame; on writes nothing.** Decoded in
+`docs/sony-settings.md`.
+
+⚠ **The silence is only evidence because the link was proven up.** The next RFCOMM control
+frame is a DISC at 22:49:19 — half a minute after the ON tap — so 22:48:52 was an idle live
+channel. Checking that is the difference between "nothing was sent" and "nothing could be".
+
+⚠ **Finding the switch took longer than capturing it, and the route is the finding.** ASC
+is card **4 of 5 on the top screen**; "All device settings" is card 1 of 5. Inside the
+device-settings tree ASC appears only as the inert sentence "Set automatically by Adaptive
+Sound Control." — not tappable, no control. Sony's own app puts ASC outside device settings,
+which corroborates the wire.
+
+⚠ **Three dumps in this session described the WRONG APP.** `uiautomator dump` returns the
+FOCUSED window: backing out of Sound Connect three times exits it, and a swipe below y=1199
+lands in the agent console when Volume is in the top half of a split. `/tmp/uid.py` now
+asserts the package and refuses — which it then did, correctly, twice.
+
 ## 2026-08-24 — Sony WH-1000XM4, one EQ band (`…/2026-08-24-sony-eq/`)
 
 Taken for #1138, to settle why every band-level write this repo sent was acked and
