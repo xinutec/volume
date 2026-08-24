@@ -510,7 +510,12 @@ class ScreenTest {
          * ⚠ `focusOnVoiceSettable` is here for the same reason: it says whether ONE row
          * gets a switch, not whether there is a row. A device in ANC would otherwise
          * count as having something to show purely by being in ANC.
+         *
+         * ⚠ `buttonOptions` accompanies `button` and never stands alone: an options list
+         * with no current value is a device that answered its capability and not its
+         * parameter, which is not something to put on a card.
          */
-        val IGNORED = setOf("bands", "refuses", "attempted", "focusOnVoiceSettable")
+        val IGNORED =
+            setOf("bands", "refuses", "attempted", "focusOnVoiceSettable", "buttonOptions")
     }
 }

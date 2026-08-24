@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -244,6 +245,10 @@ interface SettingActions {
 
     fun setChatDetail(address: String, detail: ChatDetail)
 
+    fun setSonyButton(address: String, name: String)
+
+    fun answerButton(address: String, yes: Boolean)
+
     /** ⚠ Ambient mode only — the UI offers it only when the device is there. */
     fun setFocusOnVoice(address: String, on: Boolean)
 
@@ -315,6 +320,26 @@ private fun DeviceRow(
     // any pair connects or disconnects — does not fold an open section shut under
     // someone mid-adjustment.
     var expanded by rememberSaveable(card.address) { mutableStateOf(false) }
+    // ⚠ **The DEVICE is asking, and this forwards the question rather than answering it.**
+    // The XM4 will not commit a key-assign change until it is answered, and yes drops the
+    // audio link — so it is the owner's call, not a switch's. See [DeviceCard.asking].
+    card.asking?.let { question ->
+        AlertDialog(
+            onDismissRequest = { actions.answerButton(card.address, false) },
+            title = { Text(card.name) },
+            text = { Text(question) },
+            confirmButton = {
+                TextButton(onClick = { actions.answerButton(card.address, true) }) {
+                    Text("Change it")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { actions.answerButton(card.address, false) }) {
+                    Text("Leave it")
+                }
+            },
+        )
+    }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // ⚠ The bonded name, and it may be anything: this phone's QC35 is called
@@ -923,7 +948,21 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
 
         settings.button?.let { current ->
             SettingLabel("Button", prettyAction(current))
-            if (settings.writable(SettingKind.BUTTON)) {
+            if (settings.buttonOptions.isNotEmpty()) {
+                // ⚠ **The DEVICE'S list, never `SonyButton.Action.entries`.** The enum
+                // contains `VOLUME_CONTROL`; this pair does not offer it, and building
+                // chips from the enum would put a volume control on the card for a
+                // device that never advertised one. See [Settings.buttonOptions].
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (name in settings.buttonOptions) {
+                        FilterChip(
+                            selected = name == current,
+                            onClick = { actions.setSonyButton(address, name) },
+                            label = { Text(prettyAction(name)) },
+                        )
+                    }
+                }
+            } else if (settings.writable(SettingKind.BUTTON)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (a in BoseButton.Action.entries) {
                         FilterChip(

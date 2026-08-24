@@ -27,6 +27,16 @@ data class DeviceCard(
      * persists across those transitions.
      */
     val settings: Settings? = null,
+    /**
+     * A question the DEVICE is asking its owner, waiting for an answer.
+     *
+     * ⚠ **Not a status line.** The XM4 will not commit a key-assign change until it is
+     * answered, and answering yes drops the audio link. So this is a real question about
+     * the owner's own connection, and the screen must put it to them rather than decide
+     * — see #965, where the whole feature was unreachable for eight days because nobody
+     * had subscribed to hear it.
+     */
+    val asking: String? = null,
 ) {
     /** Modes to offer, empty until we know what it is. */
     val offer: List<AncMode>
@@ -157,6 +167,14 @@ data class Settings(
     val psap: Boolean? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
+    /**
+     * What the device says its key may be set to — **its list, not our enum**.
+     *
+     * ⚠ `AssignableSettingsPreset` contains `VOLUME_CONTROL`, and the XM4 does not offer
+     * it. Building an editor from the enum would put a volume control on a card for a
+     * device that never advertised one, which is why this is carried at all.
+     */
+    val buttonOptions: List<String> = emptyList(),
     /** DSEE Extreme — `true` is `UpscalingSettingValue.AUTO`, not a generic "on". */
     val dsee: Boolean? = null,
     /** Pause when the headphones come off. ⚠ Not [autoOff], which powers them down. */
@@ -335,6 +353,10 @@ data class Screen(
     /** Replace one card by address, leaving the rest and the order alone. */
     fun with(address: String, state: DeviceState): Screen =
         copy(cards = cards.map { if (it.address == address) it.copy(state = state) else it })
+
+    /** Put the device's question on its card, or clear it with null. */
+    fun asking(address: String, question: String?): Screen =
+        copy(cards = cards.map { if (it.address == address) it.copy(asking = question) else it })
 
     /**
      * Attach what a device reported when asked for its settings.

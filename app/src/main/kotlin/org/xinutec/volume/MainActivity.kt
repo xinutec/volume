@@ -14,6 +14,7 @@ import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseEq
+import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.Drivers
@@ -594,16 +595,26 @@ class MainActivity : Activity() {
                 emit("  ✗ '$arg' is not one of ${SonyButton.Action.entries}")
                 return@let
             }
-            // ⚠ Expected to fail. The device acks this and ignores it; the vendor app
-            // sending the identical bytes succeeds. Left reachable because the next
-            // person to attack that asymmetry will want to run it — see SonyButton.
-            emit("  → $action ⚠ known not to take from this code")
-            d.writeButton(t, action)
-            val after = d.readButton(t)
+            // ⚠ **This asks the DEVICE, which then asks the OWNER.** The probe answers
+            // for them, which is only defensible here: a terminal command is somebody
+            // deliberately driving their own headphones. The card must not — see #965.
+            emit("  → $action (subscribing to alerts first)")
+            when (d.beginButtonWrite(t, action)) {
+                ButtonWrite.Asks -> {
+                    emit("  ← the device asks about disconnecting; answering yes")
+                    // ⚠ This kills the link on purpose. The read below reopens.
+                    d.answerButtonAlert(t, true)
+                }
+
+                ButtonWrite.Unchanged -> {
+                    emit("  ← no alert — nothing changed")
+                }
+            }
+            val after = runCatching { d.readButton(t) }.getOrNull()
             when (after) {
-                null -> emit("  ⚠ sent; nothing came back to check it against")
-                action -> emit("  ✓ confirmed — ⚠ THIS HAS NEVER HAPPENED; re-read SonyButton")
-                else -> emit("  ✗ it reads back as $after, as expected")
+                null -> emit("  ⚠ link went with the commit — re-run `settings` to see it")
+                action -> emit("  ✓ confirmed")
+                else -> emit("  ✗ it reads back as $after")
             }
         }
     }
