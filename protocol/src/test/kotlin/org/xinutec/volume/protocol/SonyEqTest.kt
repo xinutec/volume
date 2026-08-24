@@ -25,6 +25,21 @@ class SonyEqTest {
         assertEquals("5801a100", SonyEq.set(0xa1).joinToString("") { "%02x".format(it) })
     }
 
+    /**
+     * Captured at 18:57:24 on 2026-08-24, the last frame of a band dragged back up
+     * to +6 in Sony Headphones Connect.
+     *
+     * ⚠ **The `ff` is the assertion.** Byte for byte this is what the driver had
+     * been sending for a day except for that one field, where it put the slot's own
+     * id — and the XM4 acked and dropped every one of those. If this test ever goes
+     * green with a preset id there, the levels have stopped moving.
+     */
+    @Test
+    fun `a levels write carries UNSPECIFIED, never the selected preset`() {
+        val f = SonyEq.setLevels(listOf(3, 0, 0, 2, 4, 6))
+        assertEquals("5801ff060d0a0a0c0e10", f.joinToString("") { "%02x".format(it) })
+    }
+
     /** Captured at 11:01:41: preset `a1`, six levels, all flat. */
     @Test
     fun `a flat preset decodes to all zero dB`() {

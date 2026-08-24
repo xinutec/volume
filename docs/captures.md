@@ -66,6 +66,42 @@ direction, and inferring it from the opcode got a command pair backwards.
 GATT. A filter that returns 0 rows usually means the wrong field, not a quiet device.
 ⚠ Bare `3e01xx00000000…3c` frames are **acks**, not replies.
 
+## 2026-08-24 — Sony WH-1000XM4, one EQ band (`…/2026-08-24-sony-eq/`)
+
+Taken for #1138, to settle why every band-level write this repo sent was acked and
+ignored. **Five minutes, one gesture** — the smallest capture here, and it answered a
+question four rounds of reasoning had not.
+
+| time | action |
+|---|---|
+| 18:52:55 | Sound Connect launched cold; it read `56 01` → `57 01 a2 06 0d 0a 0a 0c 0e 10` |
+| 18:57:08–18:57:18 | **Pippijn drags** 16k from +6 down to −5 — ten `58 01` frames |
+| 18:57:19 | the app re-reads: `57 01 a2 06 0d 0a 0a 0c 0e 05` |
+| 18:57:22–18:57:24 | dragged back up, eight more frames |
+| 18:57:25 | `57 01 a2 06 0d 0a 0a 0c 0e 10` — exactly the before-state |
+
+✅ **The answer is one byte**: every level write carries `ff` where this repo put the
+slot's own id. Decoded in `docs/sony-settings.md`.
+
+⚠ **16k was chosen because it sat at +6, the highest band** — so the whole gesture only
+ever reduced output. A capture that needs a slider moved does not need it moved *up*.
+
+⚠ **The restore was verified from the device, not the screen.** The app's own re-read is
+in the capture, and this repo read `56 01` again afterwards; the two agree. The JBL run
+of 2026-08-16 is why — there a curve was put back by eye and the table id was left
+behind, which surfaced 45 minutes later.
+
+⚠ **Snoop logging could not be confirmed the documented way.** `getprop` is denied and
+returns empty, and the `SnoopLogger` line had long since rotated out of logcat. What
+settled it was the **live snoop socket on port 8872**, which is listening only when the
+toggle is on:
+
+```sh
+adb shell 'cat /proc/net/tcp' | awk '{print $2}' | grep -i ':22A8'   # 8872 = 0x22A8
+```
+
+Cheaper than taking a bugreport to find out whether taking a bugreport was worth it.
+
 ## 2026-08-17 — JBL Tour One M2 (`~/.cache/volume-captures/2026-08-17-jbl-spatial/`)
 
 Driven by `scripts/drive_jbl.py` except where noted. Five bugreports, each merged with
