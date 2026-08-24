@@ -23,6 +23,7 @@ import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyFrame
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
+import org.xinutec.volume.protocol.SonyTouchPanel
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Sweep
 import org.xinutec.volume.protocol.Transport
@@ -514,6 +515,7 @@ class MainActivity : Activity() {
         emit("  dsee:       ${d.readSwitch(t, SonyDsee) ?: "(no answer)"}")
         emit("  pause:      ${d.readSwitch(t, SonyPauseOnRemoval) ?: "(no answer)"}")
         emit("  chat:       ${d.readSwitch(t, SonySpeakToChat) ?: "(no answer)"}")
+        emit("  touch:      ${d.readSwitch(t, SonyTouchPanel) ?: "(no answer)"}")
         emit("  voice:      ${d.readFocusOnVoice(t) ?: "(no answer)"}")
 
         intent.getStringExtra("eq")?.let { arg ->
@@ -554,6 +556,7 @@ class MainActivity : Activity() {
                 "dsee" to SonyDsee,
                 "pause" to SonyPauseOnRemoval,
                 "chat" to SonySpeakToChat,
+                "touch" to SonyTouchPanel,
             )
         for ((key, switch) in switches) {
             intent.getStringExtra(key)?.let { arg ->

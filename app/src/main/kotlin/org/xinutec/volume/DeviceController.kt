@@ -31,6 +31,7 @@ import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
 import org.xinutec.volume.protocol.SonySwitch
+import org.xinutec.volume.protocol.SonyTouchPanel
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TimedOff
@@ -271,6 +272,7 @@ class DeviceController(
                     dsee = d.readSwitch(s.transport, SonyDsee),
                     pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
                     speakToChat = d.readSwitch(s.transport, SonySpeakToChat),
+                    touchPanel = d.readSwitch(s.transport, SonyTouchPanel),
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.
                     focusOnVoice = focus.on,
@@ -484,6 +486,9 @@ class DeviceController(
 
     override fun setSpeakToChat(address: String, on: Boolean) =
         sonySwitch(address, "speak-to-chat", SonySpeakToChat, on)
+
+    override fun setTouchPanel(address: String, on: Boolean) =
+        sonySwitch(address, "the touch panel", SonyTouchPanel, on)
 
     private fun sonySwitch(address: String, what: String, switch: SonySwitch, on: Boolean) =
         applied<Boolean>(address, "setting $what", { if (it) "on" else "off" }) {

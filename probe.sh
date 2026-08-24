@@ -208,10 +208,10 @@ case "${1:-list}" in
       # future value could hold one too.
       key="${kv%%=*}"; val="${kv#*=}"
       case "$key" in
-        eq|multipoint|autooff|button|quality|dsee|pause|chat|voice)
+        eq|multipoint|autooff|button|quality|dsee|pause|chat|voice|touch)
           args+=(--es "$key" "$val") ;;
         *) echo "unknown setting '$key' — eq, multipoint, autooff, button, quality,\
- dsee, pause, chat, voice" >&2; exit 2 ;;
+ dsee, pause, chat, voice, touch" >&2; exit 2 ;;
       esac
     done
     start_op "${args[@]}"

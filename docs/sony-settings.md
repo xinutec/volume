@@ -12,13 +12,13 @@ the dated section it points at; treat anything undated as older than everything 
 | Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** |
 | EQ preset | `56 01` / `58 01` | ✅ driven; ⚠ band levels never exercised |
 | Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
-| Auto power off | `f6 04` / `f8 04 01 <v> 00` | ✅ driven; 2 of 6 SDK values, ⚠ menu offers 2 |
+| Auto power off | `f6 04` / `f8 04 01 <v> 00` | ✅ driven, **complete** — `f0 04` declares 2 |
 | DSEE Extreme | `e6 02` / `e8 02 00 <v>` | ✅ driven |
 | Pause on removal | `f6 03` / `f8 03 00 <v>` | ✅ driven |
 | Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
 | Codec, upscaling status | `18 00`, `14 00` | 👁 read only |
-| Touch panel | `d6 d1` | 👁 read; ⚠ never written |
+| Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
 | Voice guidance | `46 01 01` on frame type **`0e`** | 👁 read; ⚠ **second command table** |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
 | [CUSTOM] button | `f6 06` | ⛔ refuses **us**; the app succeeds — #965 |
@@ -224,6 +224,40 @@ thing — carried verbatim rather than tidied into a "count".
 
 Changing it renegotiates the codec: the link drops and comes back, and the vendor app
 warns "Reconnects to the audio device" first. Treat it as connection-disturbing.
+
+### ✅ THE DEVICE NAMES ITS OWN GENERAL SETTINGS, and there are exactly two
+
+`d0 <GsInquiredType>` answers with the setting's own key. ⚠ **`GsInquiredType` is `d1`,
+`d2`, `d3` — not `01`, `02`, `03`.** Asking `d0 01` gets a bare ack, which reads as
+"unsupported" and is really "no such type".
+
+    → d0 d1   ← d1 d1 02 13 "TOUCH_PANEL_SETTING" 00 01 00
+    → d0 d2   ← d1 d2 02 12 "MULTIPOINT_SETTING" 1a "MULTIPOINT_SETTING_SUMMARY" 01 00
+    → d0 d3   ← (nothing — GENERAL_SETTING3 does not exist on this unit)
+
+The shape is `<GsStringFormat 02 ENUM_NAME> <len><titleKey> <len><summaryKey> <GsSettingType
+01 BOOLEAN_TYPE> <00>`. GENERAL_SETTING1 has no summary, hence its `00`.
+
+✅ **`d1` is the touch panel and it TAKES WRITES**, driven 2026-08-24 through the probe and
+then through the driver:
+
+    → d6 d1        ← d7 d1 01 00     off
+    → d8 d1 01 01  ← d9 d1 01 01     on, and an independent d6 d1 agrees
+    → d8 d1 01 00  ← d9 d1 01 00     restored
+
+⚠ **This is the same frame family as multipoint and the opposite outcome.** `d8 d1` is
+accepted; `d8 d2` is refused for everyone including Sony's app. **So the `d8` family is not
+blanket-refused, and a refusal is per setting, not per peer.** That is a real narrowing of
+#965: this repo can write a GENERAL_SETTING the vendor app can write.
+
+⚠ **No `99` alert was involved**, even though the app's string table has
+`ENABLE_TOUCH_PANEL_AND_RECONNECTION_CONFIRMATION` next to this setting. So an alert-shaped
+name in the resources does not mean the device gates the write behind one.
+
+**What it means**, in Sony's own words: "Turning on this function allows you to use the
+headphones to control playback, adjust volume, receive/end phone calls, and more."
+`TouchSensorControlPanel_title` is "Touch sensor control panel". So **on is enabled**, and
+this pair reads off.
 
 ## The [CUSTOM] button — block `f0` (SYSTEM), type `06`
 

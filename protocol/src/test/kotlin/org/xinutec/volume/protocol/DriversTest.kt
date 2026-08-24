@@ -210,6 +210,26 @@ class DriversTest {
         assertEquals(true, SonySpeakToChat.state(Hex.parse("f9050101")))
     }
 
+    /**
+     * The touch panel, in the bytes the XM4 actually exchanged on 2026-08-24.
+     *
+     * ⚠ **The type byte is the ONLY thing separating this from multipoint**, which the
+     * device refuses for everyone including Sony's own app. `d1` is the touch panel and
+     * takes writes; `d2` is multipoint and does not. A driver that got the byte wrong
+     * would look exactly like the refusal, so this pins both.
+     */
+    @Test
+    fun `sony touch panel is general setting d1, not multipoint d2`() {
+        assertArrayEquals(Hex.parse("d6d1"), SonyTouchPanel.get())
+        assertArrayEquals(Hex.parse("d8d10101"), SonyTouchPanel.set(true))
+        assertArrayEquals(Hex.parse("d8d10100"), SonyTouchPanel.set(false))
+        // the RET and the NOTIFY, both as measured
+        assertEquals(false, SonyTouchPanel.state(Hex.parse("d7d10100")))
+        assertEquals(true, SonyTouchPanel.state(Hex.parse("d9d10101")))
+        // ⚠ multipoint's own frame must NOT decode here
+        assertNull(SonyTouchPanel.state(Hex.parse("d7d20101")))
+    }
+
     /** The other two agree in both directions, and must keep doing so. */
     @Test
     fun `sony dsee and pause use one type byte both ways`() {

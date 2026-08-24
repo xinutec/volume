@@ -366,6 +366,43 @@ private fun audioSwitch(type: Byte, readType: Byte, writeType: Byte) =
         writeType = writeType,
     )
 
+/** `d6` GENERAL_SETTING_GET_PARAM · `d7` RET · `d8` SET · `d9` NTFY. */
+private fun generalSwitch(type: Byte) =
+    SonySwitch(
+        getCmd = 0xd6.toByte(),
+        retCmd = 0xd7.toByte(),
+        setCmd = 0xd8.toByte(),
+        notifyCmd = 0xd9.toByte(),
+        type = type,
+        // `GsSettingType.BOOLEAN_TYPE`, and the same byte both ways — unlike
+        // [SonySpeakToChat], which reads and writes with different tables.
+        readType = 0x01,
+        writeType = 0x01,
+    )
+
+/**
+ * **Touch sensor control panel** — `GsInquiredType.GENERAL_SETTING1`.
+ *
+ * ✅ **Driven on the XM4 2026-08-24**, `00` → `01` → `00`, each step confirmed by a `d9`
+ * notify and an independent `d6 d1` read.
+ *
+ * ⚠ **The device names this setting itself, so it is not a guess.** `d0 d1` answers
+ * `d1 d1 02 13 "TOUCH_PANEL_SETTING" 00 01 00` — the key, then `GsSettingType.BOOLEAN_TYPE`.
+ * Sony's own string for it is "Touch sensor control panel", and its description is
+ * "Turning on this function allows you to use the headphones to control playback, adjust
+ * volume, receive/end phone calls, and more" — so **on means enabled**, and this pair
+ * reads `00`, meaning the panel is currently off.
+ *
+ * ⚠ **This is NOT the [CUSTOM] button and must not be merged with it.** That one is
+ * `f8 06` and is refused for us alone (#965). This is the whole panel on or off.
+ *
+ * ⚠ **Nor is it multipoint, which shares the `d8 <type> 01 <v>` frame family and is
+ * refused by the device for everyone.** They differ only in the type byte — `d1` here,
+ * `d2` there — and one being refused says nothing about the other. Measured: `d8 d1 01 01`
+ * is accepted and takes effect, so the `d8` family is not blanket-refused.
+ */
+val SonyTouchPanel = generalSwitch(type = 0xd1.toByte())
+
 /**
  * **DSEE Extreme** — `AudioInquiredType.UPSCALING` (`e2` in the device's own function
  * list), settings type `02`.
