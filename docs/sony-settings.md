@@ -135,8 +135,15 @@ its band table returns `[400, 1000, 2500, 6300, 16000]`. A wrong unescape would 
 One byte, `10` vs `11`, and its notify **does** echo the value set — so unlike
 multipoint, this one is confirmable from its own reply. ✅ **Driven on hardware
 2026-08-16 evening**, both directions, each confirmed by read-back and restored.
-⚠ Only these two values were exercised; the XM4's menu offered no timed options, so a timer encoding — if one
-exists — is unmeasured, and an unknown value must read as "not understood".
+✅ **And these are ALL the values, settled 2026-08-24 by asking rather than inferring**:
+
+    → f0 04        ← f1 04 02 10 11     two elements, and these two
+
+`AutoPowerOffElementId` has six — `00` 5 min, `01` 30 min, `02` 60 min, `03` 180 min, `10`
+when removed, `11` disable. **The XM4 declares only the last two.** So the timed encodings
+are in Sony's enum and not on this unit, and this row is complete rather than partial. ⚠ It
+had been carried as "2 of 6, menu offers 2" — an inference from the vendor app's UI, where
+one capability read was available the whole time.
 
 ## Multipoint — block `d0`, type `d2`
 
@@ -179,6 +186,40 @@ and the notification both report it.
 `98 01 06 01` — guessed from the notification's shape — also drew only an ack and
 changed nothing. The block's payload shape is **not** established; do not copy that
 guess out of this paragraph.
+
+## ✅ THE DEVICE NAMES ITS OWN GENERAL SETTINGS, and there are exactly two
+
+`d0 <GsInquiredType>` answers with the setting's own key. ⚠ **`GsInquiredType` is `d1`,
+`d2`, `d3` — not `01`, `02`, `03`.** Asking `d0 01` gets a bare ack, which reads as
+"unsupported" and is really "no such type".
+
+    → d0 d1   ← d1 d1 02 13 "TOUCH_PANEL_SETTING" 00 01 00
+    → d0 d2   ← d1 d2 02 12 "MULTIPOINT_SETTING" 1a "MULTIPOINT_SETTING_SUMMARY" 01 00
+    → d0 d3   ← (nothing — GENERAL_SETTING3 does not exist on this unit)
+
+The shape is `<GsStringFormat 02 ENUM_NAME> <len><titleKey> <len><summaryKey> <GsSettingType
+01 BOOLEAN_TYPE> <00>`. GENERAL_SETTING1 has no summary, hence its `00`.
+
+✅ **`d1` is the touch panel and it TAKES WRITES**, driven 2026-08-24 through the probe and
+then through the driver:
+
+    → d6 d1        ← d7 d1 01 00     off
+    → d8 d1 01 01  ← d9 d1 01 01     on, and an independent d6 d1 agrees
+    → d8 d1 01 00  ← d9 d1 01 00     restored
+
+⚠ **This is the same frame family as multipoint and the opposite outcome.** `d8 d1` is
+accepted; `d8 d2` is refused for everyone including Sony's app. **So the `d8` family is not
+blanket-refused, and a refusal is per setting, not per peer.** That is a real narrowing of
+#965: this repo can write a GENERAL_SETTING the vendor app can write.
+
+⚠ **No `99` alert was involved**, even though the app's string table has
+`ENABLE_TOUCH_PANEL_AND_RECONNECTION_CONFIRMATION` next to this setting. So an alert-shaped
+name in the resources does not mean the device gates the write behind one.
+
+**What it means**, in Sony's own words: "Turning on this function allows you to use the
+headphones to control playback, adjust volume, receive/end phone calls, and more."
+`TouchSensorControlPanel_title` is "Touch sensor control panel". So **on is enabled**, and
+this pair reads off.
 
 ## Everything the app asked, on connecting
 
@@ -224,40 +265,6 @@ thing — carried verbatim rather than tidied into a "count".
 
 Changing it renegotiates the codec: the link drops and comes back, and the vendor app
 warns "Reconnects to the audio device" first. Treat it as connection-disturbing.
-
-### ✅ THE DEVICE NAMES ITS OWN GENERAL SETTINGS, and there are exactly two
-
-`d0 <GsInquiredType>` answers with the setting's own key. ⚠ **`GsInquiredType` is `d1`,
-`d2`, `d3` — not `01`, `02`, `03`.** Asking `d0 01` gets a bare ack, which reads as
-"unsupported" and is really "no such type".
-
-    → d0 d1   ← d1 d1 02 13 "TOUCH_PANEL_SETTING" 00 01 00
-    → d0 d2   ← d1 d2 02 12 "MULTIPOINT_SETTING" 1a "MULTIPOINT_SETTING_SUMMARY" 01 00
-    → d0 d3   ← (nothing — GENERAL_SETTING3 does not exist on this unit)
-
-The shape is `<GsStringFormat 02 ENUM_NAME> <len><titleKey> <len><summaryKey> <GsSettingType
-01 BOOLEAN_TYPE> <00>`. GENERAL_SETTING1 has no summary, hence its `00`.
-
-✅ **`d1` is the touch panel and it TAKES WRITES**, driven 2026-08-24 through the probe and
-then through the driver:
-
-    → d6 d1        ← d7 d1 01 00     off
-    → d8 d1 01 01  ← d9 d1 01 01     on, and an independent d6 d1 agrees
-    → d8 d1 01 00  ← d9 d1 01 00     restored
-
-⚠ **This is the same frame family as multipoint and the opposite outcome.** `d8 d1` is
-accepted; `d8 d2` is refused for everyone including Sony's app. **So the `d8` family is not
-blanket-refused, and a refusal is per setting, not per peer.** That is a real narrowing of
-#965: this repo can write a GENERAL_SETTING the vendor app can write.
-
-⚠ **No `99` alert was involved**, even though the app's string table has
-`ENABLE_TOUCH_PANEL_AND_RECONNECTION_CONFIRMATION` next to this setting. So an alert-shaped
-name in the resources does not mean the device gates the write behind one.
-
-**What it means**, in Sony's own words: "Turning on this function allows you to use the
-headphones to control playback, adjust volume, receive/end phone calls, and more."
-`TouchSensorControlPanel_title` is "Touch sensor control panel". So **on is enabled**, and
-this pair reads off.
 
 ## The [CUSTOM] button — block `f0` (SYSTEM), type `06`
 
@@ -758,11 +765,15 @@ that all used one type byte in both directions, and the fourth was assumed to ma
 agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
 and the SDK had been extracted and was sitting on disk when the assumption was made.
 
-## ⚠ ADAPTIVE SOUND CONTROL — WHERE ITS ON/OFF LIVES IS NOT FOUND (#1113)
+## ⛔ ADAPTIVE SOUND CONTROL — ITS ON/OFF IS APP-SIDE, so there is none here (#1113)
 
-The XM4's headline feature. ⚠ **This section was headed "IS NOT A SETTING" and said the
-device blocked it. Both were wrong** — see the correction at the end. What follows is what
-the SENSE block contains, which is true; the conclusion drawn from it was not.
+The XM4's headline feature. ⚠ **Read the resolution at the end of this section first** —
+the on/off turned out to live in the phone, so there is no device setting to find, and that
+is different from the two wrong answers this section carried before it.
+
+⚠ **It was headed "IS NOT A SETTING" and said the device blocked it. Both were wrong.**
+What follows is what the SENSE block contains, which is true; the conclusion drawn from it
+was not. The two corrections are kept because the way each survived is the reusable part.
 
 ```
 → 70 01     SENSE_GET_CAPABILITY, SenseInquiredType.AUTO_NC_ASM
