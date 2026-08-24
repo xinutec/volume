@@ -325,8 +325,35 @@ a capability read first; a **4 s** listening window with 3.5 s of quiet after th
 in case the `99` was simply arriving after we stopped reading; the full connect
 handshake (`00 00`, `02 00`, `04 02`, `06 00`, `f0 06`, `f6 06`) in one acked session
 before it; and `90 01` ALERT_GET_CAPABILITY first, in case alerts must be subscribed.
-Every one got a bare ack. `90 01` is itself never answered, which is the one new
-asymmetry: the device does not talk to us about alerts at all.
+Every one got a bare ack.
+
+⛔ **RETRACTED 2026-08-24: "`90 01` is never answered" was published here as the one new
+asymmetry, and it is not one.** `ALERT_GET_CAPABILITY` appears **only in the two `Command`
+enums** in the whole APK — no payload class builds it, so Sony's app never sends `90`
+either. A frame nobody sends going unanswered is not evidence about us. The measurement had
+no control, which is the shape this page keeps catching: the absence was made by the test.
+
+✅ **What the touch panel then showed is real and points the other way.** `d8 d1 01 01` is
+accepted from this app, and `d8 d2` multipoint is refused from everyone — same frame family,
+different type byte. **A refusal is per setting, not per peer**, so "we are a second-class
+client" is a weaker theory than it was.
+
+### The hypothesis that fits everything, and how to test it
+
+Look at what the key's own capability offers: `00` AMBIENT_SOUND_CONTROL, `31`
+GOOGLE_ASSISTANT, `32` AMAZON_ALEXA. **Two of the three are assistants that must be set up
+before they can be selected**, and `00` is what the button is already on — so *every write
+this app can make to this key is a switch to an unprovisioned assistant*. That would explain
+the `99` too: the alert is `DISCONNECT_CAUSED_BY_CHANGING_KEY_ASSIGN`, and the vendor app
+raises it as part of a provisioning flow it owns.
+
+⚠ **The test is a write of the value that is ALREADY SET** — `f8 06 01 00`. It changes
+nothing, so it is safe, and it separates the two explanations cleanly:
+
+- a `f9 06 01 00` notify → the write path works and the problem is the assistant, not us
+- a bare ack → the write path is broken for this type regardless of value
+
+⚠ Not yet run: the XM4 powered off before it could be.
 
 ⚠ **This is a DIFFERENT failure from multipoint**, and collapsing them would throw
 away the only clue. Multipoint is refused for everyone, including Sony's own app.
