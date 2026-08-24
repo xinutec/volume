@@ -1,7 +1,9 @@
 package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -207,7 +209,7 @@ class SonySettingsTest {
             Replay(
                 "3e 0c 00 00 00 00 02 f6 06 0a 3c" to "3e 0c 01 00 00 00 04 f7 06 01 31 40 3c",
             )
-        assertEquals(SonyButton.Action.DIGITAL_ASSISTANT, Drivers.SonyXm4().readButton(t))
+        assertEquals(SonyButton.Action.GOOGLE_ASSISTANT, Drivers.SonyXm4().readButton(t))
         t.assertDrained()
     }
 
@@ -238,7 +240,7 @@ class SonySettingsTest {
                     "3e 0c 00 00 00 00 04 99 01 02 01 ad 3c",
             )
         sony.prepare(t)
-        assertNull(sony.writeButton(t, SonyButton.Action.DIGITAL_ASSISTANT))
+        assertNull(sony.writeButton(t, SonyButton.Action.GOOGLE_ASSISTANT))
         t.assertDrained()
     }
 
@@ -246,7 +248,7 @@ class SonySettingsTest {
     @Test
     fun `the notify after the commit carries the new action`() {
         assertEquals(
-            SonyButton.Action.DIGITAL_ASSISTANT,
+            SonyButton.Action.GOOGLE_ASSISTANT,
             SonyButton.state(Hex.parse("f9060131")),
         )
         assertEquals(
@@ -255,17 +257,32 @@ class SonySettingsTest {
         )
     }
 
-    /** ⚠ Amazon Alexa was in the menu and never selected, so it has no code. */
+    /**
+     * ⚠ **`21` is an ACTION code, not a preset**, and the two live in the same reply.
+     *
+     * This test used to assert `33` decoded to null as well, on the grounds that Amazon
+     * Alexa "was in the menu and never selected". That was true of the menu and false of
+     * the protocol: `AssignableSettingsPreset` names all eight, and [SonyButton.Action]
+     * now does too. What must still decode to null is a byte from the neighbouring
+     * enum — `21` is `LONG_PRESS_THEN_ACTIVATE`, which is not a thing a key can be set to.
+     */
     @Test
-    fun `an unexercised button code decodes to null, not to a guess`() {
-        assertNull(SonyButton.state(Hex.parse("f7060133")))
+    fun `an action code is not a preset and decodes to null`() {
         assertNull(SonyButton.state(Hex.parse("f7060121")))
+        assertNull(SonyButton.state(Hex.parse("f7060134")))
+        // and the real ones do decode
+        assertEquals(SonyButton.Action.TENCENT_XIAOWEI, SonyButton.state(Hex.parse("f7060133")))
     }
 
-    /** The `90`-block commit the vendor app sends once the owner accepts the dialog. */
+    /** The alert frames — the subscription and both answers. */
     @Test
-    fun `the commit frame is the one the app sent`() {
-        assertEquals("98 01 02 01", Hex.format(SonyButton.commitReconnect()))
+    fun `the alert frames are the ones the app sent`() {
+        assertEquals("94 01 00", Hex.format(SonyButton.subscribeAlerts()))
+        assertEquals("98 01 02 01", Hex.format(SonyButton.answer(true)))
+        assertEquals("98 01 02 00", Hex.format(SonyButton.answer(false)))
+        assertTrue(SonyButton.asksAboutKeyAssign(Hex.parse("99010201")))
+        // ⚠ a different alert message must NOT be read as this one
+        assertFalse(SonyButton.asksAboutKeyAssign(Hex.parse("99010601")))
     }
 
     /**
@@ -279,6 +296,35 @@ class SonySettingsTest {
     fun `the capability frame is asked for but its reply is not decoded`() {
         assertEquals("f0 06", Hex.format(SonyButton.capabilities()))
         val reply = "f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34"
-        assertNull(SonyButton.state(Hex.parse(reply.replace(" ", ""))))
+        assertNull(SonyButton.state(Hex.parse(reply)))
+    }
+
+    /**
+     * The capability reply names the three presets this key allows, and no others.
+     *
+     * ⚠ **`VOLUME_CONTROL` is the point of this test.** It is a legal
+     * `AssignableSettingsPreset` and the XM4 does not offer it — an editor built from the
+     * enum instead of from this reply would put a volume control on the card. The 23
+     * bytes are the XM4's own, read 2026-08-23.
+     */
+    @Test
+    fun `sony button offers what the device advertises, not what the enum contains`() {
+        val reply = "f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34"
+        assertEquals(
+            listOf(
+                SonyButton.Action.AMBIENT_SOUND_CONTROL,
+                SonyButton.Action.GOOGLE_ASSISTANT,
+                SonyButton.Action.AMAZON_ALEXA,
+            ),
+            SonyButton.presets(Hex.parse(reply)),
+        )
+        // ⚠ unparseable gives NOTHING, never the whole enum
+        assertEquals(emptyList<SonyButton.Action>(), SonyButton.presets(Hex.parse("f106")))
+        assertEquals(emptyList<SonyButton.Action>(), SonyButton.presets(Hex.parse("f7060100")))
+        // truncated mid-walk stops rather than reading past the end
+        assertEquals(
+            listOf(SonyButton.Action.AMBIENT_SOUND_CONTROL),
+            SonyButton.presets(Hex.parse("f1 06 01 02 01 00 03 00 02 00 01 21 02 31")),
+        )
     }
 }
