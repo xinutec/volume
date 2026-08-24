@@ -28,7 +28,7 @@ the dated section it points at; treat anything undated as older than everything 
 | Voice guidance | `46 01 01` / `48 01 01 <v>` on type **`0e`** | ✅ driven 2026-08-24 — ⚠ **second command table**; `48` is VPT on table 1 |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
 | [CUSTOM] button | `f6 06` / `f8 06 01 <v>` | ✅ **solved** — needs `94 01 00` first, then answer the `99` alert |
-| Adaptive Sound Control | `70 01` → supported | ⛔ no device toggle exists — app-side, #1113 |
+| Adaptive Sound Control | `70 01` → supported | ⛔ app-side — ✅ **confirmed by capture 2026-08-24**: off writes an ordinary `68 02`, on writes nothing |
 | Volume `a1`, firmware `30`, telemetry `c1` | | ⛔ excluded by rule, not by the device |
 
 ⚠ **THE FRAME TYPE BYTE SELECTS THE COMMAND TABLE.** `0c` = table1, `0e` = table2, and
@@ -1084,9 +1084,29 @@ that could be read, written or confirmed. Supporting it would mean reimplementin
 activity and place detection and driving the ANC writes ourselves — a different and much
 larger feature than remote-controlling a headphone, and one this repo has not chosen.
 
-⚠ **Not yet confirmed by capture.** This is read from the SDK, and the SDK is what the app
-*can* send, not what it *did*. A capture of Sound Connect toggling ASC would settle whether
-anything else goes on the wire, and remains the cheaper check if this is ever doubted.
+### ✅ CONFIRMED BY CAPTURE, 2026-08-24 22:48 — and the two directions differ
+
+The check this section asked for was taken. Sound Connect's own ASC switch, off then on:
+
+    22:48:40.764 → 68 02 11 02 02 01 00 00   NCASM_SET_PARAM   ← the OFF tap
+    22:48:40.819 ← 69 02 01 02 02 01 00 00   its notify
+    ~22:48:52                                (the ON tap — NOTHING on the wire)
+
+✅ **Turning ASC OFF sends an ordinary `68 02` NCASM_SET_PARAM**, the same frame this repo
+already drives for the ANC chips. It is the app putting the manual mode back, not an ASC
+command: there is no ASC-specific opcode in the window at all.
+
+✅ **Turning ASC ON sends nothing.** ⚠ **And the link was up**, not merely quiet — the
+next RFCOMM control frame is a DISC at 22:49:19, half a minute later, so the silence at
+22:48:52 is an idle live channel rather than a dead one. That distinction is the whole
+reason to check: "an empty window is evidence" only after the link is proven.
+
+So the mechanism is exactly as the SDK described it. Switching ASC on tells the headphones
+**nothing**; the app starts deciding for itself and writes ordinary NCASM frames when it
+wants the mode changed. There is no device state to read, write or confirm.
+
+⚠ **No `74` SENSE_SET_STATUS appeared either.** The "begin sensing" frame is not sent per
+toggle — whatever triggers it, it is not this.
 
 ## ✅ GENERAL_SETTING1 IS THE TOUCH PANEL, and the device says so itself
 
