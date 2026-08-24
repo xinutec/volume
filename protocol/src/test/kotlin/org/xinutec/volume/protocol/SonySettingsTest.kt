@@ -225,23 +225,30 @@ class SonySettingsTest {
     }
 
     /**
-     * 18:07:48. ⚠ **The reply to the button write is not about the button** — it is
-     * `99 01 02 01`, the device asking for the reconnect its dialog warns about. So
-     * [Drivers.SonyXm4.writeButton] yields null and a caller must read back, exactly
-     * as multipoint must.
+     * ✅ **The whole #965 sequence, in the bytes the XM4 sent on 2026-08-24.**
+     *
+     * ⚠ **The subscription is the first frame and the reason this works at all.** Remove
+     * it and the device answers the `f8 06` with a bare ack and never asks anything —
+     * which is what this repo saw for eight days and read as a refusal.
      */
     @Test
-    fun `the reply to a button write asks for a reconnect`() {
+    fun `a button write subscribes to alerts and hands the question back`() {
         val t =
             Replay(
                 "3e 0c 00 00 00 00 02 00 00 0e 3c" to "3e 0c 01 00 00 00 04 01 00 70 00 82 3c",
-                "3e 0c 01 00 00 00 04 f8 06 01 31 41 3c" to
-                    "3e 01 00 00 00 00 00 01 3c" +
-                    "3e 0c 00 00 00 00 04 99 01 02 01 ad 3c",
+                "3e 0c 00 00 00 00 04 f8 06 01 31 40 3c" to
+                    "3e 01 01 00 00 00 00 02 3c" +
+                    "3e 0c 01 00 00 00 04 99 01 02 01 ae 3c",
             )
         sony.prepare(t)
-        assertNull(sony.writeButton(t, SonyButton.Action.GOOGLE_ASSISTANT))
+        assertEquals(
+            ButtonWrite.Asks,
+            sony.beginButtonWrite(t, SonyButton.Action.GOOGLE_ASSISTANT),
+        )
         t.assertDrained()
+        // ⚠ The subscription draws no reply, so it is a `send` and consumes no step —
+        // it shows up only here. Its absence is exactly the bug this fixes, so assert it.
+        assertTrue("94 01 00" in t.sent.joinToString(" "))
     }
 
     /** 18:08:16, the notify that arrives only after the commit — and it does decode. */

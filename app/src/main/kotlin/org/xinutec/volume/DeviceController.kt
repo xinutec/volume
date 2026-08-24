@@ -9,6 +9,7 @@ import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.DeviceCard
@@ -28,6 +29,7 @@ import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
+import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
@@ -269,6 +271,7 @@ class DeviceController(
                     autoOff = d.readAutoOff(s.transport),
                     soundQuality = d.readSoundQuality(s.transport),
                     button = d.readButton(s.transport)?.name,
+                    buttonOptions = d.buttonPresets(s.transport).map { it.name },
                     battery = d.readBattery(s.transport),
                     dsee = d.readSwitch(s.transport, SonyDsee),
                     pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
@@ -281,8 +284,11 @@ class DeviceController(
                     focusOnVoiceSettable = focus.settable,
                     refuses =
                         mapOf(
+                            // ⚠ **BUTTON came off this map on 2026-08-24.** It sat here as
+                            // THIS_APP for eight days and the cause was ours: the device
+                            // sends no alert to a peer that never subscribed, and the
+                            // write does not commit until the alert is answered. #965.
                             SettingKind.MULTIPOINT to RefusalReason.DEVICE,
-                            SettingKind.BUTTON to RefusalReason.THIS_APP,
                         ),
                     attempted = true,
                 )
@@ -491,6 +497,75 @@ class DeviceController(
 
     override fun setTouchPanel(address: String, on: Boolean) =
         sonySwitch(address, "the touch panel", SonyTouchPanel, on)
+
+    /**
+     * Ask the XM4 to change its [CUSTOM] key.
+     *
+     * ⚠ **This may end by putting a question on the card rather than finishing.** The
+     * device will not commit until its alert is answered, and answering yes drops the
+     * audio link — so the answer is the owner's, not ours. [answerButton] resumes it.
+     */
+    override fun setSonyButton(address: String, name: String) =
+        work.execute {
+            holding(address) {
+                val s = openIfNeeded(address) ?: return@holding
+                val d = s.headphones.driver as? Drivers.SonyXm4 ?: return@holding
+                val action = SonyButton.Action.entries.firstOrNull { it.name == name }
+                if (action == null) {
+                    update(address, DeviceState.Unavailable("no such button action: $name"))
+                    return@holding
+                }
+                when (d.beginButtonWrite(s.transport, action)) {
+                    ButtonWrite.Asks -> {
+                        emit(
+                            screen.asking(
+                                address,
+                                "Changing the button disconnects and reconnects the " +
+                                    "headphones. Change it to ${pretty(name)}?",
+                            ),
+                        )
+                    }
+
+                    ButtonWrite.Unchanged -> {
+                        // ⚠ No alert means nothing changed — including the ordinary
+                        // case of choosing the value already set. Re-read either way.
+                        refresh(address, s)
+                    }
+                }
+            }
+        }
+
+    /**
+     * Pass the owner's answer to the device.
+     *
+     * ⚠ **A yes takes the link down with it.** The session is dropped and reopened before
+     * the read-back, because the socket this was sent on is already dead — that is the
+     * success path, not an error. See [Drivers.SonyXm4.answerButtonAlert].
+     */
+    override fun answerButton(address: String, yes: Boolean) =
+        work.execute {
+            emit(screen.asking(address, null))
+            holding(address) {
+                val s = openIfNeeded(address) ?: return@holding
+                val d = s.headphones.driver as? Drivers.SonyXm4 ?: return@holding
+                d.answerButtonAlert(s.transport, yes)
+                if (yes) {
+                    update(address, DeviceState.Busy("reconnecting…"))
+                    drop(address)
+                    Thread.sleep(RECONNECT_MS)
+                }
+                val again = openIfNeeded(address) ?: return@holding
+                refresh(address, again)
+            }
+        }
+
+    /** Re-read everything and put it on the card. */
+    private fun refresh(address: String, s: Session) {
+        describe(address, s)
+        runCatching { readSettings(s) }.getOrNull()?.let {
+            emit(screen.withSettings(address, it))
+        }
+    }
 
     /**
      * ⚠ **Takes the whole [ChatDetail]**, because the frame carries all three fields.
@@ -734,7 +809,21 @@ class DeviceController(
         onScreen(next)
     }
 
+    /** Same shaping as the card's chips, so the question names what the owner tapped. */
+    private fun pretty(name: String) =
+        name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+
     private companion object {
+        /**
+         * How long to wait after a commit that drops the link.
+         *
+         * ⚠ **The XM4 reconnects on its own; this is waiting, not retrying.** Measured
+         * 2026-08-24: the pair was back within a few seconds of a key-assign commit.
+         * Reopening too early gets a refused socket, which reads exactly like the write
+         * having failed.
+         */
+        const val RECONNECT_MS = 6_000L
+
         /**
          * How long a control channel is kept after the last thing that needed it.
          *

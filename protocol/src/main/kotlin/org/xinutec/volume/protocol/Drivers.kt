@@ -1,6 +1,21 @@
 package org.xinutec.volume.protocol
 
 /**
+ * What asking the XM4 to change its [CUSTOM] key produced.
+ *
+ * ⚠ **`Asks` is not a failure and not a success** — it is the device putting a question
+ * to the owner, about disconnecting their own audio. Modelled as a distinct outcome so a
+ * caller cannot quietly answer it: see #965.
+ */
+sealed interface ButtonWrite {
+    /** The device wants an answer before it will commit. */
+    data object Asks : ButtonWrite
+
+    /** Nothing happened — including the ordinary case of writing the value already set. */
+    data object Unchanged : ButtonWrite
+}
+
+/**
  * The five ANC drivers, one per wire format.
  *
  * Every byte below was driven against the real headphones on 2026-08-15 and is
@@ -387,6 +402,9 @@ object Drivers {
              * user is waiting.
              */
             const val EXTRA_READS = 2
+
+            /** `ALERT_NTFY_PARAM` — the device asking, not answering. */
+            const val ALERT: Byte = 0x99.toByte()
         }
 
         override fun read(t: Transport): AncMode? {
@@ -547,14 +565,59 @@ object Drivers {
         fun readButton(t: Transport): SonyButton.Action? =
             exchangeFramed(t, SonyButton.get())?.let(SonyButton::state)
 
+        /** What this pair will let its key be set to, from `f0 06`. */
+        fun buttonPresets(t: Transport): List<SonyButton.Action> =
+            exchangeFramed(t, SonyButton.capabilities(), SonyButton.RET_CAPABILITY)
+                ?.let(SonyButton::presets)
+                .orEmpty()
+
         /**
-         * ⚠ **Known not to take**, and kept because the frame is right and the failure
-         * is the finding — see [SonyButton]. The device acks and ignores it, so this
-         * returns null and [readButton] will still report the old value. That is the
-         * honest outcome, not a bug to paper over with a retry.
+         * Ask to change the key, and report **what the device said back**.
+         *
+         * ✅ The write commits only once the device's alert is answered, and the device
+         * raises no alert unless [SonyButton.subscribeAlerts] was sent first — that was
+         * #965, open eight days. So this subscribes, writes, and hands the question back
+         * rather than deciding it: see [ButtonWrite.Asks].
+         *
+         * ⚠ **The alert fires only on a REAL change.** Writing the value already set
+         * draws nothing at all, which is [ButtonWrite.Unchanged] and not a failure.
          */
-        fun writeButton(t: Transport, action: SonyButton.Action): SonyButton.Action? =
-            exchangeFramed(t, SonyButton.set(action))?.let(SonyButton::state)
+        fun beginButtonWrite(t: Transport, action: SonyButton.Action): ButtonWrite {
+            val ask =
+                SonyFrame.encode(
+                    SonyFrame.TYPE_DATA_MDR,
+                    nextSeq(),
+                    SonyButton.subscribeAlerts(),
+                )
+            t.send(ask)
+            val reply =
+                exchangeFramed(t, SonyButton.set(action), ALERT, SonyButton.NOTIFY)
+                    ?: return ButtonWrite.Unchanged
+            return if (SonyButton.asksAboutKeyAssign(reply)) {
+                ButtonWrite.Asks
+            } else {
+                ButtonWrite.Unchanged
+            }
+        }
+
+        /**
+         * Answer the device's question.
+         *
+         * ⚠ **A yes KILLS THE LINK, and that is the success path.** The XM4 commits and
+         * reconnects at once, so this write throws or reports a broken pipe while its
+         * bytes land. The exception is swallowed for exactly that reason — measured
+         * 2026-08-24, both answers. **The caller must reopen and re-read to learn the
+         * outcome; nothing here can tell it.**
+         *
+         * ⚠ A no is orderly: no disconnect, an `f9` echo, and the value unchanged.
+         */
+        fun answerButtonAlert(t: Transport, yes: Boolean) {
+            runCatching {
+                val frame =
+                    SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), SonyButton.answer(yes))
+                t.send(frame)
+            }
+        }
 
         /**
          * The three on/off settings whose **reads** were confirmed on 2026-08-23
