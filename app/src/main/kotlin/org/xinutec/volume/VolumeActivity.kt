@@ -810,7 +810,18 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             // ⚠ **Three controls, one frame.** Each chip sends the whole [ChatDetail]
             // with one field changed — see [SonyChatDetail], where the payload has no
             // field selector, so a partial write would reset the other two.
-            SettingLabel("Speak-to-Chat sensitivity", d.sensitivity.name.lowercase())
+            // ⚠ **Sony's own titles, and that is not pedantry here.** "Voice focus" was
+            // the first label for [ChatDetail.voiceFocus] and it sat four rows above
+            // "Focus on Voice", which is a DIFFERENT setting — `AsmId`, in ambient mode.
+            // Two near-identical names for unrelated controls, on one screen. The source
+            // read fine; only the render showed it. Sony calls this one "Voice
+            // passthrough", which collides with nothing.
+            //
+            // ⚠ The TITLES are Sony's verbatim; the chip labels deliberately are not.
+            // Sony's own options read "Automatic", "H Sensitivity", "L Sensitivity" —
+            // upstream taxonomy is worth following for the name of a thing, not for a
+            // three-way choice its own words make harder to read.
+            SettingLabel("Voice Detect Sensitivity", d.sensitivity.name.lowercase())
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (v in ChatSensitivity.entries) {
                     FilterChip(
@@ -821,15 +832,16 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                 }
             }
             SettingRow(
-                "Voice focus",
+                "Voice passthrough",
                 if (d.voiceFocus) "on" else "off",
                 writable = true,
                 checked = d.voiceFocus,
                 onChange = { actions.setChatDetail(address, d.copy(voiceFocus = it)) },
+                note = "filters in voices while suppressing noise",
             )
             // ⚠ Seconds from the device's own capability reply, not from a table here.
             SettingLabel(
-                "Back to music after",
+                "Time until the mode closes",
                 if (d.modeOutTime == ModeOutTime.NONE) {
                     "not until you tap"
                 } else {
