@@ -22,7 +22,7 @@ the dated section it points at; treat anything undated as older than everything 
 | Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
 | Voice guidance | `46 01 01` on frame type **`0e`** | 👁 read; ⚠ **second command table** |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
-| [CUSTOM] button | `f6 06` | ⛔ refuses **us**; the app succeeds — #965 |
+| [CUSTOM] button | `f6 06` / `f8 06 01 <v>` | ✅ **solved** — needs `94 01 00` first, then answer the `99` alert |
 | Adaptive Sound Control | `70 01` → supported | ⛔ no device toggle exists — app-side, #1113 |
 | Volume `a1`, firmware `30`, telemetry `c1` | | ⛔ excluded by rule, not by the device |
 
@@ -312,48 +312,47 @@ Which decodes the XM4's 23 bytes exactly, with nothing left over:
                                      22 LONG_PRESS_DURING_ACTIVATION→32 TALK_TO_GA
         32 AMAZON_ALEXA           1  00 SINGLE_TAP→34 VOICE_INPUT_CANCEL_AA
 
-⚠ **THE WRITE WORKS FROM THE VENDOR APP AND NOT FROM THIS REPO.** `f8 06 01 31` sent
-from the probe is acked and then ignored: no `99`, no `f9`, and `f6 06` still reads
-the old value. The vendor app sending the byte-identical frame gets `99 01 02 01`
-back inside 400 ms.
+## ✅ SOLVED 2026-08-24 — THE DEVICE MUST BE ASKED FOR ALERTS FIRST
 
-✅ **The frame is not the problem — that is now settled, not assumed.** The bytes are
-what Sony's own `SYSTEM_SET_PARAM` builder emits for a one-key device, and `31` is one
-of the three presets this key's capability reply advertises. Refuted on hardware
-2026-08-23: a plain session; a session also sending `98 01 02 01`; both in one socket;
-a capability read first; a **4 s** listening window with 3.5 s of quiet after the SET,
-in case the `99` was simply arriving after we stopped reading; the full connect
-handshake (`00 00`, `02 00`, `04 02`, `06 00`, `f0 06`, `f6 06`) in one acked session
-before it; and `90 01` ALERT_GET_CAPABILITY first, in case alerts must be subscribed.
-Every one got a bare ack.
+**`94 01 00` — ALERT_SET_STATUS · FIXED_MESSAGE · ENABLE.** One frame, never sent from here,
+and without it the XM4 raises no alert; without the alert the write never commits. Nothing
+to do with being a second-class peer, and nothing to do with the assistant being
+unprovisioned.
 
-⛔ **RETRACTED 2026-08-24: "`90 01` is never answered" was published here as the one new
-asymmetry, and it is not one.** `ALERT_GET_CAPABILITY` appears **only in the two `Command`
-enums** in the whole APK — no payload class builds it, so Sony's app never sends `90`
-either. A frame nobody sends going unanswered is not evidence about us. The measurement had
-no control, which is the shape this page keeps catching: the absence was made by the test.
+    → 94 01 00        the subscription. No reply — fire and forget.
+    → f6 06         ← f7 06 01 00
+    → f8 06 01 31   ← 99 01 02 01    the alert, for the first time from this repo
+    → 98 01 02 00   ← f9 06 01 00    answered NEGATIVE: declined
+    → f6 06         ← f7 06 01 00    unchanged, as intended
 
-✅ **What the touch panel then showed is real and points the other way.** `d8 d1 01 01` is
-accepted from this app, and `d8 d2` multipoint is refused from everyone — same frame family,
-different type byte. **A refusal is per setting, not per peer**, so "we are a second-class
-client" is a weaker theory than it was.
+⚠ **The alert fires only on a REAL change.** With the subscription in place,
+`f8 06 01 00` — the value already set — draws no `99` and no `f9`. So a no-op write is
+silent for a second reason, and silence from this type still cannot be read as refusal.
 
-### The hypothesis that fits everything, and how to test it
+⚠ **`98 01 02 00` is NEGATIVE and is the safe way to test this.** It proves the mechanism
+without changing the button and without the reconnect that
+`DISCONNECT_CAUSED_BY_CHANGING_KEY_ASSIGN` promises.
 
-Look at what the key's own capability offers: `00` AMBIENT_SOUND_CONTROL, `31`
-GOOGLE_ASSISTANT, `32` AMAZON_ALEXA. **Two of the three are assistants that must be set up
-before they can be selected**, and `00` is what the button is already on — so *every write
-this app can make to this key is a switch to an unprovisioned assistant*. That would explain
-the `99` too: the alert is `DISCONNECT_CAUSED_BY_CHANGING_KEY_ASSIGN`, and the vendor app
-raises it as part of a provisioning flow it owns.
+⛔ **NOT YET PROVEN: that answering POSITIVE commits.** That needs a real change — to
+`31` GOOGLE_ASSISTANT or `32` AMAZON_ALEXA, the only other values this key offers — and the
+link drop that comes with it. Everything up to the alert is measured; the last step is
+inferred from the vendor app's own sequence.
 
-⚠ **The test is a write of the value that is ALREADY SET** — `f8 06 01 00`. It changes
-nothing, so it is safe, and it separates the two explanations cleanly:
+### ⚠ Two dead ends recorded so nobody re-walks them
 
-- a `f9 06 01 00` notify → the write path works and the problem is the assistant, not us
-- a bare ack → the write path is broken for this type regardless of value
+- **"`90 01` ALERT_GET_CAPABILITY is never answered"** was published as the lead and is
+  worthless: `ALERT_GET_CAPABILITY` exists **only in the two `Command` enums** — no payload
+  class builds it, so the vendor app never sends `90` either. An unanswered frame that
+  nobody sends is not evidence about us.
+- **"a no-op `f8 06 01 00` is silent, and auto power off's no-op notifies, so the write path
+  is broken whatever the value"** — the comparison was not a control. Auto power off
+  notifies *directly*; the button notifies only *after an alert*. Two different mechanisms,
+  so the pair says nothing. The conclusion drawn from it was superseded, not confirmed.
 
-⚠ Not yet run: the XM4 powered off before it could be.
+**What this means for the app**: the [CUSTOM] button is writable, but committing one needs
+the owner's answer to a dialog — the device is asking a real question and a reconnect
+follows a yes. A switch that silently answers POSITIVE would be putting words in the owner's
+mouth about their own audio link.
 
 ⚠ **This is a DIFFERENT failure from multipoint**, and collapsing them would throw
 away the only clue. Multipoint is refused for everyone, including Sony's own app.
