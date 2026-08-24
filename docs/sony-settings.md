@@ -21,7 +21,7 @@ the dated section it points at; treat anything undated as older than everything 
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
 | Codec, upscaling status | `18 00`, `14 00` | 👁 read only |
 | Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
-| Voice guidance | `46 01 01` on frame type **`0e`** | 👁 read; ⚠ **second command table** |
+| Voice guidance | `46 01 01` / `48 01 01 <v>` on type **`0e`** | ✅ driven 2026-08-24 — ⚠ **second command table**; `48` is VPT on table 1 |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
 | [CUSTOM] button | `f6 06` / `f8 06 01 <v>` | ✅ **solved** — needs `94 01 00` first, then answer the `99` alert |
 | Adaptive Sound Control | `70 01` → supported | ⛔ no device toggle exists — app-side, #1113 |
@@ -1191,13 +1191,24 @@ read). So thirteen of the fifteen are languages and two are something else. What
 known: no enum in `table2/voiceguidance/param` has a `10`, and `f0` is the shape of an
 "unknown" sentinel elsewhere in this SDK but is not one here.
 
-⚠ **`42` and `46` DISAGREE about on/off and this page will not pick one.** Status says
-`00`, param says `01`, and the app shows the switch **on**. So `47` is the one consistent
-with the app — but `43` is not obviously wrong either, because a *status* on this protocol
-need not be the setting: `15` UPSCALING_EFFECT reads INVALID while `e6 02` says the
-setting is off, which is the same shape one block over. Two fields, one switch, and only
-one of them is the control. **Do not decode `43 01 01` as the voice-guidance switch until
-something has moved it.**
+✅ **SETTLED 2026-08-24 by moving it: `46`/`48` is the control.**
+
+    → 48 01 01 00   ← 49 01 01 00   off
+    → 46 01 01      ← 47 01 01 00   agrees
+    → 48 01 01 01   ← 49 01 01 01   restored
+    → 46 01 01      ← 47 01 01 01   agrees
+
+`42`/`43` still reports `00` throughout and is **not** the switch. What it is remains
+undecoded — the same shape as `15` UPSCALING_EFFECT reading INVALID while `e6 02` says the
+setting is off, one block over. Two fields, one switch, and now it is known which.
+
+⚠ **The enums are in `v1/table2`, and a `v2/table2` exists with the same class names and
+DIFFERENT values.** `v2`'s `VoiceGuidanceStatusType` is `00 ON_OFF · 01 LANGUAGE`; `v1`'s
+— the one this device speaks — is `01 ON_OFF · 02 LANGUAGE`. Reading the wrong package
+makes a correct capture look like a misdecode, and nearly rewrote this table.
+
+⚠ **Language (`02`) is deliberately not offered**: changing it would make the headphones
+speak a language their owner did not ask for. The read is decoded; no write is exposed.
 
 ⚠ **Nothing has been written to table2.** The write is `44` SET_STATUS or `48` SET_PARAM
 and which one takes has not been established. `48` is the byte that is VPT on the other

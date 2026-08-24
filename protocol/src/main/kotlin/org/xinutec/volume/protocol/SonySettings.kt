@@ -761,3 +761,70 @@ fun MultipointDriver.setMultipoint(t: Transport, on: Boolean): Confirmation<Bool
     val after = readMultipoint(t) ?: return Confirmation.Unverifiable
     return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
 }
+
+/**
+ * Voice guidance — the spoken prompts, on **frame type `0e`, the second command table**.
+ *
+ * ✅ **Driven on the XM4 2026-08-24**, off and back on, each confirmed by its own notify
+ * and by an independent read:
+ *
+ * ```
+ * → 46 01 01        ← 47 01 01 01   on
+ * → 48 01 01 00     ← 49 01 01 00   off
+ * → 48 01 01 01     ← 49 01 01 01   restored
+ * ```
+ *
+ * ⚠ **THE TYPE BYTE IS THE ONLY THING THAT MAKES THIS VOICE GUIDANCE.** On table 1 the
+ * same `48` is `VPT_SET_PARAM`, a sound-field parameter, and no byte of the payload says
+ * which was meant. The XM4 has no VPT so the collision is inert *here*; on a model that
+ * does, the identical bytes would write something else entirely.
+ *
+ * ⚠ **The enums live in `v1/table2`, and there is a `v2/table2` with the same names and
+ * DIFFERENT values.** `v2`'s `VoiceGuidanceStatusType` is `00 ON_OFF · 01 LANGUAGE`; the
+ * one this device speaks is `v1`'s `01 ON_OFF · 02 LANGUAGE`. Reading the wrong package
+ * makes a correct capture look like a misdecode.
+ *
+ * ⚠ **`42` GET_STATUS disagrees with `46` GET_PARAM about on/off** — status said `00`
+ * while param said `01` and the vendor app showed the switch on. The write moves what
+ * `46` reports, so `46`/`48` is the control; `43` is something else and is still not
+ * decoded. Do not treat it as the switch.
+ *
+ * ⚠ Language is `02` where on/off is `01`, on both the read and the write. Not exercised:
+ * changing it would speak a language its owner did not ask for.
+ */
+object SonyVoiceGuidance {
+    /** `VoiceGuidanceInquiredType.VOICE_GUIDANCE_SETTING` — the only real value. */
+    const val TYPE: Byte = 0x01
+
+    /** `DetailedDataType.ON_OFF`. ⚠ `02` is LANGUAGE, deliberately not offered. */
+    const val ON_OFF: Byte = 0x01
+
+    const val GET: Byte = 0x46
+    const val RET: Byte = 0x47
+    const val SET: Byte = 0x48
+    const val NOTIFY: Byte = 0x49
+
+    fun get(): ByteArray = byteArrayOf(GET, TYPE, ON_OFF)
+
+    fun set(on: Boolean): ByteArray = byteArrayOf(SET, TYPE, ON_OFF, if (on) 0x01 else 0x00)
+
+    /**
+     * Decode `47 01 01 <v>` or `49 01 01 <v>`.
+     *
+     * ⚠ Accepts both opcodes for the reason [SonyEq.state] does: the same payload
+     * arrives under RET when asked for and NOTIFY when volunteered, and taking only one
+     * makes a device that has just answered look silent.
+     */
+    fun state(payload: ByteArray): Boolean? {
+        if (payload.size < 4) return null
+        if (payload[0] != RET && payload[0] != NOTIFY) return null
+        if (payload[1] != TYPE || payload[2] != ON_OFF) return null
+        // ⚠ `ff` is OUT_OF_RANGE in Sony's own enum, and it falls to null rather than
+        // false: a device declining to say is not a device saying no.
+        return when (payload[3]) {
+            0x00.toByte() -> false
+            0x01.toByte() -> true
+            else -> null
+        }
+    }
+}
