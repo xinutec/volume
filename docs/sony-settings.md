@@ -16,6 +16,7 @@ the dated section it points at; treat anything undated as older than everything 
 | DSEE Extreme | `e6 02` / `e8 02 00 <v>` | ✅ driven |
 | Pause on removal | `f6 03` / `f8 03 00 <v>` | ✅ driven |
 | Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
+| Speak-to-Chat detail | `fa 05` / `fc 05 00 <s> <f> <t>` | ✅ driven 2026-08-24 — sensitivity · voice focus · mode-out |
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
 | Codec, upscaling status | `18 00`, `14 00` | 👁 read only |
 | Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
@@ -534,7 +535,7 @@ and are marked below. Anything still unmarked is a name, not a measurement.
 | `1c`/`1d` | BLUETOOTH_DEVICE_INFO | |
 | `f6 03` | CONTROL_BY_WEARING — `00`/`01` | ✅ **driven** — `SonyPauseOnRemoval` |
 | `f6 05` | SMART_TALKING_MODE — **Speak-to-Chat** | ✅ **driven**, ⚠ writes `f8 05 **01** <v>`, a different type table than it reads |
-| `fa 05` | its sensitivity and mode-out time | ⚠ EXTENDED params, never sent |
+| `fa 05` | its sensitivity, voice focus and mode-out time | ✅ **driven** — one frame, three settings |
 | `f6 02` | POWER_SAVING_MODE | |
 | `f6 01` | VIBRATOR | |
 | `70`/`71`/`74` | SENSE — `01` AUTO_NC_ASM | 👁 `70 01` → `71 01 01`; `74 01 00 01` starts sensing, ⛔ no off, #1113 |
@@ -764,6 +765,50 @@ it is what turned up the real cause.
 that all used one type byte in both directions, and the fourth was assumed to match. Three
 agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
 and the SDK had been extracted and was sitting on disk when the assumption was made.
+
+## ✅ SPEAK-TO-CHAT'S DETAIL SETTINGS — `fa`/`fc`, and the device names its own timings
+
+The first `fa`/`fc` SYSTEM_*_EXTENDED_PARAM frames this repo has sent. They behave like the
+ordinary param frames: the notify echoes the value, so a write is confirmable from its own
+reply as well as by re-reading.
+
+    → fa 05              ← fb 05 00 00 00 01   AUTO · voice focus off · MID
+    → fc 05 00 01 00 01  ← fd 05 00 01 00 01   sensitivity HIGH
+    → fc 05 00 02 01 02  ← fd 05 00 02 01 02   LOW · focus on · SLOW
+    → fc 05 00 00 00 01  ← fd 05 00 00 00 01   restored
+
+**Payload**: `<SmartTalkingModeDetailSettingType 00 TYPE_1> <DetectionSensitivity>
+<CommonOnOffSettingValue> <ModeOutTime>`. The leading `00` is a payload selector, not a
+setting — it has one legal value.
+
+⚠ **THREE SETTINGS, ONE FRAME, AND NO FIELD SELECTOR.** Writing the sensitivity means
+sending the voice focus and the mode-out time too. So they are modelled as a single
+`ChatDetail` value rather than three switches — three separate setters would each have had
+to invent the other two fields, and the caller changing one chip would silently rewrite the
+other two.
+
+⚠ **They take while Speak-to-Chat itself is OFF**, which was the case throughout the run
+above. Unlike Focus on Voice, which is accepted and silently ignored outside ambient mode,
+these are not gated on the feature being on. So a write here that appears to do nothing is
+a real failure, not a mode problem.
+
+### ✅ The seconds come from the device, not from a table here
+
+`f0 05` → `f1 05 00 01 00 00 00 00 0f 1e 3c 00`, and Sony's capability parser reads it at
+fixed offsets:
+
+    [2] 00  SmartTalkingModeSettingType.ON_OFF
+    [3] 01  PreviewType.SUPPORT
+    [4] 00  DetailSettingType.TYPE_1
+    [5] 00  DetectionSensitivityType.AUTO_HIGH_LOW
+    [6] 00  VoiceFocusType.ON_OFF
+    [7] 00  ModeOutTimeType.TYPE_1
+    [8..] 0f 1e 3c 00   a four-int array, indexed by ModeOutTime's ordinal
+
+So **FAST = 15 s, MID = 30 s, SLOW = 60 s, NONE = 0** — the device's own numbers, which is
+why the card can print seconds instead of Sony's adjectives. ⚠ `0f 1e 3c` was spotted as
+15/30/60 by eye first; that is a guess until the parser says where the array starts and how
+long it is, and it does — `new-array` of 4, read from index 8.
 
 ## ⛔ ADAPTIVE SOUND CONTROL — ITS ON/OFF IS APP-SIDE, so there is none here (#1113)
 
