@@ -806,6 +806,33 @@ that all used one type byte in both directions, and the fourth was assumed to ma
 agreeing samples are not a rule when the vendor SDK has a separate class saying otherwise —
 and the SDK had been extracted and was sitting on disk when the assumption was made.
 
+## ⛔ EQ BAND LEVELS ARE IGNORED, AND THE FRAME IS RIGHT — 2026-08-24
+
+Preset-only writes work and are driven. **Any `58 01` carrying a non-zero count is acked
+and dropped**, whatever preset it names:
+
+    → 56 01                          ← 57 01 a2 06 0d 0a 0a 0c 0e 10
+    → 58 01 a2 06 0d 0a 0a 0c 0e 0a  ← (ack only)   lowering one band
+    → 56 01                          ← 57 01 a2 06 0d 0a 0a 0c 0e 10   unchanged
+    → 58 01 a0 06 0d 0a 0a 0c 0e 10  ← (ack only)   CUSTOM instead
+    → 56 01                          ← 57 01 a2 06 …                    still a2
+
+✅ **The frame matches Sony's own writer.** `EQEBB_SET_PARAM` takes one of exactly two
+payloads — `se0/t`, which emits `<EqEbbInquiredType> <EqPresetId> <count> <levels…>`, and
+`se0/o`, which emits `<type> <int>` and is the plain preset change. There is no third
+shape, so this is not a case of sending the wrong one.
+
+✅ **And `a2` is a user slot, not a fixed preset**: `EqPresetId` names `a0 CUSTOM`,
+`a1`–`a5` `USER_SETTING1..5`. Levels were tried against both `a2` and `a0`.
+
+⚠ **So this is the [CUSTOM] button's shape before `94 01 00` was found**: correct bytes,
+silent device, and the difference living somewhere in the session rather than in the frame.
+**The method that solved that one is a capture of the vendor app doing it** — drag a band in
+Sound Connect and read what precedes the write. Do that before theorising again.
+
+⚠ Levels are offset-encoded: the byte is `level + 0x0a`, so `0d 0a 0a 0c 0e 10` is
+`[3, 0, 0, 2, 4, 6]` — six values for five bands, the first being clear bass.
+
 ## ✅ SPEAK-TO-CHAT'S DETAIL SETTINGS — `fa`/`fc`, and the device names its own timings
 
 The first `fa`/`fc` SYSTEM_*_EXTENDED_PARAM frames this repo has sent. They behave like the
