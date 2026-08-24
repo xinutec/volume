@@ -516,6 +516,7 @@ class MainActivity : Activity() {
         emit("  pause:      ${d.readSwitch(t, SonyPauseOnRemoval) ?: "(no answer)"}")
         emit("  chat:       ${d.readSwitch(t, SonySpeakToChat) ?: "(no answer)"}")
         emit("  touch:      ${d.readSwitch(t, SonyTouchPanel) ?: "(no answer)"}")
+        emit("  chat detail:${d.readChatDetail(t)?.let { " $it" } ?: " (no answer)"}")
         emit("  voice:      ${d.readFocusOnVoice(t) ?: "(no answer)"}")
 
         intent.getStringExtra("eq")?.let { arg ->

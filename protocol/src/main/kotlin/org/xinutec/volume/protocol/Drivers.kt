@@ -516,6 +516,27 @@ object Drivers {
         fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
             exchangeFramed(t, SonyAutoOff.set(mode))?.let(SonyAutoOff::state)
 
+        /**
+         * Speak-to-Chat's three detail settings, which travel as one frame.
+         *
+         * ⚠ **[expect] names both `fb` and `fd`** because a write's own notify is a
+         * legitimate answer to a read that raced it. Leaving it out would take the last
+         * DATA frame in the window whatever it said — the defect that made a working
+         * DSEE write report as unconfirmable.
+         */
+        fun readChatDetail(t: Transport): ChatDetail? =
+            exchangeFramed(t, SonyChatDetail.get(), SonyChatDetail.RET, SonyChatDetail.NOTIFY)
+                ?.let(SonyChatDetail::state)
+
+        /** ✅ Driven on hardware 2026-08-24, all three fields, and restored. */
+        fun writeChatDetail(t: Transport, detail: ChatDetail): ChatDetail? =
+            exchangeFramed(
+                t,
+                SonyChatDetail.set(detail),
+                SonyChatDetail.RET,
+                SonyChatDetail.NOTIFY,
+            )?.let(SonyChatDetail::state)
+
         /** ✅ Driven on hardware 2026-08-16, both directions, and restored. */
         fun readSoundQuality(t: Transport): SoundQuality? =
             exchangeFramed(t, SonySoundQuality.get())?.let(SonySoundQuality::state)

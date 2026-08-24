@@ -360,6 +360,8 @@ class ScreenTest {
                 "pauseOnRemoval" to Settings(pauseOnRemoval = true),
                 "speakToChat" to Settings(speakToChat = false),
                 "touchPanel" to Settings(touchPanel = false),
+                "chatDetail" to
+                    Settings(chatDetail = ChatDetail(ChatSensitivity.AUTO, false, ModeOutTime.MID)),
                 "focusOnVoice" to Settings(focusOnVoice = false),
             )
         for ((name, one) in each) {
