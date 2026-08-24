@@ -333,10 +333,24 @@ silent for a second reason, and silence from this type still cannot be read as r
 without changing the button and without the reconnect that
 `DISCONNECT_CAUSED_BY_CHANGING_KEY_ASSIGN` promises.
 
-⛔ **NOT YET PROVEN: that answering POSITIVE commits.** That needs a real change — to
-`31` GOOGLE_ASSISTANT or `32` AMAZON_ALEXA, the only other values this key offers — and the
-link drop that comes with it. Everything up to the alert is measured; the last step is
-inferred from the vendor app's own sequence.
+✅ **PROVEN END TO END, same day.** The button was driven to `31` GOOGLE_ASSISTANT and back
+to `00`, each commit confirmed by an independent `f6 06` after the link returned:
+
+    → 94 01 00
+    → f8 06 01 31   ← 99 01 02 01
+    → 98 01 02 01   ✗ Broken pipe — and that is the SUCCESS path, see below
+    …link drops, device reconnects…
+    → f6 06         ← f7 06 01 31    committed
+
+⚠ **ANSWERING POSITIVE KILLS THE SOCKET, AND A DRIVER MUST NOT READ THAT AS FAILURE.** The
+device commits and immediately reconnects — `DISCONNECT_CAUSED_BY_CHANGING_KEY_ASSIGN` is
+not a warning about some later consequence, it is what happens next. The `98` write itself
+reports `Broken pipe` because our socket dies underneath it. The bytes still landed.
+
+⚠ **The NEGATIVE run is the control for this**, and it behaves completely differently: no
+disconnect, no broken pipe, an orderly `f9 06 01 00`, and the value unchanged. So the
+answer byte is what decides, not a timeout — which was the alternative reading of a commit
+that arrived alongside a dropped link.
 
 ### ⚠ Two dead ends recorded so nobody re-walks them
 
