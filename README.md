@@ -35,7 +35,7 @@ a second one simply fails. They release on backgrounding — but ⚠ **in split 
 `onStop` never fires**, because both halves stay resumed, so there the idle lease is
 the only thing that lets go. That is the arrangement on this phone.
 
-The **probe** (`MainActivity`, `probe.sh`) stays — it is the only tool that can
+The **probe** (`ProbeService`, `probe.sh`) stays — it is the only tool that can
 investigate a device the app cannot drive, and both share `:protocol`, so a byte
 fixed in one is fixed in both.
 
@@ -93,8 +93,8 @@ acknowledgements. `docs/protocols.md` has the correction.
 ⚠ **Read the state before picking one up.** *Captured* means the bytes are on disk
 but nobody has looked; *decoded* means the frames are written down; *written* means
 there is driver code and a replay test; *driven* means **this code has changed a
-setting on a headphone**. On the XM4, the QC45 and the JLab that now covers every
-decoded setting bar the two the devices refuse.
+setting on a headphone**. On the XM4 that is now every decoded setting bar multipoint,
+which the device refuses to everyone.
 
 ⚠ The gap between the last two is the one that matters, and it is where every wrong
 conclusion in this repo has lived. A replay test proves the driver agrees with the
@@ -122,7 +122,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Speak-to-Chat detail | — | — | ✅ sensitivity · passthrough · mode-out | — | — |
 | Touch sensor panel | — | — | ✅ | — | — |
 | Focus on Voice | — | — | ✅ ⚠ ambient only | — | — |
-| Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
+| Button / gestures | ✅ | — | ✅ ⚠ needs the alert answered | ✅ driven, shown; ⚠ 3 volume actions | — |
 
 ⚠ **Speak-to-Chat spent an hour in this table as "sent, not taken" and it was wrong.**
 The write was malformed: it reads with one type table and writes with another, alone among
@@ -164,9 +164,10 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Open:** #965 Sony button · #967 probe repeats a run's packets · #966 Bose auto-off ·
-#968 QC35 card · #973 the list scrolls to the top after a write · #974 the JBL rows
-still outside the app · #935 refresh/disconnect affordances · #1038 probe.sh validator.
+**Open:** #966 Bose auto-off · #968 QC35 card · #974 the JBL rows still outside the
+app · #980 the JBL remote-control map · #1039 a JBL gesture editor · #935
+refresh/disconnect affordances · #1038 the probe's decode-and-print · #1098 the Bose
+BMAP inventory.
 
 ## Probe
 
@@ -183,8 +184,7 @@ still outside the app · #935 refresh/disconnect affordances · #1038 probe.sh v
 
 The app's own stack, end to end — registry → transport → driver → read-back:
 ```bash
-adb shell am start -n org.xinutec.volume/.MainActivity --es op anc \
-  --es device "'JBL TOUR'" [--es mode ANC|AMBIENT|OFF]
+./probe.sh anc "JBL TOUR" [ANC|AMBIENT|OFF]
 ```
 Verified on all five, 2026-08-15: Sony and JLab over RFCOMM, JBL over GATT with an
 LE scan, and a **renamed QC35 identified by asking it** — its record carries
@@ -267,7 +267,7 @@ that works. A capture without its action log is a haystack.
                          console out. `install -r` kills the process, so the app
                          comes back in place on the new build. --start to
                          foreground anyway.
-./probe.sh               the #783 probe (MainActivity) — for devices the app
+./probe.sh               the #783 probe (ProbeService) — for devices the app
                          cannot yet drive.
 scripts/watch-list.sh    does the screen follow the radio? Samples the radio and
                          the semantics tree on one clock, prints only on change.

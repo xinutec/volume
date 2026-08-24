@@ -94,9 +94,9 @@ unsolicited `59` with the whole state, in the same window. That is a state repor
 not a confirmation — it becomes evidence only by comparing its preset with the one
 asked for, because a device that ignored the write reports the *old* preset there.
 
-⚠ **The trailing `00` of a SET is a level COUNT**, sitting where `59`'s `06` sits —
-so `58 01 <preset> 06 <6 levels>` is what writing a custom curve must look like.
-Structurally certain, **never exercised**: no band was dragged during the capture.
+⚠ **The trailing `00` of a SET is a level COUNT**, sitting where `59`'s `06` sits. The
+shape guessed here — `58 01 <preset> 06 <6 levels>` — was **wrong in one byte and cost a
+day**: a levels write carries `ff`, never the slot's id. See the EQ band levels section.
 
 Observed presets: `a0`, `a1`, `a2` (Customs), `17`, `16`. The menu holds more and
 nothing captured enumerates them.

@@ -37,24 +37,10 @@ import java.util.UUID
 /**
  * The #783 probe, driven from the terminal.
  *
- * There is a screen only so a run can be watched while the headphones are on your
- * head; everything it prints also goes to logcat under [TAG], which is where it is
- * meant to be read from.
- *
- * ```
- * # what is bonded, and which control channels each one advertises
- * am start -n org.xinutec.volume/.MainActivity --es op list
- *
- * # one Sony-framed exchange (type/seq default to 0c/00)
- * am start -n org.xinutec.volume/.MainActivity --es op send \
- *   --es mac AA:BB:CC:DD:EE:FF --es uuid 96cc203e-5068-46ad-b32d-e316f5e069ba \
- *   --es payload 0000 --es type 0c
- *
- * # bytes verbatim, no framing — for the Bose/JBL channels, whose shape is unknown
- * am start -n org.xinutec.volume/.MainActivity --es op send --ez raw true \
- *   --es mac AA:BB:CC:DD:EE:FF --es uuid 00001101-0000-1000-8000-00805f9b34fb \
- *   --es payload 00010305
- * ```
+ * ⚠ **Ops normally run in [ProbeService], not here.** An activity can be told to start
+ * and never receive the intent (#967); a service cannot. This is the same [Probes] with
+ * a different [emit] — one that also appends to a screen, so a run can be watched while
+ * the headphones are on your head. `probe.sh` reaches it with `VOLUME_PROBE_ACTIVITY=1`.
  *
  * ⚠ Hearing safety: this sends whatever it is given. Probe with reads. Do not use
  * a volume command as the round-trip proof, and restore any level touched for a
