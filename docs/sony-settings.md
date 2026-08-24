@@ -11,7 +11,7 @@ the dated section it points at; treat anything undated as older than everything 
 | ANC / ambient | `66 02` / `68 02 <on> 02 <nc> 01 <AsmId> <amb>` | ✅ driven |
 | Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** |
 | EQ preset | `56 01` / `58 01 <preset> 00` | ✅ driven |
-| EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven 2026-08-24 — ⚠ `ff` UNSPECIFIED, never the slot's id |
+| EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven 2026-08-24, six sliders on the card — ⚠ `ff` UNSPECIFIED, never the slot's id |
 | Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
 | Auto power off | `f6 04` / `f8 04 01 <v> 00` | ✅ driven, **complete** — `f0 04` declares 2 |
 | DSEE Extreme | `e6 02` / `e8 02 00 <v>` | ✅ driven |

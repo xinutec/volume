@@ -359,11 +359,17 @@ class DeviceController(
             // ⚠ The write's own answer and the refresh's answer, side by side. Three
             // hypotheses about #1107 were formed by reasoning about frames and none
             // survived contact; this prints the disagreement instead of predicting it.
+            // ⚠ **`eq` is in here because a bare `Confirmed` is not evidence about
+            // WHICH value landed.** A slider dragged too small rounds back to where it
+            // started, writes the value already held, and confirms — indistinguishable
+            // in the log from a drag that moved a band. Measured 2026-08-24, and it
+            // cost a re-run to notice the screen and the log did not disagree because
+            // neither of them named a number.
             Log.i(
                 LIVE,
-                "$what: wrote=$outcome refresh: dsee=${settings.dsee} " +
-                    "pause=${settings.pauseOnRemoval} chat=${settings.speakToChat} " +
-                    "voice=${settings.focusOnVoice}",
+                "$what: wrote=$outcome refresh: eq=${settings.eq?.levels} " +
+                    "dsee=${settings.dsee} pause=${settings.pauseOnRemoval} " +
+                    "chat=${settings.speakToChat} voice=${settings.focusOnVoice}",
             )
             update(
                 address,
@@ -384,6 +390,19 @@ class DeviceController(
     override fun setEqPreset(address: String, preset: Int) =
         applied<EqSetting>(address, "setting the equaliser", { "preset ${it.preset}" }) {
             (it.headphones.driver as Drivers.SonyXm4).setEq(it.transport, preset)
+        }
+
+    /**
+     * ⚠ Reports the LEVELS, not the preset — the preset is deliberately unchanged by
+     * this write, so naming it in the outcome would describe the wrong thing.
+     */
+    override fun setEqLevels(address: String, levels: List<Int>) =
+        applied<EqSetting>(
+            address,
+            "setting the equaliser bands",
+            { it.levels.joinToString(", ") },
+        ) {
+            (it.headphones.driver as Drivers.SonyXm4).setEqLevels(it.transport, levels)
         }
 
     override fun setTone(address: String, bands: BoseBands) =
