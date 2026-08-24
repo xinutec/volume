@@ -265,6 +265,13 @@ interface SettingActions {
      */
     fun setVoiceGuidance(address: String, on: Boolean)
 
+    /**
+     * ⚠ **Ends the session, and only a hand can undo it.** Every other action here writes
+     * a setting that can be written back; this one switches the headphones off, and they
+     * come back only by pressing their own button. The screen confirms before calling it.
+     */
+    fun powerOff(address: String)
+
     fun setChatDetail(address: String, detail: ChatDetail)
 
     fun setSonyButton(address: String, name: String)
@@ -362,6 +369,25 @@ private fun DeviceRow(
     // ⚠ **The DEVICE is asking, and this forwards the question rather than answering it.**
     // The XM4 will not commit a key-assign change until it is answered, and yes drops the
     // audio link — so it is the owner's call, not a switch's. See [DeviceCard.asking].
+    var confirmOff by remember(card.address) { mutableStateOf(false) }
+    if (confirmOff) {
+        AlertDialog(
+            onDismissRequest = { confirmOff = false },
+            title = { Text("Switch off ${card.name}?") },
+            // ⚠ Says what it COSTS, not what it does. "Turn off" is obvious; that the app
+            // cannot turn them back on is the part someone needs before tapping.
+            text = { Text("They can only be switched back on by hand, on the headphones.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmOff = false
+                    actions.powerOff(card.address)
+                }) { Text("Switch off") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmOff = false }) { Text("Cancel") }
+            },
+        )
+    }
     card.asking?.let { question ->
         AlertDialog(
             onDismissRequest = { actions.answerButton(card.address, false) },
@@ -520,7 +546,9 @@ private fun DeviceRow(
                         modifier =
                             Modifier.alpha(if (card.state is DeviceState.Busy) 0.4f else 1f),
                     ) {
-                        SettingsSection(card.address, card.settings, actions)
+                        SettingsSection(card.address, card.settings, actions) {
+                            confirmOff = true
+                        }
                     }
                 }
             }
@@ -542,7 +570,12 @@ private fun DeviceRow(
  * loud — see [RefusalReason].
  */
 @Composable
-private fun SettingsSection(address: String, settings: Settings?, actions: SettingActions) {
+private fun SettingsSection(
+    address: String,
+    settings: Settings?,
+    actions: SettingActions,
+    onPowerOff: () -> Unit,
+) {
     if (settings == null) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -796,6 +829,13 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             // ⚠ A label, not a row with a control: nothing here can set a codec, and a
             // greyed switch would suggest the app merely refuses to.
             SettingLabel("Codec", c)
+        }
+
+        if (settings.canPowerOff) {
+            // ⚠ **Last, and separated, because it is not a setting.** Everything above
+            // reports something the device holds; this ends the session. Putting it in
+            // the flow of switches would make it one more thing to flick past.
+            TextButton(onClick = { onPowerOff() }) { Text("Switch off") }
         }
 
         settings.battery?.let { b ->

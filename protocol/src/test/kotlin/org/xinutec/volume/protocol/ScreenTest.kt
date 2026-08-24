@@ -518,6 +518,14 @@ class ScreenTest {
          * parameter, which is not something to put on a card.
          */
         val IGNORED =
-            setOf("bands", "refuses", "attempted", "focusOnVoiceSettable", "buttonOptions")
+            setOf(
+                "bands",
+                "refuses",
+                "attempted",
+                "focusOnVoiceSettable",
+                "buttonOptions",
+                // ⚠ A capability, not a reading — see Settings.canPowerOff.
+                "canPowerOff",
+            )
     }
 }

@@ -574,6 +574,17 @@ object Drivers {
         override fun bands(t: Transport): List<Int> =
             exchangeFramed(t, SonyEq.getBands())?.let(SonyEq::bands) ?: emptyList()
 
+        /**
+         * Switch the pair off. ⚠ **Ends the session**; see [SonyPowerOff].
+         *
+         * Returns nothing because there is nothing to return: the link drops as the
+         * device acts. A caller that wants to know it worked should watch the radio,
+         * which is what the screen already does.
+         */
+        fun powerOff(t: Transport) {
+            exchangeFramed(t, SonyPowerOff.off())
+        }
+
         /** The codec the link settled on. ⚠ Read only — see [SonyCodec]. */
         fun readCodec(t: Transport): String? =
             exchangeFramed(t, SonyCodec.get(), SonyCodec.RET)?.let(SonyCodec::state)

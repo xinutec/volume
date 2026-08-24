@@ -212,6 +212,14 @@ data class Settings(
      */
     val codec: String? = null,
     /**
+     * Whether this pair can be switched off from here.
+     *
+     * ⚠ **A capability, not a reading** — so it is not part of [any]: a card with nothing
+     * but this is a card with nothing on it, and showing a settings section for it would
+     * be a section containing one button and no facts.
+     */
+    val canPowerOff: Boolean = false,
+    /**
      * Focus on Voice — **readable always, settable only in ambient mode.**
      *
      * ⚠ A fourth kind of "no control", and it is none of the other three: not refused,
