@@ -66,6 +66,40 @@ start_op() {
   "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RANDOM$$" "$@" >/dev/null
 }
 
+# Normalise a hex argument, and refuse anything that is not one.
+#
+# ⚠ **`adb shell` runs a shell ON THE PHONE, and it re-splits on spaces.** So a payload
+# written the way this repo writes bytes everywhere else — `f8 04 01 11 00` — arrives as
+# `f8`, and the rest is dropped. That is not a no-op: on 2026-08-24 it framed and SENT
+# `f8 04 01 11`, a four-byte SYSTEM_SET_PARAM where five were meant. It happened to be
+# harmless; a truncated payload landing on a different command is how `aa 95` — Bose's
+# factory reset — gets sent by somebody who typed something else.
+#
+# ⚠ **It fails as success**: `am` reports the intent delivered and the run prints a tidy
+# transcript of the wrong packet. Nothing downstream can catch it, because what the app
+# receives IS a well-formed frame. So it has to be caught here, before the boundary.
+#
+# Spaces are stripped rather than rejected — `Hex.parse` ignores them too, so they are
+# never significant and refusing them would only make this tool disagree with the docs it
+# is used from. Everything else is refused loudly. #1132.
+hex_arg() {
+  local raw="${1//[[:space:]]/}" part
+  [ -n "$raw" ] || { echo "empty hex payload" >&2; exit 2; }
+  for part in ${raw//,/ }; do
+    case "$part" in
+      "" | *[!0-9a-fA-F]*)
+        echo "not hex: '$part' (in '$1')" >&2
+        exit 2
+        ;;
+    esac
+    [ $((${#part} % 2)) -eq 0 ] || {
+      echo "hex needs an even number of digits: '$part'" >&2
+      exit 2
+    }
+  done
+  printf '%s' "$raw"
+}
+
 case "${1:-list}" in
   install)
     # deploy.sh owns build + install + grant, and selects the phone by model.
@@ -100,7 +134,7 @@ case "${1:-list}" in
     # is transactional (an operator-05 Start, then the change), so it cannot be
     # expressed with `send`, which opens a fresh socket per packet. ⚠ Only that one
     # is — Bose EQ, multipoint and the Action button each took a plain Set.
-    mac="${2:?mac}"; uuid="${3:?uuid}"; packets="${4:?comma-separated hex}"
+    mac="${2:?mac}"; uuid="${3:?uuid}"; packets="$(hex_arg "${4:?comma-separated hex}")"
     args=(--es op seq --es mac "$mac" --es uuid "$uuid" --es packets "$packets")
     # SONY_SEQ=1 frames each payload and acks the device's data frames — its PARAM
     # reads only answer inside a session that does both.
@@ -128,7 +162,7 @@ case "${1:-list}" in
     # The LE write path, addressed by advertised NAME: the LE address rotates, so a
     # literal one goes stale and fails slowly rather than saying "no such device".
     who="${2:?device name substring, e.g. 'JBL TOUR', or a MAC}"
-    packets="${3:?comma-separated hex}"
+    packets="$(hex_arg "${3:?comma-separated hex}")"
     # A MAC is accepted for the case where the address is known-current (a fresh
     # scan, a capture); anything else is treated as a name to resolve.
     if [[ "$who" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]; then
@@ -184,7 +218,11 @@ case "${1:-list}" in
     watch_log "${SETTINGS_WAIT:-60}"
     ;;
   send|raw)
-    mac="${2:?mac}"; uuid="${3:?uuid}"; payload="${4:-}"
+    mac="${2:?mac}"; uuid="${3:?uuid}"
+    # ⚠ `if`, not `[ … ] && …`: under `set -e` a false test as the whole command exits
+    # the script, and a payload-less `send` is the documented connect-only probe.
+    payload=""
+    if [ -n "${4:-}" ]; then payload="$(hex_arg "$4")"; fi
     # An empty `--es payload ""` is dropped by the shell before `am` sees it, and am
     # then consumes the NEXT flag as the value and dies. Omit the extra instead —
     # the activity defaults it to empty, which is what a connect-only probe wants.
