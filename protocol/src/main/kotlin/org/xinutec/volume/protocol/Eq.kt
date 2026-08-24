@@ -63,6 +63,15 @@ object SonyEq {
     const val ZERO = 0x0a
 
     /**
+     * ⚠ **From the vendor app's own axis, not from the device.** Sony Headphones
+     * Connect labels every slider `-10 … 0 … +10`, and the levels captured off the
+     * wire stay inside it. No frame *declares* a range, so this is a typo guard on
+     * our side rather than the device's rule — do not report a value outside it as
+     * having been refused by the headphones.
+     */
+    val RANGE = -10..10
+
+    /**
      * `EqEbbInquiredType`, and `01` in every EQ frame captured.
      *
      * ⚠ Not the `00` that `52 00` uses. That is a different command (GET_STATUS),
@@ -99,16 +108,30 @@ object SonyEq {
     fun set(preset: Int): ByteArray = byteArrayOf(SET, TYPE, preset.toByte(), 0x00)
 
     /**
-     * `58 01 <preset> <count> <levels…>` — a preset *and* a curve.
+     * `ff` — `EqPresetId.UNSPECIFIED`, the preset byte a *levels* write carries.
      *
-     * ⚠ **Structurally certain, never exercised.** The trailing `00` of the plain
-     * [set] sits exactly where [state]'s count byte sits, so a non-zero count with
-     * levels after it is what the field is for. But no band was ever dragged during
-     * the capture, so no frame of this shape has been seen — let alone sent. Treat a
-     * device that ignores it as the expected outcome, not as a broken driver.
+     * ⚠ **Not a slot.** Nothing is ever stored under `ff` and no read returns it: the
+     * device keeps answering with whichever real preset is selected. It means "leave
+     * the selection alone, these are the levels".
      */
-    fun set(preset: Int, levels: List<Int>): ByteArray =
-        byteArrayOf(SET, TYPE, preset.toByte(), levels.size.toByte()) +
+    const val UNSPECIFIED = 0xff
+
+    /**
+     * `58 01 ff <count> <levels…>` — set the band levels of whatever is selected.
+     *
+     * ⚠ **The preset byte MUST be [UNSPECIFIED], and that is the whole bug this cost
+     * a day to find.** Sending the slot's own id — the `a2` that `57 01` had just
+     * reported — produces a frame the XM4 acks and silently drops. Every other byte
+     * was already right, so nothing looked wrong: the write went out, the ack came
+     * back, and the levels did not move. Captured 2026-08-24 with a band dragged in
+     * Sony Headphones Connect, and confirmed in the SDK, where `sendEqBandSteps`
+     * hardcodes `UNSPECIFIED` and **ignores the preset it was passed**.
+     *
+     * ⚠ Which is why there is no preset parameter here. Taking one and discarding it
+     * would let a caller believe it had chosen a slot to write into.
+     */
+    fun setLevels(levels: List<Int>): ByteArray =
+        byteArrayOf(SET, TYPE, UNSPECIFIED.toByte(), levels.size.toByte()) +
             ByteArray(levels.size) { (levels[it] + ZERO).toByte() }
 
     /**

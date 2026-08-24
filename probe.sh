@@ -192,6 +192,7 @@ case "${1:-list}" in
     #
     #   ./probe.sh settings XM4                     read
     #   ./probe.sh settings XM4 eq=a1               Sony preset id, hex
+    #   ./probe.sh settings XM4 eqlevels=3,0,0,2,4,6   dB per band, clear bass FIRST
     #   ./probe.sh settings XM4 autooff=never       never | when_removed
     #   ./probe.sh settings Bose eq=8,0,0           Bose bass,mid,treble in dB
     #   ./probe.sh settings Bose button=spotify     hear_battery_level | spotify
@@ -208,10 +209,10 @@ case "${1:-list}" in
       # future value could hold one too.
       key="${kv%%=*}"; val="${kv#*=}"
       case "$key" in
-        eq|multipoint|autooff|button|quality|dsee|pause|chat|voice|touch)
+        eq|eqlevels|multipoint|autooff|button|quality|dsee|pause|chat|voice|touch)
           args+=(--es "$key" "$val") ;;
-        *) echo "unknown setting '$key' — eq, multipoint, autooff, button, quality,\
- dsee, pause, chat, voice, touch" >&2; exit 2 ;;
+        *) echo "unknown setting '$key' — eq, eqlevels, multipoint, autooff, button,\
+ quality, dsee, pause, chat, voice, touch" >&2; exit 2 ;;
       esac
     done
     start_op "${args[@]}"

@@ -517,6 +517,30 @@ object Drivers {
             exchangeFramed(t, SonyEq.set(preset))?.let(SonyEq::state)
 
         /**
+         * Move the band levels of the selected preset, and say whether they moved.
+         *
+         * ⚠ **A levels write draws no state back — only an ack**, unlike [writeEq],
+         * whose notify carries the result. So the read is not an optional second
+         * opinion here, it is the only evidence there is, and Sony's own app does
+         * exactly the same thing: `58 01 ff …` then `56 01`, after every drag.
+         *
+         * ⚠ Compares **levels, not preset**. The preset byte sent is `ff`, and the
+         * device goes on reporting the real slot — so a preset comparison would
+         * contradict every correct write.
+         *
+         * ✅ Driven against the XM4 on 2026-08-24, down and back up.
+         */
+        fun setEqLevels(t: Transport, levels: List<Int>): Confirmation<EqSetting> {
+            exchangeFramed(t, SonyEq.setLevels(levels))
+            val after = readEq(t) ?: return Confirmation.Unverifiable
+            return if (after.levels == levels) {
+                Confirmation.Confirmed
+            } else {
+                Confirmation.Contradicted(after)
+            }
+        }
+
+        /**
          * ⚠ The band table is **not** re-read per preset because it changes — it
          * was byte-identical in all eleven captured replies. Sony Headphones Connect
          * asks after every change; this asks when someone wants the axis.

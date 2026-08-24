@@ -21,6 +21,7 @@ import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Hex
 import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
+import org.xinutec.volume.protocol.SonyEq
 import org.xinutec.volume.protocol.SonyFrame
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
@@ -527,6 +528,26 @@ class MainActivity : Activity() {
             } else {
                 emit("  → preset ${arg.lowercase()}")
                 report(d.setEq(t, preset))
+            }
+        }
+        intent.getStringExtra("eqlevels")?.let { arg ->
+            val want = arg.split(",").map { it.trim().toIntOrNull() }
+            val levels = want.filterNotNull()
+            when {
+                levels.size != want.size -> {
+                    emit("  ✗ eqlevels wants dB per band, e.g. 3,0,0,2,4,6 — not '$arg'")
+                }
+
+                levels.any { it !in SonyEq.RANGE } -> {
+                    // The bound is ours, from the app's axis — say so, rather than
+                    // letting a refusal here read as the device's answer.
+                    emit("  ✗ outside the vendor app's own scale ${SonyEq.RANGE}; not sent")
+                }
+
+                else -> {
+                    emit("  → levels $levels")
+                    report(d.setEqLevels(t, levels))
+                }
             }
         }
         intent.getStringExtra("autooff")?.let { arg ->

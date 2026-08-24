@@ -10,7 +10,8 @@ the dated section it points at; treat anything undated as older than everything 
 | --- | --- | --- |
 | ANC / ambient | `66 02` / `68 02 <on> 02 <nc> 01 <AsmId> <amb>` | ✅ driven |
 | Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** |
-| EQ preset | `56 01` / `58 01` | ✅ driven; ⚠ band levels never exercised |
+| EQ preset | `56 01` / `58 01 <preset> 00` | ✅ driven |
+| EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven 2026-08-24 — ⚠ `ff` UNSPECIFIED, never the slot's id |
 | Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
 | Auto power off | `f6 04` / `f8 04 01 <v> 00` | ✅ driven, **complete** — `f0 04` declares 2 |
 | DSEE Extreme | `e6 02` / `e8 02 00 <v>` | ✅ driven |
@@ -834,32 +835,55 @@ than this enum names" for a week and then decoded exactly once the parser was re
 ⚠ **Curious and unexplained**: this pair refuses multipoint outright, yet declares the
 source-switch control that multipoint is for.
 
-## ⛔ EQ BAND LEVELS ARE IGNORED, AND THE FRAME IS RIGHT — 2026-08-24
+## ✅ EQ BAND LEVELS — THE PRESET BYTE MUST BE `ff`, AND THAT WAS THE WHOLE BUG
 
-Preset-only writes work and are driven. **Any `58 01` carrying a non-zero count is acked
-and dropped**, whatever preset it names:
+    → 58 01 ff 06 0d 0a 0a 0c 0e 05   ← (ack only)
+    → 56 01                           ← 57 01 a2 06 0d 0a 0a 0c 0e 05   16k now −5
+    → 58 01 ff 06 0d 0a 0a 0c 0e 10   ← (ack only)
+    → 56 01                           ← 57 01 a2 06 0d 0a 0a 0c 0e 10   restored to +6
 
-    → 56 01                          ← 57 01 a2 06 0d 0a 0a 0c 0e 10
-    → 58 01 a2 06 0d 0a 0a 0c 0e 0a  ← (ack only)   lowering one band
-    → 56 01                          ← 57 01 a2 06 0d 0a 0a 0c 0e 10   unchanged
-    → 58 01 a0 06 0d 0a 0a 0c 0e 10  ← (ack only)   CUSTOM instead
-    → 56 01                          ← 57 01 a2 06 …                    still a2
+`ff` is `EqPresetId.UNSPECIFIED`. It means **leave the selection alone, these are the
+levels** — nothing is stored under it, and `57 01` goes on reporting the real slot, so it
+is a write-only sentinel rather than a preset.
 
-✅ **The frame matches Sony's own writer.** `EQEBB_SET_PARAM` takes one of exactly two
-payloads — `se0/t`, which emits `<EqEbbInquiredType> <EqPresetId> <count> <levels…>`, and
-`se0/o`, which emits `<type> <int>` and is the plain preset change. There is no third
-shape, so this is not a case of sending the wrong one.
+⚠ **Sending the slot's own id instead is acked and silently dropped.** That is what this
+repo did for a day: read `a2` out of `57 01`, put it back into `58 01`, and watch every
+write vanish. Every other byte was already correct — type, count, offset encoding, band
+order — so there was nothing to see. A write that is *dropped* looks exactly like a write
+that is *unsupported*.
 
-✅ **And `a2` is a user slot, not a fixed preset**: `EqPresetId` names `a0 CUSTOM`,
-`a1`–`a5` `USER_SETTING1..5`. Levels were tried against both `a2` and `a0`.
+✅ **Three independent sources agree**, which is why this is not another theory:
 
-⚠ **So this is the [CUSTOM] button's shape before `94 01 00` was found**: correct bytes,
-silent device, and the difference living somewhere in the session rather than in the frame.
-**The method that solved that one is a capture of the vendor app doing it** — drag a band in
-Sound Connect and read what precedes the write. Do that before theorising again.
+- the wire, captured 2026-08-24 while a band was dragged in Sound Connect;
+- the enum, where `ff` is the only non-slot name in `EqPresetId`;
+- the writer, `l20/c.o()` — logging `"in sendEqBandSteps"` — which hardcodes
+  `UNSPECIFIED` and **discards the `EqPresetId` it was passed**. The preset-change path
+  in the same class passes a real id with an *empty* levels array.
+
+So `EQEBB_SET_PARAM` has two uses that share a shape, and the count byte selects between
+them:
+
+| intent | frame |
+| --- | --- |
+| choose a preset | `58 01 <preset> 00` |
+| move the bands | `58 01 ff <count> <levels…>` |
+
+⚠ **A levels write draws no notify, only an ack** — unlike a preset change, whose
+`59 01` carries the result. Sony's own app re-reads with `56 01` after every drag, and so
+does this driver: the read-back is the only evidence a levels write has.
 
 ⚠ Levels are offset-encoded: the byte is `level + 0x0a`, so `0d 0a 0a 0c 0e 10` is
 `[3, 0, 0, 2, 4, 6]` — six values for five bands, the first being clear bass.
+
+⚠ **The slider emits while it travels.** One drag produced ten `58 01` frames in nine
+seconds, each a waypoint; only the last is the setting. Counting frames would read a
+single gesture as ten changes.
+
+✅ **Driven by this repo 2026-08-24**, 16k `+6 → +5 → +6`, each direction confirmed
+by read-back — so the fix is proven from our own frames, not only from Sony's.
+
+⚠ **No frame declares a level range.** `-10…+10` is off the vendor app's own axis, so
+refusing a value outside it is our guard, not the device's answer.
 
 ## ✅ SPEAK-TO-CHAT'S DETAIL SETTINGS — `fa`/`fc`, and the device names its own timings
 

@@ -108,7 +108,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | | QC45 | QC35 | Sony XM4 | JBL M2 | JLab |
 | --- | --- | --- | --- | --- | --- |
 | ANC | ✅ | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
-| EQ / tone | ✅ 3 bands | — | ✅ preset | ✅ 10-band curve | — |
+| EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ❓ #966 | — | ✅ | ✅ | — |
 | Sound quality | — | — | ✅ | — | — |
