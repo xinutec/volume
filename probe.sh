@@ -30,6 +30,21 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENDOR_APPS=(com.sony.songpal.mdr com.bose.bosemusic com.bose.monet jbl.stc.com
              com.harman.ble.jbllink com.jlab.app)
 
+# The id THIS invocation stamps on its op. The app prints it as its first line, so
+# the log can be checked for it rather than read hopefully — see check_ran.
+RUN_ID=""
+
+# Device-clock timestamp taken just BEFORE the op is sent, so the check can ask for
+# exactly this run's lines afterwards.
+#
+# ⚠ **The live stream cannot be the thing that is checked.** `logcat -T 1` starts
+# AFTER `am start` and takes a moment to attach, while the app prints its run id
+# immediately — so the id lands in the gap and a perfectly good run looks skipped.
+# Measured 2026-08-24: that race refused fifteen consecutive healthy runs and
+# produced "nothing was delivered" for `list`, whose whole output is instant. It read
+# exactly like the bug it was written to catch. A timestamped re-read has no window.
+RUN_SINCE=""
+
 # Print what the app logged for this run only. -T reads from the tail, so an
 # earlier run's output cannot be mistaken for this one's.
 watch_log() {
@@ -38,32 +53,62 @@ watch_log() {
   sleep "${1:-6}"
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
+  check_ran
 }
 
-# ⚠ Start the activity so THIS run's extras are the ones handled.
+# ⚠ **#967: `am start` can deliver NOTHING, silently.** The activity is resumed
+# instead ("its current task has been brought to the front"), `onNewIntent` never
+# fires, and the run produces no output at all — or re-runs the previous extras.
+# Measured twice before this check existed, and the unique `-d` does not prevent it.
+#
+# So the app stamps every run with the id it was given, and this refuses to let a run
+# that did not happen pass for one that did. **Loud is the whole point**: the failure
+# this guards is a transcript that reads perfectly and describes a different run.
+#
+# ⚠ Re-reads the log by TIMESTAMP rather than trusting the live stream — see
+# [RUN_SINCE]. A check with a race of its own is worse than no check, because it
+# teaches you to ignore it.
+check_ran() {
+  [ -n "$RUN_ID" ] || return 0
+  local log
+  log=$("${ADB[@]}" logcat -d -t "$RUN_SINCE" -s volume-probe:I 2>/dev/null || true)
+  case "$log" in
+    *"run $RUN_ID"*) return 0 ;;
+  esac
+  echo >&2
+  if [ -n "$log" ]; then
+    echo "⚠ #967: the log above is NOT this run — it carries no 'run $RUN_ID'." >&2
+    echo "  The op was not delivered and you are reading an EARLIER run's output." >&2
+  else
+    echo "⚠ #967: nothing was delivered — no 'run $RUN_ID' and no output at all." >&2
+  fi
+  echo "  Retry. If it persists, 'adb shell am force-stop $PKG' fixes delivery," >&2
+  echo "  at the cost of tearing the app out of a split screen." >&2
+  return 3
+}
+
+# ⚠ Start the activity so THIS run's extras are the ones handled — and see check_ran
+# above, which is what actually establishes that they were.
 #
 # `am start` compares intents with `filterEquals` — action, data, type, component,
 # categories — and **extras are not part of it**. Two ops differing only in their
 # `--es` values are therefore the same intent: the activity is resumed rather than
-# re-delivered ("its current task has been brought to the front"), and
-# `handle(getIntent())` re-runs the OLD extras. That is not a display bug, it
-# silently REPEATS THE PREVIOUS WRITE. Caught when a read-only `settings XM4`
-# printed "→ multipoint on", having re-sent the write from the run before it.
-#
-# ⚠ **A unique `-d` mostly fixes it, and `am force-stop` is NOT the answer** — that
-# also works but tears the activity out of a split-screen pair and off whatever
-# Pippijn had on screen (see the doc's "do not drive the phone while he is using
-# it"). A URI nobody reads makes `filterEquals` false, so `singleTask` delivers
-# `onNewIntent` and the task stack is left alone.
-#
-# ⚠ **MOSTLY. It recurred once WITH the unique `-d` in place**, on 2026-08-16 at
-# 18:32:53: a run asking for `0000,e8010001,…` executed the packet list from 18:01
-# instead, five for five. No explanation was found. So do not treat the `-d` as a
-# guarantee — **read the echoed `[n] →` bytes in the log and check they are the ones
-# you asked for.** That is what caught it both times, and it is the only check here
-# that does not depend on understanding the cause.
+# re-delivered, and `handle(getIntent())` re-runs the OLD extras. That is not a
+# display bug, it silently REPEATS THE PREVIOUS WRITE. A unique `-d` makes
+# `filterEquals` false and mostly fixes it; it has been measured to recur anyway.
 start_op() {
-  "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RANDOM$$" "$@" >/dev/null
+  RUN_ID="$RANDOM$$"
+  # ⚠ The DEVICE's clock, in logcat's own format: the check reads back from here, and
+  # a host timestamp would be wrong by whatever the two clocks disagree by.
+  #
+  # ⚠ **Quoted for the PHONE's shell, not this one.** The format string contains a
+  # space, and `adb shell` joins its argv and lets the device re-split it — so the
+  # unquoted form reaches `date` as two arguments and dies with "Max 1 argument",
+  # leaving this empty. Same hazard as hex_arg below, and it hid for a whole session
+  # because an empty `-t` makes logcat dump everything, which still CONTAINS the id.
+  RUN_SINCE=$("${ADB[@]}" shell "date '+%m-%d %H:%M:%S.000'" | tr -d '\r')
+  "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RUN_ID" --es run "$RUN_ID" "$@" \
+    >/dev/null
 }
 
 # Normalise a hex argument, and refuse anything that is not one.
