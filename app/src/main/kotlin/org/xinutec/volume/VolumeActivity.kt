@@ -36,6 +36,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -273,6 +274,23 @@ fun VolumeScreen(
     onSet: (String, AncMode) -> Unit,
     actions: SettingActions,
 ) {
+    // ⚠ **Which sections are open lives HERE — above the Scaffold, above the empty-list
+    // branch, and outside the LazyColumn item.** Three enclosures, and all three matter:
+    //
+    //  - the ITEM is removed when a card leaves `screen.cards`, taking any `remember`
+    //    with it however it is keyed;
+    //  - the LIST goes when [Screen.emptiness] takes the early return below — which is
+    //    what happens when the only headphone disconnects;
+    //  - so only state outside both survives a device going away and coming back.
+    //
+    // ⚠ Not hypothetical, and the first fix for it was put inside the list and did NOT
+    // work: committing a [CUSTOM] button change drops the link on purpose, and the
+    // section still shut itself the moment the card vanished. #1136.
+    //
+    // ⚠ Distinct from #973, which was the card SHRINKING so the scroll offset was
+    // clamped. Keeping the card the same height fixed that and does nothing here, where
+    // the card is gone entirely.
+    val openSections = rememberSaveable { mutableStateListOf<String>() }
     Scaffold(topBar = { TopAppBar(title = { Text("Volume") }) }) { pad ->
         screen.emptiness?.let { why ->
             Column(
@@ -303,7 +321,7 @@ fun VolumeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(screen.cards, key = { it.address }) { card ->
-                DeviceRow(card, onConnect, onSet, actions)
+                DeviceRow(card, onConnect, onSet, actions, openSections)
             }
         }
     }
@@ -315,11 +333,11 @@ private fun DeviceRow(
     onConnect: (String) -> Unit,
     onSet: (String, AncMode) -> Unit,
     actions: SettingActions,
+    openSections: MutableList<String>,
 ) {
-    // ⚠ Per card and remembered by address, so a refresh — which happens every time
-    // any pair connects or disconnects — does not fold an open section shut under
-    // someone mid-adjustment.
-    var expanded by rememberSaveable(card.address) { mutableStateOf(false) }
+    // ⚠ Owned by the caller, for the reason given where it is declared: a card that
+    // disconnects leaves the list, and anything remembered in here goes with it.
+    val expanded = card.address in openSections
     // ⚠ **The DEVICE is asking, and this forwards the question rather than answering it.**
     // The XM4 will not commit a key-assign change until it is answered, and yes drops the
     // audio link — so it is the owner's call, not a switch's. See [DeviceCard.asking].
@@ -444,8 +462,16 @@ private fun DeviceRow(
             if (open) {
                 TextButton(
                     onClick = {
-                        expanded = !expanded
-                        if (expanded && card.settings == null) actions.loadSettings(card.address)
+                        // ⚠ `expanded` is derived, so it still reads the OLD value here —
+                        // unlike the `var` this replaced, which the toggle had already
+                        // flipped. Naming the new state keeps the load firing on open.
+                        val opening = !expanded
+                        if (opening) {
+                            openSections += card.address
+                        } else {
+                            openSections -= card.address
+                        }
+                        if (opening && card.settings == null) actions.loadSettings(card.address)
                     },
                     contentPadding =
                         androidx.compose.foundation.layout
