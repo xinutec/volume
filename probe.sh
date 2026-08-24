@@ -53,11 +53,28 @@ RUN_SINCE=""
 # Print what the app logged for this run only. -T reads from the tail, so an
 # earlier run's output cannot be mistaken for this one's.
 watch_log() {
-  "${ADB[@]}" logcat -T 1 -s volume-probe:I &
+  local live="${TMPDIR:-/tmp}/probe-live.$$"
+  "${ADB[@]}" logcat -T 1 -s volume-probe:I > >(tee "$live") &
   local pid=$!
   sleep "${1:-6}"
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
+  # ⚠ **The live stream misses whatever the app printed before logcat attached**, which
+  # is anything instant: a refusal, a bad-argument complaint, `list`. On 2026-08-24 that
+  # swallowed a ⛔ REFUSED and the run read as though it had sent an UNPAIR and got no
+  # answer — thirty seconds of checking whether the headphones were still bonded. So the
+  # authoritative window is re-read and anything the stream did not show is printed.
+  local dump missed
+  dump=$("${ADB[@]}" logcat -d -t "$RUN_SINCE" -s volume-probe:I 2>/dev/null || true)
+  # ⚠ `grep -vxF -f`, not `comm`: comm needs its inputs SORTED, which reorders the
+  # transcript — the first version printed a refusal's three lines in the wrong order,
+  # so the consequence read before the command it belonged to.
+  missed=$(grep -vxF -f "$live" <<<"$dump" 2>/dev/null || true)
+  if [ -n "${missed//[[:space:]]/}" ]; then
+    echo "--- printed before the log attached:"
+    echo "$missed"
+  fi
+  rm -f "$live"
   check_ran
 }
 
