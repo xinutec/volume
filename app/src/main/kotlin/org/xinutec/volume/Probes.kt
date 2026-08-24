@@ -12,6 +12,7 @@ import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.Drivers
+import org.xinutec.volume.protocol.Hazards
 import org.xinutec.volume.protocol.Hex
 import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
@@ -138,6 +139,11 @@ class Probes(
         val totalMs = intent.getIntExtra("wait", 3000).toLong()
         val quietMs = intent.getIntExtra("quiet", 600).toLong()
 
+        // ⚠ **Before the frame is built, and before the socket is opened.** This is the
+        // last point where a hand-typed payload is still just bytes on this side. The
+        // Sony's `38` means different things per table, so the type byte goes in too.
+        if (!refused(uuid, payload, table2 = type == SonyFrame.TYPE_DATA_MDR_NO2, intent)) return
+
         val wire = if (raw) payload else SonyFrame.encode(type, seq, payload)
 
         emit("→ ${if (raw) "raw" else "sony type=%02x seq=%02x".format(type, seq)} to $mac")
@@ -173,6 +179,35 @@ class Probes(
                 frames.forEach { emit("  $it") }
             }
         }
+    }
+
+    /**
+     * True if this payload may be sent.
+     *
+     * ⚠ **Refusing is the default and `force` is per-call.** The probe's job is to send
+     * whatever it is given, so this cannot be a mode that gets left on: a session that
+     * needs `aa 95` types it once, for that one packet, having read why.
+     *
+     * ⚠ Prints the reason and the bytes together. "Refused" without the payload is not
+     * checkable against the docs, and the docs are where the consequence is argued.
+     */
+    private fun refused(
+        uuid: String?,
+        payload: ByteArray,
+        table2: Boolean,
+        intent: Intent,
+    ): Boolean {
+        val r = Hazards.check(uuid, payload, table2) ?: return true
+        if (intent.getBooleanExtra("force", false)) {
+            emit("⚠ FORCED past a refusal: ${r.what}")
+            emit("  ${r.why}")
+            return true
+        }
+        emit("⛔ REFUSED ${Hex.format(payload)}")
+        emit("  ${r.what}")
+        emit("  ${r.why}")
+        emit("  nothing was sent. --ez force true sends it anyway.")
+        return false
     }
 
     /**
