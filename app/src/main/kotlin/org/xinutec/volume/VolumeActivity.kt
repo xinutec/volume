@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -28,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,6 +62,7 @@ import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
+import org.xinutec.volume.protocol.EqSetting
 import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
@@ -71,6 +75,7 @@ import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
+import org.xinutec.volume.protocol.SonyEq
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.SpatialMode
@@ -79,6 +84,7 @@ import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.VoiceLevel
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * The app: every headphone that is bonded and drivable, and its ANC.
@@ -211,6 +217,14 @@ interface SettingActions {
     fun loadSettings(address: String)
 
     fun setEqPreset(address: String, preset: Int)
+
+    /**
+     * Move the bands of whichever preset is selected.
+     *
+     * ⚠ **All six go every time** — the frame carries the whole curve and has no
+     * field selector, so there is no such thing as writing one band.
+     */
+    fun setEqLevels(address: String, levels: List<Int>)
 
     fun setTone(address: String, bands: BoseBands)
 
@@ -558,7 +572,7 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             // ⚠ The preset id is opaque and the vendor's names for it were never
             // captured, so it is shown as a number rather than given an invented
             // name. The levels underneath are the part that means something.
-            SettingLabel("Equaliser", "preset ${eq.preset} · ${eq.levels.joinToString(", ")} dB")
+            SettingLabel("Equaliser", "preset ${eq.preset}")
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -571,13 +585,7 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
                     )
                 }
             }
-            if (settings.bands.isNotEmpty()) {
-                Text(
-                    "bands: ${settings.bands.joinToString(" · ") { hz(it) }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            EqBands(address, eq, settings.bands, actions)
         }
 
         settings.tone?.let { t ->
@@ -1001,6 +1009,64 @@ private fun SettingsSection(address: String, settings: Settings?, actions: Setti
             } else {
                 RefusedNote(settings.refusal(SettingKind.BUTTON))
             }
+        }
+    }
+}
+
+/**
+ * One slider per equaliser level, labelled with the frequency it moves.
+ *
+ * ⚠ **SIX levels for FIVE bands.** The first is CLEAR BASS, which Sony's own app
+ * draws as a separate control below the curve rather than as a sixth point on it.
+ * Zipping [levels] straight against [bands] is off by one from the first entry
+ * onward, which is why the names are built with clear bass prepended rather than by
+ * indexing one list with the other's position.
+ *
+ * ⚠ **A drag sends nothing until it is released.** The frame carries the whole curve,
+ * so every intermediate position would be a full six-band write down a channel that
+ * takes about a second per exchange — Sony's own app emits ten for one gesture. The
+ * value under the finger is local until [Slider.onValueChangeFinished].
+ *
+ * ⚠ **The scale is the vendor app's, not the device's.** No frame declares a range;
+ * [SonyEq.RANGE] is read off Sound Connect's axis. It bounds what this offers, and it
+ * is not evidence about what the headphones would refuse.
+ */
+@Composable
+private fun EqBands(address: String, eq: EqSetting, bands: List<Int>, actions: SettingActions) {
+    val names = listOf("clear bass") + bands.map(::hz)
+    // Keyed on the setting itself: when a write lands — or is contradicted — the
+    // device's own answer replaces whatever the finger left behind.
+    var dragged by remember(eq) { mutableStateOf<List<Int>?>(null) }
+    val shown = dragged ?: eq.levels
+    shown.forEachIndexed { i, level ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                names.getOrElse(i) { "band ${i + 1}" },
+                modifier = Modifier.width(76.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Slider(
+                value = level.toFloat(),
+                onValueChange = { v ->
+                    dragged = shown.toMutableList().also { it[i] = v.roundToInt() }
+                },
+                onValueChangeFinished = { dragged?.let { actions.setEqLevels(address, it) } },
+                valueRange = SonyEq.RANGE.first.toFloat()..SonyEq.RANGE.last.toFloat(),
+                // One stop per whole dB, minus the two endpoints, which Slider counts
+                // separately — 19 here, not 21. Off by one and the stops land between
+                // the values the wire can carry.
+                steps = SonyEq.RANGE.count() - 2,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                signed(level),
+                modifier = Modifier.width(36.dp),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.End,
+            )
         }
     }
 }
