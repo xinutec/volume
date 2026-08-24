@@ -542,7 +542,7 @@ and are marked below. Anything still unmarked is a name, not a measurement.
 | `82`–`87` | OPT — `01` NC_OPTIMIZER; control `00` CANCEL `01` START | ⚠ plays test tones |
 | `46`–`49` | VPT `01`, SOUND_POSITION `02` | ⚠ **only on frame type `0c`.** On `0e` these bytes are VOICE_GUIDANCE — see the second-table section |
 | `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
-| `d6 d1` | GENERAL_SETTING1 | 👁 read — names itself `TOUCH_PANEL_SETTING`, reads false, never written |
+| `d6 d1` | GENERAL_SETTING1 | ✅ **driven** — names itself `TOUCH_PANEL_SETTING`; `d8 d1 01 <v>` takes |
 | `d6 d3`, `d6 d4` | GENERAL_SETTING3 and 4 | ⚠ both absent from the 22; not on this unit. ⚠ `d4` was missing from this page until the 2026-08-23 audit |
 | `22` | COMMON_SET_POWER_OFF | ⚠ ends the session, like the JBL's `aa 97 00` |
 | `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | ⚠ telemetry, see below |
@@ -866,11 +866,14 @@ What the APK shows on a second look:
 - Sony's code uses Google's `DetectedActivity` **only for logging badges**, not for ASC. So
   the activity detection is not coming from the phone's GMS APIs.
 
-⚠ **None of that says where the on/off lives, and neither did the original claim.** The
-honest state is: *not found yet*, which is not the same as *refused*. The distinction is
-the one this page exists to keep — see multipoint, which **is** refused and has the vendor
-app failing identically as its control. ASC has no such control, because nobody has watched
-the vendor app toggle it.
+⚠ **None of that said where the on/off lived, and neither did the original claim.** The
+honest state that evening was *not found yet*, which is not the same as *refused* — the
+distinction this page exists to keep. See multipoint, which **is** refused and has the
+vendor app failing identically as its control.
+
+⛔ **SUPERSEDED the next morning: it is not on the device at all.** Kept because the
+distinction above is the reusable part, not because "not found yet" is still the state.
+The answer is in the next subsection.
 
 ### ✅ RESOLVED FROM THE SDK, 2026-08-24: THE ON/OFF IS APP-SIDE
 

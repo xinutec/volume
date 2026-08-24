@@ -116,6 +116,8 @@ named in a task; the frames are in `docs/`, not repeated here.
 | DSEE / upscaling | — | — | ✅ | — | — |
 | Speak-to-Chat | — | — | ✅ | ✅ r/w (Smart Talk) | — |
 | Pause when removed | — | — | ✅ | ✅ r/w (Auto Play) | — |
+| Speak-to-Chat detail | — | — | ✅ sensitivity · passthrough · mode-out | — | — |
+| Touch sensor panel | — | — | ✅ | — | — |
 | Focus on Voice | — | — | ✅ ⚠ ambient only | — | — |
 | Button / gestures | ✅ | — | ⛔ refused #965 | ✅ driven, shown; ⚠ 3 volume actions | — |
 
