@@ -115,6 +115,7 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Battery | — | — | ✅ read | ✅ read | — |
 | Voice guidance | — | — | ✅ | — | — |
 | Codec | — | — | ✅ read | — | — |
+| Power off | — | — | ✅ | — | — |
 | DSEE / upscaling | — | — | ✅ | — | — |
 | Speak-to-Chat | — | — | ✅ | ✅ r/w (Smart Talk) | — |
 | Pause when removed | — | — | ✅ | ✅ r/w (Auto Play) | — |
