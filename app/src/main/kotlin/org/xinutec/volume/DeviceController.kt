@@ -561,13 +561,22 @@ class DeviceController(
                 // said it had not.
                 update(address, DeviceState.Busy("reconnecting…"))
                 drop(address)
+                // ⚠ **The loop turns on the READ, not on the socket.** Measured #1137:
+                // the XM4's link is back within a second, so `openIfNeeded` succeeds on
+                // the first try — and then every read on it returns nothing, because the
+                // control channel is not serving yet. Retrying the open therefore exits
+                // immediately with a session that cannot answer, no settings are emitted,
+                // and the card silently keeps the pre-change value.
+                //
+                // ⚠ A socket that opens is not a device that will answer. That is the
+                // shape of precondition this repo has been caught by before: it passes
+                // for the wrong reason and takes the question away.
                 repeat(RECONNECT_TRIES) {
                     Thread.sleep(RECONNECT_STEP_MS)
                     val again = openIfNeeded(address)
-                    if (again != null) {
-                        refresh(address, again)
-                        return@holding
-                    }
+                    if (again != null && refresh(address, again)) return@holding
+                    // That session answers nothing; throw it away rather than reuse it.
+                    drop(address)
                 }
                 // ⚠ Say so rather than leave the old value on screen. The write almost
                 // certainly landed — that is what took the link down — and this app has
@@ -581,12 +590,24 @@ class DeviceController(
             }
         }
 
-    /** Re-read everything and put it on the card. */
-    private fun refresh(address: String, s: Session) {
+    /** Re-read everything and put it on the card; false if the device answered nothing. */
+    private fun refresh(address: String, s: Session): Boolean {
         describe(address, s)
-        runCatching { readSettings(s) }.getOrNull()?.let {
-            emit(screen.withSettings(address, it))
-        }
+        val read = runCatching { readSettings(s) }.getOrNull()
+        // ⚠ **Kept from #1137, because it is what found the cause and what would find
+        // the next one.** Two explanations were written down first — `withSettings`
+        // dropping the update, or a broadcast refresh winning the race — and this line
+        // refuted both in one run: the read simply returned nothing on a link that had
+        // just come back. Same shape as #1107 and #1117, where reasoning produced
+        // confident wrong answers and one printed value settled it.
+        val before = card(address)?.state
+        read?.let { emit(screen.withSettings(address, it)) }
+        Log.i(
+            LIVE,
+            "refresh $address: read button=${read?.button} state=$before " +
+                "→ card now ${card(address)?.settings?.button}",
+        )
+        return read != null
     }
 
     /**
