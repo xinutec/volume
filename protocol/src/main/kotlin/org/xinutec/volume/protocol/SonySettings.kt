@@ -828,3 +828,47 @@ object SonyVoiceGuidance {
         }
     }
 }
+
+/**
+ * The codec actually negotiated — `18`/`19` COMMON_*_AUDIO_CODEC.
+ *
+ * ⚠ **Not Sound Quality Mode, and the difference is what the app shows versus what the
+ * link does.** `e1` CONNECTION_MODE is the owner's *preference* — "Prioritize Sound
+ * Quality" — and Sound Connect displays that. This is `13` CODEC_INDICATOR, what the two
+ * ends settled on. "Prioritize Sound Quality" is *consistent* with LDAC; it is not the
+ * same claim, and reading one off the other is how a preference gets reported as a fact.
+ *
+ * ⚠ **Read only, and not because the write is undiscovered** — a codec is negotiated, not
+ * set. The preference that influences it is [SonySoundQuality], which is driven.
+ */
+object SonyCodec {
+    const val TYPE: Byte = 0x00
+
+    const val GET: Byte = 0x18
+    const val RET: Byte = 0x19
+
+    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+
+    /**
+     * `19 00 <AudioCodec>`, as Sony's own enum names it.
+     *
+     * ⚠ **`00 UNSETTLED` yields null, not a codec name.** It means the link has not
+     * settled on one yet, and printing "unsettled" beside the others would read as a
+     * seventh codec rather than as the absence of an answer.
+     */
+    fun state(payload: ByteArray): String? {
+        if (payload.size < 3) return null
+        if (payload[0] != RET || payload[1] != TYPE) return null
+        // ⚠ `ff` is OTHER in Sony's own enum — a codec its app cannot name either, so
+        // this says as little as the device did rather than guessing at one.
+        return when (payload[2]) {
+            0x01.toByte() -> "SBC"
+            0x02.toByte() -> "AAC"
+            0x10.toByte() -> "LDAC"
+            0x20.toByte() -> "aptX"
+            0x21.toByte() -> "aptX HD"
+            0xff.toByte() -> "another codec"
+            else -> null
+        }
+    }
+}
