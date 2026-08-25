@@ -838,6 +838,23 @@ private fun SettingsSection(
             )
         }
 
+        settings.leAudio?.let { on ->
+            SettingLabel("LE Audio", if (on) "on" else "off")
+            // ⚠ **NOT the error colour.** That one is reserved for the two hearing rows,
+            // where the sentence is a promise about the owner's ears. This is an ordinary
+            // "we do not drive this yet", and dressing it in red would flatten the
+            // difference between a rule and a gap.
+            Text(
+                "changing it renegotiates the audio link — read only for now",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        settings.auracast?.let { on ->
+            SettingLabel("Auracast", if (on) "on" else "off")
+        }
+
         settings.codec?.let { c ->
             // ⚠ A label, not a row with a control: nothing here can set a codec, and a
             // greyed switch would suggest the app merely refuses to.

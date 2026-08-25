@@ -315,6 +315,17 @@ object Drivers {
         fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
 
         /**
+         * One key out of the `aa b1` feature bag — [JblFeature.LE_AUDIO] and
+         * [JblFeature.AURACAST] are the two that are named.
+         *
+         * ⚠ **One key per exchange, because a get answers about the FIRST key only** —
+         * measured 2026-08-17: asking `01` and `02` together returned `01` alone. The
+         * vendor SDK's list form buys nothing on this firmware.
+         */
+        fun readFeature(t: Transport, key: Byte): Boolean? =
+            JblFeature.state(t.exchange(JblFeature.get(key)), key)
+
+        /**
          * Switch the pair off. ⚠ **Ends the session**; see [JblPowerOff].
          *
          * Returns nothing, for the reason [SonyXm4.powerOff] returns nothing: the link

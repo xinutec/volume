@@ -18,6 +18,7 @@ import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqSetting
+import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.NoMode
 import org.xinutec.volume.protocol.Note
@@ -323,6 +324,8 @@ class DeviceController(
                     autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
                     balance = Drivers.JblBes.readBalance(s.transport),
                     psap = Drivers.JblBes.readPsap(s.transport),
+                    leAudio = Drivers.JblBes.readFeature(s.transport, JblFeature.LE_AUDIO),
+                    auracast = Drivers.JblBes.readFeature(s.transport, JblFeature.AURACAST),
                     canPowerOff = true,
                     attempted = true,
                 )

@@ -973,6 +973,38 @@ class DriversTest {
     }
 
     /**
+     * The two named `aa b1` keys, read 2026-08-17 and again 2026-08-25 byte-identically.
+     *
+     * ⚠ **The key is checked on the way BACK, not assumed from the way out.** Replies on
+     * this command arrive concatenated — key `03`'s status once came glued to an
+     * unsolicited `aa 25` battery frame — so a reader that took "the value after the
+     * operator" would answer about whatever arrived first.
+     */
+    @Test
+    fun `jbl reads le audio and auracast by key`() {
+        val t =
+            Replay(
+                "aa b1 03 00 01 00" to "aa b1 04 02 01 01 00",
+                "aa b1 03 00 02 00" to "aa b1 04 02 02 01 01",
+            )
+        assertEquals(false, Drivers.JblBes.readFeature(t, JblFeature.LE_AUDIO))
+        assertEquals(true, Drivers.JblBes.readFeature(t, JblFeature.AURACAST))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ A reply about ANOTHER key is not an answer, and must not be read as `false`.
+     * `aa b1` answers about the first key asked, so a caller that pipelined two gets
+     * would otherwise see the second one as "off" rather than as "no answer".
+     */
+    @Test
+    fun `jbl feature read returns null when the reply names a different key`() {
+        val t = Replay("aa b1 03 00 02 00" to "aa b1 04 02 01 01 01")
+        assertNull(Drivers.JblBes.readFeature(t, JblFeature.AURACAST))
+        t.assertDrained()
+    }
+
+    /**
      * ⚠ **Pins that the driver sends the byte, not just that the constant is right.**
      * The frame is three bytes and the command sits two away from `aa 95` factory
      * reset, so what actually leaves the transport is the thing worth asserting —

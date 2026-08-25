@@ -352,6 +352,8 @@ class ScreenTest {
                 "autoPlay" to Settings(autoPlay = true),
                 "balance" to Settings(balance = Balance(on = false, level = 100)),
                 "psap" to Settings(psap = false),
+                "leAudio" to Settings(leAudio = false),
+                "auracast" to Settings(auracast = true),
                 "gestures" to
                     Settings(gestures = mapOf(Gesture.LEFT_TAP to GestureAction.ANC_AMBIENT)),
                 "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),
