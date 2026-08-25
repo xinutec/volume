@@ -90,7 +90,7 @@ Differs from the QC45 — battery moves, ANC moves:
 
 ## Not yet
 
-QC35 block `1f` (may not exist — older model).
+✅ **QC35 block `1f` does NOT exist** — settled 2026-08-25, see the end of this page.
 
 EQ (`01 07`), multipoint (`01 0a`) and the Action button (`01 09`) are **decoded** —
 `docs/bose-settings.md`, from the 2026-08-16 capture rather than from this sweep.
@@ -182,10 +182,11 @@ the function is not there. **A feature the hardware plainly has is not evidence 
 the protocol exposes it**, and the reverse inference had already been written down
 as a reason to ask.
 
-⚠ **`01 08` ALERTS returns no reply at all** — not `04` Error, not a Status. Asked
-three times, silent three times. That is a *third* outcome beyond this page's error
-taxonomy, and a driver that waits for an answer hangs on it rather than failing.
-Whatever `01 08` is, it is not a read.
+⚠ **SILENCE IS A THIRD OUTCOME, and two functions have it** — see the block `01`
+sweep below. `01 08` ALERTS and `01 07` BASS_CONTROL answer nothing at all: not `04`
+Error, not a Status. A driver that waits for an answer hangs on them rather than
+failing, and **an error-code map cannot see them** — this page locates functions by
+which error they return, and these return none.
 
 ⚠ Block `02` STATUS therefore has exactly one gettable function on this device,
 `02 02`. The QC45's richer `02 0d`/`02 0e` per-cell charge stats are not here either.
@@ -255,3 +256,99 @@ and no payload, and the device answers `04 01 01` bad/missing argument. The valu
 goes in a payload byte after the length, and a 5-byte Bose write collapses to a
 plausible-looking 4-byte one the moment the length is forgotten. Second thing to
 pin `04 01 01` in this file, after `1f 06` Get with no index.
+
+### The rest of the QC35's surface — same sitting
+
+| frame | answer | |
+| --- | --- | --- |
+| `00 03` PRODUCT_ID_VARIANT | `40 20 01` | |
+| `00 0b` COMPONENT_DEVICES | `04 01 04` | not supported |
+| `01 09` BUTTONS | `10 04 02 07` | as the 08-15 sweep, still undecoded |
+| `01 0a` MULTIPOINT | `04 01 04` | ⚠ **not supported — the QC45 HAS this** |
+| `04 05` INFO | BD_ADDR + `03 02 03` + the phone's name | argument required |
+| `04 06` EXTENDED_INFO | BD_ADDR + `07 07` | argument required |
+| `04 0c` ROUTING | `04 01 04` | not supported |
+| `05 06` NOW_PLAYING | `04 01 05` | exists, not gettable |
+
+⚠ **`04 05`/`04 06` take the DEVICE'S BD_ADDR, not an index into `04 04`'s list.**
+Both answer `04 01 01` bad/missing argument to a bare Get and to a one-byte index;
+they answer to the six-byte address that `04 04` just handed back. So the paired list
+is not an array you can subscript — it is a set of keys.
+
+⚠ **`01 0a` MULTIPOINT and `04 0c` ROUTING are both absent**, and `bose-settings.md`
+drives multipoint on the QC45. ⚠ **Two devices of one brand, one framing, and this
+function is on one of them only** — the third demonstration of that after `01 05`/`01 06`,
+and the reason a Bose "feature table" cannot be written once and applied to both.
+
+### ✅ Blocks `10` and `15` are exactly what the SDK says they are
+
+Both swept `01`–`0f`, Get only, 15/15 answered:
+
+```
+10 01  04 01 05   GET_ALL, not gettable      15 01  04 01 05   GET_ALL, not gettable
+10 02  7f 03      SUPPORTED_VPAS             15 02  00         AR_STREAMING_STATUS, off
+10 03…0f  04 01 04  not supported            15 03…0f  04 01 04  not supported
+```
+
+`VoicePersonalAssistantPackets$FUNCTIONS` and `AugmentedRealityPackets$FUNCTIONS` each
+declare four entries, two of them the `UNKNOWN`/`FUNCTION_BLOCK_INFO` sentinels — so the
+SDK predicts **two** real functions per block and the device has exactly two. A sweep
+that stops where the errors start would have found the same thing by luck; this one ran
+to `0f` in both blocks and can say the absences are absences.
+
+**`10 02` SUPPORTED_VPAS = `7f 03`**, read with the parser rather than guessed:
+
+    byte 0  bits 0–6  the ACTIVE assistant, via VoicePersonalAssistant.getByValue
+            bit  7    a flag the event carries as its second argument
+    byte 1…           a bitmask of the SUPPORTED assistants, bit n = wire value n
+
+`VoicePersonalAssistant` has three values — `00` GOOGLE_ASSISTANT, `01` ALEXA, `7f` NONE.
+So this unit **supports Google Assistant and Alexa** (`03` = bits 0 and 1) and has
+**none configured** (`7f`). ⚠ The active-assistant field is seven bits wide, not eight,
+and `7f` is a real enum value rather than a "no answer" sentinel — a reader masking with
+`0xff` gets a number that is in no table.
+
+### ⚠ Block `01` swept in full — and the EQ is SILENT here
+
+`01`, functions `01`–`16`, Get only: **20 answered, 2 silent**. The two are `01 07`
+BASS_CONTROL and `01 08` ALERTS. Everything from `01 0c` up is `04 01 04` function not
+supported, including `01 15` IMU_VOLUME_CONTROL.
+
+✅ **The silence is the function's, not a dead socket** — the control that matters.
+`01 07` was asked three times and `01 08` four, all silent; **`01 06` ANR asked
+immediately after, on the same socket, answered normally**. Without that control the
+whole finding would read as "the link dropped", which is what an empty reply looks like.
+
+⚠ **`01 07` is the QC45's equaliser**, driven and read there (`bose-settings.md`). On the
+QC35 it neither answers nor refuses. So the honest QC35 row for EQ is **unknown**, not
+"absent" — and that is a different answer from `01 0a` MULTIPOINT, which says `04 01 04`
+outright. ⚠ **A capability table built from this device must distinguish three states,
+not two:** answered, refused, and never replied.
+
+### ✅ `1f` is not on the QC35 — and the mask does not reach that far
+
+    → 1f 03 01 00   ← 1f 03 04 01 03      block not supported
+    → 1f 00 01 00   ← 1f 00 04 01 03
+    → 1f 07 01 00   ← 1f 07 04 01 03
+    → 17 00 01 00   ← 17 00 04 01 03
+    → 19 02 01 00   ← 19 02 04 01 03
+    → 01 06 01 00   ← 01 06 03 02 01 0b   the link, still alive
+
+So the "may not exist — older model" above is resolved: the block where the QC45 keeps
+its ANC is absent here, as are `17` and `19`, which the QC45 answers. The QC35's ANC
+lives at `01 06` and nowhere else.
+
+⚠ **But only `17` was a prediction — `1f` and `19` were NOT.** `00 02` returned **three
+bytes**, which describes blocks `00`–`17` and says nothing whatever about anything above
+that. Bit 23 is clear, so `17` being absent is the mask's sixth confirmed call; `19` and
+`1f` are simply off the end of it and their absence here is measured, not predicted.
+
+⚠ **A short answer to `00 02` is not a claim that the high blocks are empty**, and
+reading it as one would have "proved" the QC45 has no `1f` either. **The length of the
+mask is itself information**, and it is the trap this file already fell into once by
+sweeping to `12` and concluding the map ended.
+
+✅ **A prediction to check when a QC45 is next powered on:** it reports block `1f`, which
+no 24-bit mask can express, so its `00 02` must answer **four or more bytes**. If it
+answers three, then either the mask is not what this page says it is, or the device does
+not list `1f` in it — and either would matter more than the row it was asked for.
