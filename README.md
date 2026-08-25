@@ -110,19 +110,19 @@ named in a task; the frames are in `docs/`, not repeated here.
 | ANC | ✅ | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
 | EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
-| Auto power off | ❓ #966 | — | ✅ | ✅ | — |
+| Auto power off | ❓ #966 | — | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
 | Sound quality | — | — | ✅ | — | — |
 | Battery | — | — | ✅ read | ✅ read | — |
 | Voice guidance | — | — | ✅ | — | — |
 | Codec | — | — | ✅ read | — | — |
-| Power off | — | — | ✅ | — | — |
+| Power off | — | — | ✅ | ✅ asks first | — |
 | DSEE / upscaling | — | — | ✅ | — | — |
 | Speak-to-Chat | — | — | ✅ | ✅ r/w (Smart Talk) | — |
 | Pause when removed | — | — | ✅ | ✅ r/w (Auto Play) | — |
 | Speak-to-Chat detail | — | — | ✅ sensitivity · passthrough · mode-out | — | — |
 | Touch sensor panel | — | — | ✅ | — | — |
 | Focus on Voice | — | — | ✅ ⚠ ambient only | — | — |
-| Button / gestures | ✅ | — | ✅ ⚠ needs the alert answered | ✅ driven, shown; ⚠ 3 volume actions | — |
+| Button / gestures | ✅ | — | ✅ ⚠ needs the alert answered | ✅ editable, restores a refusal | — |
 
 ⚠ **Speak-to-Chat spent an hour in this table as "sent, not taken" and it was wrong.**
 The write was malformed: it reads with one type table and writes with another, alone among
@@ -136,14 +136,17 @@ turns out to be **app-side**, so there is no device toggle to refuse. ⚠ Callin
 them device-blocked was an overclaim made on 2026-08-23 and corrected the same evening.
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
-twenty-three device controls and fifteen of them are here — the inventory is in
-`docs/protocols.md` and the gap is #974.
+twenty-three device controls and twenty are in the app — thirteen writable, seven
+read-only. ⚠ Not all twenty are rows above: this table lists what is driven, so the
+read-only ones live in `docs/protocols.md`'s inventory instead. The gap is #974.
 
 ✅ **The XM4 has now been ASKED, 2026-08-23.** `06 00` returns its own supported-function
 list — 22 entries, count byte matching, every one a legal `FunctionType`. Six new rows
 were read from it and **six were confirmed against Sound Connect's own screens**; the
 absences retired six leads #1097 had listed as worth trying. `docs/sony-settings.md`.
-⚠ 👁 above means read and confirmed, not driven — no writer exists for those four yet.
+⚠ **`✅ read` above means read and confirmed, NOT driven** — battery on both pairs, and the
+Sony's codec. Nothing writes them, and for the codec nothing can: it is negotiated between
+the two ends, so what an owner actually chooses is sound quality.
 
 ⚠ **The Bose pair has a NAMED surface and no audit**, which are different things.
 As of 2026-08-23 the Sony and Bose command spaces are read out of the vendor APKs —
@@ -164,10 +167,9 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Open:** #966 Bose auto-off · #968 QC35 card · #974 the JBL rows still outside the
-app · #980 the JBL remote-control map · #1039 a JBL gesture editor · #935
-refresh/disconnect affordances · #1038 the probe's decode-and-print · #1098 the Bose
-BMAP inventory.
+**Open:** #966 Bose auto-off · #968 QC35 card · #974 the three JBL rows still outside
+the app · #935 refresh/disconnect affordances · #1038 the probe's decode-and-print ·
+#1098 the Bose BMAP inventory · #1154 a settings read that drops a row.
 
 ## Probe
 
