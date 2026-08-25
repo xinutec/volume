@@ -1004,6 +1004,114 @@ class DriversTest {
         t.assertDrained()
     }
 
+    /** The ordinary case: the device takes the action and reports it back. */
+    @Test
+    fun `a gesture write the device accepts needs one frame`() {
+        val t = Replay("aa 77 03 00 0a 06" to "aa 77 03 02 0a 06")
+        assertEquals(
+            GestureWrite.Took(GestureAction.PREVIOUS_TRACK),
+            Drivers.JblBes.writeGesture(
+                t,
+                Gesture.RIGHT_DOUBLE_TAP,
+                GestureAction.PREVIOUS_TRACK,
+                GestureAction.NONE,
+            ),
+        )
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **THE CASE THIS WHOLE DESIGN EXISTS FOR.** The device answers a refused action
+     * with `<gesture> 00` — a well-formed status frame saying the binding is now EMPTY.
+     * So the second write is not a retry or a nicety; without it the owner's working
+     * button is gone, and the reply that destroyed it looks exactly like a success.
+     *
+     * The left button refuses `07` ANC while taking `0c` ANC-off, measured 2026-08-17.
+     */
+    @Test
+    fun `a refused action is put back and reported`() {
+        val t =
+            Replay(
+                "aa 77 03 00 06 07" to "aa 77 03 02 06 00",
+                "aa 77 03 00 06 0b" to "aa 77 03 02 06 0b",
+            )
+        assertEquals(
+            GestureWrite.RefusedAndRestored(GestureAction.ANC, GestureAction.ANC_AMBIENT),
+            Drivers.JblBes.writeGesture(
+                t,
+                Gesture.LEFT_TAP,
+                GestureAction.ANC,
+                GestureAction.ANC_AMBIENT,
+            ),
+        )
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **The restore is BELIEVED FROM ITS OWN FRAME, not assumed to have worked.** Here
+     * the device declines it too and the binding really is lost — the one outcome that
+     * has to reach the owner as a problem rather than a shrug. Never observed; the
+     * restore goes down the same path that just refused a write, so it cannot be assumed
+     * away.
+     */
+    @Test
+    fun `a restore that is also refused is reported as lost`() {
+        val t =
+            Replay(
+                "aa 77 03 00 06 07" to "aa 77 03 02 06 00",
+                "aa 77 03 00 06 0b" to "aa 77 03 02 06 00",
+            )
+        assertEquals(
+            GestureWrite.RefusedAndLost(GestureAction.ANC, GestureAction.ANC_AMBIENT),
+            Drivers.JblBes.writeGesture(
+                t,
+                Gesture.LEFT_TAP,
+                GestureAction.ANC,
+                GestureAction.ANC_AMBIENT,
+            ),
+        )
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **An empty slot costs ONE frame, not two.** Writing NONE over NONE would spend a
+     * write to reach the state the device is already in — on a command where every write
+     * is a chance to be refused.
+     */
+    @Test
+    fun `a refusal on an unassigned control writes nothing back`() {
+        val t = Replay("aa 77 03 00 08 07" to "aa 77 03 02 08 00")
+        assertEquals(
+            GestureWrite.RefusedAndRestored(GestureAction.ANC, GestureAction.NONE),
+            Drivers.JblBes.writeGesture(
+                t,
+                Gesture.LEFT_TRIPLE_TAP,
+                GestureAction.ANC,
+                GestureAction.NONE,
+            ),
+        )
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ Asking for NONE is a real request, and it must not be read as a refusal — the
+     * wire event is identical. Only what was ASKED separates them.
+     */
+    @Test
+    fun `clearing a control on purpose is not a refusal`() {
+        val t = Replay("aa 77 03 00 06 00" to "aa 77 03 02 06 00")
+        assertEquals(
+            GestureWrite.Took(GestureAction.NONE),
+            Drivers.JblBes.writeGesture(
+                t,
+                Gesture.LEFT_TAP,
+                GestureAction.NONE,
+                GestureAction.ANC_AMBIENT,
+            ),
+        )
+        t.assertDrained()
+    }
+
     /**
      * ⚠ **Pins that the driver sends the byte, not just that the constant is right.**
      * The frame is three bytes and the command sits two away from `aa 95` factory

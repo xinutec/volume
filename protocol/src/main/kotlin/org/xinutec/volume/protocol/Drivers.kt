@@ -314,6 +314,47 @@ object Drivers {
         /** ⚠ Read only, deliberately — see [JblPsap]. */
         fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
 
+        /**
+         * Bind [g] to [want], and put [was] back if the device refuses.
+         *
+         * ⚠ **Two writes on the refusal path, deliberately.** A refused action comes back
+         * as `<gesture> 00`, which IS the binding being cleared — so the only way to leave
+         * the headphones as they were found is to write the old value again. There is no
+         * "undo" frame and no error to catch.
+         *
+         * ⚠ **[was] is the caller's, not re-read here.** Re-reading first would cost a
+         * round trip and still be a guess about the instant between the two frames; the
+         * card already holds what the last read said, and that is what the owner is
+         * looking at when they tap.
+         *
+         * ⚠ **The restore is believed from its own status frame**, never assumed. It goes
+         * down the same path that just refused a write.
+         */
+        fun writeGesture(
+            t: Transport,
+            g: Gesture,
+            want: GestureAction,
+            was: GestureAction,
+        ): GestureWrite {
+            val got =
+                JblGestures.changed(t.exchange(JblGestures.set(g, want)), g)
+                    ?: return GestureWrite.Unanswered
+            if (got == want) return GestureWrite.Took(got)
+            // ⚠ Nothing to restore into an empty slot — and writing NONE over NONE would
+            // spend a frame to reach the state it is already in.
+            if (was == GestureAction.NONE) {
+                return GestureWrite.RefusedAndRestored(want, GestureAction.NONE)
+            }
+            val back =
+                JblGestures.changed(t.exchange(JblGestures.set(g, was)), g)
+                    ?: return GestureWrite.RefusedAndLost(want, was)
+            return if (back == was) {
+                GestureWrite.RefusedAndRestored(want, back)
+            } else {
+                GestureWrite.RefusedAndLost(want, was)
+            }
+        }
+
         /** Voice Prompts' switch. ⚠ Read only — [JblVoicePrompts] says why. */
         fun readVoicePrompts(t: Transport): Boolean? =
             JblVoicePrompts.state(t.exchange(JblVoicePrompts.get()))

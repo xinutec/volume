@@ -18,6 +18,8 @@ import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqSetting
+import org.xinutec.volume.protocol.Gesture
+import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.NoMode
@@ -344,6 +346,23 @@ class DeviceController(
         what: String,
         describe: (T) -> String,
         body: (Session) -> Confirmation<T>,
+    ) = driven(address, what, { it.settingNote(describe) }, body)
+
+    /**
+     * [applied] for a write whose outcome is not a [Confirmation].
+     *
+     * ⚠ **Extracted rather than copied.** Everything below is load-bearing and was learned
+     * the hard way — the mode kept across [DeviceState.Busy], the re-read that does not
+     * trust the write's own answer, the log line that prints both. A second copy would
+     * drift from it, and the JBL gesture write is exactly the caller that needs all three:
+     * a refused write there can leave the device in a state the write's answer does not
+     * name. See [GestureWrite].
+     */
+    private fun <O> driven(
+        address: String,
+        what: String,
+        note: (O) -> Note?,
+        body: (Session) -> O,
     ) = work.execute {
         holding(address) {
             val s = openIfNeeded(address) ?: return@holding
@@ -387,7 +406,7 @@ class DeviceController(
                     s.headphones.driver.modes
                         .toList(),
                     mode,
-                    outcome.settingNote(describe),
+                    note(outcome),
                 ),
             )
             emit(screen.withSettings(address, settings))
@@ -439,6 +458,18 @@ class DeviceController(
                 mode -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
+        }
+
+    /**
+     * ⚠ **[was] comes from the CARD, which is what the owner was looking at when they
+     * tapped.** Re-reading the map first would spend a round trip and still be a guess
+     * about the moment between the two frames — and if the two disagreed, the value to
+     * put back is the one on screen, not one the device volunteered in between.
+     */
+    override fun setGesture(address: String, g: Gesture, want: GestureAction) =
+        driven(address, "setting ${g.label}", { it.note(GestureAction::label) }) {
+            val was = card(address)?.settings?.gestures?.get(g) ?: GestureAction.NONE
+            Drivers.JblBes.writeGesture(it.transport, g, want, was)
         }
 
     override fun setTimedOff(address: String, v: TimedOff) =
