@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -236,6 +238,9 @@ interface SettingActions {
 
     /** ⚠ Only the switch moves; the timeout is sent back as it was read. */
     fun setTimedOff(address: String, v: TimedOff)
+
+    /** ⚠ A refused action CLEARS the binding — see `Drivers.JblBes.writeGesture`. */
+    fun setGesture(address: String, g: Gesture, want: GestureAction)
 
     fun setCurve(address: String, curve: EqCurve)
 
@@ -909,21 +914,40 @@ private fun SettingsSection(
         }
 
         settings.gestures?.let { map ->
-            // ⚠ Read-only, and the sentence says which kind of read-only it is. This
-            // one is not the volume limiter's "we choose not to", nor `refuses`'s "the
-            // device won't": the writes work and are proven. It is that a refused
-            // action is coerced to NONE, so an editor would wipe bindings — #1039.
             SettingLabel(
                 "Controls",
                 "${map.count { it.value != GestureAction.NONE }} of ${map.size} assigned",
             )
+            // ⚠ **The device decides, one action at a time, and there is no way to ask
+            // in advance.** `aa 13` is analytics, not a capability list, and the vendor's
+            // own `product_gesture_config.json` has no entry for this model — so the app
+            // discovers the permitted set by trying, exactly as the vendor's does. What
+            // makes that safe to offer is the restore in `Drivers.JblBes.writeGesture`,
+            // not any list held here. #1039.
+            var editing by remember(address) { mutableStateOf<Gesture?>(null) }
+            editing?.let { g ->
+                GesturePicker(
+                    gesture = g,
+                    current = map[g],
+                    onPick = {
+                        editing = null
+                        actions.setGesture(address, g, it)
+                    },
+                    onDismiss = { editing = null },
+                )
+            }
             for (g in Gesture.entries) {
                 val action = map[g] ?: continue
-                Text(
-                    "${g.label} — ${action.label}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                TextButton(
+                    onClick = { editing = g },
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text(
+                        "${g.label} — ${action.label}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
@@ -1336,6 +1360,52 @@ internal fun hz(v: Int): String =
  */
 private fun idleLabel(minutes: Int) =
     if (minutes >= 60 && minutes % 60 == 0) "${minutes / 60} hr" else "$minutes min"
+
+/**
+ * Pick what a control does.
+ *
+ * ⚠ **[GestureAction.offerable], never [GestureAction.entries].** Three of the actions
+ * change the volume and one of them — `0x56` VOLUME_CONTROL — sits nowhere near the other
+ * two. Listing them here by hand is the mistake that list was built to prevent.
+ *
+ * ⚠ **"nothing" is offered on purpose.** Clearing a control is a thing an owner may want,
+ * and it is the one write that cannot fail destructively: the refusal case *is* NONE.
+ */
+@Composable
+private fun GesturePicker(
+    gesture: Gesture,
+    current: GestureAction?,
+    onPick: (GestureAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(gesture.label) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                // ⚠ Says what it COSTS. The vendor app cannot reach this case at all —
+                // it only ever offers actions the device accepts — so an owner has no
+                // prior experience of a control being declined.
+                Text(
+                    "These headphones accept a different set for each control, and there " +
+                        "is no way to ask which. A refused one is put back.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                for (a in GestureAction.offerable) {
+                    TextButton(
+                        onClick = { onPick(a) },
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text(if (a == current) "${a.label}  ·  now" else a.label)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
 
 private fun autoOffLabel(m: AutoOff) =
     when (m) {

@@ -10,7 +10,12 @@ package org.xinutec.volume.protocol
  *
  * ⚠ **LEFT_TAP is a physical BUTTON.** The M2's left cup has no touch surface at all,
  * which cost two rounds of "the write is dead" before the button was pressed. Only the
- * right cup is a touch panel — and every right-cup gesture refuses writes.
+ * right cup is a touch panel.
+ *
+ * ⚠ **"Every right-cup gesture refuses writes" was WRONG and stood here for a week.**
+ * `aa 77 03 00 0a 06` was accepted at 23:26 on 2026-08-17. Refusals are per ACTION and
+ * per gesture, not per cup: `09` wants `0a`, not the `08` play/pause that was tried, and
+ * a whole side was written off on the strength of one badly chosen action.
  */
 enum class Gesture(
     val wire: Byte,
@@ -168,4 +173,46 @@ object JblGestures {
      * reply was not a status frame for it.
      */
     fun changed(reply: ByteArray, g: Gesture): GestureAction? = state(reply)?.get(g)
+}
+
+/**
+ * What a gesture write actually did.
+ *
+ * ⚠ **Four outcomes rather than [Confirmation]'s three, because a refusal here DESTROYS
+ * something.** The device answers a refused action with `<gesture> 00` — a perfectly
+ * well-formed status frame saying the binding is now empty. So "it did not take" and "it
+ * took the previous value away" are the same wire event, and a writer that reports
+ * `Contradicted` for both is telling the owner their button still works when it does not.
+ */
+sealed interface GestureWrite {
+    /** The device took it. */
+    data class Took(
+        val action: GestureAction,
+    ) : GestureWrite
+
+    /**
+     * Refused, and the binding that was there is back.
+     *
+     * ⚠ [restored] is what the device REPORTS after the second write, not what was asked
+     * for — the restore is a write like any other and is believed the same way.
+     */
+    data class RefusedAndRestored(
+        val wanted: GestureAction,
+        val restored: GestureAction,
+    ) : GestureWrite
+
+    /**
+     * ⚠ **Refused, and the restore did not stick either — the binding is now empty.**
+     *
+     * The loud case. It has never been observed, and it must still exist: the restore is
+     * a second write down the same path that just refused one, and assuming it works
+     * because it usually does is how a silent wipe gets reported as a tidy refusal.
+     */
+    data class RefusedAndLost(
+        val wanted: GestureAction,
+        val was: GestureAction,
+    ) : GestureWrite
+
+    /** No status frame came back, so nothing is known — including whether it wrote. */
+    data object Unanswered : GestureWrite
 }

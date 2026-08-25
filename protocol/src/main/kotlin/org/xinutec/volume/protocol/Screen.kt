@@ -565,6 +565,43 @@ fun Confirmation<AncMode>.resulting(requested: AncMode): AncMode? =
     }
 
 /**
+ * What to say about a gesture write.
+ *
+ * ⚠ **A refusal that restored cleanly is a CAUTION, not a PROBLEM.** Nothing is broken —
+ * the device declined an action and the button still does what it did. Colouring that the
+ * same as a lost binding would train the owner to ignore the one message here that means
+ * something is actually wrong.
+ *
+ * [describe] renders an action, and stays in `:app` with the rest of the words.
+ */
+fun GestureWrite.note(describe: (GestureAction) -> String): Note? =
+    when (this) {
+        is GestureWrite.Took -> {
+            null
+        }
+
+        is GestureWrite.RefusedAndRestored -> {
+            Note(
+                "this pair will not put ${describe(wanted)} there; " +
+                    "it is back to ${describe(restored)}",
+                NoteKind.CAUTION,
+            )
+        }
+
+        is GestureWrite.RefusedAndLost -> {
+            Note(
+                "refused ${describe(wanted)} AND would not take ${describe(was)} back — " +
+                    "that control is now unassigned",
+                NoteKind.PROBLEM,
+            )
+        }
+
+        GestureWrite.Unanswered -> {
+            Note("no answer, so it is not known whether that control changed", NoteKind.PROBLEM)
+        }
+    }
+
+/**
  * The same rule as [note], for a setting that is not a mode.
  *
  * ⚠ Separate from [note] rather than made generic over it, because the *wording*
