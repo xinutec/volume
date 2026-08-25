@@ -166,6 +166,22 @@ data class Settings(
      * and the resolution of the contradiction that kept it off the screen until now.
      */
     val psap: Boolean? = null,
+    /**
+     * LE Audio — **read, never written, and not for a hearing reason.**
+     *
+     * ⚠ **Writing it renegotiates the audio link this app is talking over.** So it is
+     * not a switch that belongs among the others; it would drop the connection that is
+     * drawing the card. [JblFeature.set] exists and is tested, and nothing calls it.
+     */
+    val leAudio: Boolean? = null,
+    /**
+     * Auracast — read, never written.
+     *
+     * ⚠ Read-only for a weaker reason than [leAudio], and the difference is worth
+     * keeping: nothing here has *established* what flipping it does. A broadcast is a
+     * session (`aa b0`), and the switch alone has never been driven either way.
+     */
+    val auracast: Boolean? = null,
     val soundQuality: SoundQuality? = null,
     val button: String? = null,
     /**
@@ -271,6 +287,7 @@ data class Settings(
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
                 autoPlay != null || balance != null || psap != null ||
+                leAudio != null || auracast != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null

@@ -359,8 +359,9 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and sixteen are in our app** — power off joined them
-2026-08-25, and the counts are read off the column below rather than incremented.
+are decoded well enough to drive, and eighteen are in our app** — power off, LE Audio and
+Auracast joined them 2026-08-25, and the counts are read off the column below rather than
+incremented.
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -389,8 +390,8 @@ show that, which is the limit of counting them.
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | ✅ r/w |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | ✅ r/w, 3-way |
 | SilentNow | ⚠ opening it sends nothing | — |
-| Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | — |
-| LE Audio | ✅ `aa b1` key `01`, measured | — |
+| Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | ✅ read-only |
+| LE Audio | ✅ `aa b1` key `01`, measured | ✅ read-only, ⚠ link |
 | Auto Play & Pause | ✅ set `aa 35`, status `38`, DRIVEN | ✅ r/w |
 | Personal Sound Amplification | ✅ `aa a0`, contradiction resolved | ✅ read-only, ⚠ hearing |
 | Left / Right Sound Balance | ✅ `aa a8`, DRIVEN | ✅ switch r/w |
@@ -677,6 +678,24 @@ getter on the way in.
 | **Voice Assistant** | **`aa 92 01 01`** → `aa 92 09 02 01 01 02 01 03 00 04 00` |
 | **Voice Prompts** | **`aa 93 01 01`** → `aa 93 05 02 01 00 00 08`, and `aa 93 01 04` |
 
+⚠ **Voice Assistant and Voice Prompts are read and NOT shown, deliberately — 2026-08-25.**
+Both answer, byte for byte as they did on 2026-08-17:
+
+```
+→ aa 93 01 01   ← aa 93 05 02 01 00 00 08      → aa 93 01 04   ← aa 93 02 05 01
+→ aa 92 01 01   ← aa 92 09 02 01 01 02 01 03 00 04 00
+```
+
+The frames are known; **which byte carries the language is not.** `LanguageType 01` is
+ENGLISH and there is a `01` at index 4, but there are also two `00`s and an `08`, and one
+agreeing byte is exactly what made `38` look like Auto Play & Pause and put the PSAP offset
+one place out. A "Voice prompts: English" row would be that same guess wearing a label.
+
+**What would settle it:** the vendor app's Voice Prompts screen lists languages — pick a
+different one with a capture running and the write names the byte. That is a capture
+session, not a read, so it is not free. ⚠ It also leaves the headphones speaking another
+language until it is set back, using the byte under test.
+
 ✅ **`aa 92` and `aa 93` were both unknown an hour ago** — `93` was one of the unnamed
 getters in the connect sweep, and `92` had never been seen at all.
 
@@ -745,6 +764,22 @@ aa b1 <len> <op> [<keyId> <valueSize> <value…>]…      op  00 get · 01 set �
 → aa b1 03 00 03 00     ← aa b1 04 02 03 01 00      ?         off
 → aa b1 03 00 04 00 … 07     ← (nothing) ×4
 ```
+
+✅ **Re-read 2026-08-25 11:07, byte-identical**: LE Audio `00`, Auracast `01`, key `03`
+`00`. Both named keys are now rows on the card, **read-only**. LE Audio because writing it
+renegotiates the audio link the app is talking over; Auracast because nothing has
+established what its switch alone does — a broadcast is an `aa b0` session, and the key has
+never been driven either way.
+
+⚠ **The probe could not reach the device until the app was force-stopped, and the error
+blamed the DEVICE.** `volume`'s own process held a GATT client from a settings read, so the
+second `discoverServices` returned an EMPTY service list and the probe printed
+`service 65786365-… not on this device`. That sentence is about a lease, not about the
+headphones, and it failed in 19 ms — far too fast for a connect that had really happened.
+⚠ Three identical retries all failed the same way, so this reads as a hard fact about the
+device rather than as contention. `am force-stop org.xinutec.volume` cleared it instantly.
+Same shape as `probe.sh free` for the vendor apps, except the app holding the channel is
+ours.
 
 ⚠ **Key `03` is real and is named nowhere** — not in `GetSetFeatureCmd`, which has a
 `getXxxStatus` pair for `01` and `02` only. Every row of the app's device screen is
