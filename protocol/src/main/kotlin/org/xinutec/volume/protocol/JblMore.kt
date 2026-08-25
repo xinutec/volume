@@ -130,3 +130,25 @@ object JblPsap {
         return reply[ON_AT] != 0x00.toByte()
     }
 }
+
+/**
+ * Switch the JBL off — `aa 97 00`, and that is the whole command.
+ *
+ * ```
+ * → aa 97 00     ← aa 00 02 97 00     an ack, sent before the link drops
+ * ```
+ *
+ * ⚠ **The way back is physical.** The vendor app's own dialog says "To power on again,
+ * press a power button on a headphone", so this is the last thing any run can do and it
+ * costs someone getting up. Driven once, 2026-08-16 23:29, by agreement.
+ *
+ * ⚠ **`aa 95` is two bytes away and is FACTORY RESET.** A slip in this constant would
+ * wipe the gestures, the equaliser and the Personi-Fi profile, and the profile has no
+ * getter to restore it from. [Hazards] refuses `aa 95` at the wire for exactly this,
+ * which is what makes a `97` sitting next to it acceptable to write down at all.
+ */
+object JblPowerOff {
+    const val CMD: Byte = 0x97.toByte()
+
+    fun off(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x00)
+}

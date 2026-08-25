@@ -80,6 +80,19 @@ class HazardsTest {
         assertNull(Hazards.check(Channels.SONY, SonyVoiceGuidance.set(true), table2 = true))
         assertNull(Hazards.check(Channels.SPP, BoseEq.get()))
         assertNull(Hazards.check(null, JblGestures.get()))
+        assertNull(Hazards.check(null, JblPowerOff.off()))
+    }
+
+    /**
+     * ⚠ **The two bytes that must never be confused**, and they are two apart. Switching
+     * the JBL off costs a walk to the headphones; `aa 95` costs the gestures, the
+     * equaliser and a hearing profile with no getter. This asserts the guard separates
+     * them rather than refusing the neighbourhood.
+     */
+    @Test
+    fun `power off is allowed and the factory reset beside it is not`() {
+        assertNull(Hazards.check(null, bytes("aa 97 00")))
+        assertNotNull(Hazards.check(null, bytes("aa 95 00")))
     }
 
     @Test

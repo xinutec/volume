@@ -323,6 +323,7 @@ class DeviceController(
                     autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
                     balance = Drivers.JblBes.readBalance(s.transport),
                     psap = Drivers.JblBes.readPsap(s.transport),
+                    canPowerOff = true,
                     attempted = true,
                 )
             }
@@ -436,7 +437,13 @@ class DeviceController(
         }
 
     override fun setTimedOff(address: String, v: TimedOff) =
-        applied<TimedOff>(address, "setting power off", { if (it.on) "on" else "off" }) {
+        // ⚠ The label names the MINUTES too: a duration chip tapped while the switch is
+        // off changes only that byte, and "off → off" would read as a no-op in the log.
+        applied<TimedOff>(
+            address,
+            "setting power off",
+            { "${if (it.on) "on" else "off"}, ${it.minutes} min" },
+        ) {
             Drivers.JblBes.writeAutoOff(it.transport, v)
             // ⚠ The write's own reply is an ack, so the truth comes from a re-read.
             when (val after = Drivers.JblBes.readAutoOff(it.transport)) {
@@ -527,7 +534,16 @@ class DeviceController(
             holding(address) {
                 val s = openIfNeeded(address) ?: return@holding
                 update(address, DeviceState.Busy("switching off…"))
-                runCatching { (s.headphones.driver as Drivers.SonyXm4).powerOff(s.transport) }
+                // ⚠ A `when`, not a cast. Two vendors answer this now and a third
+                // will not: casting would crash the worker on whichever device is
+                // added next, at the one moment the owner is trying to end a session.
+                runCatching {
+                    when (val d = s.headphones.driver) {
+                        is Drivers.SonyXm4 -> d.powerOff(s.transport)
+                        Drivers.JblBes -> Drivers.JblBes.powerOff(s.transport)
+                        else -> Log.i(LIVE, "$address cannot be switched off from here")
+                    }
+                }
                 Log.i(LIVE, "power off sent to $address")
                 drop(address)
             }
