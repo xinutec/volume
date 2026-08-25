@@ -190,24 +190,29 @@ gap as `1f`, so they are QC45-era functions and stay unattributed.
 
 ### The rows this names that nothing has touched
 
-⚠ Wire identity only; none has been asked, and `01 05`/`01 06` differing by model is the
-reminder that a function present on one of these two need not exist on the other.
+⚠ **Most of these have now been asked on the QC35** — see "The QC35 answers step 0" at
+the end of `bose-read-surface.md`, which supersedes the "none has been asked" this
+section was written with. Four of them came back *absent* on that device, so the caution
+below turned out to be the important sentence rather than a formality.
+
+⚠ Wire identity only, and `01 05`/`01 06` differing by model is the reminder that a
+function present on one of these two need not exist on the other.
 
 | frame | feature | note |
 | --- | --- | --- |
-| `00 04` | GET_ALL_FUNCTIONS | ⚠ **the device's own capability list** — the cheapest first read, and the Bose answer to "what does this unit have" |
-| `00 02` | ALL_FUNCTION_BLOCKS | which blocks exist, before asking inside one |
-| `01 03` | VOICE_PROMPTS | on/off; `SettingsPackets$SupportedVoicePromptLanguages` carries the languages |
-| `01 04` | STANDBY_TIMER | **#966** |
-| `01 08` | ALERTS | |
-| `01 0b` | SIDETONE | how much of your own voice you hear on a call |
-| `02 03` | AUX_CABLE_DETECTION | QC35 has the socket |
-| `02 05` | CHARGER_DETECT | |
+| `00 04` | GET_ALL_FUNCTIONS | ⚠ **NOT gettable on the QC35** (`04 01 05`) — it is `00 02` that answers "what does this unit have" |
+| `00 02` | ALL_FUNCTION_BLOCKS | ✅ a bitmask; QC35 = `00 01 02 03 04 05 08 09 10 15` |
+| `01 03` | VOICE_PROMPTS | ✅ decoded — flags and language in byte 0, a 4-byte language bitmask after |
+| `01 04` | STANDBY_TIMER | ✅ **#966 answered** — driven and restored on the QC35; 60 minutes, and the field carries an auto-power-down boolean too |
+| `01 08` | ALERTS | ⚠ **answers nothing at all** on the QC35, 3/3 — not an error, no reply |
+| `01 0b` | SIDETONE | ✅ `01 02 0f` — byte-identical on both devices |
+| `02 03` | AUX_CABLE_DETECTION | ⚠ **not supported on the QC35, which HAS the socket** |
+| `02 05` | CHARGER_DETECT | ⚠ not supported on the QC35 |
 | `04 04`/`04 05`/`04 06` | LIST_DEVICES, INFO, EXTENDED_INFO | the paired list, already read once |
 | `04 08` | PAIRING_MODE | ⚠ connection-disturbing |
 | `04 0c` | ROUTING | which device the audio goes to — multipoint's other half |
 | `05 01`/`05 06` | SOURCE, NOW_PLAYING | what is playing, from the headphones' side |
-| `07 02` | CHIRP | makes them beep — find-my; harmless but audible |
+| `07 02` | CHIRP | ⚠ block `07` is absent on the QC35 — nothing to try there |
 | ⚠ `01 15` | IMU_VOLUME_CONTROL | **a volume control**; the hearing rule, in a third place |
 | ⚠ `0d` | DATA_COLLECTION | usage telemetry, as on the JBL and the Sony |
 
