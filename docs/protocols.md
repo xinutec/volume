@@ -359,9 +359,9 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and nineteen are in our app** — power off, Customize ANC,
-LE Audio and Auracast joined them 2026-08-25, and the counts are read off the column below
-rather than incremented.
+are decoded well enough to drive, and twenty are in our app** — power off, Customize ANC,
+LE Audio, Auracast and Voice Prompts joined them 2026-08-25, and the counts are read off
+the column below rather than incremented.
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -396,7 +396,7 @@ show that, which is the limit of counting them.
 | Personal Sound Amplification | ✅ `aa a0`, contradiction resolved | ✅ read-only, ⚠ hearing |
 | Left / Right Sound Balance | ✅ `aa a8`, DRIVEN | ✅ switch r/w |
 | Voice Assistant | ✅ `aa 92`, measured | — |
-| Voice Prompts (language) | ✅ `aa 93`, measured | — |
+| Voice Prompts | ✅ `aa 93` sub `04`, ABLATED | ✅ read-only; ⛔ language is OTA |
 | Max Volume Limiter | ✅ `aa a5 03 00 01 <on>` | ✅ read-only by choice, ⚠ hearing |
 | Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ r/w, all three |
 
@@ -678,23 +678,40 @@ getter on the way in.
 | **Voice Assistant** | **`aa 92 01 01`** → `aa 92 09 02 01 01 02 01 03 00 04 00` |
 | **Voice Prompts** | **`aa 93 01 01`** → `aa 93 05 02 01 00 00 08`, and `aa 93 01 04` |
 
-⚠ **Voice Assistant and Voice Prompts are read and NOT shown, deliberately — 2026-08-25.**
-Both answer, byte for byte as they did on 2026-08-17:
+### ✅ Voice Prompts is `aa 93` sub-command `04` — ablated 2026-08-25 11:47
 
 ```
-→ aa 93 01 01   ← aa 93 05 02 01 00 00 08      → aa 93 01 04   ← aa 93 02 05 01
-→ aa 92 01 01   ← aa 92 09 02 01 01 02 01 03 00 04 00
+→ aa 93 01 04   ← aa 93 02 05 <on>          the SWITCH
+→ aa 93 01 01   ← aa 93 05 02 01 00 00 08   something else, and it never moves
 ```
 
-The frames are known; **which byte carries the language is not.** `LanguageType 01` is
-ENGLISH and there is a `01` at index 4, but there are also two `00`s and an `08`, and one
-agreeing byte is exactly what made `38` look like Auto Play & Pause and put the PSAP offset
-one place out. A "Voice prompts: English" row would be that same guess wearing a label.
+Toggling the vendor app's own switch moved `05 01` → `05 00` and back. ⚠ **`aa 93 01 01`
+was unchanged across both halves** — and that is the frame this row had been filed under
+since 2026-08-17. Two sub-commands on one command byte, and the one that looked like the
+answer is the one that never moved. **Only an ablation separates them**; reading either
+alone gives a plausible frame.
 
-**What would settle it:** the vendor app's Voice Prompts screen lists languages — pick a
-different one with a capture running and the write names the byte. That is a capture
-session, not a read, so it is not free. ⚠ It also leaves the headphones speaking another
-language until it is set back, using the byte under test.
+⛔ **The LANGUAGE is out of scope, and this is a rule rather than a difficulty.** The
+picker offers eleven languages, and `BesOTATask` reads `OTA_LANGUAGE_TYPE` out of
+`OTADfuInfo`: choosing one pushes a language FILE over the DFU path. `FileType` is
+`DEFAULT/FIRMWARE/LANGUAGE/COMBO`, and `MultiLangVoicePrompt.VoiceType` is
+`INVALID/LANGUAGE/NONE/TONE`. **This repo does no OTA work**, so the language was not
+touched — the picker was opened, read, and backed out of, and `aa 93 01 01` was verified
+byte-identical afterwards.
+
+⚠ **Hence no SETTER for the switch either.** The mirror rule that guessed every other
+writer here is already broken on this device (Auto Play & Pause sets on `35`, reports on
+`38`), and `aa 93`'s neighbouring sub-commands are the OTA ones. Guessing in that space is
+the sweep this file forbids, on the one family where a wrong guess starts a file transfer.
+
+⚠ **A reply here arrived CONCATENATED** — `aa 93 02 05 01 aa 25 0d …`, the restore's answer
+with an unsolicited battery frame glued on. Same hazard as `aa b1`, and `JblVoicePrompts`
+bounds its read by the length byte for it. `JblSettingsTest` pins that exact buffer.
+
+⚠ **Voice Assistant remains unshown — `aa 92 09 02 01 01 02 01 03 00 04 00`.** The app says
+"Native" and none of `EnumHotwordVaType`'s OFF/GA/ALEX/DEFAULT/XIAOWEI fits, so the TLV's
+values are unmapped. Unlike Voice Prompts there is no safe ablation in sight: the picker's
+alternatives are assistants, not a switch.
 
 ✅ **`aa 92` and `aa 93` were both unknown an hour ago** — `93` was one of the unnamed
 getters in the connect sweep, and `92` had never been seen at all.

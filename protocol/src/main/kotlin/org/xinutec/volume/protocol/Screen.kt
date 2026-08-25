@@ -167,6 +167,14 @@ data class Settings(
      */
     val psap: Boolean? = null,
     /**
+     * Voice Prompts' switch — **read, never written.**
+     *
+     * ⚠ Read-only because the neighbouring sub-commands of `aa 93` reach the voice-prompt
+     * LANGUAGE, which the vendor pushes as a file over its DFU path. This repo does no
+     * OTA work, so it does not guess sub-commands there.
+     */
+    val voicePrompts: Boolean? = null,
+    /**
      * Customize ANC — **read, never written.**
      *
      * ⚠ Read-only because the LEVELS have no established scale, not because the device
@@ -296,6 +304,7 @@ data class Settings(
                 smartAv != null || gestures != null || battery != null ||
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
+                voicePrompts != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null

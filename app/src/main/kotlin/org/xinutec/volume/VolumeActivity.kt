@@ -838,6 +838,10 @@ private fun SettingsSection(
             )
         }
 
+        settings.voicePrompts?.let { on ->
+            SettingLabel("Voice prompts", if (on) "on" else "off")
+        }
+
         settings.advancedAnc?.let { a ->
             SettingLabel("Customize ANC", a.tuning?.name?.lowercase() ?: "unknown tuning")
             // ⚠ Raw numbers with their key names, NOT sliders. Nothing establishes what

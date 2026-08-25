@@ -63,6 +63,34 @@ class JblSettingsTest {
     }
 
     /**
+     * Both halves of the 2026-08-25 ablation, and the concatenated frame that ended it.
+     *
+     * ⚠ **The `aa 25` tail is real traffic, not a crafted case.** The restore's reply came
+     * back as `aa 93 02 05 01 aa 25 0d …` — an unsolicited battery notification glued on.
+     * A reader that scanned to the end of the buffer would take `aa` as the payload and
+     * call voice prompts on when they were off, or the reverse.
+     */
+    @Test
+    fun `voice prompts reads its switch and stops at the length byte`() {
+        assertEquals(true, JblVoicePrompts.state(bytes("aa93020501")))
+        assertEquals(false, JblVoicePrompts.state(bytes("aa93020500")))
+        assertEquals(
+            true,
+            JblVoicePrompts.state(bytes("aa93020501aa250d0100003232ffffffffffffffff")),
+        )
+    }
+
+    /**
+     * ⚠ **`aa 93 01 01` is a DIFFERENT sub-command and never moved.** For a week this row
+     * was filed under that frame; toggling the switch left it at `02 01 00 00 08` both
+     * times. Decoding it as the switch would report a constant as a setting.
+     */
+    @Test
+    fun `the other aa 93 sub-command is not the voice prompt switch`() {
+        assertNull(JblVoicePrompts.state(bytes("aa93050201000008")))
+    }
+
+    /**
      * Customize ANC, read 2026-08-17 and again 2026-08-25 byte-identically.
      *
      * ⚠ **`a1` is the assertion that matters.** It is the only key outside `01`–`08` and
