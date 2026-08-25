@@ -62,6 +62,47 @@ class JblSettingsTest {
         assertNull(JblAutoOff.state(bytes("aa220433")))
     }
 
+    /**
+     * Customize ANC, read 2026-08-17 and again 2026-08-25 byte-identically.
+     *
+     * ⚠ **`a1` is the assertion that matters.** It is the only key outside `01`–`08` and
+     * it arrives LAST, so a reader that walks fixed offsets, stops at a contiguous key
+     * range, or treats a high byte as a terminator loses the ambient level — and loses it
+     * while returning a perfectly well-formed object for the other three.
+     */
+    @Test
+    fun `customize anc decodes four sparse key value pairs`() {
+        assertEquals(
+            AdvancedAnc(
+                tuning = AncTuning.ADAPTIVE,
+                manualLevel = 7,
+                ambientLevel = 7,
+                leakageCompensation = 1,
+            ),
+            JblAdvancedAnc.state(bytes("aa910922010104070501a107")),
+        )
+    }
+
+    /**
+     * ⚠ **A short frame must not be read past its end**, and the length byte is the
+     * vendor's rather than this buffer's. `0d` claims six pairs where three are present;
+     * trusting it walks off the array.
+     */
+    @Test
+    fun `a customize anc frame that overclaims its length is refused`() {
+        assertNull(JblAdvancedAnc.state(bytes("aa910d22010104070501")))
+    }
+
+    /**
+     * ⚠ The `aa 91` MODE reply has the same command byte and a different grammar — fixed
+     * slots, sub-command `12`. Decoding it here would report an ANC tuning built out of
+     * the three mode slots.
+     */
+    @Test
+    fun `the anc mode reply is not customize anc`() {
+        assertNull(JblAdvancedAnc.state(bytes("aa910712010002000300")))
+    }
+
     /** 2026-08-16 23:29, sent once by agreement — the whole command, with no payload. */
     @Test
     fun `power off is three bytes`() {

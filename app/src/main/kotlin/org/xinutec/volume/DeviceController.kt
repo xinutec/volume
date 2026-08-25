@@ -324,6 +324,7 @@ class DeviceController(
                     autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
                     balance = Drivers.JblBes.readBalance(s.transport),
                     psap = Drivers.JblBes.readPsap(s.transport),
+                    advancedAnc = Drivers.JblBes.readAdvancedAnc(s.transport),
                     leAudio = Drivers.JblBes.readFeature(s.transport, JblFeature.LE_AUDIO),
                     auracast = Drivers.JblBes.readFeature(s.transport, JblFeature.AURACAST),
                     canPowerOff = true,

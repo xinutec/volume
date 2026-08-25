@@ -838,6 +838,28 @@ private fun SettingsSection(
             )
         }
 
+        settings.advancedAnc?.let { a ->
+            SettingLabel("Customize ANC", a.tuning?.name?.lowercase() ?: "unknown tuning")
+            // ⚠ Raw numbers with their key names, NOT sliders. Nothing establishes what
+            // these are out of, and a slider draws a scale — it would answer a question
+            // this repo has not asked the hardware.
+            val detail =
+                listOfNotNull(
+                    a.manualLevel?.let { "manual level $it" },
+                    a.ambientLevel?.let { "ambient level $it" },
+                    a.leakageCompensation?.let { "leakage $it" },
+                    a.autoCompensation?.let { "auto comp $it" },
+                    a.earCanalCompensation?.let { "ear canal $it" },
+                )
+            if (detail.isNotEmpty()) {
+                Text(
+                    detail.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         settings.leAudio?.let { on ->
             SettingLabel("LE Audio", if (on) "on" else "off")
             // ⚠ **NOT the error colour.** That one is reserved for the two hearing rows,

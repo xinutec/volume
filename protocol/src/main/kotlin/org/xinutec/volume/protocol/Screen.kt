@@ -167,6 +167,14 @@ data class Settings(
      */
     val psap: Boolean? = null,
     /**
+     * Customize ANC — **read, never written.**
+     *
+     * ⚠ Read-only because the LEVELS have no established scale, not because the device
+     * refuses: `aa 91 20` is named and unsent. Writing a number whose range is unknown is
+     * how you find the range, and finding it on hearing hardware is not free.
+     */
+    val advancedAnc: AdvancedAnc? = null,
+    /**
      * LE Audio — **read, never written, and not for a hearing reason.**
      *
      * ⚠ **Writing it renegotiates the audio link this app is talking over.** So it is
@@ -287,7 +295,7 @@ data class Settings(
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
                 autoPlay != null || balance != null || psap != null ||
-                leAudio != null || auracast != null ||
+                advancedAnc != null || leAudio != null || auracast != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null
