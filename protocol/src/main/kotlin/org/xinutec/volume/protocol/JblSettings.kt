@@ -672,6 +672,37 @@ object Bes {
     const val STATUS_RET: Byte = 0x22
 
     /**
+     * The frame inside [buffer] that [wanted] accepts, or null.
+     *
+     * ⚠ **A reply is NOT the only thing in the buffer.** `Gatt.collect` concatenates every
+     * notification that arrives in the window — it has to, because a long answer comes
+     * split across MTU-sized notifications — and this device volunteers `aa 25` battery
+     * every ten seconds. Measured 2026-08-25: **8 of 64 getters came back with a battery
+     * frame glued on**. Those all decoded, because it arrived *after*. When it arrives
+     * FIRST, offset 0 is someone else's frame, every decoder here correctly returns null,
+     * and the settings row silently vanishes — #1154.
+     *
+     * ⚠ **Returns the tail from the match, not the frame's own length.** `aa a2`'s length
+     * byte undercounts its content by one, so slicing to it would clip the equaliser's
+     * last byte. Decoders read by offset and ignore what follows, so handing them the rest
+     * of the buffer is both safe and exactly what they got before this existed.
+     *
+     * ⚠ **Skipping uses the length byte, so it cannot skip PAST an `aa a2`** — that same
+     * off-by-one would land one byte short. No curve has ever arrived unsolicited, so the
+     * case does not occur; it would show up as a null, never as a wrong value.
+     */
+    fun frame(buffer: ByteArray, wanted: (ByteArray) -> Boolean): ByteArray? {
+        var at = 0
+        while (at + 2 < buffer.size) {
+            if (buffer[at] != HEADER) return null
+            val rest = buffer.copyOfRange(at, buffer.size)
+            if (wanted(rest)) return rest
+            at += 3 + (buffer[at + 2].toInt() and 0xff)
+        }
+        return null
+    }
+
+    /**
      * The payload of `aa 22 <len> <field> …`, or null if this is another field.
      *
      * ⚠ Checking the field byte matters: these arrive unsolicited as well as in
