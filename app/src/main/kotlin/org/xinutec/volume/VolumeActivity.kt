@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -938,16 +939,20 @@ private fun SettingsSection(
             }
             for (g in Gesture.entries) {
                 val action = map[g] ?: continue
-                TextButton(
-                    onClick = { editing = g },
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text(
-                        "${g.label} — ${action.label}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                // ⚠ **`clickable`, not a TextButton.** A TextButton enforces a 48 dp
+                // minimum height, and eight of them turned a compact list into a page of
+                // sprawl — visible only in the render. The tap target is still generous
+                // because the row spans the card's full width.
+                Text(
+                    "${g.label} — ${action.label}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { editing = g }
+                            .padding(vertical = 6.dp),
+                )
             }
         }
 
@@ -1393,12 +1398,17 @@ private fun GesturePicker(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 for (a in GestureAction.offerable) {
-                    TextButton(
-                        onClick = { onPick(a) },
-                        contentPadding = PaddingValues(0.dp),
-                    ) {
-                        Text(if (a == current) "${a.label}  ·  now" else a.label)
-                    }
+                    Text(
+                        if (a == current) "${a.label}  ·  now" else a.label,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(a) }
+                                // ⚠ Roomier than the list behind it, on purpose: this is
+                                // a target being aimed at, and a mis-tap here writes to
+                                // the headphones.
+                                .padding(vertical = 12.dp),
+                    )
                 }
             }
         },
