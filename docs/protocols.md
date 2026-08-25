@@ -358,10 +358,15 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 ### ⚠ What the app has, and what we have — 2026-08-16, app column 2026-08-17
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
-status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and twenty are in our app** — power off, Customize ANC,
-LE Audio, Auracast and Voice Prompts joined them 2026-08-25, and the counts are read off
-the column below rather than incremented.
+status sweep taken minutes later. **All twenty-three rows have a wire identity and twenty
+are in our app: thirteen writable, seven read-only, three absent.** Power off, Customize
+ANC, LE Audio, Auracast and Voice Prompts joined 2026-08-25, and every count here is read
+off the column below rather than incremented.
+
+⚠ **A third number used to sit here — "twelve are decoded well enough to drive" — and it
+was both stale and underivable from this table.** Nothing below distinguishes "decoded" from
+"driven", so it could not be checked and drifted quietly. Two numbers that the column
+actually supports are worth more than three where one is folklore.
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -385,7 +390,7 @@ show that, which is the limit of counting them.
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | ✅ r/w |
 | Spatial Sound + Movie/Music/Game | ✅ `aa 9d`, modes decoded | ✅ r/w |
-| Gestures | ✅ `aa 77` reads AND sets, confirmed by ear | 👁 shown; editor #1039 |
+| Gestures | ✅ `aa 77` reads AND sets, confirmed by ear | ✅ editable, restores a refusal |
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | ✅ r/w |
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | ✅ r/w |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | ✅ r/w, 3-way |

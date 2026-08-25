@@ -144,12 +144,12 @@ data class Settings(
      */
     val smartAv: SmartAv? = null,
     /**
-     * What each control on the headphones does — **shown, not yet editable**.
+     * What each control on the headphones does — read, and editable.
      *
-     * ⚠ Read-only for a reason, not for lack of a writer: a refused action is coerced
-     * to `NONE`, so an editor that offers every action would silently WIPE a binding
-     * whenever the device declines one. [JblGestures] has the measurement; #1039 is
-     * the editor.
+     * ⚠ **Editing is only safe because the writer puts a refused action back.** The
+     * device coerces one it declines to `NONE`, which IS the binding being cleared, so
+     * an editor without that restore would wipe a working button whenever the device
+     * said no. `Drivers.JblBes.writeGesture` does it; [GestureWrite] names the outcomes.
      */
     val gestures: Map<Gesture, GestureAction>? = null,
     /** How much charge is left — read, never written, because there is nothing to write. */
