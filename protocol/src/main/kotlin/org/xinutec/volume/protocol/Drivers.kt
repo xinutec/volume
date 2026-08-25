@@ -314,6 +314,10 @@ object Drivers {
         /** ⚠ Read only, deliberately — see [JblPsap]. */
         fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
 
+        /** Voice Prompts' switch. ⚠ Read only — [JblVoicePrompts] says why. */
+        fun readVoicePrompts(t: Transport): Boolean? =
+            JblVoicePrompts.state(t.exchange(JblVoicePrompts.get()))
+
         /** Customize ANC. ⚠ Read only — [JblAdvancedAnc] says why there is no writer. */
         fun readAdvancedAnc(t: Transport): AdvancedAnc? =
             JblAdvancedAnc.state(t.exchange(JblAdvancedAnc.get()))

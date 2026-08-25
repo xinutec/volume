@@ -267,3 +267,44 @@ object JblAdvancedAnc {
         return out
     }
 }
+
+/**
+ * JBL Voice Prompts — the SWITCH only. `aa 93` sub-command `04` asks, `05` answers.
+ *
+ * ```
+ * → aa 93 01 04   ← aa 93 02 05 <on>
+ * ```
+ *
+ * ✅ **Attributed by ablation, 2026-08-25 11:47.** Toggling the vendor app's own switch
+ * moved this byte `01` → `00` and back, while `aa 93 01 01` — the frame this row was
+ * filed under for a week — stayed `aa 93 05 02 01 00 00 08` throughout. Two sub-commands
+ * on one command byte, and the one that looked like the answer was the one that never
+ * moved.
+ *
+ * ⚠ **NO SETTER, and not from caution alone.** The mirror rule that guessed every other
+ * writer here is already broken on this device — Auto Play & Pause sets on `35` and
+ * reports on `38` — and `aa 93`'s neighbouring sub-commands reach the LANGUAGE, which
+ * `BesOTATask` pushes as an `OTA_LANGUAGE_TYPE` file over the DFU path. Guessing
+ * sub-commands in that space is the sweep this repo forbids, on the one command family
+ * where a wrong guess starts a file transfer.
+ *
+ * ⚠ **The length byte bounds the read, and this frame proved why**: the restore's reply
+ * arrived as `aa 93 02 05 01 aa 25 0d …` — an unsolicited battery notification glued on.
+ * A reader that scanned to the end of the buffer would take `aa` as the payload.
+ */
+object JblVoicePrompts {
+    const val CMD: Byte = 0x93.toByte()
+
+    private const val GET_SUB: Byte = 0x04
+    private const val STATUS_SUB: Byte = 0x05
+    private const val LEN: Byte = 0x02
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, GET_SUB)
+
+    fun state(reply: ByteArray): Boolean? {
+        if (reply.size < 5) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
+        if (reply[2] != LEN || reply[3] != STATUS_SUB) return null
+        return reply[4] != 0x00.toByte()
+    }
+}
