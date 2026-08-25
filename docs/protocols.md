@@ -784,6 +784,41 @@ without a person volunteering for it.
 no frame carried it. ⚠ And it is someone's hearing profile — a repo this public gets
 the command shape and never the values.
 
+### ⚠ A REPLY IS NOT THE ONLY FRAME IN THE BUFFER — measured 2026-08-25
+
+This file records the same surprise in three places — `aa 21 01 3b`, `aa 93`, `aa b1` — each
+time as a quirk of that command. **It is not. It is a property of every read on this
+device**, and meeting it three times as a local oddity is how it went a week without being
+fixed.
+
+`Gatt.collect` concatenates every notification that arrives in the window, and it has to: a
+long answer comes split across MTU-sized notifications and the split is an artefact of the
+MTU, not of the protocol. Meanwhile the device volunteers `aa 25` battery **every ten
+seconds**, unasked.
+
+**85 getters in one connection, 64 reaching the log:**
+
+| | |
+| --- | --- |
+| answered | **64 of 64** — no dropouts at all |
+| carried a second frame glued on | **8 of 64 (12.5%)**, every one an `aa 25` |
+| came back under an unexpected command | 0 |
+
+⚠ **All 8 decoded correctly, because the battery frame arrived AFTER the answer.** The
+decoders here bound themselves by the length byte and check the command, so trailing junk is
+ignored. **The failure is the same event arriving FIRST**: offset 0 becomes someone else's
+frame, every decoder correctly returns null, and a settings row silently disappears. That is
+#1154, and the decoders were never wrong — they were handed the wrong offset.
+
+✅ **Fixed in `Bes.frame` / `Drivers.JblBes.ask`**, which tries the whole buffer first and
+only then walks frames by their length byte. ⚠ **The symptom was never reproduced on
+demand** — it was seen once, across two renders — so this is argued from the mechanism above
+plus replay tests, not demonstrated against the failure.
+
+⚠ **A skip cannot pass an `aa a2`**: that frame's length byte undercounts its content by
+one, so a skip over it lands a byte short. No curve has ever arrived unsolicited, so the case
+does not occur — and it would surface as a null, never as a wrong value.
+
 ### ✅ `aa b1` GetSetFeature — grammar and keys, 2026-08-17
 
 `com/harman/commands/GetSetFeatureCmd` is a **generic key → value map**, and it names
@@ -1010,6 +1045,11 @@ table rather than from a device.
 ⚠ **The app cannot express the destructive case**, which is why it needs no warning: it
 never offers an action the device would refuse, so it never sees a binding coerced to
 `00`. Anything with a free action list — ours — has to handle that itself.
+
+✅ **Ours does, since 2026-08-25.** `Drivers.JblBes.writeGesture` writes the previous action
+back when the device coerces one to `00`, and `GestureWrite` keeps "refused, put back" apart
+from "refused, and the restore failed too". Driven on hardware: the left button refuses `07`
+while holding `0b`, and the map read back byte-identical afterwards.
 
 ```
 gesture  00 L-whole 01 R-whole 02/03 L-swipe fwd/back 04/05 R-swipe fwd/back
