@@ -314,6 +314,10 @@ object Drivers {
         /** ⚠ Read only, deliberately — see [JblPsap]. */
         fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
 
+        /** Customize ANC. ⚠ Read only — [JblAdvancedAnc] says why there is no writer. */
+        fun readAdvancedAnc(t: Transport): AdvancedAnc? =
+            JblAdvancedAnc.state(t.exchange(JblAdvancedAnc.get()))
+
         /**
          * One key out of the `aa b1` feature bag — [JblFeature.LE_AUDIO] and
          * [JblFeature.AURACAST] are the two that are named.

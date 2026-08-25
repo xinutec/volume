@@ -152,3 +152,118 @@ object JblPowerOff {
 
     fun off(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x00)
 }
+
+/**
+ * Which way the JBL's noise cancelling decides how hard to work.
+ *
+ * ⚠ **Not a switch, and the SDK says so in its own constants** — `MANUAL_ADAPTIVE_ANC = 0`
+ * and `TRUE_ADAPTIVE_ANC = 1` are declared fields on `AdvanceAncSettings`. Reading the byte
+ * as a boolean would render "manual" as *off*, which is the one thing it is not: manual
+ * means the level in [AdvancedAnc.manualLevel] is used instead of being chosen for you.
+ */
+enum class AncTuning(
+    val wire: Int,
+) {
+    MANUAL(0),
+    ADAPTIVE(1),
+    ;
+
+    companion object {
+        fun of(wire: Int): AncTuning? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/**
+ * The vendor app's "Customize ANC" screen, as key/value pairs off the wire.
+ *
+ * ⚠ **Every field is nullable because a frame carries only the keys the device chose to
+ * send.** This unit sends four of the six; a decoder with non-null defaults would report
+ * `autoCompensation = 0` for a key that was never mentioned, which is a claim the frame
+ * does not make.
+ *
+ * ⚠ **The LEVELS are numbers, not scales.** Nothing here establishes what `7` is out of —
+ * the SDK declares constants for [tuning] alone, and the app's slider bounds were not
+ * found. So they are carried and shown as read, the same discipline as [Balance.level].
+ */
+data class AdvancedAnc(
+    val tuning: AncTuning? = null,
+    val manualLevel: Int? = null,
+    val ambientLevel: Int? = null,
+    val leakageCompensation: Int? = null,
+    val autoCompensation: Int? = null,
+    val earCanalCompensation: Int? = null,
+)
+
+/**
+ * JBL Customize ANC — `aa 91` sub-command `21` asks, `22` answers, `20` sets.
+ *
+ * ```
+ * → aa 91 01 21   ← aa 91 09 22 01 01 04 07 05 01 a1 07
+ * ```
+ *
+ * ⚠ **A THIRD grammar on `aa 91`.** The mode commands are `aa 91 07 10/12` with fixed
+ * slots `01 <anc> 02 <ambient> 03 <talkthru>`; this one is a variable-length pair list
+ * whose keys are sparse and non-consecutive. Same command byte, different shape, selected
+ * by the sub-command — so the mode readers in [Drivers] cannot be pointed at it.
+ *
+ * ⚠ **The pair count comes from the LENGTH byte, `(len - 1) / 2`**, which is
+ * `AdvancedAncCmd.parse`'s own arithmetic rather than a guess from one frame: key at
+ * `i * 2 + 4`, value at `i * 2 + 5`. `09` gives four pairs, and four is what arrived.
+ *
+ * ⚠ **`a1` is a key, not a command byte or a level.** It is the one key outside `01`–`08`,
+ * it appears last, and a reader walking fixed offsets or assuming a contiguous key space
+ * drops it — losing the ambient level while looking entirely healthy.
+ *
+ * ⚠ **No writer.** Sub-command `20` is named and has never been sent; the levels' meaning
+ * is unestablished, so a setter here would be writing numbers nobody can check.
+ */
+object JblAdvancedAnc {
+    const val CMD: Byte = 0x91.toByte()
+
+    /** `21` asks. ⚠ `20` SETS and is deliberately not offered — see above. */
+    const val GET_SUB: Byte = 0x21
+    private const val STATUS_SUB: Byte = 0x22
+
+    private const val ADAPTIVE: Byte = 0x01
+    private const val MANUAL_LEVEL: Byte = 0x04
+    private const val LEAKAGE: Byte = 0x05
+    private const val EAR_CANAL: Byte = 0x06
+    private const val AUTO_COMP: Byte = 0x08
+    private const val AMBIENT_LEVEL: Byte = 0xa1.toByte()
+
+    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, GET_SUB)
+
+    fun state(reply: ByteArray): AdvancedAnc? {
+        if (reply.size < 4) return null
+        if (reply[0] != Bes.HEADER || reply[1] != CMD || reply[3] != STATUS_SUB) return null
+        val pairs = ((reply[2].toInt() and 0xff) - 1) / 2
+        if (pairs <= 0) return null
+        var out = AdvancedAnc()
+        for (i in 0 until pairs) {
+            val at = i * 2 + 4
+            // ⚠ The length byte is the vendor's, not this buffer's: a frame that claims
+            // more pairs than it carries must stop, not read past the end.
+            if (at + 1 >= reply.size) return null
+            val v = reply[at + 1].toInt() and 0xff
+            out =
+                when (reply[at]) {
+                    ADAPTIVE -> out.copy(tuning = AncTuning.of(v))
+
+                    MANUAL_LEVEL -> out.copy(manualLevel = v)
+
+                    LEAKAGE -> out.copy(leakageCompensation = v)
+
+                    EAR_CANAL -> out.copy(earCanalCompensation = v)
+
+                    AUTO_COMP -> out.copy(autoCompensation = v)
+
+                    AMBIENT_LEVEL -> out.copy(ambientLevel = v)
+
+                    // ⚠ An unknown key is skipped, not fatal: the six named here are what
+                    // one firmware's parser knows, and a seventh must not blank the row.
+                    else -> out
+                }
+        }
+        return out
+    }
+}

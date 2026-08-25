@@ -359,9 +359,9 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and eighteen are in our app** — power off, LE Audio and
-Auracast joined them 2026-08-25, and the counts are read off the column below rather than
-incremented.
+are decoded well enough to drive, and nineteen are in our app** — power off, Customize ANC,
+LE Audio and Auracast joined them 2026-08-25, and the counts are read off the column below
+rather than incremented.
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -380,7 +380,7 @@ show that, which is the limit of counting them.
 | ⏻ power off | ✅ `aa 97 00` | ✅ button, asks first |
 | Ambient Sound Control master switch | ✅ `aa 91 07 10` all-zero, driven | ✅ r/w |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
-| Customize ANC | ✅ `aa 91 01 21` | — |
+| Customize ANC | ✅ `aa 91 01 21`, decoded | ✅ read-only |
 | Personi-Fi | ✅ `aa a1`; ⚠ `aa 9a` is the TEST | — |
 | Equalizer | `aa a2` | ✅ r/w |
 | Low Volume Dynamic EQ | ✅ `aa 9e` | ✅ r/w |
@@ -699,8 +699,33 @@ language until it is set back, using the byte under test.
 ✅ **`aa 92` and `aa 93` were both unknown an hour ago** — `93` was one of the unnamed
 getters in the connect sweep, and `92` had never been seen at all.
 
-✅ **`aa 91 01 21` is Customize ANC.** This file already had that frame, filed as "ANC
-capability, undecoded"; opening the screen is what attributed it.
+✅ **`aa 91 01 21` is Customize ANC, and it is DECODED — 2026-08-25.**
+`AdvancedAncCmd` gives cmd `91`, get `21`, status `22`, **set `20`**, and a parser whose
+arithmetic is `(len - 1) / 2` pairs with the key at `i * 2 + 4` and the value at `i * 2 + 5`.
+
+| key | `AdvanceAncSettings` field |
+| --- | --- |
+| `01` | adaptiveAnc — ⚠ `0` MANUAL_ADAPTIVE_ANC · `1` TRUE_ADAPTIVE_ANC, declared constants |
+| `04` | manualAdaptiveAncLevel |
+| `05` | leakageCompensation |
+| `06` | earCanalCompensation |
+| `08` | autoCompensation |
+| `a1` | ambientAwareLevel |
+
+So `aa 91 09 22 01 01 04 07 05 01 a1 07` is **adaptive, manual level 7, leakage 1, ambient
+level 7** — four of the six keys, which is why every field on `AdvancedAnc` is nullable.
+
+⚠ **A THIRD grammar on `aa 91`.** `10`/`12` are fixed mode slots; `21`/`22` is a sparse
+pair list. One command byte, two shapes, told apart only by the sub-command.
+
+⚠ **`a1` is a KEY.** It is the only one outside `01`–`08` and it arrives last, so a reader
+that assumes a contiguous key space or walks fixed offsets loses the ambient level while
+returning a healthy-looking object for the rest. That is what `JblSettingsTest` pins.
+
+⚠ **The LEVELS have no established scale.** `7` is out of nothing anybody here has found —
+the SDK declares constants for the tuning field alone, and the app's slider bounds were not
+located. So they are shown as numbers with their key names, never as sliders, and there is
+**no writer**: sub-command `20` is named and has never been sent.
 
 ✅ **Auracast's SESSION is `aa b0`**, now measured rather than inferred from
 `LeaAudioCmd` parsing into `AuracastGroup`. ⚠ This was read at the time as ruling `b0`
