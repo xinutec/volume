@@ -15,6 +15,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -521,9 +522,7 @@ private fun DeviceRow(
                         }
                         if (opening && card.settings == null) actions.loadSettings(card.address)
                     },
-                    contentPadding =
-                        androidx.compose.foundation.layout
-                            .PaddingValues(0.dp),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
                     Text(if (expanded) "Hide settings" else "Settings")
                 }
@@ -849,7 +848,14 @@ private fun SettingsSection(
             // ⚠ **Last, and separated, because it is not a setting.** Everything above
             // reports something the device holds; this ends the session. Putting it in
             // the flow of switches would make it one more thing to flick past.
-            TextButton(onClick = { onPowerOff() }) { Text("Switch off") }
+            // ⚠ Zero content padding, as the "Settings" link above does. A TextButton's
+            // own inset pushed this one label past every other row's left edge — visible
+            // only in a render, and the reason the card is looked at rather than reasoned
+            // about.
+            TextButton(
+                onClick = { onPowerOff() },
+                contentPadding = PaddingValues(0.dp),
+            ) { Text("Switch off") }
         }
 
         settings.battery?.let { b ->
