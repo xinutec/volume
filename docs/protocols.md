@@ -297,8 +297,16 @@ This replaces a note that had said "minutes, unverified" since the field was fou
 
 Driven both ways from this code and confirmed by read-back. ⚠ **The shape was
 guessed from the status reply and worked first time** — the setter mirrors the
-getter here, as it does on all four vendors. ⚠ `1e` = 30 was never varied by us, so the
-units are still "minutes, unverified"; only the on/off byte is measured.
+getter here, as it does on all four vendors.
+
+✅ **The duration is driven from this code too, 2026-08-25 10:06.** `3c` and `78` were
+written and read back, then `1e` restored — all three with the switch left at `00`, so
+the ablation varied the timeout byte and nothing else, and changing it was inaudible.
+The app now offers the three as chips beside the switch.
+
+⚠ **`78` = 120 does not separate an 8-bit field from a 16-bit little-endian one**, since
+its high byte would land on the trailing `00` that is already there. Every value either
+this app or the vendor's can send fits in one byte, so the trailer stays echoed.
 
 ### ✅ Equalizer — `aa a2`, a CURVE **and** a table id
 
@@ -340,9 +348,9 @@ array is big enough will read ten of its records as the equaliser.
 ⚠ **The named curves are the APP's**, as on the Bose and unlike Sony: selecting JAZZ
 sends ten numbers, not a name.
 
-⚠ **`aa 21 01 34` is NOT the EQ preset**, though it was written down as one. It read
-`00` before selecting JAZZ and `00` after. A status field that does not move when the
-setting moves is about something else.
+⚠ **`aa 21 01 34` is EQ_PRESET and this is not it.** It read `00` before selecting JAZZ
+and `00` after: it is the legacy one-byte preset field, inert on a model that carries its
+equaliser as a curve. See the status-field list above, where it is named.
 
 ⚠ **`aa 40 01 01` drew nothing and changed nothing.** `aa 40`/`aa 41`/`aa 42` are
 named in the SDK tables but none of them is the path the app uses; `aa a2` is.
@@ -351,7 +359,8 @@ named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity, twelve
-are decoded well enough to drive, and fifteen are in our app.**
+are decoded well enough to drive, and sixteen are in our app** — power off joined them
+2026-08-25, and the counts are read off the column below rather than incremented.
 
 ⚠ Those three numbers are different questions and collapsing them flatters the work:
 knowing a row is `aa 81` is not knowing what its three parameters mean, and it does not.
@@ -367,7 +376,7 @@ show that, which is the limit of counting them.
 | the app's row | wire | us |
 | --- | --- | --- |
 | battery % | ✅ `aa 25`, and it can be ASKED | ✅ read |
-| ⏻ power off | ✅ `aa 97 00` | — |
+| ⏻ power off | ✅ `aa 97 00` | ✅ button, asks first |
 | Ambient Sound Control master switch | ✅ `aa 91 07 10` all-zero, driven | ✅ r/w |
 | Noise Cancelling / Ambient Aware / TalkThru | `aa 91` | ✅ r/w |
 | Customize ANC | ✅ `aa 91 01 21` | — |
@@ -388,7 +397,7 @@ show that, which is the limit of counting them.
 | Voice Assistant | ✅ `aa 92`, measured | — |
 | Voice Prompts (language) | ✅ `aa 93`, measured | — |
 | Max Volume Limiter | ✅ `aa a5 03 00 01 <on>` | ✅ read-only by choice, ⚠ hearing |
-| Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ on/off only |
+| Auto Power Off + 30 min/1 hr/2 hr | ✅ `33`, minutes proven | ✅ r/w, all three |
 
 ✅ **Every row is now placed.** The last one, LE Audio, is `aa b1` key `01`, measured
 2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the

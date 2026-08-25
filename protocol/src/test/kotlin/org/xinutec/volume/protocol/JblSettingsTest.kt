@@ -31,6 +31,25 @@ class JblSettingsTest {
     }
 
     /**
+     * The three the app offers, driven on hardware 2026-08-25 10:06 and read back at
+     * each step — `3c` and `78` took, and `1e` restored.
+     *
+     * ⚠ **Pins the TRAILER against being composed from the minutes.** `78` is 120 and
+     * a 16-bit little-endian timeout would put its high byte exactly where that `00`
+     * sits, so the two readings agree on every value this app can send. A future edit
+     * that "fixes" the trailer would pass a read-back test and change nothing until
+     * someone asked for four hours.
+     */
+    @Test
+    fun `every offered duration writes the byte and leaves the trailer alone`() {
+        assertEquals(listOf(30, 60, 120), JBL_IDLE_MINUTES)
+        assertEquals("aa3303003c00", hex(JblAutoOff.set(TimedOff(on = false, minutes = 60))))
+        assertEquals("aa3303007800", hex(JblAutoOff.set(TimedOff(on = false, minutes = 120))))
+        assertEquals("aa3303013c00", hex(JblAutoOff.set(TimedOff(on = true, minutes = 60))))
+        assertEquals(TimedOff(on = false, minutes = 120), JblAutoOff.state(bytes("aa220433007800")))
+    }
+
+    /**
      * ⚠ The field byte is checked, not just the shape.
      *
      * `aa 22 02 31 01` is ANC, and these arrive unsolicited as well as in answer.
@@ -41,6 +60,12 @@ class JblSettingsTest {
     fun `a status frame for another field is not auto off`() {
         assertNull(JblAutoOff.state(bytes("aa22023101")))
         assertNull(JblAutoOff.state(bytes("aa220433")))
+    }
+
+    /** 2026-08-16 23:29, sent once by agreement — the whole command, with no payload. */
+    @Test
+    fun `power off is three bytes`() {
+        assertEquals("aa9700", hex(JblPowerOff.off()))
     }
 
     // ---- equaliser ---------------------------------------------------------

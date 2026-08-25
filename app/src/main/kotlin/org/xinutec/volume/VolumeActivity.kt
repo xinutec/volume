@@ -67,6 +67,7 @@ import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
+import org.xinutec.volume.protocol.JBL_IDLE_MINUTES
 import org.xinutec.volume.protocol.ModeOutTime
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.RefusalReason
@@ -688,11 +689,24 @@ private fun SettingsSection(
         settings.timedOff?.let { v ->
             SettingRow(
                 "Power off when idle",
-                if (v.on) "after ${v.minutes} minutes" else "off",
+                if (v.on) "after ${idleLabel(v.minutes)}" else "off",
                 writable = true,
                 checked = v.on,
                 onChange = { actions.setTimedOff(address, v.copy(on = it)) },
             )
+            // ⚠ Offered while OFF, like Spatial's modes and for the same reason: the
+            // device keeps the timeout across a switch-off, so hiding these would throw
+            // the choice away on every toggle. Driven at the switch's own `off` on
+            // 2026-08-25, which is also why changing one is inaudible.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in JBL_IDLE_MINUTES) {
+                    FilterChip(
+                        selected = m == v.minutes,
+                        onClick = { actions.setTimedOff(address, v.copy(minutes = m)) },
+                        label = { Text(idleLabel(m)) },
+                    )
+                }
+            }
         }
 
         settings.spatial?.let { v ->
@@ -1263,6 +1277,16 @@ internal fun hz(v: Int): String =
         v % 1000 == 0 -> "${v / 1000}k"
         else -> "${v / 1000}.${v % 1000 / 100}k"
     }
+
+/**
+ * The vendor app's own words for an idle timeout — "30 min", "1 hr", "2 hr".
+ *
+ * ⚠ Falls back to minutes for anything not a whole number of hours, rather than
+ * rounding: [JBL_IDLE_MINUTES] is what this app offers, not what the field can hold,
+ * and a value set elsewhere must read back as itself.
+ */
+private fun idleLabel(minutes: Int) =
+    if (minutes >= 60 && minutes % 60 == 0) "${minutes / 60} hr" else "$minutes min"
 
 private fun autoOffLabel(m: AutoOff) =
     when (m) {

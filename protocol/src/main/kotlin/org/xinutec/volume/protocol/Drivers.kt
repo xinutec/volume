@@ -314,6 +314,16 @@ object Drivers {
         /** ⚠ Read only, deliberately — see [JblPsap]. */
         fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
 
+        /**
+         * Switch the pair off. ⚠ **Ends the session**; see [JblPowerOff].
+         *
+         * Returns nothing, for the reason [SonyXm4.powerOff] returns nothing: the link
+         * drops as the device acts, so there is no one left to answer a read-back.
+         */
+        fun powerOff(t: Transport) {
+            t.exchange(JblPowerOff.off())
+        }
+
         fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
             JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
 

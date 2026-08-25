@@ -972,6 +972,19 @@ class DriversTest {
         t.assertDrained()
     }
 
+    /**
+     * ⚠ **Pins that the driver sends the byte, not just that the constant is right.**
+     * The frame is three bytes and the command sits two away from `aa 95` factory
+     * reset, so what actually leaves the transport is the thing worth asserting —
+     * and it is the one write on this device that cannot be checked by reading back.
+     */
+    @Test
+    fun `jbl power off sends aa 97 00 and nothing else`() {
+        val t = Replay("aa 97 00" to "aa 00 02 97 00")
+        Drivers.JblBes.powerOff(t)
+        t.assertDrained()
+    }
+
     /** 20:38:39, right after the write that turned it on. */
     @Test
     fun `jbl reads its auto power off`() {

@@ -8,15 +8,25 @@ package org.xinutec.volume.protocol
  * "Auto Power Off", and a single type covering both would have to invent a state
  * neither device has: a Sony that counts minutes, or a JBL that senses wearing.
  *
- * ⚠ [minutes] was `0x1e` = 30 in every frame ever seen, and was never varied, so the
- * unit is the vendor app's word and not a measurement. It is carried rather than
- * offered: a write sends back whatever was read, so nothing here depends on the unit
- * being right.
+ * ⚠ **[minutes] really is minutes** — the vendor app's own "30 min", "1 hr" and "2 hr"
+ * sent `1e`, `3c` and `78` on 2026-08-16, so the unit is measured rather than a label
+ * this repo chose. [JBL_IDLE_MINUTES] is what to offer; the field itself is a whole
+ * byte and is carried as read, because nothing has probed its edges.
  */
 data class TimedOff(
     val on: Boolean,
     val minutes: Int,
 )
+
+/**
+ * The three idle timeouts the vendor app offers, in minutes.
+ *
+ * ⚠ **What is OFFERED, not what is legal.** These are the three the app's picker sends;
+ * the wire field is a whole byte and its edges are unprobed. So a value read back from
+ * outside this list is shown as it stands rather than snapped to the nearest — firmware
+ * may know timeouts the app does not.
+ */
+val JBL_IDLE_MINUTES = listOf(30, 60, 120)
 
 /**
  * JBL auto power off — status field `33`, driven 2026-08-16.
@@ -40,9 +50,10 @@ object JblAutoOff {
     /**
      * The third payload byte, `00` in every frame captured and every frame sent.
      *
-     * ⚠ Echoed, not understood. It sits where a second half of a 16-bit timeout would
-     * sit, which is a guess, so it is written back as the constant it has always been
-     * rather than composed from [TimedOff.minutes].
+     * ⚠ Echoed, not understood. It sits where the high half of a 16-bit timeout would
+     * sit — and every value anyone has sent, ours and the vendor app's, fits in one
+     * byte, so nothing observed can separate the two readings. Written back as the
+     * constant it has always been rather than composed from [TimedOff.minutes].
      */
     private const val TRAILER: Byte = 0x00
 
@@ -86,9 +97,9 @@ object JblAutoOff {
  * Unexplained. The vendor app sends `0a` too, so [set] preserves it rather than
  * normalising it to something tidier.
  *
- * ⚠ **`aa 21 01 34` is NOT this**, though it was written down as "EQ preset 0". It
- * read `00` before selecting JAZZ in the app and `00` after. A status byte that does
- * not move when the setting moves is about something else.
+ * ⚠ **`aa 21 01 34` is EQ_PRESET and does NOT reach this.** It read `00` before
+ * selecting JAZZ in the app and `00` after — it is the legacy one-byte preset field,
+ * inert on a model that carries its equaliser as a curve.
  */
 object JblEq {
     const val CMD: Byte = 0xa2.toByte()
