@@ -1004,6 +1004,57 @@ class DriversTest {
         t.assertDrained()
     }
 
+    /**
+     * ⚠ **#1154: a reply preceded by an unsolicited battery frame.**
+     *
+     * `Gatt.collect` concatenates everything in the window, and this device volunteers
+     * `aa 25` every ten seconds — 8 of 64 getters carried one on 2026-08-25. Those all
+     * decoded because it arrived AFTER. This is the same event arriving FIRST, which put
+     * offset 0 on someone else's frame and made a settings row vanish.
+     *
+     * ⚠ The decoder is unchanged and still returns null for that buffer — correctly. What
+     * changed is that the driver no longer hands it the wrong offset.
+     */
+    @Test
+    fun `a reply behind an unsolicited battery frame is still found`() {
+        val battery = "aa 25 0d 01 00 00 32 32 ff ff ff ff ff ff ff ff"
+        val t = Replay("aa a0 01 01" to "$battery aa a0 07 02 01 00 02 00 03 00")
+        assertNull(
+            "the decoder must still reject the raw buffer",
+            JblPsap.state(Hex.parse(battery.replace(" ", ""))),
+        )
+        assertEquals(false, Drivers.JblBes.readPsap(t))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **The trailing case must not regress**, and it is the one actually measured: the
+     * battery frame arrives after the answer, offset 0 is already right, and the decoder
+     * ignores what follows. This path must not start skipping.
+     */
+    @Test
+    fun `a reply followed by a battery frame decodes from offset zero`() {
+        val t =
+            Replay(
+                "aa 21 01 33" to
+                    "aa 22 04 33 00 1e 00 aa 25 0d 01 00 00 32 32 ff ff ff ff ff ff ff ff",
+            )
+        assertEquals(TimedOff(on = false, minutes = 30), Drivers.JblBes.readAutoOff(t))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **A buffer with nothing for us in it stays null.** The skip must not wander into a
+     * payload and find a byte pair that looks like the frame it wants — reporting a value
+     * the device never sent is far worse than the missing row this fixes.
+     */
+    @Test
+    fun `a buffer holding only another frame is still nothing`() {
+        val t = Replay("aa a0 01 01" to "aa 25 0d 01 00 00 32 32 ff ff ff ff ff ff ff ff")
+        assertNull(Drivers.JblBes.readPsap(t))
+        t.assertDrained()
+    }
+
     /** The ordinary case: the device takes the action and reports it back. */
     @Test
     fun `a gesture write the device accepts needs one frame`() {

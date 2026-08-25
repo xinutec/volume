@@ -229,7 +229,24 @@ object Drivers {
             )
         }
 
-        fun readAutoOff(t: Transport): TimedOff? = JblAutoOff.state(t.exchange(JblAutoOff.get()))
+        /**
+         * Ask, then hand the decoder the frame it is looking for.
+         *
+         * ⚠ **This exists because the buffer can begin with someone ELSE's frame.** See
+         * [Bes.frame]: an unsolicited battery notification lands in 1 reply in 8, and when
+         * it arrives first every decoder correctly returns null and a settings row silently
+         * disappears. #1154. The decoders were never wrong; they were being handed the
+         * wrong offset.
+         *
+         * ⚠ [decode] is applied to the whole buffer FIRST, so a reply that already starts
+         * where it should behaves exactly as it did before this was added.
+         */
+        private fun <T> ask(t: Transport, request: ByteArray, decode: (ByteArray) -> T?): T? {
+            val buffer = t.exchange(request)
+            return decode(buffer) ?: Bes.frame(buffer) { decode(it) != null }?.let(decode)
+        }
+
+        fun readAutoOff(t: Transport): TimedOff? = ask(t, JblAutoOff.get(), JblAutoOff::state)
 
         /**
          * Send it, and say nothing about whether it took.
@@ -243,13 +260,13 @@ object Drivers {
             t.exchange(JblAutoOff.set(v))
         }
 
-        fun readCurve(t: Transport): EqCurve? = JblEq.curve(t.exchange(JblEq.get()))
+        fun readCurve(t: Transport): EqCurve? = ask(t, JblEq.get(), JblEq::curve)
 
         /** ⚠ Read only, deliberately — [JblSafeSound] says why there is no writer. */
         fun readVolumeLimit(t: Transport): Boolean? =
-            JblSafeSound.state(t.exchange(JblSafeSound.get()))
+            ask(t, JblSafeSound.get(), JblSafeSound::state)
 
-        fun readSpatial(t: Transport): Spatial? = JblSpatial.state(t.exchange(JblSpatial.get()))
+        fun readSpatial(t: Transport): Spatial? = ask(t, JblSpatial.get(), JblSpatial::state)
 
         /**
          * Write both the switch and the mode, and return what the device then reports.
@@ -268,33 +285,33 @@ object Drivers {
             JblSpatial.state(t.exchange(JblSpatial.set(v)))
 
         fun readVoiceAware(t: Transport): VoiceAware? =
-            JblVoiceAware.state(t.exchange(JblVoiceAware.get()))
+            ask(t, JblVoiceAware.get(), JblVoiceAware::state)
 
         /** Level and switch in one frame, and the reply is the read-back — as [writeSpatial]. */
         fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
             JblVoiceAware.state(t.exchange(JblVoiceAware.set(v)))
 
         fun readSmartTalk(t: Transport): SmartTalk? =
-            JblSmartTalk.state(t.exchange(JblSmartTalk.get()))
+            ask(t, JblSmartTalk.get(), JblSmartTalk::state)
 
         /** Switch and hold in one frame, and the reply is the read-back — as [writeSpatial]. */
         fun writeSmartTalk(t: Transport, v: SmartTalk): SmartTalk? =
             JblSmartTalk.state(t.exchange(JblSmartTalk.set(v)))
 
         fun readLowVolumeEq(t: Transport): Boolean? =
-            JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.get()))
+            ask(t, JblLowVolumeEq.get(), JblLowVolumeEq::state)
 
         fun writeLowVolumeEq(t: Transport, on: Boolean): Boolean? =
             JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.set(on)))
 
-        fun readSmartAv(t: Transport): SmartAv? = JblSmartAv.state(t.exchange(JblSmartAv.get()))
+        fun readSmartAv(t: Transport): SmartAv? = ask(t, JblSmartAv.get(), JblSmartAv::state)
 
         fun readGestures(t: Transport): Map<Gesture, GestureAction>? =
-            JblGestures.state(t.exchange(JblGestures.get()))
+            ask(t, JblGestures.get(), JblGestures::state)
 
-        fun readBattery(t: Transport): Battery? = JblBattery.state(t.exchange(JblBattery.get()))
+        fun readBattery(t: Transport): Battery? = ask(t, JblBattery.get(), JblBattery::state)
 
-        fun readAutoPlay(t: Transport): Boolean? = JblAutoPlay.state(t.exchange(JblAutoPlay.get()))
+        fun readAutoPlay(t: Transport): Boolean? = ask(t, JblAutoPlay.get(), JblAutoPlay::state)
 
         /**
          * ⚠ **The reply to the set is an ACK, not the state** — `aa 00 02 35 <on>` — so
@@ -305,14 +322,14 @@ object Drivers {
             return readAutoPlay(t)
         }
 
-        fun readBalance(t: Transport): Balance? = JblBalance.state(t.exchange(JblBalance.get()))
+        fun readBalance(t: Transport): Balance? = ask(t, JblBalance.get(), JblBalance::state)
 
         /** The level goes back as it was read — [Balance] says why it is not offered. */
         fun writeBalance(t: Transport, v: Balance): Balance? =
             JblBalance.state(t.exchange(JblBalance.set(v)))
 
         /** ⚠ Read only, deliberately — see [JblPsap]. */
-        fun readPsap(t: Transport): Boolean? = JblPsap.state(t.exchange(JblPsap.get()))
+        fun readPsap(t: Transport): Boolean? = ask(t, JblPsap.get(), JblPsap::state)
 
         /**
          * Bind [g] to [want], and put [was] back if the device refuses.
@@ -357,11 +374,11 @@ object Drivers {
 
         /** Voice Prompts' switch. ⚠ Read only — [JblVoicePrompts] says why. */
         fun readVoicePrompts(t: Transport): Boolean? =
-            JblVoicePrompts.state(t.exchange(JblVoicePrompts.get()))
+            ask(t, JblVoicePrompts.get(), JblVoicePrompts::state)
 
         /** Customize ANC. ⚠ Read only — [JblAdvancedAnc] says why there is no writer. */
         fun readAdvancedAnc(t: Transport): AdvancedAnc? =
-            JblAdvancedAnc.state(t.exchange(JblAdvancedAnc.get()))
+            ask(t, JblAdvancedAnc.get(), JblAdvancedAnc::state)
 
         /**
          * One key out of the `aa b1` feature bag — [JblFeature.LE_AUDIO] and
@@ -372,7 +389,7 @@ object Drivers {
          * vendor SDK's list form buys nothing on this firmware.
          */
         fun readFeature(t: Transport, key: Byte): Boolean? =
-            JblFeature.state(t.exchange(JblFeature.get(key)), key)
+            ask(t, JblFeature.get(key)) { JblFeature.state(it, key) }
 
         /**
          * Switch the pair off. ⚠ **Ends the session**; see [JblPowerOff].
