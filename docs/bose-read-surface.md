@@ -394,3 +394,64 @@ turned down.
 announce the mode aloud when it changes. Whether they speak the level's *name* is
 untested here — but "the device says something at this moment" was known and never
 turned into a check.
+## ✅ Bose Connect's settings screen names five more QC35 rows — 2026-08-26
+
+Opening the vendor app's own Settings (gear, top right) lists what this unit exposes:
+Name · Connections · Product Tour · Music Share · **Noise Cancellation: High** ·
+**Action Button: Noise Cancellation** · **Self Voice: Medium** · **Standby Timer:
+1 hour** · **Voice Prompts** · **Prompt Language: English (U.S.)**.
+
+Every one of those is a label for a byte this repo had already read but could not name.
+
+### ✅ #966, by the route the task actually asked for
+
+**Standby Timer reads "1 hour"** on screen, and `01 04` answers `3c` = 60. That is the
+vendor-screen comparison `bose-settings.md` asked for, and it is now the *third*
+independent route to the same answer after the SDK's `getMinutes()` and the drive-and-
+restore above. ⚠ Kept rather than dropped as redundant: the three agree, and a page that
+records only the last one loses the fact that they were ever separate.
+
+### ✅ Voice prompts, both halves
+
+The screen shows prompts on and **English (U.S.)**. The decode of `01 03`'s `a1` said
+bit 5 set (enabled) and low bits `01` = US_ENGLISH. ⚠ **Both halves of one byte confirmed
+by one screen** — and the language mattering is what makes `01` rather than `00` the
+right reading, since `00` is UK English and the two are one bit apart.
+
+### ✅ Self Voice is `01 0b` SIDETONE — decoded and driven
+
+`SidetoneMode` is `00` OFF · `01` HIGH · `02` MEDIUM · `03` LOW, and the parser reads
+`payload[0]` as a persist flag and **`payload[1]` as the level**.
+
+    Medium (as found)   ← 01 0b 03 03 01 02 0f
+    Low                 ← 01 0b 03 03 01 03 0f
+    Medium (restored)   ← 01 0b 03 03 01 02 0f
+
+Set from the vendor app each time and read from this side. Byte 1 tracks the label; byte
+2 held `0f` throughout, which is four bits for four modes. ⚠ **`0f` is NOT asserted as
+the supported-mode mask**: the SDK hands `payload[1…]` to `SupportedSidetoneModes`, which
+would include the level byte, so either the offset is wrong for a 3-byte payload or the
+field means something else. It is constant across two levels, and that is all that is
+established.
+
+⚠ **The QC45 answered `01 0b 01 02 0f` too** — byte-identical, so its Self Voice is also
+Medium with the same trailing byte.
+
+### `01 09` Action Button — one point, not driven
+
+The screen says **Noise Cancellation**; `01 09` answers `10 04 02 07`, and
+`ActionButtonMode` is `00` NOT_CONFIGURED · `01` VPA · `02` ANR · `03` BATTERY_LEVEL ·
+`04` PLAY_PAUSE. Byte 2 is `02` = ANR, which matches. ⚠ **One agreement at one value is
+not a decode** — that is exactly the evidence the QC35's ANC table had before it turned
+out to be wrong at every value. Drive it to a second setting before believing the offset.
+
+### ⚠ What the app does NOT offer, and the silent functions
+
+**There is no equaliser and no alerts screen anywhere in Bose Connect for this unit** —
+and `01 07` BASS_CONTROL and `01 08` ALERTS are the two functions that answer nothing at
+all. The app not exposing them and the device not answering them agree.
+
+⚠ **Agreement is not proof.** Silence is still not a refusal, and the honest QC35 rows
+for EQ and alerts remain **unknown** rather than absent. What this adds is that nothing
+in the vendor app contradicts the silence — where for `01 0a` MULTIPOINT the device says
+`04 01 04` outright and the app correspondingly has no such row either.
