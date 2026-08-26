@@ -14,10 +14,14 @@ like the end of the map and is not.
 | --- | --- |
 | `04 01 03` | block not supported |
 | `04 01 04` | function not supported |
-| `04 01 05` | ⚠ **function EXISTS, not gettable** — i.e. a Set or an action |
+| `04 01 05` | ⚠ **NOT "a Set" — see the 2026-08-26 correction at the end of this page.** It marks a Start/Processing/Result *transaction*, and operator `05` reads it. |
 | `04 01 01` | bad/missing argument (pinned by `1f 06` Get with no index) |
 
-`04 01 05` locates write commands **without sending a write**. On the QC45:
+⚠ **RETRACTED 2026-08-26 — `04 01 05` does NOT locate write commands**; several of
+these are readable transactions (`01 01`, `00 04`, `15 01` all stream data to operator
+`05`). The list below is kept because it is a true record of which functions answered
+`04 01 05`, but it classifies nothing. ⚠ **`04 07` CLEAR_DEVICE_LIST is in it — never
+send it with any operator but `01`.** On the QC45:
 `01 01  02 01  03 03  03 05  03 08  03 09  03 0b  03 0c  04 07  05 02  05 06
 06 01  07 01  07 05  07 0b`.
 
@@ -455,3 +459,101 @@ all. The app not exposing them and the device not answering them agree.
 for EQ and alerts remain **unknown** rather than absent. What this adds is that nothing
 in the vendor app contradicts the silence — where for `01 0a` MULTIPOINT the device says
 `04 01 04` outright and the app correspondingly has no such row either.
+
+## ⚠⚠ `04 01 05` DOES NOT MEAN "NOT GETTABLE" — it means "use Start" — 2026-08-26
+
+Captured Bose Connect cold-launching onto the QC35 (`~/.cache/volume-captures/
+2026-08-26-bose-connect/`, window 09:04:18–09:04:54). Its very first moves are
+`00 01` BMAP_VERSION then **`00 02` ALL_FUNCTION_BLOCKS** — the capability read this
+page arrived at independently. Then it does the thing this page had no idea about:
+
+    → 01 01 05 00                     SETTINGS/GET_ALL, operator 05 START
+    ← 01 01 07 00                     Processing
+    ← 01 02 03 12 00 "Pippijn Bose QC35"
+    ← 01 03 03 05 a1 00 04 cf de      voice prompts
+    ← 01 04 03 01 3c                  standby timer
+    ← 01 06 03 02 01 0b               ANR
+    ← 01 09 03 04 10 04 02 07         action button
+    ← 01 0b 03 03 01 02 0f            sidetone
+    ← 01 01 06 00                     Result
+
+**`01 01` answers `04 01 05` to a Get and streams the entire block to a Start.**
+Reproduced from this side on four functions:
+
+| asked | operator 01 Get | operator 05 Start |
+| --- | --- | --- |
+| `01 01` SETTINGS/GET_ALL | `04 01 05` | ✅ six settings + Result |
+| `00 04` GET_ALL_FUNCTIONS | `04 01 05` | ✅ firmware, MAC, serial + Result |
+| `15 01` AR/GET_ALL | `04 01 05` | ✅ `15 02` = `00` + Result |
+| `07 01` CONTROL/GET_ALL | `04 01 03` | `04 01 03` — block really is absent |
+
+⚠ **So the error table at the top of this page is WRONG about `04 01 05`, and the
+"`04 01 05` locates write commands without sending a write" method built on it does
+not hold.** Those functions are not Sets; they are *transactions*, and Start reads
+them. The taxonomy is really:
+
+    04 01 03   block not supported
+    04 01 04   function not supported
+    04 01 05   ⚠ NOT a Set — a Start/Processing/Result transaction. Ask with 05.
+    04 01 01   bad or missing argument
+
+⚠⚠ **AND THIS MAKES THE `04 07` HAZARD WORSE, NOT BETTER.** `04 07`
+CLEAR_DEVICE_LIST is on the `04 01 05` list. It is now known that some members of
+that list are readable transactions — which is exactly the reasoning that would
+talk somebody into sending `04 07 05 00` to see what it returns. **DO NOT SEND
+OPERATOR 05 TO BLOCK `04`.** The list can no longer be used to classify anything as
+either safe or destructive, so `04 07` keeps its old status: unpairs everything,
+never send it with any operator but `01`.
+
+⚠ **Only `01 01` was observed being Started by the vendor app** (plus `05 02`,
+`05 06` and `10 01` in the same capture). `00 04` and `15 01` were **extrapolated**
+by this repo and happened to be benign reads. That extrapolation is exactly what
+must not be repeated on block `04`.
+
+### ✅ The silence is answered: the device does not have those functions
+
+`01 01` GET_ALL enumerates **six** settings: `01 02`, `01 03`, `01 04`, `01 06`,
+`01 09`, `01 0b`. **`01 07` BASS_CONTROL and `01 08` ALERTS are not among them.**
+
+That is the device's own enumeration of its own block, so the earlier "unknown, and
+silence is not a refusal" can be retired: **the QC35 has no equaliser and no alerts
+function.** It also matches Bose Connect exposing neither. ⚠ The silence itself is
+still unexplained — a function absent from GET_ALL might reasonably answer
+`04 01 04` like every other absent function, and these two answer nothing at all.
+What changed is that their *absence* is now established; the *silence* is not.
+
+### ⚠ Bose batches packets, and nothing here splits them
+
+The app writes **eight BMAP packets in one SPP write**:
+
+    01 01 05 00 | 02 02 01 00 | 00 07 01 00 | 00 02 01 00 |
+    04 04 01 00 | 00 0b 01 00 | 00 03 01 00 | 00 03 01 00
+
+and the device batches replies the same way — one read carried `01 03`, `01 04`,
+`01 06` and `01 09` glued together. **This is #1154's shape in the Bose protocol.**
+Every Bose decoder here reads a fixed offset off the front of whatever
+`Transport.exchange` returned, which is right only while each request draws exactly
+one frame. The JBL has `Bes.frame` for this; Bose has no equivalent. One-packet-per-
+exchange has hidden it so far.
+
+### The rest of the connect, in order
+
+`00 05` FIRMWARE_VERSION + `00 0a` HARDWARE_REVISION (batched, and `00 0a` answers
+`04 01 04` — **not supported on the QC35**, though the QC45 answers `"SOR"`), then
+GET_ALL, then `02 02` battery, `00 07` serial, `04 04` paired list, `00 03` variant,
+`10 01` VPA Start, `04 05` INFO keyed by the phone's BD_ADDR. Later: `15 02` AR,
+`01 02` name, `04 08` PAIRING_MODE, `05 01` SOURCE, `05 02` AUDIO GET_ALL by Start
+(yielding `05 03`, `05 04`, `05 05` **VOLUME `19 12`**, `05 06`), and `05 06`
+NOW_PLAYING by Start → `"Not Provided"`.
+
+⚠ **Block `09` NOTIFICATION is never touched.** The app does not subscribe to
+anything — it **polls**, asking `02 05` CHARGER_DETECT and `02 02` BATTERY_LEVEL a
+few seconds apart, **each sent twice**. So there is no subscription mechanism to copy
+here, and the repeated-send is the app's own behaviour rather than a retry after a
+failure: `02 05` answers `04 01 04` both times and it asks again anyway.
+
+⚠ **The tshark field for the QC35 is `btspp.data`, NOT `data.data`.** `captures.md`
+says `data.data` for "Sony/Bose RFCOMM"; on this capture that filter returns 5 rows
+and `btspp` returns 41. A filter returning almost nothing is the wrong field, not a
+quiet device — which is the trap that page already warns about, in the entry that
+gave the wrong field.

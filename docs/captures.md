@@ -61,9 +61,10 @@ capture** — `aa 40 01 01` drawing nothing is the signal to stop, not to try `a
 ⚠ `mergecap`/`tshark` need `nix shell nixpkgs#wireshark-cli`.
 ⚠ **`-e hci_h4.direction`** — `0x00` sent, `0x01` received. Sony frames carry no
 direction, and inferring it from the opcode got a command pair backwards.
-⚠ **The field name differs by dissector**: `data.data` for Sony/Bose RFCOMM, but
-**`btspp.data`** for the JLab (`data` is empty there) and `btatt.value` for the JBL's
-GATT. A filter that returns 0 rows usually means the wrong field, not a quiet device.
+⚠ **The field name differs by dissector**: `data.data` for Sony RFCOMM, but
+**`btspp.data`** for the JLab and ⚠ **for the Bose QC35 too** (measured 2026-08-26:
+`btrfcomm && data.len > 4` returned 5 rows against `btspp`'s 41), and `btatt.value`
+for the JBL's GATT. A filter that returns 0 rows usually means the wrong field, not a quiet device.
 ⚠ Bare `3e01xx00000000…3c` frames are **acks**, not replies.
 
 ## 2026-08-24 evening — Sony WH-1000XM4, Adaptive Sound Control (`…/2026-08-24-sony-asc/`)
