@@ -54,9 +54,39 @@ capture** — `aa 40 01 01` drawing nothing is the signal to stop, not to try `a
 ### Extracting
 
     unzip -o -q bugreport-*.zip 'FS/data/misc/bluetooth/logs/*' -d extracted
+    scripts/btsnoop.py extracted/FS/data/misc/bluetooth/logs/btsnoop_hci.log{.last,}
+
+⚠ **`tshark` is NOT available on this Mac and should not be planned around.** On
+2026-08-26 there was no binary in the store and `nix shell nixpkgs#wireshark-cli`
+blocked behind a store GC freeing 43 GB — with a capture already taken and a window
+that does not come back. `scripts/btsnoop.py` reads the log directly, and it also
+sidesteps the `data.data` / `btspp.data` dissector trap below, since it never asks a
+dissector which channel it is looking at.
+
+The old route still works where tshark exists:
+
     mergecap -w merged.pcap btsnoop_hci.log.last btsnoop_hci.log
     tshark -r merged.pcap -Y 'btrfcomm && data.len > 4' \
       -T fields -e frame.time -e hci_h4.direction -e data.data
+
+### ⚠ Start with `--channels`, because one device is several streams
+
+    scripts/btsnoop.py --channels <logs…>
+    device               dlci  payloads  BMAP-shaped
+    4C:87:5D:CC:A0:23       8       293          269
+    4C:87:5D:CC:A0:23      10        41            0
+    4C:87:5D:CC:A0:23      20        14           12    ← protobuf, not BMAP
+
+**That last row is the reason the flag exists.** DLCI 20 carries a protobuf stream —
+its payloads contain a version string in plain ASCII — and **12 of its 14 payloads
+pass the BMAP shape test anyway**, decoding as tidy `SET` frames on blocks this repo
+knows. Measured, not feared. Filter with `--dlci` and `--mac`; the phone is bonded to
+thirteen things and holds several at once, so "the headphones' capture" contains a
+watch and a laptop as well.
+
+⚠ **`--mac` needs the connection event to be IN the log.** Handles are reused after a
+disconnect, so the mapping is last-writer-wins; a log that starts mid-connection has
+no event to learn from and those frames get no address.
 
 ⚠ `mergecap`/`tshark` need `nix shell nixpkgs#wireshark-cli`.
 ⚠ **`-e hci_h4.direction`** — `0x00` sent, `0x01` received. Sony frames carry no
