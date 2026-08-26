@@ -110,9 +110,9 @@ named in a task; the frames are in `docs/`, not repeated here.
 | ANC | ✅ | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
 | EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
-| Auto power off | ❓ #966 | — | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
+| Auto power off | ❓ #966 | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
 | Sound quality | — | — | ✅ | — | — |
-| Battery | — | — | ✅ read | ✅ read | — |
+| Battery | — | ✅ read | ✅ read | ✅ read | — |
 | Voice guidance | — | — | ✅ | — | — |
 | Codec | — | — | ✅ read | — | — |
 | Power off | — | — | ✅ | ✅ asks first | — |
@@ -122,7 +122,11 @@ named in a task; the frames are in `docs/`, not repeated here.
 | Speak-to-Chat detail | — | — | ✅ sensitivity · passthrough · mode-out | — | — |
 | Touch sensor panel | — | — | ✅ | — | — |
 | Focus on Voice | — | — | ✅ ⚠ ambient only | — | — |
-| Button / gestures | ✅ | — | ✅ ⚠ needs the alert answered | ✅ editable, restores a refusal | — |
+| Button / gestures | ✅ | ❓ #1188 | ✅ ⚠ needs the alert answered | ✅ editable, restores a refusal | — |
+| Self voice (sidetone) | — | ✅ off / low / medium / high | — | — | — |
+| Voice prompts | — | ✅ + language, 13 the device offers | — | ✅ read | — |
+| Rename | — | ✅ | — | — | — |
+| Paired devices | — | ✅ list · connect new · forget | — | — | — |
 
 ⚠ **Speak-to-Chat spent an hour in this table as "sent, not taken" and it was wrong.**
 The write was malformed: it reads with one type table and writes with another, alone among
@@ -134,6 +138,12 @@ XM4's [CUSTOM] button is not refused — Sony's app changes it and we cannot, wh
 and is an asymmetry, not a wall. Adaptive Sound Control is not refused either: its on/off
 turns out to be **app-side**, so there is no device toggle to refuse. ⚠ Calling either of
 them device-blocked was an overclaim made on 2026-08-23 and corrected the same evening.
+
+⚠ **The QC35 column was five rows short until 2026-08-26**, having been "ANC only" since it
+was written. Everything above was decoded and driven that day, each label checked against
+Bose Connect's own screens rather than against this repo's reading of the bytes — which is
+how the ANC row came to be wrong at **all three** of its values for months. Only Music
+Share (`04 0a`/`04 0b`, needs a second Bose) and the Action button are outstanding.
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-three device controls and twenty are in the app — thirteen writable, seven
@@ -167,9 +177,11 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Open:** #966 Bose auto-off · #968 QC35 card · #974 the three JBL rows still outside
-the app · #935 refresh/disconnect affordances · #1038 the probe's decode-and-print ·
-#1098 the Bose BMAP inventory · #1154 a settings read that drops a row.
+**Open:** #1185 the QC45's ANC labels, ⚠ **P2 — the QC35's were wrong at all three values**
+· #966 Bose auto-off on the QC45 · #974 the three JBL rows still outside the app ·
+#935 disconnect, the one connections verb still unattested · #1038 the probe's
+decode-and-print · #1098 the Bose BMAP inventory, QC45 half · #1154 a settings read that
+drops a row · #1191 a card open still re-reads everything two or three times.
 
 ## Probe
 

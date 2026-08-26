@@ -86,6 +86,12 @@ elimination.
 
 ## QC35 reads
 
+⚠ **This is the 2026-08-15 SWEEP, kept as the record of what was seen then.** Several
+readings on it were later corrected or explained, and the corrections are further down
+rather than edited in — `01 04` is the standby timer, `01 06`'s values are Off/High/Low,
+`04 04`'s leading byte is a connected bitmask, `09 02` is a subscription that is already
+on. **Read the dated sections below before quoting anything here.**
+
 Differs from the QC45 — battery moves, ANC moves:
 ```
 00 01  "1.0.4"   00 05  "4.8.1"   00 06  own BD_ADDR
@@ -455,10 +461,11 @@ out to be wrong at every value. Drive it to a second setting before believing th
 and `01 07` BASS_CONTROL and `01 08` ALERTS are the two functions that answer nothing at
 all. The app not exposing them and the device not answering them agree.
 
-⚠ **Agreement is not proof.** Silence is still not a refusal, and the honest QC35 rows
-for EQ and alerts remain **unknown** rather than absent. What this adds is that nothing
-in the vendor app contradicts the silence — where for `01 0a` MULTIPOINT the device says
-`04 01 04` outright and the app correspondingly has no such row either.
+⚠ **SUPERSEDED the same day — they are ABSENT, not unknown.** This paragraph said the EQ
+and alerts rows "remain unknown rather than absent", which was right until `01 01` GET_ALL
+was asked: it enumerates six settings and neither is among them. See "The silence is
+answered" below. What is still open is only *why* they answer nothing at all where every
+other absent function answers `04 01 04`.
 
 ## ⚠⚠ `04 01 05` DOES NOT MEAN "NOT GETTABLE" — it means "use Start" — 2026-08-26
 
@@ -522,7 +529,7 @@ still unexplained — a function absent from GET_ALL might reasonably answer
 `04 01 04` like every other absent function, and these two answer nothing at all.
 What changed is that their *absence* is now established; the *silence* is not.
 
-### ⚠ Bose batches packets, and nothing here splits them
+### ⚠ Bose batches packets — `BoseFrame.frames` splits them, since 2026-08-26
 
 The app writes **eight BMAP packets in one SPP write**:
 
@@ -720,7 +727,7 @@ is not available".** The first was `04 01 05` reading as "not gettable" when it 
 with Start". The vendor app's behaviour bounds what is *attested*, never what the device
 *does*.
 
-### The read stops when the protocol is finished — measured, and smaller than predicted
+### ✅ The read stops when the protocol is finished — 8.77 s → 1.84 s on the wire
 
 `Transport.exchange` waited **400 ms of quiet** after the last byte before returning, on a
 device whose replies arrive about **1 ms** after the request (probe timestamps: sent

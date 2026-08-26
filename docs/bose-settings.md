@@ -188,7 +188,12 @@ CONTROL/GET_ALL, `03 03`/`03 05` firmware transfer and validate. ⚠ `03 08`, `0
 `03 0b`, `03 0c`, `07 05` and `07 0b` are **not** in Bose Connect's SDK at all — the same
 gap as `1f`, so they are QC45-era functions and stay unattributed.
 
-### The rows this names that nothing has touched
+### The rows this names — most of which have now been touched
+
+⚠ **Heading kept, contents overtaken.** As of 2026-08-26 the QC35 half of this table is
+largely done and several entries below are marked with what was found; `04 03`
+REMOVE_DEVICE and `01 02` PRODUCT_NAME are not in it at all and are both built. The
+QC45's half is untouched, which is what #1098 is for.
 
 ⚠ **Most of these have now been asked on the QC35** — see "The QC35 answers step 0" at
 the end of `bose-read-surface.md`, which supersedes the "none has been asked" this
@@ -204,14 +209,14 @@ function present on one of these two need not exist on the other.
 | `00 02` | ALL_FUNCTION_BLOCKS | ✅ a bitmask; QC35 = `00 01 02 03 04 05 08 09 10 15` |
 | `01 03` | VOICE_PROMPTS | ✅ decoded — flags and language in byte 0, a 4-byte language bitmask after |
 | `01 04` | STANDBY_TIMER | ✅ **#966 answered** — driven and restored on the QC35; 60 minutes, and the field carries an auto-power-down boolean too |
-| `01 08` | ALERTS | ⚠ **answers nothing at all** on the QC35, 3/3 — not an error, no reply |
-| `01 0b` | SIDETONE | ✅ `01 02 0f` — byte-identical on both devices |
+| `01 08` | ALERTS | ⚠ answers nothing, 3/3 — and **absent from `01 01` GET_ALL**, so the device does not have it |
+| `01 0b` | SIDETONE | ✅ **driven** — Bose Connect's "Self Voice"; level is payload `[1]`, write is `<persist> <level>` |
 | `02 03` | AUX_CABLE_DETECTION | ⚠ **not supported on the QC35, which HAS the socket** |
 | `02 05` | CHARGER_DETECT | ⚠ not supported on the QC35 |
-| `04 04`/`04 05`/`04 06` | LIST_DEVICES, INFO, EXTENDED_INFO | the paired list, already read once |
-| `04 08` | PAIRING_MODE | ⚠ connection-disturbing |
-| `04 0c` | ROUTING | which device the audio goes to — multipoint's other half |
-| `05 01`/`05 06` | SOURCE, NOW_PLAYING | what is playing, from the headphones' side |
+| `04 04`/`04 05`/`04 06` | LIST_DEVICES, INFO, EXTENDED_INFO | ✅ **built** — ⚠ `04 04`'s first byte is a CONNECTED bitmask, not a count; `04 05` is keyed by ADDRESS; `04 06` still undecoded |
+| `04 08` | PAIRING_MODE | ✅ **built** as "Connect new" — `04 08 05 01 01`, a START; ⚠ its GET answers `06` RESULT |
+| `04 0c` | ROUTING | ⚠ **not supported on the QC35** (`04 01 04`), as is `01 0a` MULTIPOINT |
+| `05 01`/`05 06` | SOURCE, NOW_PLAYING | read; ⚠ `05 06` needs operator `05` START, and the device volunteers `05 01` unasked |
 | `07 02` | CHIRP | ⚠ block `07` is absent on the QC35 — nothing to try there |
 | ⚠ `01 15` | IMU_VOLUME_CONTROL | **a volume control**; the hearing rule, in a third place |
 | ⚠ `0d` | DATA_COLLECTION | usage telemetry, as on the JBL and the Sony |
