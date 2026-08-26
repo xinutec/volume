@@ -735,3 +735,40 @@ object BoseDevices {
         ).trim { it <= ' ' }.ifBlank { null }
     }
 }
+
+/** What happened when a device was asked to be forgotten. */
+sealed interface Forget {
+    /** Gone from the list, confirmed by re-reading it. */
+    data object Forgot : Forget
+
+    /**
+     * ⚠ **Refused because the device is CONNECTED.**
+     *
+     * Removing a connected device disconnects it as part of the same command — captured
+     * 2026-08-26, where `04 03` drew unsolicited `04 02` DISCONNECT frames back. The
+     * phone this app talks over is always connected, so refusing every connected entry
+     * makes it impossible to cut our own channel, **without needing to know which
+     * address is ours** — which is the part that cannot be established: Android hands
+     * out a fake adapter address, and whether `04 09` names the SPP peer or merely the
+     * active audio device has never been tested.
+     */
+    data class Connected(
+        val name: String?,
+    ) : Forget
+
+    /** The list came back without it being asked, or not at all. */
+    data object Unverifiable : Forget
+
+    /** It answered, and the device is still listed. */
+    data object StillThere : Forget
+}
+
+/** `04 03` REMOVE_DEVICE — Bose Connect's "disconnect & forget". */
+object BoseForget {
+    /**
+     * ⚠ **START, and the payload is the ADDRESS to forget.** Captured from the vendor
+     * app; the Set-shaped guess would have been `04 03 02 06 <addr>`.
+     */
+    fun frame(address: ByteArray) =
+        BoseFrame.encode(BoseDevices.BLOCK, 0x03, BoseFrame.START, address)
+}

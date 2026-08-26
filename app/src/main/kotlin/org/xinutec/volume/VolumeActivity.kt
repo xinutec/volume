@@ -254,6 +254,9 @@ interface SettingActions {
      */
     fun startPairing(address: String)
 
+    /** ⚠ Refused for a CONNECTED device — see [Forget.Connected]. */
+    fun forgetDevice(address: String, device: String)
+
     /** ⚠ Carries the prompt LANGUAGE across — it shares the byte. */
     fun setVoicePrompts(address: String, on: Boolean)
 
@@ -901,6 +904,14 @@ private fun SettingsSection(
                     "  ${d.name ?: d.address}",
                     if (d.connected) "connected" else "paired",
                 )
+                // ⚠ Offered ONLY when it is not connected. Forgetting a live device
+                // disconnects it as part of the same command, and the phone drawing this
+                // card is always the connected one.
+                if (!d.connected) {
+                    TextButton(onClick = { actions.forgetDevice(address, d.address) }) {
+                        Text("Forget")
+                    }
+                }
             }
             // ⚠ One button, no toggle. Leaving pairing mode has never been sent, and the
             // mode times out by itself — a "stop" here would be a guessed frame on the
