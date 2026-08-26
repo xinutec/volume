@@ -374,6 +374,26 @@ class ScreenTest {
                 "voiceGuidance" to Settings(voiceGuidance = false),
                 "codec" to Settings(codec = "LDAC"),
                 "focusOnVoice" to Settings(focusOnVoice = false),
+                // ⚠ A real slot as the QC45 reports one, not a blank: `editable` is what
+                // decides whether the card offers a level slider at all, so a sample with
+                // it false would let a broken renderer pass.
+                "cnc" to
+                    Settings(
+                        cnc =
+                            CncModes(
+                                modes =
+                                    listOf(
+                                        BoseCncModes.Mode(
+                                            slot = 2,
+                                            nameId = 10,
+                                            name = "Home",
+                                            level = 4,
+                                            editable = true,
+                                        ),
+                                    ),
+                                active = 2,
+                            ),
+                    ),
             )
         for ((name, one) in each) {
             assertTrue("$name alone should be something to show", one.any)

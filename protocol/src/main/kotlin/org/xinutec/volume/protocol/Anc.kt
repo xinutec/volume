@@ -94,6 +94,35 @@ interface AncDriver {
     val modes: Set<AncMode>
 
     /**
+     * Whether the device supplies its OWN mode names, making [modes] the wrong thing
+     * to put on screen.
+     *
+     * ⚠ **This exists because the QC45's card drew the ANC control twice and the two
+     * copies disagreed.** Its slots are Quiet · Aware · Home · Commute; [AncMode] can
+     * name two of them, and [read] calls every non-zero level `AMBIENT` — so with the
+     * device sitting in "Commute" the card said **Ambient** at the top and **Commute**
+     * lower down, for one setting. Both rows were reasonable in isolation and the
+     * contradiction was visible only in a screenshot.
+     *
+     * ⚠ **Not `modes.isEmpty()`**: this driver really does accept an [AncMode] write —
+     * that is how the two ends are reached — so claiming otherwise would be a
+     * different lie. What is false is that those two are the whole story.
+     */
+    val namesOwnModes: Boolean
+        get() = false
+
+    /**
+     * What the card should offer as [AncMode] chips — empty when the device names its
+     * own modes.
+     *
+     * ⚠ **A function rather than three copies of the same conditional.** The screen
+     * builds its Ready state in three places, and the first fix here covered one of
+     * them; the other two would have gone on drawing the contradictory row on the
+     * paths that a write and a reconnect take.
+     */
+    fun offeredModes(): List<AncMode> = if (namesOwnModes) emptyList() else modes.toList()
+
+    /**
      * The mode the device reports, or **null when it cannot be read** — which is a
      * real state, not a failure, and the screen must not spin on it.
      *

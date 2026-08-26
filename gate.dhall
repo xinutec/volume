@@ -91,10 +91,30 @@ in  { name = "volume"
             `--strict` rather than plain mypy: the faults were all "this value can
             be absent and nobody said so", which is exactly what the optional-type
             rules catch and what a permissive run would let through again.
+
+            ⚠ **`../recall#dev-python`, NOT `nixpkgs#mypy`.** #992: a bare
+            `nixpkgs#` goes through the flake REGISTRY, which follows the ambient
+            channel rather than any lock here — so the tool version drifts and a
+            green run is not reproducible from the repo. Worse in practice: it
+            *unpacks the channel*, and on 2026-08-26 that fired a nix auto-GC
+            wanting 43 GB on a store with 19 GiB free, which killed the check by
+            signal twice in a row and blocked a commit for ten minutes. The row
+            read `exit None`, which does not look like a version-pinning problem
+            at all. `recall`'s shell is pinned by its own lock and is already in
+            the store, because the ktlint row above uses it.
         -}
         G.Check::{
         , name = "scripts type-check"
-        , argv = [ "nix", "shell", "nixpkgs#mypy", "-c", "mypy", "--strict", "scripts/" ]
+        , argv =
+          [ "nix"
+          , "shell"
+          , "../recall#dev-python"
+          , "--no-warn-dirty"
+          , "-c"
+          , "mypy"
+          , "--strict"
+          , "scripts/"
+          ]
         , timeout_s = 900
         }
       , G.checkTable "../dev-lint"

@@ -49,6 +49,9 @@ object Drivers {
         MultipointDriver {
         override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
 
+        /** ⚠ Quiet · Aware · Home · Commute — see [AncDriver.namesOwnModes]. */
+        override val namesOwnModes = true
+
         override fun readMultipoint(t: Transport): Boolean? =
             BoseMultipoint.state(t.exchange(BoseMultipoint.get()))
 
@@ -81,6 +84,45 @@ object Drivers {
 
         fun writeButton(t: Transport, action: BoseButton.Action): BoseButton.Action? =
             BoseButton.state(t.exchange(BoseButton.set(action)))
+
+        /**
+         * The mode table and which slot is selected — **one exchange, not two.**
+         *
+         * ⚠ The `1f 01` transaction already carries a `1f 03` Status among its frames,
+         * so asking for the active slot separately would be a second round trip for a
+         * byte that is already in the buffer. Measured from the capture, not assumed.
+         */
+        fun readModes(t: Transport): CncModes? {
+            val buffer = t.exchange(BoseCncModes.list())
+            val modes = BoseCncModes.modes(buffer)
+            if (modes.isEmpty()) return null
+            return CncModes(modes, BoseCncModes.activeSlot(buffer))
+        }
+
+        /**
+         * Select a slot, and report the table as it stands afterwards.
+         *
+         * ⚠ **Re-read rather than assume.** The selection is also moved by the button on
+         * the headphones, so what came back from a write is the only thing worth showing.
+         */
+        fun selectMode(t: Transport, slot: Int): CncModes? {
+            t.exchange(BoseCncModes.select(slot))
+            return readModes(t)
+        }
+
+        /**
+         * Move one mode's level on the eleven-point scale.
+         *
+         * ⚠ **Only a mode the device marks editable.** Quiet and Aware report
+         * [BoseCncModes.Mode.editable] false, and nothing here has established what the
+         * firmware does with a write to one of them — refusing locally costs nothing and
+         * a wrong guess there edits the two modes the owner cannot recreate.
+         */
+        fun setModeLevel(t: Transport, mode: BoseCncModes.Mode, level: Int): CncModes? {
+            if (!mode.editable) return null
+            t.exchange(BoseCncModes.setLevel(mode, level))
+            return readModes(t)
+        }
 
         private const val QUIET: Byte = 0x00
         private const val AWARE: Byte = 0x01

@@ -92,6 +92,28 @@ data class Focus(
 )
 
 /**
+ * The QC45's ANC as the device actually models it — named slots on an eleven-point
+ * scale, not a two-ended enum.
+ *
+ * ⚠ **Deliberately NOT folded into [AncMode].** That enum names kinds of noise
+ * control; this is a *list the owner edits*, two entries built in and two of their
+ * own making, and its members' meanings are whatever they called them. Adding a
+ * third enum entry was the obvious move and would have been wrong: "Home" is not a
+ * kind of ANC, it is a level with a name on it.
+ *
+ * ⚠ [active] can change **without this app doing anything** — the hardware button
+ * cycles the slots. So it is read, never remembered.
+ */
+data class CncModes(
+    val modes: List<BoseCncModes.Mode>,
+    val active: Int?,
+) {
+    /** The slot the device says is selected, if it is one this list knows about. */
+    val current: BoseCncModes.Mode?
+        get() = modes.firstOrNull { it.slot == active }
+}
+
+/**
  * What one device reported when asked for everything it has.
  *
  * A null field means **not asked, or this device has no such setting** — the two are
@@ -196,6 +218,13 @@ data class Settings(
     val devices: List<BoseDevice> = emptyList(),
     /** Whether the headphones are advertising for a new device — Bose's "Connect new". */
     val pairing: Boolean? = null,
+    /**
+     * The QC45's ANC mode table — see [CncModes] for why it is not [AncMode].
+     *
+     * ⚠ **Not cacheable across a card open**: the headphones' own button moves the
+     * selection, so a stale copy shows the wrong mode after the wearer touches them.
+     */
+    val cnc: CncModes? = null,
     /**
      * Whether this pair can be renamed from here.
      *
@@ -352,6 +381,7 @@ data class Settings(
                 advancedAnc != null || leAudio != null || auracast != null ||
                 voicePrompts != null || standby != null || selfVoice != null ||
                 promptLanguage != null || pairing != null || devices.isNotEmpty() ||
+                cnc != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null
