@@ -112,7 +112,7 @@ Anything else is named in a task; the frames are in `docs/`, not repeated here.
 
 | | QC45 | QC35 | Sony XM4 | JBL M2 | JLab |
 | --- | --- | --- | --- | --- | --- |
-| ANC | ✅ | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
+| ANC | ✅ 4 named modes, 11 levels | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
 | EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | 👁 read `00`, not wired #1193 | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
@@ -183,15 +183,17 @@ alone, so it is not a preset in Sony's sense and nothing establishes which the d
 obeys.
 
 **Open:** #1193 the four QC45 settings this code already speaks and does not wire ·
-#1194 the QC45's ANC is eleven levels drawn as two, so its "Home" mode reads as Ambient ·
-#1192 seven QC45 blocks the device lists that nothing has asked · #974 the three JBL rows
-still outside the app · #935 disconnect, the one connections verb still unattested ·
-#1038 the probe's decode-and-print · #1154 a settings read that drops a row · #1191 a card
-open still re-reads everything two or three times.
+#1202 the QC45's modes can be selected and edited but not created or deleted · #1203 a chip
+tap during a write is silently dropped · #974 the three JBL rows still outside the app ·
+#935 disconnect, the one connections verb still unattested · #1038 the probe's
+decode-and-print · #1154 a settings read that drops a row · #1191 a card open still
+re-reads everything two or three times.
 
-**Closed 2026-08-26 on the QC45**, all three read-only: #1185 the ANC labels are right and
-the device said so itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP
-inventory, whose four-byte answer was predicted the day before.
+**Closed 2026-08-26 on the QC45**: #1185 the ANC labels are right and the device said so
+itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP inventory, whose
+four-byte answer was predicted the day before · #1196 what a settings write permanently
+cleared · #1192 the seven unasked blocks · #1194 the mode card, built and driven · #992 the
+gate's mypy row, which followed a channel and was being killed by a store GC.
 
 ## Probe
 
