@@ -84,9 +84,18 @@ knows. Measured, not feared. Filter with `--dlci` and `--mac`; the phone is bond
 thirteen things and holds several at once, so "the headphones' capture" contains a
 watch and a laptop as well.
 
-⚠ **`--mac` needs the connection event to be IN the log.** Handles are reused after a
-disconnect, so the mapping is last-writer-wins; a log that starts mid-connection has
-no event to learn from and those frames get no address.
+⚠ **`--mac` needs the connection event to be IN the log.** A log that starts
+mid-connection has no event to learn from, and those frames get no address rather than
+a guessed one.
+
+⚠⚠ **A handle is REUSED after a disconnect, so the address is resolved PER MOMENT.** The
+first version of this built one `{handle: address}` map over the whole file — and that
+silently relabels earlier traffic with whoever held the handle LAST. On 2026-08-26 it put
+a morning of QC35 exchanges under the QC45's address and nearly got "the vendor app wrote
+to your QC45" written down as fact. **It was caught only because the payload was five
+bytes where that device answers seven** — the data disagreeing with its label, which is
+not a check that always exists. Fixed the same day; the caveat is kept because the wrong
+version looked completely convincing.
 
 ⚠ `mergecap`/`tshark` need `nix shell nixpkgs#wireshark-cli`.
 ⚠ **`-e hci_h4.direction`** — `0x00` sent, `0x01` received. Sony frames carry no

@@ -932,12 +932,33 @@ a deliberate `01 03 02 01 61` which the device answered `a1`, refusing the bit.
 sends `0x20 | language` and nothing else. So this is a device-owned flag that a toggle
 resets, is not settable from here, and Bose Connect never reads.
 
-✅ **A falsifiable guess, worth one power cycle:** bit 6 means *not modified since
-power-on*. It fits everything seen — set on a QC45 that had not been written to, cleared
-by the first write, never returning, and absent from the QC35, which had been written to
-all day before its `a1` was recorded. **Power the QC45 off and on and read `01 03`. If it
-answers `e1`, that is the meaning; if it answers `a1`, the guess is dead** and the flag is
-something a toggle destroys permanently, which would matter more.
+⛔ **That guess was "not modified since power-on". It is DEAD** — checked 2026-08-26 and
+the branch that mattered more is the one that happened. Pippijn power-cycled the QC45 and
+`01 03` answered `a1`.
+
+⚠ **And the first reading of that was nearly wrong.** Bose Music auto-starts on the
+reconnect (`BoseCompanionDeviceService`), so "the app cleared it again within seconds of
+boot" produces exactly the same byte as "the firmware never restores it" — opposite
+meanings, one observation. The capture separates them: after the power cycle the
+handshake ran `00 01`, `00 02`, `00 03`, `09 02`, `02 01` and **no `01 03` write at all**,
+while the first reading already said `a1`. The device came up that way.
+
+The full history of this function on this device, from the same capture:
+
+    13:38 · 13:46 · 14:00   e1     three reads, nothing written yet
+    14:04  01 04 write      e1     the standby timer — did NOT clear it
+    14:05  01 0b write      e1     self voice — did NOT clear it
+    14:06  01 03 write 01   → 81   the FIRST write to this function
+    14:08  01 03 write 21   → a1   re-enabled; bit 6 does not come back
+    15:59  power cycle      a1     and no write in between
+
+✅ **So it is specific to `01 03`, one-way, and persistent across power cycles.** Writes
+to two neighbouring functions left it alone. What it *means* is still unknown, and the
+only experiment left is a factory reset, which is out of bounds here.
+
+⚠ **A permanent change to this device was made by an ordinary settings write**, and
+nothing can put it back. Bose Connect's parser reads bits 5 and 7 and never this one, so
+the practical cost is probably nil — *probably* being the operative word.
 
 ## ✅ The QC45 slot record, decoded by watching Bose Music edit one — 2026-08-26
 
