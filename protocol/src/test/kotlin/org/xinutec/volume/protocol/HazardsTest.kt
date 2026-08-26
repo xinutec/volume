@@ -30,6 +30,29 @@ class HazardsTest {
     @Test
     fun `Bose CLEAR_DEVICE_LIST is refused`() {
         assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 02 00")))
+        // ⚠ Whatever the operator. `04 01 05` turned out to mean "this is a Start
+        // transaction, ask again with 05" rather than "this is a Set" — which is an
+        // invitation to try `05` on a function that answered it, and 04 07 did.
+        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 05 00")))
+        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 01 00")))
+    }
+
+    /**
+     * ⚠ **REMOVE_DEVICE unpairs ONE device, which is not the milder case it sounds
+     * like.** Its argument is a BD_ADDR, and the address most easily to hand is this
+     * phone's own — `04 04` LIST_DEVICES returns it and `04 05` INFO already takes it
+     * as a parameter. So the obvious way to build a "forget this device" button is also
+     * the way to unpair the link the app is talking over.
+     */
+    @Test
+    fun `Bose REMOVE_DEVICE is refused, and its harmless neighbours are not`() {
+        assertNotNull(Hazards.check(Channels.SPP, bytes("04 03 02 06 aa bb cc dd ee ff")))
+        // The reads either side of it stay usable — a guard that refused the whole
+        // block would take the paired list with it.
+        assertNull(Hazards.check(Channels.SPP, bytes("04 04 01 00")))
+        assertNull(Hazards.check(Channels.SPP, bytes("04 05 01 06 aa bb cc dd ee ff")))
+        // ⚠ And nothing outside block 04 is touched by the block check.
+        assertNull(Hazards.check(Channels.SPP, bytes("01 03 02 01 21")))
     }
 
     /** ⚠ The hazard is the PARAMETER, not the command — `38` alone is not it. */
