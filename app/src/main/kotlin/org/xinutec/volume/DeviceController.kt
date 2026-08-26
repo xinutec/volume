@@ -9,6 +9,7 @@ import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.Confirmation
@@ -302,6 +303,19 @@ class DeviceController(
 
             // ⚠ Not `d.` — matching an `object` does not smart-cast, so this names
             // it again rather than going through the `AncDriver` it is typed as.
+            Drivers.BoseQc35 -> {
+                // ⚠ ONE exchange, not one per setting — `01 01` GET_ALL is also the
+                // device's own enumeration of what it has, which is what settles a
+                // function being absent rather than merely quiet.
+                val all = Drivers.BoseQc35.readAll(s.transport)
+                Settings(
+                    standby = all?.standby,
+                    selfVoice = all?.sidetone,
+                    voicePrompts = all?.voicePrompts,
+                    attempted = true,
+                )
+            }
+
             Drivers.BoseQc45 -> {
                 Settings(
                     tone = Drivers.BoseQc45.readEq(s.transport),
@@ -485,6 +499,21 @@ class DeviceController(
             when (val after = Drivers.JblBes.readAutoOff(it.transport)) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setStandby(address: String, minutes: Int) =
+        applied<BoseStandby>(
+            address,
+            "setting standby timer",
+            // ⚠ Named the way the card names it, so "never" does not appear in the log
+            // as "0 min" — which would read as powering off at once.
+            { if (it.minutes == 0) "never" else "${it.minutes} min" },
+        ) {
+            when (val after = Drivers.BoseQc35.writeStandby(it.transport, minutes)) {
+                null -> Confirmation.Unverifiable
+                BoseStandby(minutes) -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
         }

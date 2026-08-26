@@ -165,6 +165,31 @@ object Drivers {
             t.exchange(byteArrayOf(0x01, 0x06, 0x02, 0x01, value(mode)))
         }
 
+        /**
+         * Every setting the device has, in ONE exchange.
+         *
+         * ⚠ **Six separate Gets would be the wrong shape here**, and not just slower:
+         * the reply enumerates what this unit actually has, so a missing setting is
+         * distinguishable from an unreadable one. That is how `01 07` EQ and `01 08`
+         * ALERTS — which answer nothing at all to a direct ask — were established as
+         * absent rather than merely silent.
+         */
+        fun readAll(t: Transport): BoseAll? =
+            BoseAllSettings.state(t.exchange(BoseAllSettings.get()))
+
+        /**
+         * ⚠ **Read back with a separate Get, not from the SET_GET's own echo.** An echo
+         * is the device repeating what it was told; only an independent read says the
+         * value stuck. Driven and restored on hardware 2026-08-26.
+         */
+        fun writeStandby(t: Transport, minutes: Int): BoseStandby? {
+            t.exchange(BoseStandbyTimer.set(minutes))
+            return BoseStandbyTimer.state(
+                BoseFrame.payload(t.exchange(BoseStandbyTimer.get()), 0x01, BoseStandbyTimer.FN)
+                    ?: return null,
+            )
+        }
+
         override fun name(t: Transport): String? = Bose.name(t)
     }
 

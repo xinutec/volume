@@ -2,6 +2,7 @@ package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -236,5 +237,99 @@ class BoseSettingsTest {
             bytes("05"),
             BoseFrame.payload(bytes("0107040105"), 0x01, 0x07, BoseFrame.ERROR),
         )
+    }
+}
+
+/**
+ * The QC35's settings block, all of it read by one `01 01` GET_ALL.
+ *
+ * ⚠ **The bytes here are the ones the device actually sent**, captured from Bose
+ * Connect's own connect on 2026-08-26 and reproduced from this repo's probe. The values
+ * are labelled by the vendor app's screens, not by this repo — which is the discipline
+ * the QC35's ANC table lacked when all three of its mode bytes turned out inverted.
+ */
+class BoseAllSettingsTest {
+    /** Exactly what `01 01 05 00` drew back from the headphones. */
+    private val getAll =
+        Hex.parse(
+            "01 01 07 00 " +
+                "01 02 03 12 00 50 69 70 70 69 6a 6e 20 42 6f 73 65 20 51 43 33 35 " +
+                "01 03 03 05 a1 00 04 cf de " +
+                "01 04 03 01 3c " +
+                "01 06 03 02 01 0b " +
+                "01 09 03 04 10 04 02 07 " +
+                "01 0b 03 03 01 02 0f " +
+                "01 01 06 00",
+        )
+
+    @Test
+    fun `the reply is seven frames, not one`() {
+        // The whole reason BoseFrame.frames exists. A single-frame decoder sees the
+        // Processing header and nothing else.
+        val frames = BoseFrame.frames(getAll)
+        assertEquals(8, frames.size)
+        assertEquals(BoseFrame.PROCESSING, frames.first()[2])
+        assertEquals(BoseFrame.RESULT, frames.last()[2])
+    }
+
+    @Test
+    fun `every setting comes out of the one exchange`() {
+        val all = BoseAllSettings.state(getAll)
+        assertEquals(BoseStandby(60), all?.standby)
+        assertEquals(SidetoneLevel.MEDIUM, all?.sidetone)
+        assertEquals(true, all?.voicePrompts)
+    }
+
+    @Test
+    fun `a truncated buffer yields the frames it really holds, not a guess`() {
+        // ⚠ The walk stops at a frame that runs past the buffer rather than hunting for
+        // the next plausible header — inventing frames out of payload bytes is how a
+        // splitter turns a short read into confident nonsense.
+        val cut = getAll.copyOfRange(0, 20)
+        val frames = BoseFrame.frames(cut)
+        assertTrue(frames.size < 8)
+        for (f in frames) assertTrue(f.size >= 4)
+    }
+
+    @Test
+    fun `standby is unsigned, because three hours does not fit a signed byte`() {
+        // b4 is 180; read as a Kotlin Byte it is -76.
+        assertEquals(BoseStandby(180), BoseStandbyTimer.state(Hex.parse("b4")))
+        assertEquals(BoseStandby(0), BoseStandbyTimer.state(Hex.parse("00")))
+        assertEquals(true, BoseStandbyTimer.state(Hex.parse("00"))?.never)
+    }
+
+    @Test
+    fun `standby refuses the auto-power-down shape rather than misreading it`() {
+        // ⚠ Payload of 2+ with bit 0 of [1] set is a BOOLEAN in Bose Connect's parser,
+        // not a duration. Taking [0] regardless would report this as a 1-minute timer.
+        assertNull(BoseStandbyTimer.state(Hex.parse("01 01")))
+        // …and the ordinary two-byte case without that bit is still a duration.
+        assertEquals(BoseStandby(1), BoseStandbyTimer.state(Hex.parse("01 00")))
+    }
+
+    @Test
+    fun `self voice reads the level byte, not the persist flag`() {
+        // Both driven from the vendor app: Medium then Low, with byte 0 unchanged.
+        assertEquals(SidetoneLevel.MEDIUM, BoseSidetone.level(Hex.parse("01 02 0f")))
+        assertEquals(SidetoneLevel.LOW, BoseSidetone.level(Hex.parse("01 03 0f")))
+        // Reading byte 0 would call the first of those HIGH.
+        assertNotEquals(SidetoneLevel.HIGH, BoseSidetone.level(Hex.parse("01 02 0f")))
+    }
+
+    @Test
+    fun `voice prompts is bit 5, and the language shares the byte`() {
+        // a1 = on, US English. The language occupies the low five bits, so a decoder
+        // that tested the whole byte for zero would call every language "on".
+        assertEquals(true, BoseVoicePrompts.enabled(Hex.parse("a1")))
+        assertEquals(false, BoseVoicePrompts.enabled(Hex.parse("81")))
+    }
+
+    @Test
+    fun `the standby write names the value in a payload, not in the length`() {
+        // ⚠ `01 04 02 14` is operator 02 with a LENGTH of 0x14 and no payload; the
+        // device answers 04 01 01 bad argument. Hit for real on 2026-08-25.
+        assertEquals("01 04 02 01 14", Hex.format(BoseStandbyTimer.set(20)))
+        assertEquals("01 04 02 01 00", Hex.format(BoseStandbyTimer.set(0)))
     }
 }

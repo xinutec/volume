@@ -167,6 +167,24 @@ data class Settings(
      */
     val psap: Boolean? = null,
     /**
+     * The QC35's standby timer — how long until it powers itself off, in minutes.
+     *
+     * ⚠ **Not [timedOff], which is the JBL's and carries its own on/off switch.** This
+     * device has no such switch: "Never" is the value `0`, one of the six its app
+     * offers, so a boolean beside the number would be a state the headphones cannot be
+     * in. ⚠ And not [autoOff] either, which is Sony's rule about being *removed*.
+     */
+    val standby: BoseStandby? = null,
+    /**
+     * The QC35's Self Voice — how much of your own voice you hear on a call.
+     *
+     * ⚠ **Read, not written, and the reason is thin on purpose:** the level has only
+     * ever been changed from the vendor app. `01 0b` takes a plain SET_GET by the shape
+     * of every other setting on this block, and that is a guess until something sends
+     * one.
+     */
+    val selfVoice: SidetoneLevel? = null,
+    /**
      * Voice Prompts' switch — **read, never written.**
      *
      * ⚠ Read-only because the neighbouring sub-commands of `aa 93` reach the voice-prompt
@@ -304,7 +322,7 @@ data class Settings(
                 smartAv != null || gestures != null || battery != null ||
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
-                voicePrompts != null ||
+                voicePrompts != null || standby != null || selfVoice != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null

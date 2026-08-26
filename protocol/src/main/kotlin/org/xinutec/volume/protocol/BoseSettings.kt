@@ -41,8 +41,47 @@ object BoseFrame {
      */
     const val START: Byte = 0x05
 
+    /**
+     * The other two thirds of a transaction, named 2026-08-26 when one was first used.
+     *
+     * A [START] draws [PROCESSING], then one Status frame per item, then [RESULT] —
+     * so `06` is the end marker rather than data, and a decoder that treated every
+     * frame as a setting would find a zero-length one at the end.
+     */
+    const val RESULT: Byte = 0x06
+
+    const val PROCESSING: Byte = 0x07
+
     fun encode(block: Byte, fn: Byte, operator: Byte, payload: ByteArray = ByteArray(0)) =
         byteArrayOf(block, fn, operator, payload.size.toByte()) + payload
+
+    /**
+     * Split a reply window into the frames it actually holds.
+     *
+     * ⚠ **A Bose read can return several frames in one buffer**, and until 2026-08-26
+     * nothing here knew that. Capturing Bose Connect showed it writing eight BMAP
+     * packets in a single SPP write and the device answering the same way — one read
+     * carried `01 03`, `01 04`, `01 06` and `01 09` glued together. [payload] already
+     * refuses to decode past its own length byte, so a single-frame decoder was safe;
+     * it just could not see anything after the first frame.
+     *
+     * ⚠ **Length-driven, and it stops rather than guessing.** A frame is
+     * `4 + payload[3]` bytes; if the buffer is too short for the frame it announces,
+     * the walk ends and returns what it has. Skipping ahead to the next plausible
+     * header would invent frames out of payload bytes — the JBL's [Bes.frame] has the
+     * same rule for the same reason.
+     */
+    fun frames(buffer: ByteArray): List<ByteArray> {
+        val out = mutableListOf<ByteArray>()
+        var at = 0
+        while (at + 4 <= buffer.size) {
+            val end = at + 4 + (buffer[at + 3].toInt() and 0xff)
+            if (end > buffer.size) break
+            out += buffer.copyOfRange(at, end)
+            at = end
+        }
+        return out
+    }
 
     /**
      * The payload of [frame] if it is the expected block/fn/operator, else null.
@@ -241,4 +280,190 @@ object BoseButton {
         if (payload[0] != SELECTOR[0] || payload[1] != SELECTOR[1]) return null
         return Action.entries.firstOrNull { it.code == payload[2] }
     }
+}
+
+/**
+ * The QC35's whole SETTINGS block, as `01 01` GET_ALL returns it.
+ *
+ * ⚠ **Read with operator `05` START, not `01` Get.** A Get answers `04 01 05`, which
+ * `docs/bose-read-surface.md` used to call "not gettable, i.e. a Set". It is neither:
+ * `05` opens a transaction and the device streams `07` Processing, one Status frame per
+ * setting, then `06` Result. Found by capturing Bose Connect's own connect.
+ *
+ * ⚠ **The reply is SEVEN BMAP frames in one read**, which is why [Bose.frames] exists.
+ * Every other Bose decoder here takes a fixed offset off the front of one frame, and
+ * that is right only while a request draws exactly one reply.
+ */
+data class BoseAll(
+    val voicePrompts: Boolean? = null,
+    val standby: BoseStandby? = null,
+    val sidetone: SidetoneLevel? = null,
+)
+
+/**
+ * How long the QC35 waits before powering itself off — `01 04` STANDBY_TIMER.
+ *
+ * ⚠ **[minutes] is UNSIGNED, and the top option overflows a signed byte.** "3 hours" is
+ * `b4` = 180, which read as a Kotlin `Byte` is −76. Driven across the vendor app's whole
+ * picker on 2026-08-26: Never `00` · 5 min `05` · 20 `14` · 40 `28` · 1 h `3c` · 3 h `b4`.
+ *
+ * ⚠ **Zero means NEVER, not "off in zero minutes".** Bose Connect offers it as its own
+ * row, so it is a real setting rather than a degenerate value.
+ *
+ * ⚠ **`01 04` carries a second, different message.** When the payload is two bytes or
+ * more with `payload[1] & 1` set, Bose Connect's own parser reads it as an auto-power-down
+ * *boolean* instead. Nothing here has seen that shape; a decoder that took `payload[0]`
+ * unconditionally would report it as a one-minute timer.
+ */
+data class BoseStandby(
+    val minutes: Int,
+) {
+    /** The device's own word for `00`. */
+    val never: Boolean get() = minutes == 0
+}
+
+/**
+ * How much of your own voice you hear on a call — `01 0b` SIDETONE, which Bose Connect
+ * calls **Self Voice**.
+ *
+ * ⚠ Named from `SidetoneMode` in `com.bose.monet`, and confirmed on the device: the app
+ * showed Medium while the wire read `02`, then Low while it read `03`.
+ */
+enum class SidetoneLevel {
+    OFF,
+    HIGH,
+    MEDIUM,
+    LOW,
+}
+
+/**
+ * `01 01` SETTINGS/GET_ALL — the whole block in one exchange.
+ *
+ * ⚠ **Operator START, and the reply is several frames.** See [BoseAll] for why a Get
+ * is refused here, and [BoseFrame.frames] for why the buffer has to be split.
+ *
+ * ⚠ **What comes back is the device's own enumeration of what it has**, which is
+ * stronger evidence than a sweep: on the QC35 it lists exactly `01 02`, `01 03`,
+ * `01 04`, `01 06`, `01 09` and `01 0b`. `01 07` BASS_CONTROL and `01 08` ALERTS are
+ * absent from it, and those are the two functions that answer nothing at all when
+ * asked directly — so the silence is a missing function, not a missed reply.
+ */
+object BoseAllSettings {
+    const val BLOCK: Byte = 0x01
+    const val FN: Byte = 0x01
+
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.START)
+
+    /**
+     * Pick the settings out of a GET_ALL reply.
+     *
+     * Returns null only when nothing parsed at all; a device that answers with fewer
+     * settings than another yields a [BoseAll] with nulls, because **absent and
+     * unreadable are different** and the card draws them differently.
+     */
+    fun state(buffer: ByteArray): BoseAll? {
+        val frames = BoseFrame.frames(buffer)
+        if (frames.isEmpty()) return null
+        var out = BoseAll()
+        for (f in frames) {
+            BoseFrame.payload(f, BLOCK, BoseVoicePrompts.FN)?.let {
+                out = out.copy(voicePrompts = BoseVoicePrompts.enabled(it))
+            }
+            BoseFrame.payload(f, BLOCK, BoseStandbyTimer.FN)?.let {
+                out = out.copy(standby = BoseStandbyTimer.state(it))
+            }
+            BoseFrame.payload(f, BLOCK, BoseSidetone.FN)?.let {
+                out = out.copy(sidetone = BoseSidetone.level(it))
+            }
+        }
+        return out
+    }
+}
+
+/** `01 04` STANDBY_TIMER — see [BoseStandby] for the unit and its traps. */
+object BoseStandbyTimer {
+    const val FN: Byte = 0x04
+
+    /**
+     * The six the vendor app offers, in minutes, `0` being its "Never".
+     *
+     * ⚠ **What is OFFERED, not what is legal** — the same caution as the JBL's
+     * `JBL_IDLE_MINUTES`. Every one of these was selected in Bose Connect and read back
+     * from the wire on 2026-08-26, so the mapping is measured; the field is a whole
+     * byte and its edges are unprobed, so a value from outside this list is shown as it
+     * stands rather than snapped to a neighbour.
+     */
+    val OFFERED = listOf(0, 5, 20, 40, 60, 180)
+
+    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+
+    fun set(minutes: Int) =
+        BoseFrame.encode(
+            BoseAllSettings.BLOCK,
+            FN,
+            BoseFrame.SET_GET,
+            byteArrayOf(minutes.toByte()),
+        )
+
+    /**
+     * ⚠ **Unsigned**, because "3 hours" is `b4` = 180 and a Kotlin `Byte` makes that −76.
+     *
+     * ⚠ **Refuses the auto-power-down shape rather than misreading it.** Bose Connect's
+     * parser treats a payload of two-or-more bytes whose `[1]` has bit 0 set as a
+     * *boolean*, not a duration; taking `[0]` regardless would report it as a one-minute
+     * timer. Nothing here has seen that shape, which is exactly why it must not be
+     * guessed at.
+     */
+    fun state(payload: ByteArray): BoseStandby? {
+        if (payload.isEmpty()) return null
+        if (payload.size >= 2 && (payload[1].toInt() and 1) == 1) return null
+        return BoseStandby(payload[0].toInt() and 0xff)
+    }
+}
+
+/** `01 0b` SIDETONE — Bose Connect calls it Self Voice. */
+object BoseSidetone {
+    const val FN: Byte = 0x0b
+
+    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+
+    /**
+     * ⚠ **The level is payload `[1]`, not `[0]`.** `[0]` is a persist flag —
+     * `SidetoneEvent`'s first constructor argument goes to a static `persist`, and its
+     * second is the one turned into a `SidetoneMode`. Confirmed on the device: Medium
+     * read `01 02 0f` and Low read `01 03 0f`, so `[0]` held still while `[1]` moved.
+     *
+     * ⚠ **The trailing `0f` is NOT decoded as a supported-modes mask**, tempting as four
+     * bits for four modes is. Bose Connect hands `payload[1…]` to its
+     * `SupportedSidetoneModes`, which would swallow the level byte too — so either that
+     * offset is wrong for a three-byte payload or the field means something else. It is
+     * constant across two levels; that is all that is established.
+     */
+    fun level(payload: ByteArray): SidetoneLevel? =
+        when (payload.getOrNull(1)?.toInt()?.and(0xff)) {
+            0x00 -> SidetoneLevel.OFF
+            0x01 -> SidetoneLevel.HIGH
+            0x02 -> SidetoneLevel.MEDIUM
+            0x03 -> SidetoneLevel.LOW
+            else -> null
+        }
+}
+
+/** `01 03` VOICE_PROMPTS — the switch only; the language is read elsewhere. */
+object BoseVoicePrompts {
+    const val FN: Byte = 0x03
+
+    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+
+    /**
+     * ⚠ **Bit 5 of byte 0**, from `SettingsBmapPacketParser`: it shifts right by five
+     * and masks one, and hands that to `VoicePromptEvent`'s first argument, which is
+     * what `getVoicePromptsEnabled()` returns. Bit 7 is a second flag the SDK exposes
+     * only as `c()`, and the low five bits are the language.
+     *
+     * Confirmed against Bose Connect on 2026-08-26: the screen showed prompts on and
+     * "English (U.S.)" while this byte read `a1` — bit 5 set, low bits `01`.
+     */
+    fun enabled(payload: ByteArray): Boolean? =
+        payload.getOrNull(0)?.let { (it.toInt() shr 5) and 1 == 1 }
 }

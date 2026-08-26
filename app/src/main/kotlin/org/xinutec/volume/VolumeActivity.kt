@@ -60,6 +60,7 @@ import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseStandbyTimer
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.ChatSensitivity
 import org.xinutec.volume.protocol.DeviceCard
@@ -239,6 +240,9 @@ interface SettingActions {
 
     /** ⚠ Only the switch moves; the timeout is sent back as it was read. */
     fun setTimedOff(address: String, v: TimedOff)
+
+    /** The QC35's standby timer, in minutes; ⚠ `0` is the device's "never". */
+    fun setStandby(address: String, minutes: Int)
 
     /** ⚠ A refused action CLEARS the binding — see `Drivers.JblBes.writeGesture`. */
     fun setGesture(address: String, g: Gesture, want: GestureAction)
@@ -848,6 +852,28 @@ private fun SettingsSection(
             SettingLabel("Voice prompts", if (on) "on" else "off")
         }
 
+        settings.standby?.let { st ->
+            SettingLabel("Standby timer", standbyLabel(st.minutes))
+            // ⚠ The vendor app's own six values and its own word for zero, not a free
+            // number: every one of these was selected in Bose Connect and read back off
+            // the wire, and the byte's edges are unprobed. See BoseStandbyTimer.OFFERED.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in BoseStandbyTimer.OFFERED) {
+                    FilterChip(
+                        selected = m == st.minutes,
+                        onClick = { actions.setStandby(address, m) },
+                        label = { Text(standbyLabel(m)) },
+                    )
+                }
+            }
+        }
+
+        settings.selfVoice?.let { level ->
+            // Read-only: every level change so far was made in the vendor app, so a
+            // control here would be this repo guessing that `01 0b` takes a plain write.
+            SettingLabel("Self voice", level.name.lowercase())
+        }
+
         settings.advancedAnc?.let { a ->
             SettingLabel("Customize ANC", a.tuning?.name?.lowercase() ?: "unknown tuning")
             // ⚠ Raw numbers with their key names, NOT sliders. Nothing establishes what
@@ -1354,6 +1380,20 @@ internal fun hz(v: Int): String =
         v < 1000 -> "$v"
         v % 1000 == 0 -> "${v / 1000}k"
         else -> "${v / 1000}.${v % 1000 / 100}k"
+    }
+
+/**
+ * The QC35's standby timer, in the vendor app's own words.
+ *
+ * ⚠ **Zero is "never", not "0 min".** It is a row in Bose Connect's picker rather than a
+ * degenerate duration, and printing it as a number would read as "powers off immediately"
+ * — the opposite of what it does.
+ */
+private fun standbyLabel(minutes: Int) =
+    when {
+        minutes == 0 -> "never"
+        minutes >= 60 && minutes % 60 == 0 -> "${minutes / 60} hr"
+        else -> "$minutes min"
     }
 
 /**
