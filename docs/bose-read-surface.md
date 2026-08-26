@@ -719,3 +719,25 @@ this transport has no shape for.
 is not available".** The first was `04 01 05` reading as "not gettable" when it meant "ask
 with Start". The vendor app's behaviour bounds what is *attested*, never what the device
 *does*.
+
+### The read stops when the protocol is finished — measured, and smaller than predicted
+
+`Transport.exchange` waited **400 ms of quiet** after the last byte before returning, on a
+device whose replies arrive about **1 ms** after the request (probe timestamps: sent
+`.569`, answered `.570`). A QC35 card open makes seven exchanges, so the prediction was
+~2.8 s of pure waiting to recover.
+
+`BoseFrame.terminates` now ends a read when the frame that *finishes* the exchange has
+arrived — a `01`/`02` ends at `03` STATUS, a `05` START at `06` RESULT, either at `04`
+ERROR.
+
+⚠ **Measured 7.1 s → 6.0 s, which is ~1.1 s, not 2.8 s.** So the quiet window was real but
+**not the dominant cost**, and the model behind the change was wrong even though the change
+was right. ⚠ **The baseline is ONE sample against two after**, and the timing loop polls
+`uiautomator` at ~0.3 s granularity, so this is suggestive rather than settled.
+
+**What is unaccounted:** roughly six seconds. `RfcommTransport.open` does a socket connect
+and then drains for up to 700 ms to swallow the device's greeting, and neither has been
+timed. ⚠ **Named rather than assumed** — the last time a number here was reasoned about
+instead of measured, `34 s` turned out to be the probe's own `SEQ_WAIT` window rather than
+anything the headphones did.
