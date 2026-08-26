@@ -621,3 +621,117 @@ object BoseWrites {
             byteArrayOf(persist, level.ordinal.toByte()),
         )
 }
+
+/**
+ * `04 08` PAIRING_MODE — Bose Connect's **CONNECT NEW**.
+ *
+ * ```
+ * → 04 08 05 01 01      operator 05 START, payload 01
+ * ← 04 08 07 00         Processing
+ * ← 04 08 06 02 01 01   Result
+ * ```
+ *
+ * ⚠ **A START transaction, not a Set** — captured from the vendor app 2026-08-26. The
+ * shape of every other setting on this device would have suggested
+ * `04 08 02 01 01`, and by now that guess has been wrong twice on this protocol
+ * (sidetone's payload length, and `01 01` GET_ALL refusing a plain Get).
+ *
+ * ⚠ **A Get answers with operator `06` RESULT rather than `03` STATUS**, payload
+ * `<on> <?>`: `00 01` read while idle and `01 01` immediately after entering pairing
+ * mode, so byte 0 is the mode. ⚠ Byte 1 has been seen as both `00` and `01` with no
+ * account of why, so it is carried and not interpreted.
+ *
+ * ⚠ **Only ENTERING is implemented.** Leaving is presumably payload `00`, and
+ * presumably is not a word this file gets to use about an untested frame — the mode
+ * times out on its own, so nothing needs it yet.
+ *
+ * ⚠ **This writes to block `04`**, where `04 07` CLEAR_DEVICE_LIST and `04 03`
+ * REMOVE_DEVICE live. It is safe because the block and function are *fixed here*, which
+ * is exactly the property `docs/bose-settings.md` demands: a Bose writer taking block
+ * and function as parameters must not exist.
+ */
+object BosePairing {
+    const val BLOCK: Byte = 0x04
+    const val FN: Byte = 0x08
+
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+
+    /** Put the headphones in pairing mode so a new device can find them. */
+    fun enter() = BoseFrame.encode(BLOCK, FN, BoseFrame.START, byteArrayOf(0x01))
+
+    /** ⚠ The reply is a RESULT, so [BoseFrame.payload] is asked for that operator. */
+    fun on(buffer: ByteArray): Boolean? {
+        val frame =
+            BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == FN } ?: return null
+        val payload = BoseFrame.payload(frame, BLOCK, FN, BoseFrame.RESULT) ?: return null
+        return payload.getOrNull(0)?.let { it.toInt() != 0 }
+    }
+}
+
+/**
+ * One device the headphones are paired with, as `04 04` LIST_DEVICES and `04 05` INFO
+ * describe it together.
+ *
+ * ⚠ **[connected] comes from a BITMASK over the list, not from a count.** See
+ * [BoseDevices]; reading that byte as a count is a mistake this repo made and corrected
+ * within a day, and it survived because with a single paired device the two are the
+ * same byte.
+ */
+data class BoseDevice(
+    val address: String,
+    val name: String? = null,
+    val connected: Boolean = false,
+)
+
+/** `04 04` LIST_DEVICES + `04 05` INFO. */
+object BoseDevices {
+    const val BLOCK: Byte = 0x04
+    const val LIST: Byte = 0x04
+    const val INFO: Byte = 0x05
+
+    fun list() = BoseFrame.encode(BLOCK, LIST, BoseFrame.GET)
+
+    /** ⚠ **INFO is keyed by the ADDRESS, not by an index.** A bare Get and a one-byte
+     *  index both answer `04 01 01` bad-argument; the six address bytes are the key, so
+     *  the paired list is a set rather than an array. */
+    fun info(address: ByteArray) = BoseFrame.encode(BLOCK, INFO, BoseFrame.GET, address)
+
+    /**
+     * The addresses, and which are connected.
+     *
+     * ⚠ **Byte 0 is a bitmask over the list's own positions.** Measured 2026-08-26:
+     * one paired device `01`; two, both connected, `03`; then `01` again when one was
+     * disconnected **while both stayed in the list**. A count would have said `02`.
+     */
+    fun state(buffer: ByteArray): List<BoseDevice> {
+        val frame = BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == LIST }
+        val payload = frame?.let { BoseFrame.payload(it, BLOCK, LIST) } ?: return emptyList()
+        val mask = payload.getOrNull(0)?.toInt()?.and(0xff) ?: return emptyList()
+        val out = mutableListOf<BoseDevice>()
+        var at = 1
+        var slot = 0
+        while (at + 6 <= payload.size) {
+            out +=
+                BoseDevice(
+                    address = Hex.format(payload, at, at + 6),
+                    connected = (mask shr slot) and 1 == 1,
+                )
+            at += 6
+            slot++
+        }
+        return out
+    }
+
+    /** The friendly name out of an `04 05` reply. ⚠ Three status bytes precede it. */
+    fun name(buffer: ByteArray): String? {
+        val frame = BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == INFO }
+        val payload = frame?.let { BoseFrame.payload(it, BLOCK, INFO) } ?: return null
+        if (payload.size <= 9) return null
+        return String(
+            payload,
+            9,
+            payload.size - 9,
+            Charsets.UTF_8,
+        ).trim { it <= ' ' }.ifBlank { null }
+    }
+}

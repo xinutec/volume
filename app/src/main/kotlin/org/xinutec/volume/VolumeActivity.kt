@@ -246,6 +246,14 @@ interface SettingActions {
     /** The QC35's standby timer, in minutes; ⚠ `0` is the device's "never". */
     fun setStandby(address: String, minutes: Int)
 
+    /**
+     * Bose's "Connect new" — put the headphones in pairing mode.
+     *
+     * ⚠ One-shot, with no "stop": leaving pairing mode is presumably payload `00` and
+     * has never been sent. The mode times out on its own.
+     */
+    fun startPairing(address: String)
+
     /** ⚠ Carries the prompt LANGUAGE across — it shares the byte. */
     fun setVoicePrompts(address: String, on: Boolean)
 
@@ -881,6 +889,24 @@ private fun SettingsSection(
                         label = { Text(l.name.lowercase().replace('_', ' ')) },
                     )
                 }
+            }
+        }
+
+        if (settings.devices.isNotEmpty() || settings.pairing != null) {
+            SettingLabel("Connections", "")
+            for (d in settings.devices) {
+                // The NAME, with the address only as a fallback: a list of six-byte
+                // addresses tells nobody which entry is their laptop.
+                SettingLabel(
+                    "  ${d.name ?: d.address}",
+                    if (d.connected) "connected" else "paired",
+                )
+            }
+            // ⚠ One button, no toggle. Leaving pairing mode has never been sent, and the
+            // mode times out by itself — a "stop" here would be a guessed frame on the
+            // block that holds CLEAR_DEVICE_LIST.
+            TextButton(onClick = { actions.startPairing(address) }) {
+                Text(if (settings.pairing == true) "Ready to connect" else "Connect new")
             }
         }
 

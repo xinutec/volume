@@ -185,6 +185,17 @@ data class Settings(
      * device declining to be written.
      */
     val selfVoice: SidetoneLevel? = null,
+    /**
+     * What the headphones are paired with, and which of those is connected.
+     *
+     * ⚠ **Read only.** Connecting, disconnecting and forgetting all live in block `04`
+     * beside `04 07` CLEAR_DEVICE_LIST and `04 03` REMOVE_DEVICE, and neither write has
+     * been watched being made. [pairing] is the one exception, and it is the one whose
+     * frame was captured.
+     */
+    val devices: List<BoseDevice> = emptyList(),
+    /** Whether the headphones are advertising for a new device — Bose's "Connect new". */
+    val pairing: Boolean? = null,
     /** Which language the QC35 speaks its prompts in. */
     val promptLanguage: BoseVoicePromptLanguage? = null,
     /**
@@ -332,7 +343,7 @@ data class Settings(
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
                 voicePrompts != null || standby != null || selfVoice != null ||
-                promptLanguage != null ||
+                promptLanguage != null || pairing != null || devices.isNotEmpty() ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null

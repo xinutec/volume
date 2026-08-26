@@ -317,6 +317,8 @@ class DeviceController(
                     voicePrompts = all?.voicePrompts,
                     promptLanguage = all?.promptLanguage,
                     supportedLanguages = all?.supportedLanguages ?: emptyList(),
+                    devices = Drivers.BoseQc35.readDevices(s.transport),
+                    pairing = Drivers.BoseQc35.readPairing(s.transport),
                     // ⚠ A second exchange, because battery is block 02 and GET_ALL only
                     // covers the block it is asked about.
                     battery = BoseBattery.state(s.transport.exchange(BoseBattery.get())),
@@ -523,6 +525,19 @@ class DeviceController(
                 null -> Confirmation.Unverifiable
                 BoseStandby(minutes) -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun startPairing(address: String) =
+        applied<Boolean>(
+            address,
+            "opening for a new device",
+            { if (it) "ready" else "not ready" },
+        ) {
+            when (Drivers.BoseQc35.startPairing(it.transport)) {
+                null -> Confirmation.Unverifiable
+                true -> Confirmation.Confirmed
+                false -> Confirmation.Contradicted(false)
             }
         }
 
