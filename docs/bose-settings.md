@@ -165,10 +165,16 @@ own default. The QC35's battery is at `02 02` like the QC45's — the sweep reco
 `02 02  46` = 70 there and attributed it elsewhere. Two plausible readings of one byte,
 and 0x3c being a believable battery percentage is what let the wrong one stand.
 
-⚠ **Labelled an inference, and it is one read from being a measurement**: on the QC35,
-read `01 04` and `02 02` and compare both against Bose Connect's own screens. If `01 04`
-tracks the standby timer and `02 02` the battery, #966 is answered for both devices and
-the auto-off row can be built. Nothing here has asked yet.
+✅ **Both halves are measured now.** The QC35's is in `bose-read-surface.md` under
+"#966 — the standby timer is measured now, not inferred": `02 02` moved with the battery
+across two days while `01 04` did not, and the SDK names the unit minutes.
+
+✅ **The QC45's, 2026-08-26**: `01 04 01 00` → `01 04 03 01 00`. Supported, a Status
+rather than `04 01 04`, and the payload is **one byte**, which is the length that sends
+the SDK parser down `StandbyTimerEvent(payload[0] minutes)` rather than the two-byte
+`AutoPowerDownEvent` arm. So `00` is **zero minutes** by the vendor parser's own reading,
+not by this repo's offered set. ⚠ **Read only** — whether the QC45 honours the timer is
+untested, and the task's premise is that Bose Music never shows the row on this device.
 
 ### ⚠ `04 07` CLEAR_DEVICE_LIST is a destructive command in a range already swept
 
@@ -206,7 +212,7 @@ function present on one of these two need not exist on the other.
 | frame | feature | note |
 | --- | --- | --- |
 | `00 04` | GET_ALL_FUNCTIONS | ⚠ **NOT gettable on the QC35** (`04 01 05`) — it is `00 02` that answers "what does this unit have" |
-| `00 02` | ALL_FUNCTION_BLOCKS | ✅ a bitmask; QC35 = `00 01 02 03 04 05 08 09 10 15` |
+| `00 02` | ALL_FUNCTION_BLOCKS | ✅ a bitmask; QC35 = `00 01 02 03 04 05 08 09 10 15`, QC45 = that plus `06 07 12 13 16 1a 1f` in **four** bytes |
 | `01 03` | VOICE_PROMPTS | ✅ decoded — flags and language in byte 0, a 4-byte language bitmask after |
 | `01 04` | STANDBY_TIMER | ✅ **#966 answered** — driven and restored on the QC35; 60 minutes, and the field carries an auto-power-down boolean too |
 | `01 08` | ALERTS | ⚠ answers nothing, 3/3 — and **absent from `01 01` GET_ALL**, so the device does not have it |

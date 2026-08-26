@@ -71,13 +71,17 @@ need a transaction, reads that need an ack. So the fixtures are real captures, a
 | JLab JBuds Sport ANC 4 | `EC:9A:0C:E0:D2:96` | RFCOMM, SPP `00001101` | JLab `c0 ff` | ✅ r/w |
 
 ```
-QC45   1f 03 05 02 <slot> 01              slot 0=Quiet 1=Aware 2=Home 3=unnamed
+QC45   1f 03 05 02 <slot> 01              slot 0=Quiet 1=Aware 2=Home 3=unnamed ✅
 QC35   01 06 02 01 <value>                00 Off · 01 High · 03 Low
 JBL    aa 91 07 10 01 <anc> 02 <amb> 03 <talkthru>     read with aa 91 01 11
 Sony   68 02 <on> 02 <nc> 01 00 <ambient>               read with 66 02
 JLab   c0 ff 00 46 03 00 <mode> 04 04 01 00 <sum>      00=off 01=NC on 02=Be Aware
        read with c0 ff 00 44 00 00 01 00 04 → 45 03 00 <mode> …
 ```
+✅ **The QC45's slot names are the DEVICE's** — `1f 01 05 00` returns all four with
+their names, checked 2026-08-26. The QC35's line beneath it was invented and inverted
+until that same day, so on these two the provenance of a label matters more than the frame.
+
 All driven from our own socket. The Bose announced each mode aloud; the JBL and
 the Sony were confirmed by an independent read-back and against the vendor app's
 screen, and each device was left in the mode it started in.
@@ -102,15 +106,16 @@ vendor app's bytes. It cannot show the device answers *us* — the Sony needed a
 session opener nobody knew about, the Bose refuses an untransacted write on one
 function and accepts it on three others, and both look identical to a green suite.
 
-**Driven** = this code changed it on a headphone and read it back. Anything else is
-named in a task; the frames are in `docs/`, not repeated here.
+**Driven** = this code changed it on a headphone and read it back. **👁** = read on the
+wire but not wired into the app, so it is a fact about the device rather than a feature.
+Anything else is named in a task; the frames are in `docs/`, not repeated here.
 
 | | QC45 | QC35 | Sony XM4 | JBL M2 | JLab |
 | --- | --- | --- | --- | --- | --- |
 | ANC | ✅ | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
 | EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
-| Auto power off | ❓ #966 | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
+| Auto power off | 👁 read `00`, not wired #1193 | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
 | Sound quality | — | — | ✅ | — | — |
 | Battery | — | ✅ read | ✅ read | ✅ read | — |
 | Voice guidance | — | — | ✅ | — | — |
@@ -177,11 +182,16 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Open:** #1185 the QC45's ANC labels, ⚠ **P2 — the QC35's were wrong at all three values**
-· #966 Bose auto-off on the QC45 · #974 the three JBL rows still outside the app ·
-#935 disconnect, the one connections verb still unattested · #1038 the probe's
-decode-and-print · #1098 the Bose BMAP inventory, QC45 half · #1154 a settings read that
-drops a row · #1191 a card open still re-reads everything two or three times.
+**Open:** #1193 the four QC45 settings this code already speaks and does not wire ·
+#1194 the QC45's ANC is eleven levels drawn as two, so its "Home" mode reads as Ambient ·
+#1192 seven QC45 blocks the device lists that nothing has asked · #974 the three JBL rows
+still outside the app · #935 disconnect, the one connections verb still unattested ·
+#1038 the probe's decode-and-print · #1154 a settings read that drops a row · #1191 a card
+open still re-reads everything two or three times.
+
+**Closed 2026-08-26 on the QC45**, all three read-only: #1185 the ANC labels are right and
+the device said so itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP
+inventory, whose four-byte answer was predicted the day before.
 
 ## Probe
 

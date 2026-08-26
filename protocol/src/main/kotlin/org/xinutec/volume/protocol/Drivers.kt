@@ -31,6 +31,18 @@ object Drivers {
      * Slots are the device's own mode table: 0 Quiet, 1 Aware, 2 Home, 3 unnamed.
      * Only the two ends are mapped here — Home is a user-defined level, not a
      * fourth semantic mode.
+     *
+     * ✅ **Those names come from the device, not from this file** — `1f 01 05 00`
+     * returns all four slots with their names, and it reads `Quiet`, `Aware`,
+     * `Home`, `""`. Checked 2026-08-26 because the QC35's table was invented and
+     * inverted; read and write shared it, so nothing internal could disagree.
+     * This one is answered from outside that loop.
+     *
+     * ⚠ **Home is a third real mode this driver cannot express.** [modes] offers
+     * two, and [read] calls anything but level `00` AMBIENT — so a user who
+     * selects Home on the headphones (level `09` when last read) sees "Ambient"
+     * on the card. The QC45's ANC is an eleven-point scale, modelled here as its
+     * two ends.
      */
     object BoseQc45 :
         AncDriver,
@@ -79,6 +91,12 @@ object Drivers {
             // `0b <level> 03`, so the level is the SIXTH byte, not the fifth —
             // 0b is a constant and reads convincingly like data.
             val r = t.exchange(byteArrayOf(0x01, 0x05, 0x01, 0x00))
+            //
+            // ✅ Which end is which is the device's word, cross-checked against a
+            // state this session did not set: `1f 03` reported the active slot as
+            // `01`, whose name in the slot table is "Aware", and this read answered
+            // `0b 0a 03` — level `0a`. So `0a` is the transparent end and `00` the
+            // quiet one. ⚠ Every level between them reads AMBIENT here.
             val level = r.getOrNull(5) ?: return null
             return if (level == 0x00.toByte()) AncMode.ANC else AncMode.AMBIENT
         }

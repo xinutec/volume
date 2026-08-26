@@ -363,10 +363,12 @@ reading it as one would have "proved" the QC45 has no `1f` either. **The length 
 mask is itself information**, and it is the trap this file already fell into once by
 sweeping to `12` and concluding the map ended.
 
-✅ **A prediction to check when a QC45 is next powered on:** it reports block `1f`, which
-no 24-bit mask can express, so its `00 02` must answer **four or more bytes**. If it
-answers three, then either the mask is not what this page says it is, or the device does
-not list `1f` in it — and either would matter more than the row it was asked for.
+✅ **That prediction was checked on 2026-08-26 and held** — the QC45 answers **four**
+bytes and bit `1f` is set. See "The QC45 answers the two predictions this page left
+standing" at the end of this page. It was written as a falsifiable call in advance: three
+bytes would have meant either that the mask is not what this page says it is, or that the
+device does not list `1f` in it, and either would have mattered more than the row it was
+asked for.
 
 ## ⚠ Bose Connect is the only oracle that could catch a scrambled mode table — 2026-08-26
 
@@ -764,3 +766,105 @@ and then drains for up to 700 ms to swallow the device's greeting, and neither h
 timed. ⚠ **Named rather than assumed** — the last time a number here was reasoned about
 instead of measured, `34 s` turned out to be the probe's own `SEQ_WAIT` window rather than
 anything the headphones did.
+
+## ✅ The QC45 answers the two predictions this page left standing — 2026-08-26
+
+### ✅ #1098 — `00 02` is four bytes, and `1f` is in it
+
+    → 00 02 01 00        ← 00 02 03 04  86 cc 03 ff
+
+    86 cc 03 ff → 00 01 02 03 04 05 06 07 08 09 12 13 16 17 19 1a 1f
+
+The prediction above was that a device reporting `1f` cannot describe itself in 24 bits,
+so the QC45's mask must answer four bytes or more. It answers four, and bit `1f` is set.
+**The QC35's decoding rule is confirmed on a second device** — same big-endian payload,
+LSB-first within each byte — and it reproduces every QC45 block this page had already
+recorded from sweeps (`00`–`05`, `09`, `17`, `19`, `1f`) with none missing.
+
+⚠ **Seven blocks here have never been asked anything**: `06 07 08 12 13 16 1a`. The mask
+is the device's own list, so their absence from this page is a gap in what has been read,
+not evidence that they are empty.
+
+### ✅ #1185 — the QC45's mode names come FROM THE DEVICE, and they are not inverted
+
+`1f 01 05 00` is a Start. The whole transaction arrives as one batched buffer and
+`BoseFrame.frames` splits it into twelve frames:
+
+    1f 01 07  Processing
+    1f 03 03  01                                   ← the ACTIVE slot
+    1f 06 03  2f  00 00 01 00 00 01 "Quiet"
+    1f 06 03  2f  01 00 02 00 00 01 "Aware"
+    1f 06 03  2f  02 00 0a 01 01 01 "Home"
+    1f 06 03  2f  03 00 00 01 00 00 ""
+    1f 01 06  Result
+
+Slot `00` is Quiet and slot `01` is Aware — which is what `Drivers.BoseQc45.write`
+already maps `ANC` and `AMBIENT` onto. **The labels are right.**
+
+⚠ **This is a different kind of fact from the QC35's, which were wrong.** There, read and
+write shared one invented table and so agreed with each other no matter what the device
+did. The task existed because of exactly that. Here the *device* supplies the names, and
+a reply from outside the loop is the only thing that could have settled it either way.
+
+**Cross-checked against a state this session did not set:** `1f 03` reported the active
+slot as `01` Aware, and `01 05` independently answered `0b 0a 03` — level `0a`, the value
+this page already recorded for Aware. Two functions, one truth, neither of them ours.
+
+⚠ **The level is NOT cleanly located in the slot record.** The only nonzero byte after
+each name is `0a` for Aware, `09` for Home, `09` for the empty slot, and none for Quiet —
+consistent with Quiet `00` … Aware `0a`, but the offset differs by one between Aware (42)
+and the other two (41), and nothing here explains that. Byte `[2]` (`01` Quiet, `02`
+Aware, `0a` Home, `00` empty) is undecoded too. **Recorded as observed, not as a field.**
+
+### ⚠ "Home" is a third real mode, and the driver cannot represent it
+
+`modes = setOf(ANC, AMBIENT)`, and `read` returns `ANC` only for level `00`. Slot `02`
+Home is a user-set level — `09` today — so selecting Home on the headphones shows up in
+the card as Ambient. The QC45's ANC is an eleven-point scale that this repo models as its
+two ends; the QC35 needed `ANC_LOW` for the same reason.
+
+### ✅ #966 — the QC45 has `01 04`, and it reads `00`
+
+    → 01 04 01 00        ← 01 04 03 01 00
+
+Supported — a Status, not `04 01 04` — and `00` is "never" under the offered set driven
+on the QC35. ⚠ **Read only.** That the QC45 *honours* the timer is untested, and the
+task's premise is that Bose Music never shows this row on this device at all.
+
+### The QC45's settings enumeration — `01 01 05 00`
+
+    01 02  00 "Pippijn Bose QC45"     01 03  e1 00 01 81 5e 00 00   voice prompts
+    01 04  00            standby      01 05  0b 0a 03               ANC level
+    01 07  f6 0a 00 00 …  EQ          01 09  80 09 03 00 01 40 08 … Action button
+    01 0a  06     multipoint off      01 0b  01 02 0f               self voice
+    01 0c  01                         01 0e  01
+
+⚠ **Four of these are built for the QC35 and unwired on the QC45**: `01 02` rename,
+`01 03` voice prompts, `01 04` standby, `01 0b` self voice. Same block, same functions,
+and `01 0b`'s `01 02 0f` is byte-for-byte the QC35's Medium. But "same wire identity, so
+the same meaning" is precisely the assumption this page has been wrong about before —
+`01 05` and `01 06` differ by model — so each row needs its own read before it is drawn.
+#1193.
+
+### ⚠ `01 03` is SEVEN bytes on the QC45 and five on the QC35
+
+    QC35   a1 00 04 cf de
+    QC45   e1 00 01 81 5e 00 00
+
+Byte 0 parses the same way: `e1` is bit 5 set (prompts on) and low bits `01`, US English,
+which is what `a1` said on the QC35. The two trailing bytes are unexplained, and they
+matter — the language bitmask is *bytes 1–4*, so if the QC45's mask were six bytes wide
+this window would be reading the wrong end of it.
+
+**Consistency, offered as consistency and not as proof:** under the four-byte reading the
+two devices' language bits overlap where they should. QC35 sets `1 2 3 4 6 7 8 9 10 11 14
+15 18`; QC45 sets `1 2 3 4 6 8 15 16`. Six of the QC45's eight are bits the QC35 also
+sets, and the shared run `1 2 3 4 6` is identical. A misaligned window would not land on
+the other device's pattern. Read as six bytes instead, every bit falls past the enum's 22
+entries and the device offers no languages at all, which is not a state the firmware can
+be in.
+
+⚠ **That is still an argument from neatness, which this page has been burned by.** The
+oracle is Bose Music's own voice-prompt language screen on this device — eight entries,
+led by English (U.S.), or the reading is wrong. Not asked yet: it needs the phone's
+screen, and the phone was Pippijn's at the time.
