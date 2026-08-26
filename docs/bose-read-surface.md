@@ -630,3 +630,30 @@ not, and the laptop reads `03`.
 
 ⚠ `04 08` PAIRING_MODE's second byte has now been seen as `00`, `01` and `03` with no
 account of what moves it. Carried, never interpreted.
+
+### ⚠ `04 03` REMOVE_DEVICE, captured — and still refused
+
+Bose Connect's Connections screen has an EDIT mode with a delete control per row. Removing
+one (a Mac, disconnected, never the phone) sends:
+
+```
+→ 04 03 05 06 <bd_addr>      operator 05 START, payload = the ADDRESS to forget
+← 04 03 06 06 <bd_addr>      Result, echoing it
+```
+
+⚠ **The payload is an address, and the address most easily to hand is the phone's own** —
+`04 04` LIST_DEVICES returns it and `04 05` INFO already takes it as a parameter. That is
+why `Hazards.bose()` refuses `04 03` outright, and **knowing the frame does not change
+that**: the guard is about which address a caller reaches for, not about ignorance of the
+encoding.
+
+**What a safe implementation would need**, if this is ever wanted in-app: read `04 09`
+first — the *connected* device — and refuse any removal naming it, which means relaxing
+the blanket refusal to a contextual one. Nothing is blocked without it; the vendor app
+does removals perfectly well.
+
+⚠ **The frame was nearly missed.** The window looked empty: `btspp` returned nothing
+across 11:24–11:26 while the removal plainly happened. The app's link had been open since
+before the log rotated, so tshark never saw the channel set up and left the payload in
+`data.data`. See the field note in `captures.md` — asking one field and believing the
+silence is how a capture "proves" the app sent nothing.
