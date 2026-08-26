@@ -38,6 +38,11 @@ reason; its tests are the real SDP records.
 [function block][function][operator][payload length][payload…]
 operator: 00 Set · 01 Get · 02 SetGet · 03 Status · 04 Error · 05 Start · 06 Result · 07 Processing
          ⚠ writes here use 02 SetGet; plain 00 Set has never been sent
+         ⚠ **AND 05 Start is not only for writes.** It opens a TRANSACTION — Processing,
+           then the items, then Result — and it is how several functions are READ:
+           `01 01` GET_ALL, `00 04`, `05 06`. Those answer `04 01 05` to a plain Get,
+           which this repo read for months as "not gettable, i.e. a Set". It is not.
+           Pairing mode and REMOVE_DEVICE are Starts too. See `bose-read-surface.md`.
 ```
 ```
 → 00 01 01 00                    ← 00 01 03 05 "1.1.0"   QC45
