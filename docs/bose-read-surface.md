@@ -657,3 +657,32 @@ across 11:24–11:26 while the removal plainly happened. The app's link had been
 before the log rotated, so tshark never saw the channel set up and left the payload in
 `data.data`. See the field note in `captures.md` — asking one field and believing the
 silence is how a capture "proves" the app sent nothing.
+
+### ✅ "Disconnect & forget" is ONE command, and `04 02` is the device talking back
+
+Bose Connect's EDIT mode offers a delete control on *connected* rows too, and its dialog
+says **"DISCONNECT & FORGET"** — there is no disconnect-only anywhere in the app for this
+device. Captured 2026-08-26 (addresses redacted):
+
+```
+→ 04 03 05 06 <L>          the app sends ONLY this
+← 04 02 07 07 21 <L>       device: DISCONNECT, operator 07 Processing
+← 05 01 03 09 00 02 01 …   device: SOURCE, now empty
+← 15 02 03 01 00           device: AR streaming status
+← 04 02 06 06 <L>          device: DISCONNECT, operator 06 Result
+← 04 03 06 06 <L>          device: REMOVE_DEVICE, Result
+```
+
+⚠ **`04 02` DISCONNECT IS STILL UNWATCHED AS A COMMAND.** Every `04 02` frame here is
+inbound — the headphones narrating what removing a connected device made them do. Reading
+this exchange as "so `04 02` disconnects" would be inferring a command's shape from a
+notification, which is the same move that produced two wrong guesses on this device this
+week. **Removing a connected device disconnects it; that is the only route attested.**
+
+⚠ **AND THE DEVICE PUSHES UNSOLICITED FRAMES.** `05 01` SOURCE and `15 02` AR arrived
+without being asked, mid-exchange, with **no block `09` NOTIFICATION subscription anywhere
+in any capture**. This qualifies the earlier note that "the app polls and never
+subscribes": the *app* never subscribes, and the device volunteers regardless. So a reader
+must tolerate frames it did not request, interleaved with the reply it is waiting for —
+one more reason [[BoseFrame.frames]] exists, and a reason to match on block/function
+rather than taking the first frame in the buffer.
