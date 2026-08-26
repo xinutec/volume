@@ -296,6 +296,8 @@ object BoseButton {
  */
 data class BoseAll(
     val voicePrompts: Boolean? = null,
+    /** ⚠ Shares [voicePrompts]' byte — see [BoseVoicePromptLanguage]. */
+    val promptLanguage: BoseVoicePromptLanguage? = null,
     val standby: BoseStandby? = null,
     val sidetone: SidetoneLevel? = null,
 )
@@ -367,7 +369,11 @@ object BoseAllSettings {
         var out = BoseAll()
         for (f in frames) {
             BoseFrame.payload(f, BLOCK, BoseVoicePrompts.FN)?.let {
-                out = out.copy(voicePrompts = BoseVoicePrompts.enabled(it))
+                out =
+                    out.copy(
+                        voicePrompts = BoseVoicePrompts.enabled(it),
+                        promptLanguage = BoseVoicePromptLanguage.of(it),
+                    )
             }
             BoseFrame.payload(f, BLOCK, BoseStandbyTimer.FN)?.let {
                 out = out.copy(standby = BoseStandbyTimer.state(it))
@@ -466,4 +472,80 @@ object BoseVoicePrompts {
      */
     fun enabled(payload: ByteArray): Boolean? =
         payload.getOrNull(0)?.let { (it.toInt() shr 5) and 1 == 1 }
+}
+
+/**
+ * `02 02` BATTERY_LEVEL — one byte, a percentage.
+ *
+ * ⚠ **Charging is NOT reported on the QC35**, and this returns null for it rather than
+ * `false`. `02 05` CHARGER_DETECT answers `04 01 04` function-not-supported on that
+ * device, so there is nowhere for a charging state to come from; the QC45's four-byte
+ * `5a ff ff 00` may carry one, and nothing here has established that either.
+ *
+ * ⚠ **Measured against the vendor app**: Bose Connect showed 100 while this read `64`.
+ * And against itself over time — `46` (70) on 2026-08-15, `64` after charging — which is
+ * what proved this is the battery and `01 04` is not.
+ */
+object BoseBattery {
+    const val BLOCK: Byte = 0x02
+    const val FN: Byte = 0x02
+
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+
+    fun state(buffer: ByteArray): Battery? {
+        val frame =
+            BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == FN } ?: return null
+        val payload = BoseFrame.payload(frame, BLOCK, FN) ?: return null
+        val pct = payload.getOrNull(0)?.toInt()?.and(0xff) ?: return null
+        if (pct > 100) return null
+        return Battery(percent = pct, charging = null)
+    }
+}
+
+/**
+ * The voice-prompt language, from the low five bits of `01 03`'s first byte.
+ *
+ * ⚠ **The wire value is NOT the enum ordinal.** Bose Connect's `VoicePromptLanguage`
+ * leads with two sentinels (`UNKNOWN`, `INVALID`) and subtracts them in
+ * `adjustedOrdinal()`, so the byte matches the position only after that shift. The same
+ * trap as Sony's `Command` and the JBL's gesture table.
+ *
+ * ⚠ **`00` is UK English and `01` is US English** — one bit apart, and this unit reads
+ * `01`, which Bose Connect renders as "English (U.S.)". A decoder off by one here is
+ * wrong in a way nobody would notice.
+ */
+enum class BoseVoicePromptLanguage {
+    UK_ENGLISH,
+    US_ENGLISH,
+    FRENCH,
+    ITALIAN,
+    GERMAN,
+    EUROPEAN_SPANISH,
+    MEXICAN_SPANISH,
+    BRAZILIAN_PORTUGUESE,
+    MANDARIN_CHINESE,
+    KOREAN,
+    RUSSIAN,
+    POLISH,
+    HEBREW,
+    TURKISH,
+    DUTCH,
+    JAPANESE,
+    CANTONESE,
+    ARABIC,
+    SWEDISH,
+    DANISH,
+    NORWEGIAN,
+    FINNISH,
+    ;
+
+    companion object {
+        /** ⚠ Five bits, so a value outside the table is possible and returns null. */
+        fun of(payload: ByteArray): BoseVoicePromptLanguage? =
+            payload
+                .getOrNull(0)
+                ?.toInt()
+                ?.and(0x1f)
+                ?.let { entries.getOrNull(it) }
+    }
 }

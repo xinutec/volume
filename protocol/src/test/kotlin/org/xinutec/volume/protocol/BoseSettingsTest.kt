@@ -333,3 +333,53 @@ class BoseAllSettingsTest {
         assertEquals("01 04 02 01 00", Hex.format(BoseStandbyTimer.set(0)))
     }
 }
+
+/** Battery and the prompt language — the two rows the card was missing. */
+class BoseBatteryAndLanguageTest {
+    @Test
+    fun `the QC35 reports a level and says nothing about charging`() {
+        // ⚠ null, not false. `02 05` CHARGER_DETECT is function-not-supported on this
+        // device, so there is no charging state to report and inventing one would put a
+        // reading on the card that the headphones never sent.
+        val b = BoseBattery.state(Hex.parse("02 02 03 01 64"))
+        assertEquals(100, b?.percent)
+        assertNull(b?.charging)
+    }
+
+    @Test
+    fun `a level above 100 is refused rather than drawn`() {
+        // The byte is whatever arrives; 0xff is what an absent reading looks like on the
+        // QC45's own battery frame, and a 255% battery is worse than none.
+        assertNull(BoseBattery.state(Hex.parse("02 02 03 01 ff")))
+    }
+
+    @Test
+    fun `battery is found inside a batched reply, not just at the front`() {
+        // ⚠ The whole reason for the splitter: this arrived glued behind another frame.
+        val b = BoseBattery.state(Hex.parse("01 01 06 00 02 02 03 01 64"))
+        assertEquals(100, b?.percent)
+    }
+
+    @Test
+    fun `the language is the low five bits, and UK is one bit from US`() {
+        // a1 is what this unit sends; Bose Connect renders it "English (U.S.)".
+        assertEquals(
+            BoseVoicePromptLanguage.US_ENGLISH,
+            BoseVoicePromptLanguage.of(Hex.parse("a1")),
+        )
+        // ⚠ a0 is UK English — the neighbouring value, and the one an off-by-one lands on.
+        assertEquals(
+            BoseVoicePromptLanguage.UK_ENGLISH,
+            BoseVoicePromptLanguage.of(Hex.parse("a0")),
+        )
+        // The enum stops at 21; five bits can hold more than the table knows.
+        assertNull(BoseVoicePromptLanguage.of(Hex.parse("bf")))
+    }
+
+    @Test
+    fun `the language comes out of GET_ALL alongside the switch`() {
+        val all = BoseAllSettings.state(Hex.parse("01 03 03 05 a1 00 04 cf de"))
+        assertEquals(true, all?.voicePrompts)
+        assertEquals(BoseVoicePromptLanguage.US_ENGLISH, all?.promptLanguage)
+    }
+}
