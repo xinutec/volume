@@ -166,6 +166,20 @@ object Drivers {
         }
 
         /**
+         * Rename the headphones.
+         *
+         * ⚠ **Confirmed by a separate read**, because SET_GET echoes the resulting state
+         * and an echo is the device repeating what it was told. Returns the name the
+         * device reports afterwards, which is what the card should show — if the device
+         * trimmed or refused it, that is the truth and not what was typed.
+         */
+        fun writeName(t: Transport, name: String): String? {
+            val frame = BoseName.set(name) ?: return null
+            t.exchange(frame)
+            return Bose.name(t)
+        }
+
+        /**
          * Forget a paired device — **only one that is not connected**.
          *
          * ⚠ **The connected check is the whole safety argument**, and it is made against

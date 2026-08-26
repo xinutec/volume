@@ -196,6 +196,14 @@ data class Settings(
     val devices: List<BoseDevice> = emptyList(),
     /** Whether the headphones are advertising for a new device — Bose's "Connect new". */
     val pairing: Boolean? = null,
+    /**
+     * Whether this pair can be renamed from here.
+     *
+     * ⚠ A capability rather than a reading, like [canPowerOff] — the name itself is on
+     * the card already, so a second copy of it in [Settings] would be two places to be
+     * wrong about one string.
+     */
+    val canRename: Boolean = false,
     /** Which language the QC35 speaks its prompts in. */
     val promptLanguage: BoseVoicePromptLanguage? = null,
     /**
