@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 # Screenshot just the Volume app, which lives in one half of a split screen.
 #
-# The phone is set up with Volume above and the agent console below, so the app
-# is permanently on screen and a deploy updates it in place. That removes the two
-# things that kept spoiling captures:
+# The phone is set up with Volume above and the agent console below. ⚠ **That split
+# is the WAKE LOCK, not a layout preference**: the console holds the screen awake, so
+# while the split exists the display never sleeps and hardware work needs no unlock
+# from Pippijn at all. It is the alternative to changing `screen_off_timeout`, which
+# he declined as a session-long change — so tearing the app out of the split does not
+# rearrange the screen, it re-imposes the cost the arrangement removes.
+#
+# ⚠ **`am force-stop` and `am start` both break it** (`am start` re-creates the task
+# fullscreen and evicts the console — see `deploy.sh` and `README.md`). Reach for
+# `./deploy.sh`, whose `install -r` brings the app back in place, and for this script,
+# which never launches anything.
+#
+# The split also removes the two things that kept spoiling captures:
 #
 #   ⚠ `am start` on an already-resumed activity does NOT run `onStart`, so
 #     relaunching "to be sure" silently skips the very refresh being measured.

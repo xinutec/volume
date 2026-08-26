@@ -264,8 +264,10 @@ that works. A capture without its action log is a haystack.
 
 ```
 ./deploy.sh              build + install. ⚠ Does NOT relaunch: the phone keeps
-                         Volume in a split screen with the agent console, and
-                         `am start` re-creates the task fullscreen and throws the
+                         Volume in a split screen with the agent console — ⚠ **that
+                         split is what holds the SCREEN AWAKE**, so breaking it costs
+                         a real unlock rather than a tidy layout. `am start`
+                         re-creates the task fullscreen and throws the
                          console out. `install -r` kills the process, so the app
                          comes back in place on the new build. --start to
                          foreground anyway.
