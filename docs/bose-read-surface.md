@@ -994,3 +994,104 @@ attested** — the app sent it, and only the result was seen. `1f 06` answers a 
 index, so a Set there is the obvious shape, but the shape of a 47-byte record write is a
 guess and this page's own rule is one bounded guess with a read-back, then capture. All
 four slots are occupied, so there is no free slot to experiment in.
+
+### ⚠ Bose Music's SDK names a mode-preset function the QC45 does not have
+
+`com.bose.madrid` has `CncOutOfModesActivity` — "Cnc" is Controllable Noise Cancellation,
+and an *out of modes* screen matches the capacity of four that `1f 08` reports. Following
+that thread gives the write, apparently complete, out of the app's own code:
+
+    SettingsCncPresetsSetGetPacket(int selectedIndex, int[] presetValues)
+      block    BmapFunctionBlock.Settings   = 01
+      function BmapFunction.SettingsCncPresets = 0f
+      operator SetGet                       = 02
+      payload  <selectedIndex> <level…>
+
+The enum's constructor is `(name, ordinal, block, byte)`, and the byte is anchored by
+five functions this repo has already measured — `SettingsStandbyTimer` `04`,
+`SettingsCnc` `05`, `SettingsAnr` `06`, `SettingsButtons` `09`, `SettingsMultipoint` `0a`.
+So the reading of `0f` is not in doubt.
+
+**The prediction was written down before it was tried**: `01 0f 01 00` should answer the
+selected index `03` and the four levels `00 0a 00 07`.
+
+    → 01 0f 01 00        ← 01 0f 04 01 04      function not supported
+
+⚠⚠ **The device does not have it.** The SDK is Bose Music's, and this page already warns
+that "the QC45 runs a newer firmware whose `1f` block this SDK has never heard of" — the
+converse holds too, and it is the sharper half: **a function present in the vendor app is
+not thereby present in the vendor's device.** `01 0f` is how some other Bose product keeps
+its CNC presets. On this one they live in block `1f`, and `01 0e` CncPersistence is the
+only neighbour of it that answers (`01`).
+
+The decompile therefore did not shortcut the capture. It did buy the vocabulary — "preset
+values plus a selected index" is the shape to expect in whatever `1f` write does this.
+
+## ✅✅ The mode-edit write, captured and replayed — 2026-08-26
+
+The SDK route failed (above), so this came from a snoop capture of Bose Music, decoded
+with `scripts/btsnoop.py`. **The edit had already happened** — Pippijn created "Commute"
+at 14:01 while this session was reading the table — so the capture cost nobody anything.
+
+    → 1f 06 02 27  <slot> 00 <nameId>  <name, 32 bytes NUL-padded>  <level> 00 00 00
+    ← 1f 06 03 2f  the whole 47-byte record back
+
+**The level is byte `[35]` of the write.** Not argued — *watched*. One slider drag sends
+one write per position, and only that byte moves:
+
+    14:01:12  slot=3 [2]=07 'Commute'  [35]=05
+    14:01:23  slot=3 [2]=07 'Commute'  [35]=00
+    14:01:27  slot=3 [2]=07 'Commute'  [35]=07
+    14:01:30  slot=3 [2]=07 'Commute'  [35]=0a
+    14:01:33  slot=3 [2]=07 'Commute'  [35]=06
+    14:01:34  slot=3 [2]=07 'Commute'  [35]=07   ← where he left it
+
+⚠ **The level sits at a DIFFERENT offset in the write than in the read** — `[35]` going
+out, `[42]` coming back. The two records are not the same struct, and treating the reply
+as an echo of the request would put the level five bytes wrong.
+
+### ✅ Replayed from this repo's own socket
+
+Reconstructed rather than replayed byte-for-byte, so the fields are understood and not
+just copied — prediction written first, then sent:
+
+    → 1f 06 02 27 03 00 07 "Commute"… 03 00 00 00
+    ← 1f 06 03 2f 03 00 07 01 01 01 "Commute"… 09 03 00 00 00 00
+    → 01 05 01 00        ← 01 05 03 03 0b 03 03      level 3, as predicted
+
+Then set back to `07` and confirmed. **This is the whole custom-mode feature**: `1f 01
+05 00` lists, `1f 06 02` edits, `1f 03 05 02 <slot> 01` selects, `1f 08` says how many
+slots there are and which are used.
+
+⚠ **`1f 08` is WRITTEN, not only read.** Creating the fourth mode sent `1f 08 02 02 04 0f`
+— the app updates the occupancy mask itself. Nothing here has tried it, and a wrong mask
+is how a mode becomes invisible without being deleted.
+
+### ⚠ `1f 06`'s write answers with the full record — unlike `01 03`
+
+The reply is a Status carrying the whole 47-byte record, so this write is self-verifying
+and needs no follow-up Get. That is the opposite of `01 03` voice prompts on the same
+device, which answers *nothing* when it changes something. **Two writes, one session, one
+device, opposite conventions** — so "how this vendor confirms a write" is not a fact about
+the vendor, and each function has to be established on its own.
+
+⚠ **A slider drag is one write per position** — eight for one adjustment. Anything built
+on this should send on release, not on change, or the channel carries a burst per gesture.
+
+### ⚠ The HARDWARE BUTTON cycles the modes, so the selection moves on its own
+
+Pippijn pressed it a few times on 2026-08-26 and it rotated through the slots, landing
+back on Commute — confirmed here immediately afterwards: `1f 03` `03`, `01 05` `0b 07 03`.
+
+**So the active slot is not this app's to cache.** Nothing was sent, the app was not
+open, and the selection changed anyway. A card that reads `1f 03` once and remembers it
+will show the wrong mode the moment the wearer touches the headphones — which is the
+normal way to use them, not an edge case. ⚠ Block `09` NOTIFICATION is already subscribed
+by default on this device (see above), so the honest fix is to listen rather than to poll.
+
+### Still undecoded, and not guessed at
+
+`[2]` — `01` Quiet, `02` Aware, `0a` Home, `07` Commute — is **constant across every edit
+of a given mode**, so it belongs to the mode's identity rather than its level. Bose Music
+offers a list of names when a mode is made, which makes a name-or-icon id the obvious
+reading; obvious is not measured, and it stays open here.
