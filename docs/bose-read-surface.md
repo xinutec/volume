@@ -1116,3 +1116,54 @@ by default on this device (see above), so the honest fix is to listen rather tha
 of a given mode**, so it belongs to the mode's identity rather than its level. Bose Music
 offers a list of names when a mode is made, which makes a name-or-icon id the obvious
 reading; obvious is not measured, and it stays open here.
+
+## ⚠⚠ A three-byte "frame" became a SET nobody typed — 2026-08-26
+
+Probing the seven blocks `00 02` lists but nothing had asked, this session sent:
+
+    060100,070100,080100,120100,130100,160100,1a0100
+
+Every one is **three bytes**. The intent was `06 01 01 00` — block, function, Get,
+length zero. What went out was `06 01 00`, and `hex_arg` passed it: even digits, valid
+hex, one argument, no shell split. The existing guard catches a payload the *shell*
+truncated; nothing was watching the frame's own shape.
+
+⚠ **The device re-framed the stream into commands nobody wrote.** It reads a byte
+stream, so the seven ran together:
+
+    06 01 00 07 | 01 00 08 01 00 12 01 …    → SET on block 06, SEVEN-byte payload
+    00 13 01 00 | …                          → a Get on 00 13, never typed
+
+and the replies prove it: `12 01 00` drew `06 01 04 01 05` — an answer for **block 06**
+arriving in packet 4's window — and `13 01 00` drew `00 13 04 01 04`, a function this
+session never addressed. ⚠ **Operator `00` is the one `BoseFrame` records as never
+having been sent deliberately from this repo.**
+
+✅ **Nothing was damaged** — every setting was re-read immediately and matched: name,
+voice prompts `a1`, standby `00`, level `0b 07 03`, EQ, button, multipoint, self voice,
+the selected mode, the paired list. That is luck about which block absorbed it, not a
+property of the mistake.
+
+✅ **`probe.sh check_frames` now refuses both shapes** — a packet under four bytes, and
+a BMAP length byte that disagrees with the payload that follows. `PROBE_ANY_SHAPE=1`
+overrides, because deliberately malformed frames are a real probing need and should be
+a decision rather than a typo. This is the cheap half of #979's frame-shape validation.
+
+⚠ **The first attempt to test that guard was itself a live write.** `01 06 02 01 14` was
+chosen as a "bad frame" and is in fact well-formed, so it sailed through and reached the
+headphones; `01 06` is unsupported on the QC45 and it answered `04 01 04`. **A validator
+must be tested with input it REJECTS** — anything else exercises the device instead.
+
+### ✅ #1192 — the seven blocks, asked properly
+
+    06 01  → 04 01 05   exists; the function needs a Start
+    07 01  → 04 01 05   exists; the function needs a Start
+    08 01  → (nothing)
+    12 01  → 12 01 03 04  07 fb fe fc    ← real data, four bytes, undecoded
+    13 01  → 04 01 04   block is there, this function is not
+    16 01  → (nothing)
+    1a 01  → (nothing)
+
+⚠ **Not one answered `04 01 03` block-not-supported**, so `00 02`'s mask told the truth
+about all seven. `12 01`'s `fb fe fc` are plausibly signed (`-5 -2 -4`) but nothing here
+establishes that, and the leading `07` is unexplained.

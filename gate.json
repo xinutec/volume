@@ -81,7 +81,8 @@
       "argv": [
         "nix",
         "shell",
-        "nixpkgs#mypy",
+        "../recall#dev-python",
+        "--no-warn-dirty",
         "-c",
         "mypy",
         "--strict",

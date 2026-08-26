@@ -14,6 +14,7 @@ import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
+import org.xinutec.volume.protocol.CncModes
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
@@ -219,8 +220,7 @@ class DeviceController(
             address,
             DeviceState.Ready(
                 s.headphones.model,
-                s.headphones.driver.modes
-                    .toList(),
+                s.headphones.driver.offeredModes(),
                 c.resulting(mode),
                 c.note(mode, ::label),
             ),
@@ -333,6 +333,10 @@ class DeviceController(
                     tone = Drivers.BoseQc45.readEq(s.transport),
                     multipoint = Drivers.BoseQc45.readMultipoint(s.transport),
                     button = Drivers.BoseQc45.readButton(s.transport)?.name,
+                    // ⚠ The device's own named modes, which the two-ended AncMode
+                    // cannot express — see CncModes. Read every time the card opens:
+                    // the button on the headphones moves the selection.
+                    cnc = Drivers.BoseQc45.readModes(s.transport),
                     attempted = true,
                 )
             }
@@ -429,8 +433,7 @@ class DeviceController(
                 address,
                 DeviceState.Ready(
                     s.headphones.model,
-                    s.headphones.driver.modes
-                        .toList(),
+                    s.headphones.driver.offeredModes(),
                     mode,
                     note(outcome),
                 ),
@@ -512,6 +515,53 @@ class DeviceController(
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    /**
+     * ⚠ **Confirmed against the slot the DEVICE reports, not the one asked for.** The
+     * button on the headphones moves this too, so a write and a button press can race;
+     * echoing the request back would show a mode the wearer is not in.
+     */
+    override fun setCncMode(address: String, slot: Int) =
+        applied<CncModes>(
+            address,
+            "selecting an ANC mode",
+            { it.current?.name ?: "slot ${it.active}" },
+        ) {
+            val after = Drivers.BoseQc45.selectMode(it.transport, slot)
+            when {
+                after == null -> Confirmation.Unverifiable
+                after.active == slot -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    /**
+     * ⚠ **Sent on release, not per slider step.** Bose Music writes once per position —
+     * eight frames for one drag — and there is no reason to put that on the channel.
+     */
+    override fun setCncLevel(address: String, slot: Int, level: Int) =
+        applied<CncModes>(
+            address,
+            "setting an ANC level",
+            { m -> m.current?.let { "${it.name} at ${it.level}" } ?: "unknown" },
+        ) { session ->
+            val before = Drivers.BoseQc45.readModes(session.transport)
+            val mode = before?.modes?.firstOrNull { it.slot == slot }
+            // ⚠ Re-read first: the level goes out inside a record carrying the mode's
+            // NAME and its undecoded [BoseCncModes.Mode.nameId], and a stale copy of
+            // those would rename the mode as a side effect of moving a slider.
+            if (mode == null) {
+                Confirmation.Unverifiable
+            } else {
+                val after = Drivers.BoseQc45.setModeLevel(session.transport, mode, level)
+                val got = after?.modes?.firstOrNull { it.slot == slot }
+                when {
+                    after == null || got == null -> Confirmation.Unverifiable
+                    got.level == level -> Confirmation.Confirmed
+                    else -> Confirmation.Contradicted(after)
+                }
             }
         }
 
@@ -1024,8 +1074,7 @@ class DeviceController(
             address,
             DeviceState.Ready(
                 session.headphones.model,
-                session.headphones.driver.modes
-                    .toList(),
+                session.headphones.driver.offeredModes(),
                 mode,
                 note,
             ),

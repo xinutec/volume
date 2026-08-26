@@ -43,6 +43,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +62,7 @@ import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseCncModes
 import org.xinutec.volume.protocol.BoseStandbyTimer
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.ChatDetail
@@ -246,6 +248,16 @@ interface SettingActions {
 
     /** The QC35's standby timer, in minutes; ⚠ `0` is the device's "never". */
     fun setStandby(address: String, minutes: Int)
+
+    /** Select one of the QC45's named ANC modes by its slot. */
+    fun setCncMode(address: String, slot: Int)
+
+    /**
+     * Move a QC45 mode's level on its eleven-point scale, `0` quietest.
+     *
+     * ⚠ **Called on release, not while dragging** — see the implementation.
+     */
+    fun setCncLevel(address: String, slot: Int, level: Int)
 
     /**
      * Bose's "Connect new" — put the headphones in pairing mode.
@@ -943,6 +955,45 @@ private fun SettingsSection(
             // block that holds CLEAR_DEVICE_LIST.
             TextButton(onClick = { actions.startPairing(address) }) {
                 Text(if (settings.pairing == true) "Ready to connect" else "Connect new")
+            }
+        }
+
+        settings.cnc?.let { cnc ->
+            // ⚠ The device's OWN names — "Quiet", "Aware", and whatever the owner
+            // called the ones they made. Nothing here supplies a label.
+            SettingLabel("Noise control", cnc.current?.name ?: "unknown mode")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in cnc.modes) {
+                    FilterChip(
+                        selected = m.slot == cnc.active,
+                        onClick = { actions.setCncMode(address, m.slot) },
+                        label = { Text(m.name) },
+                    )
+                }
+            }
+            cnc.current?.let { m ->
+                if (m.editable) {
+                    // ⚠ Only the owner's modes get a slider: Quiet and Aware report
+                    // themselves not editable and a write to them is unattested.
+                    var level by
+                        remember(m.slot, m.level) {
+                            mutableFloatStateOf(m.level.toFloat())
+                        }
+                    SettingLabel("Level", "${level.toInt()} of ${BoseCncModes.MOST_AWARE}")
+                    Slider(
+                        value = level,
+                        onValueChange = { level = it },
+                        // ⚠ ON RELEASE. The vendor app sends one frame per position —
+                        // eight for a single drag — and copying that would put a burst
+                        // on the channel for every gesture.
+                        onValueChangeFinished = {
+                            actions.setCncLevel(address, m.slot, level.toInt())
+                        },
+                        valueRange =
+                            BoseCncModes.QUIETEST.toFloat()..BoseCncModes.MOST_AWARE.toFloat(),
+                        steps = BoseCncModes.MOST_AWARE - 1,
+                    )
+                }
             }
         }
 
