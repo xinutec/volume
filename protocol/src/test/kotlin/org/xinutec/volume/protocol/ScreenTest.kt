@@ -353,6 +353,8 @@ class ScreenTest {
                 "balance" to Settings(balance = Balance(on = false, level = 100)),
                 "psap" to Settings(psap = false),
                 "voicePrompts" to Settings(voicePrompts = true),
+                "standby" to Settings(standby = BoseStandby(60)),
+                "selfVoice" to Settings(selfVoice = SidetoneLevel.MEDIUM),
                 "advancedAnc" to Settings(advancedAnc = AdvancedAnc(tuning = AncTuning.ADAPTIVE)),
                 "leAudio" to Settings(leAudio = false),
                 "auracast" to Settings(auracast = true),
