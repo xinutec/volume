@@ -819,3 +819,41 @@ object BoseForget {
     fun frame(address: ByteArray) =
         BoseFrame.encode(BoseDevices.BLOCK, 0x03, BoseFrame.START, address)
 }
+
+/**
+ * `01 02` PRODUCT_NAME — Bose Connect's "Nickname It".
+ *
+ * ```
+ * → 01 02 01 00                     ← 01 02 03 0a 00 "BoseTest1"
+ * → 01 02 02 09 "BoseTest1"         ← 01 02 03 0a 00 "BoseTest1"
+ * ```
+ *
+ * ⚠ **THE WRITE IS NOT THE READ'S SHAPE.** The reply carries a leading byte that is not
+ * part of the name — `Drivers.Bose.name` skips it, and including it yields a name with a
+ * leading NUL that `trim()` does not remove and that renders as nothing. **The write has
+ * no such byte**: the payload is the UTF-8 name and nothing else. Captured from the
+ * vendor app 2026-08-26 in both directions, renaming and renaming back.
+ *
+ * ⚠ `docs/captures.md` says "every vendor here mirrors its getter", and for the *frame*
+ * that holds. For the *payload* it does not, here. A setter built by mirroring would have
+ * prepended a NUL to the owner's device name — visible on every phone it pairs with, and
+ * not obviously this app's fault.
+ */
+object BoseName {
+    const val BLOCK: Byte = 0x01
+    const val FN: Byte = 0x02
+
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+
+    /**
+     * ⚠ **Returns null rather than truncating.** The device's own limit is unknown —
+     * Bose Connect's field stops somewhere this repo has not established — so the only
+     * bound enforced is the one the protocol imposes: a length byte. Silently cutting a
+     * name to fit would rename the headphones to something the owner did not type.
+     */
+    fun set(name: String): ByteArray? {
+        val bytes = name.toByteArray(Charsets.UTF_8)
+        if (bytes.isEmpty() || bytes.size > 0xff) return null
+        return BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, bytes)
+    }
+}

@@ -540,6 +540,9 @@ class ScreenTest {
                 "supportedLanguages",
                 // ⚠ A capability, not a reading — see Settings.canPowerOff.
                 "canPowerOff",
+                // Same: the name is on the card already, so this says only whether the
+                // control exists, not what it would show.
+                "canRename",
             )
     }
 }

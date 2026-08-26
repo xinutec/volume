@@ -320,6 +320,7 @@ class DeviceController(
                     supportedLanguages = all?.supportedLanguages ?: emptyList(),
                     devices = Drivers.BoseQc35.readDevices(s.transport),
                     pairing = Drivers.BoseQc35.readPairing(s.transport),
+                    canRename = true,
                     // ⚠ A second exchange, because battery is block 02 and GET_ALL only
                     // covers the block it is asked about.
                     battery = BoseBattery.state(s.transport.exchange(BoseBattery.get())),
@@ -525,6 +526,19 @@ class DeviceController(
             when (val after = Drivers.BoseQc35.writeStandby(it.transport, minutes)) {
                 null -> Confirmation.Unverifiable
                 BoseStandby(minutes) -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setName(address: String, name: String) =
+        applied<String>(address, "renaming", { it }) {
+            when (val after = Drivers.BoseQc35.writeName(it.transport, name)) {
+                null -> Confirmation.Unverifiable
+
+                name -> Confirmation.Confirmed
+
+                // ⚠ The device's answer, not the request: if it trimmed or refused the
+                // name, what it now reports IS the name, and the card must not disagree.
                 else -> Confirmation.Contradicted(after)
             }
         }

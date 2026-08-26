@@ -4,6 +4,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -658,5 +659,65 @@ class BoseTerminatesTest {
         // decode failure.
         assertFalse(BoseFrame.terminates(Hex.parse("01 04 03 00"), Hex.parse("01 04 03 01 3c")))
         assertFalse(BoseFrame.terminates(Hex.parse("01 04 01 00"), ByteArray(0)))
+    }
+}
+
+/**
+ * Renaming, and the asymmetry that a mirrored setter would have got wrong.
+ *
+ * ⚠ `docs/captures.md` records that "every vendor here mirrors its getter", which is true
+ * of the FRAME and not of this PAYLOAD. The read reply leads with a byte that is not part
+ * of the name; the write does not carry it. A setter built by echoing the reply would have
+ * renamed the headphones to `NUL` + the name — visible on every phone they pair with, and
+ * not obviously this app's doing.
+ */
+class BoseNameTest {
+    @Test
+    fun `the write carries the name and no leading byte`() {
+        // Captured from Bose Connect renaming to "BoseTest1" and back.
+        assertEquals(
+            "01 02 02 09 42 6f 73 65 54 65 73 74 31",
+            Hex.format(BoseName.set("BoseTest1")!!),
+        )
+    }
+
+    @Test
+    fun `the read skips the byte the write never sends`() {
+        // Same name, both directions: reply length 0a against a write length 09. The
+        // driver's reader must drop that first byte, and the writer must not add it.
+        val t = Replay("01 02 01 00" to "01 02 03 0a 00 42 6f 73 65 54 65 73 74 31")
+        assertEquals("BoseTest1", Drivers.BoseQc35.name(t))
+    }
+
+    @Test
+    fun `writing then reading round-trips the exact name`() {
+        // ⚠ The read is a SEPARATE exchange, not the SET_GET's echo — an echo repeats
+        // what it was handed whether or not the device kept it.
+        val t =
+            Replay(
+                "01 02 02 09 42 6f 73 65 54 65 73 74 31" to
+                    "01 02 03 0a 00 42 6f 73 65 54 65 73 74 31",
+                "01 02 01 00" to "01 02 03 0a 00 42 6f 73 65 54 65 73 74 31",
+            )
+        assertEquals("BoseTest1", Drivers.BoseQc35.writeName(t, "BoseTest1"))
+    }
+
+    @Test
+    fun `an empty name is refused rather than sent`() {
+        // A zero-length payload would be a frame the device has never been given.
+        assertNull(BoseName.set(""))
+    }
+
+    @Test
+    fun `a name too long for the length byte is refused, not truncated`() {
+        // ⚠ Cutting it to fit would rename the headphones to something nobody typed.
+        assertNull(BoseName.set("x".repeat(256)))
+        assertNotNull(BoseName.set("x".repeat(255)))
+    }
+
+    @Test
+    fun `multi-byte characters are counted in BYTES, not characters`() {
+        // The length byte is a byte count; "é" is two bytes in UTF-8.
+        assertEquals("01 02 02 02 c3 a9", Hex.format(BoseName.set("é")!!))
     }
 }

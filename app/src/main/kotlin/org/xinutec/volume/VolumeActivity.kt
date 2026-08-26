@@ -32,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -256,6 +257,9 @@ interface SettingActions {
 
     /** ⚠ Refused for a CONNECTED device — see [Forget.Connected]. */
     fun forgetDevice(address: String, device: String)
+
+    /** Rename the headphones — Bose Connect's "Nickname It". */
+    fun setName(address: String, name: String)
 
     /** ⚠ Carries the prompt LANGUAGE across — it shares the byte. */
     fun setVoicePrompts(address: String, on: Boolean)
@@ -577,7 +581,7 @@ private fun DeviceRow(
                         modifier =
                             Modifier.alpha(if (card.state is DeviceState.Busy) 0.4f else 1f),
                     ) {
-                        SettingsSection(card.address, card.settings, actions) {
+                        SettingsSection(card.address, card.name, card.settings, actions) {
                             confirmOff = true
                         }
                     }
@@ -603,6 +607,11 @@ private fun DeviceRow(
 @Composable
 private fun SettingsSection(
     address: String,
+    /**
+     * ⚠ The name as the CARD has it, not a copy inside [Settings]. One string, one place
+     * to be wrong about it — the rename dialog seeds from what is on screen.
+     */
+    name: String,
     settings: Settings?,
     actions: SettingActions,
     onPowerOff: () -> Unit,
@@ -892,6 +901,22 @@ private fun SettingsSection(
                         label = { Text(l.name.lowercase().replace('_', ' ')) },
                     )
                 }
+            }
+        }
+
+        if (settings.canRename) {
+            var renaming by remember(address) { mutableStateOf(false) }
+            SettingLabel("Name", name)
+            TextButton(onClick = { renaming = true }) { Text("Rename") }
+            if (renaming) {
+                RenameDialog(
+                    current = name,
+                    onDismiss = { renaming = false },
+                    onConfirm = {
+                        renaming = false
+                        actions.setName(address, it)
+                    },
+                )
             }
         }
 
@@ -1590,3 +1615,37 @@ fun label(m: AncMode): String =
 
         AncMode.TALK_THRU -> "TalkThru"
     }
+
+/**
+ * Type a new name for the headphones.
+ *
+ * ⚠ **Seeded with the CURRENT name, not empty.** Renaming is usually editing, and an
+ * empty field invites retyping something already correct — which on this device means
+ * writing a name the owner did not intend to change.
+ *
+ * ⚠ **Confirm is disabled for an empty name.** `BoseName.set` refuses one anyway, but a
+ * refusal that only happens at the wire shows up as a write that did nothing.
+ */
+@Composable
+private fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                label = { Text("name") },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text.trim()) },
+                enabled = text.isNotBlank() && text.trim() != current,
+            ) { Text("Rename") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
