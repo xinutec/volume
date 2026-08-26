@@ -166,6 +166,35 @@ object Drivers {
         }
 
         /**
+         * The paired devices, with their names.
+         *
+         * ⚠ **One exchange for the list, then one per device for the name** — `04 05`
+         * INFO is keyed by the address, so there is no batch form. The names are what
+         * make the list mean anything: the addresses alone are unreadable, and this is
+         * the phone the app is talking over sitting next to a laptop.
+         */
+        fun readDevices(t: Transport): List<BoseDevice> =
+            BoseDevices.state(t.exchange(BoseDevices.list())).map { d ->
+                val raw = Hex.parse(d.address)
+                d.copy(name = BoseDevices.name(t.exchange(BoseDevices.info(raw))))
+            }
+
+        /** Whether the headphones are advertising for a new device right now. */
+        fun readPairing(t: Transport): Boolean? = BosePairing.on(t.exchange(BosePairing.get()))
+
+        /**
+         * Bose Connect's **CONNECT NEW**.
+         *
+         * ⚠ **Read back with a separate Get.** The START's own Result says what the
+         * transaction did; only an independent read says the device is still in that
+         * mode by the time anyone looks.
+         */
+        fun startPairing(t: Transport): Boolean? {
+            t.exchange(BosePairing.enter())
+            return BosePairing.on(t.exchange(BosePairing.get()))
+        }
+
+        /**
          * Turn the prompts on or off **without touching the language**.
          *
          * ⚠ **Re-reads first, deliberately.** The switch and the language share one byte,

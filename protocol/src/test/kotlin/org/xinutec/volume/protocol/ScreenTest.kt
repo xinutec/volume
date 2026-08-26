@@ -356,6 +356,8 @@ class ScreenTest {
                 "standby" to Settings(standby = BoseStandby(60)),
                 "selfVoice" to Settings(selfVoice = SidetoneLevel.MEDIUM),
                 "promptLanguage" to Settings(promptLanguage = BoseVoicePromptLanguage.US_ENGLISH),
+                "pairing" to Settings(pairing = true),
+                "devices" to Settings(devices = listOf(BoseDevice(address = "aa bb cc dd ee ff"))),
                 "advancedAnc" to Settings(advancedAnc = AdvancedAnc(tuning = AncTuning.ADAPTIVE)),
                 "leAudio" to Settings(leAudio = false),
                 "auracast" to Settings(auracast = true),

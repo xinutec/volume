@@ -456,3 +456,69 @@ class BoseWritesTest {
         assertFalse(BoseVoicePromptLanguage.EUROPEAN_SPANISH in got)
     }
 }
+
+/**
+ * The paired list, and the byte that was written down as a count and is not one.
+ *
+ * ⚠ **Every fixture here is a real reply with the BD_ADDRs redacted** to `aa…` and
+ * `dd…`; this repo is public and the two real addresses were the phone's and the Mac's.
+ * Only the six address bytes are substituted.
+ */
+class BoseDevicesTest {
+    @Test
+    fun `one paired device makes a count and a bitmask indistinguishable`() {
+        // This is the whole reason the wrong reading survived: with a single entry,
+        // "count = 1" and "bit 0 set" are the same byte.
+        val one = BoseDevices.state(Hex.parse("04 04 03 07 01 aa aa aa aa aa aa"))
+        assertEquals(1, one.size)
+        assertTrue(one[0].connected)
+    }
+
+    @Test
+    fun `two devices prove byte zero is a bitmask, not a count`() {
+        // ⚠ A count would read 02 here. It reads 03.
+        val both =
+            BoseDevices.state(Hex.parse("04 04 03 0d 03 aa aa aa aa aa aa dd dd dd dd dd dd"))
+        assertEquals(2, both.size)
+        assertTrue(both[0].connected)
+        assertTrue(both[1].connected)
+    }
+
+    @Test
+    fun `disconnecting one leaves it in the list and clears only its bit`() {
+        // The measurement that settled it: same list, byte 0 falls 03 -> 01.
+        val after =
+            BoseDevices.state(Hex.parse("04 04 03 0d 01 aa aa aa aa aa aa dd dd dd dd dd dd"))
+        assertEquals(2, after.size)
+        assertTrue(after[0].connected)
+        assertFalse(after[1].connected)
+    }
+
+    @Test
+    fun `the name comes out of INFO past its three status bytes`() {
+        // 04 05 reply: <6 address bytes> <3 status> <utf-8 name>
+        val n =
+            BoseDevices.name(
+                Hex.parse("04 05 03 10 aa aa aa aa aa aa 03 02 03 50 69 78 65 6c 20 39"),
+            )
+        assertEquals("Pixel 9", n)
+    }
+
+    @Test
+    fun `INFO is keyed by the address, which is what the frame carries`() {
+        assertEquals(
+            "04 05 01 06 aa aa aa aa aa aa",
+            Hex.format(BoseDevices.info(Hex.parse("aa aa aa aa aa aa"))),
+        )
+    }
+
+    @Test
+    fun `pairing mode is a START transaction and its reply is a RESULT`() {
+        // ⚠ Captured from Bose Connect's CONNECT NEW. The Set-shaped guess would have
+        // been 04 08 02 01 01.
+        assertEquals("04 08 05 01 01", Hex.format(BosePairing.enter()))
+        // A RESULT, not a STATUS — asking for the wrong operator returns nothing.
+        assertEquals(true, BosePairing.on(Hex.parse("04 08 06 02 01 01")))
+        assertEquals(false, BosePairing.on(Hex.parse("04 08 06 02 00 01")))
+    }
+}

@@ -178,7 +178,7 @@ answers "what does this unit have", and it is the one to ask first.
 | `01 06` ANR | `01 0b` | ANC state `01`; `0b` constant, as before |
 | `01 0b` SIDETONE | `01 02 0f` | ⚠ **byte-identical to the QC45's** |
 | `02 02` BATTERY_LEVEL | `64` | 100% |
-| `04 04` LIST_DEVICES | `01` + one BD_ADDR | count, then the phone |
+| `04 04` LIST_DEVICES | `01` + one BD_ADDR | ⚠ **NOT a count** — see the correction below |
 | `05 01` SOURCE | `00 02 01` + that same BD_ADDR | |
 | `01 08` ALERTS | **nothing at all** | 3/3, below |
 | `01 15` IMU_VOLUME_CONTROL | `04 01 04` | function not supported |
@@ -557,3 +557,76 @@ says `data.data` for "Sony/Bose RFCOMM"; on this capture that filter returns 5 r
 and `btspp` returns 41. A filter returning almost nothing is the wrong field, not a
 quiet device — which is the trap that page already warns about, in the entry that
 gave the wrong field.
+
+## ✅ `04 04`'s first byte is a CONNECTED BITMASK, not a count — 2026-08-26
+
+Written up earlier the same day as "count, then the phone", from the only reading
+available: one paired device answering `01`. ⚠ **With one entry a count and a bitmask
+are the same byte**, which is why that stood.
+
+Pairing a second device settled it. The Mac was paired from the Mac itself
+(`blueutil --pair`), giving the QC35 two entries:
+
+```
+one device            ← 04 04 03 07  01  <phone>
+two, both connected   ← 04 04 03 0d  03  <phone> <mac>
+two, mac DISCONNECTED ← 04 04 03 0d  01  <phone> <mac>      ⚠ list unchanged, byte moved
+```
+
+**A count would have read `02` for two devices.** It read `03`, and then fell to `01`
+when one of the two disconnected **while both remained in the list** — so byte 0 is a
+bitmask over the list's own positions saying which are *connected*, and the list itself
+holds what is *paired*.
+
+⚠ **The disconnect is the load-bearing step.** With both connected, `03` is equally
+consistent with "two slots occupied"; only breaking one link while the entry stayed
+distinguishes connected from occupied. Pairing alone would have left a plausible wrong
+reading in place — the same shape as `01 04` being read as a battery for a week.
+
+`04 05` INFO agrees, per device: its first status byte after the address is `01` for the
+connected Mac and `00` for the disconnected one. ⚠ The phone reads `03` there rather than
+`01`, so that byte is **not** a plain boolean — three states are attested (`00`, `01`,
+`03`) and nothing here establishes what distinguishes the last two. `04 06`
+EXTENDED_INFO likewise differs per device (phone `07 07`, Mac `02 02`) and is undecoded.
+
+⚠ **BD_ADDRs are redacted in this file**; the addresses above are the phone's, the Mac's
+and the headphones' own, and this repo is public.
+
+### ✅ Three devices — the list is PAIRED, and its ORDER MOVES
+
+A laptop was paired as a third device (the QC35 connects two at most, and the app says
+so). Addresses redacted; `A` is the phone, `L` the laptop, `M` a disconnected Mac.
+
+```
+← 04 04 03 13  03  <A> <L> <M>        length 0x13 = 1 + 3×6
+   byte 0 = 03 = bits 0,1             A and L connected; M is bit 2 and is not
+```
+
+✅ **The list holds PAIRED devices, not connected ones** — three entries while only two
+can be connected. That is the bitmask reading confirmed a second way, by a route that
+does not depend on the first.
+
+⚠ **THE ORDER IS NOT STABLE, and this was predicted wrongly.** The prediction on record
+was byte 0 = `05`, assuming the list appends and the newly-paired laptop would land in
+slot 3 behind the disconnected Mac. It landed in slot **2**, ahead of it — the order
+follows connection, not pairing time. **Anything that keys a row by its index will
+relabel devices as connections change.** Read the address out of each reply; never cache
+a position across reads.
+
+`04 05` INFO for all three, which is what makes the list legible:
+
+```
+<A>  03 02 03  "Pixel 9"          connected
+<L>  01 01 03  "pippijn-mac"      connected
+<M>  00 01 01  "…Mac mini"        NOT connected
+```
+
+⚠ **Byte 0 is non-zero exactly when the device is connected** — `00` for the
+disconnected one, across four readings including the same Mac before and after its link
+dropped. ⚠ **Its VALUE among connected devices is not established**: the phone reads `03`
+and the laptop `01`. A profile count is the obvious guess and it is a guess. Byte 2 is
+not connection state either — the Mac read `01` there both while connected and while
+not, and the laptop reads `03`.
+
+⚠ `04 08` PAIRING_MODE's second byte has now been seen as `00`, `01` and `03` with no
+account of what moves it. Carried, never interpreted.
