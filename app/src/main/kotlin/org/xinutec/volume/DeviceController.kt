@@ -21,6 +21,7 @@ import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqSetting
+import org.xinutec.volume.protocol.Forget
 import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JblFeature
@@ -527,6 +528,31 @@ class DeviceController(
                 else -> Confirmation.Contradicted(after)
             }
         }
+
+    override fun forgetDevice(address: String, device: String) =
+        driven<Forget>(address, "forgetting a device", { outcome ->
+            when (outcome) {
+                is Forget.Connected -> {
+                    Note(
+                        "${outcome.name ?: "that device"} is connected — forgetting it " +
+                            "would disconnect it, and this app refuses that",
+                        NoteKind.PROBLEM,
+                    )
+                }
+
+                Forget.StillThere -> {
+                    Note("the headphones still list it", NoteKind.PROBLEM)
+                }
+
+                Forget.Unverifiable -> {
+                    Note("the list did not come back; nothing confirmed", NoteKind.CAUTION)
+                }
+
+                Forget.Forgot -> {
+                    null
+                }
+            }
+        }) { Drivers.BoseQc35.forget(it.transport, device) }
 
     override fun startPairing(address: String) =
         applied<Boolean>(

@@ -166,6 +166,33 @@ object Drivers {
         }
 
         /**
+         * Forget a paired device — **only one that is not connected**.
+         *
+         * ⚠ **The connected check is the whole safety argument**, and it is made against
+         * a list read *in this call* rather than one the UI is holding: the order and
+         * the connected bits both move, so a decision taken from a stale list is a
+         * decision about a different device. See [BoseDevices] for the ordering.
+         *
+         * ⚠ **This is narrower than the vendor app on purpose.** Bose Connect will
+         * disconnect-and-forget a live device; refusing that costs the ability to evict
+         * the phone you are holding, which is not a loss.
+         */
+        fun forget(t: Transport, address: String): Forget {
+            val before = BoseDevices.state(t.exchange(BoseDevices.list()))
+            val target = before.firstOrNull { it.address == address } ?: return Forget.Unverifiable
+            if (target.connected) {
+                val name = BoseDevices.name(t.exchange(BoseDevices.info(Hex.parse(address))))
+                return Forget.Connected(name)
+            }
+            t.exchange(BoseForget.frame(Hex.parse(address)))
+            // ⚠ Re-read rather than trust the Result echo: the echo repeats the address
+            // it was given, which it would do whether or not the entry went.
+            val after = BoseDevices.state(t.exchange(BoseDevices.list()))
+            if (after.isEmpty()) return Forget.Unverifiable
+            return if (after.none { it.address == address }) Forget.Forgot else Forget.StillThere
+        }
+
+        /**
          * The paired devices, with their names.
          *
          * ⚠ **One exchange for the list, then one per device for the name** — `04 05`

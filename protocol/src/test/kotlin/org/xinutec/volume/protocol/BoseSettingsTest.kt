@@ -522,3 +522,80 @@ class BoseDevicesTest {
         assertEquals(false, BosePairing.on(Hex.parse("04 08 06 02 00 01")))
     }
 }
+
+/**
+ * Forgetting a device, and the refusal that makes it safe to offer at all.
+ *
+ * ⚠ **The danger is not a typo, it is the protocol**: `04 03` on a *connected* device
+ * disconnects it too — the capture showed the headphones answering with unsolicited
+ * `04 02` frames. So the phone this app talks over must never be a candidate, and the
+ * check that guarantees it is "is this entry connected", which needs no knowledge of
+ * which address is ours. Android hands out a fake adapter address, and whether `04 09`
+ * names the SPP peer or the active audio device has never been tested — so the obvious
+ * check is the one that cannot be made.
+ */
+class BoseForgetTest {
+    private fun replay(vararg pairs: Pair<String, String>) = Replay(*pairs)
+
+    @Test
+    fun `the write is a START carrying the address`() {
+        assertEquals(
+            "04 03 05 06 dd dd dd dd dd dd",
+            Hex.format(BoseForget.frame(Hex.parse("dd dd dd dd dd dd"))),
+        )
+    }
+
+    @Test
+    fun `a connected device is refused, and nothing is sent`() {
+        // Two entries, both connected (mask 03). The second is the target.
+        val t =
+            replay(
+                "04 04 01 00" to "04 04 03 0d 03 aa aa aa aa aa aa dd dd dd dd dd dd",
+                // ⚠ Length 0f = 6 address + 3 status + 6 name. Written as 10 first,
+                // and BoseFrame.payload refused the frame rather than decoding a name
+                // out of it — the length-vs-size check catching a bad FIXTURE, which is
+                // the same guard that stops a real reply being read into the next frame.
+                "04 05 01 06 dd dd dd dd dd dd" to
+                    "04 05 03 0f dd dd dd dd dd dd 01 01 01 4c 61 70 74 6f 70",
+            )
+        val out = Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd")
+        assertEquals(Forget.Connected("Laptop"), out)
+        // ⚠ The load-bearing assertion: no 04 03 left the app.
+        assertTrue(t.sent.none { it.startsWith("04 03") })
+    }
+
+    @Test
+    fun `a disconnected device is forgotten and confirmed by re-reading`() {
+        // ⚠ THREE exchanges: list, write, list again. The third is the point — the
+        // Result echo repeats the address it was handed whether or not the entry went,
+        // so only a fresh list says anything.
+        val t =
+            replay(
+                "04 04 01 00" to "04 04 03 0d 01 aa aa aa aa aa aa dd dd dd dd dd dd",
+                "04 03 05 06 dd dd dd dd dd dd" to "04 03 06 06 dd dd dd dd dd dd",
+                "04 04 01 00" to "04 04 03 07 01 aa aa aa aa aa aa",
+            )
+        assertEquals(Forget.Forgot, Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd"))
+        assertTrue(t.sent.any { it.startsWith("04 03") })
+    }
+
+    @Test
+    fun `a device the headphones still list is reported, not assumed gone`() {
+        // The device answered the write and kept the entry. Trusting the echo would
+        // call this a success.
+        val t =
+            replay(
+                "04 04 01 00" to "04 04 03 0d 01 aa aa aa aa aa aa dd dd dd dd dd dd",
+                "04 03 05 06 dd dd dd dd dd dd" to "04 03 06 06 dd dd dd dd dd dd",
+                "04 04 01 00" to "04 04 03 0d 01 aa aa aa aa aa aa dd dd dd dd dd dd",
+            )
+        assertEquals(Forget.StillThere, Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd"))
+    }
+
+    @Test
+    fun `an address that is not in the list is never sent`() {
+        val t = replay("04 04 01 00" to "04 04 03 07 01 aa aa aa aa aa aa")
+        assertEquals(Forget.Unverifiable, Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd"))
+        assertTrue(t.sent.none { it.startsWith("04 03") })
+    }
+}
