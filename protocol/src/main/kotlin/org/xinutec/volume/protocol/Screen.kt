@@ -178,14 +178,21 @@ data class Settings(
     /**
      * The QC35's Self Voice — how much of your own voice you hear on a call.
      *
-     * ⚠ **Read, not written, and the reason is thin on purpose:** the level has only
-     * ever been changed from the vendor app. `01 0b` takes a plain SET_GET by the shape
-     * of every other setting on this block, and that is a guess until something sends
-     * one.
+     * ✅ **Writable since 2026-08-26, once the vendor app's own frame was captured.** The
+     * guess this doc used to carry — "a plain SET_GET by the shape of every other setting
+     * on this block" — was **wrong**: it takes a two-byte payload, `<persist> <level>`.
+     * Shipping the guess would have sent a malformed frame and read the refusal as the
+     * device declining to be written.
      */
     val selfVoice: SidetoneLevel? = null,
-    /** Which language the QC35 speaks its prompts in. ⚠ Read; there is no setter here. */
+    /** Which language the QC35 speaks its prompts in. */
     val promptLanguage: BoseVoicePromptLanguage? = null,
+    /**
+     * Which languages it *will* speak — ⚠ **its list, not our enum**, for the same reason
+     * [buttonOptions] is carried: this unit offers thirteen of the twenty-two, and the
+     * absent ones are not the ones you would guess.
+     */
+    val supportedLanguages: List<BoseVoicePromptLanguage> = emptyList(),
     /**
      * Voice Prompts' switch — **read, never written.**
      *

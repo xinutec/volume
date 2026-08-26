@@ -166,6 +166,50 @@ object Drivers {
         }
 
         /**
+         * Turn the prompts on or off **without touching the language**.
+         *
+         * ⚠ **Re-reads first, deliberately.** The switch and the language share one byte,
+         * so a write assembled from a remembered language would set whatever this app
+         * last saw rather than what the device holds — and the two differ the moment
+         * anything else changes it. See [BoseWrites.voicePrompts].
+         */
+        fun writeVoicePrompts(t: Transport, on: Boolean): Boolean? {
+            val lang = readPromptByte(t)?.let { BoseVoicePromptLanguage.of(it) } ?: return null
+            t.exchange(BoseWrites.voicePrompts(on, lang))
+            return readPromptByte(t)?.let { BoseVoicePrompts.enabled(it) }
+        }
+
+        /** The other half of the same byte; the switch is carried across unchanged. */
+        fun writePromptLanguage(
+            t: Transport,
+            language: BoseVoicePromptLanguage,
+        ): BoseVoicePromptLanguage? {
+            val on = readPromptByte(t)?.let { BoseVoicePrompts.enabled(it) } ?: return null
+            t.exchange(BoseWrites.voicePrompts(on, language))
+            return readPromptByte(t)?.let { BoseVoicePromptLanguage.of(it) }
+        }
+
+        /**
+         * ⚠ **The persist byte is READ, not assumed.** It has only ever been seen as
+         * `01`, which is exactly the kind of constant that turns out to mean something
+         * on the next device.
+         */
+        fun writeSelfVoice(t: Transport, level: SidetoneLevel): SidetoneLevel? {
+            val cur =
+                BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+                    ?: return null
+            val persist = cur.getOrNull(0) ?: return null
+            t.exchange(BoseWrites.sidetone(persist, level))
+            val after =
+                BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+                    ?: return null
+            return BoseSidetone.level(after)
+        }
+
+        private fun readPromptByte(t: Transport): ByteArray? =
+            BoseFrame.payload(t.exchange(BoseVoicePrompts.get()), 0x01, BoseVoicePrompts.FN)
+
+        /**
          * Every setting the device has, in ONE exchange.
          *
          * ⚠ **Six separate Gets would be the wrong shape here**, and not just slower:

@@ -523,6 +523,10 @@ class ScreenTest {
          * ⚠ `buttonOptions` accompanies `button` and never stands alone: an options list
          * with no current value is a device that answered its capability and not its
          * parameter, which is not something to put on a card.
+         *
+         * ⚠ `supportedLanguages` is the same shape and was briefly listed as a row of its
+         * own, which this test caught: thirteen languages a device *would* speak, with no
+         * word on which one it is speaking, is a capability rather than a reading.
          */
         val IGNORED =
             setOf(
@@ -531,6 +535,7 @@ class ScreenTest {
                 "attempted",
                 "focusOnVoiceSettable",
                 "buttonOptions",
+                "supportedLanguages",
                 // ⚠ A capability, not a reading — see Settings.canPowerOff.
                 "canPowerOff",
             )

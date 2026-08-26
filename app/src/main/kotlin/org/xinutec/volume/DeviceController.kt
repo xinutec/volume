@@ -11,6 +11,7 @@ import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseBattery
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseStandby
+import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.Confirmation
@@ -32,6 +33,7 @@ import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
+import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SonyButton
@@ -314,6 +316,7 @@ class DeviceController(
                     selfVoice = all?.sidetone,
                     voicePrompts = all?.voicePrompts,
                     promptLanguage = all?.promptLanguage,
+                    supportedLanguages = all?.supportedLanguages ?: emptyList(),
                     // ⚠ A second exchange, because battery is block 02 and GET_ALL only
                     // covers the block it is asked about.
                     battery = BoseBattery.state(s.transport.exchange(BoseBattery.get())),
@@ -519,6 +522,37 @@ class DeviceController(
             when (val after = Drivers.BoseQc35.writeStandby(it.transport, minutes)) {
                 null -> Confirmation.Unverifiable
                 BoseStandby(minutes) -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setVoicePrompts(address: String, on: Boolean) =
+        applied<Boolean>(address, "setting voice prompts", { if (it) "on" else "off" }) {
+            when (val after = Drivers.BoseQc35.writeVoicePrompts(it.transport, on)) {
+                null -> Confirmation.Unverifiable
+                on -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setPromptLanguage(address: String, language: BoseVoicePromptLanguage) =
+        applied<BoseVoicePromptLanguage>(
+            address,
+            "setting prompt language",
+            { it.name.lowercase().replace('_', ' ') },
+        ) {
+            when (val after = Drivers.BoseQc35.writePromptLanguage(it.transport, language)) {
+                null -> Confirmation.Unverifiable
+                language -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun setSelfVoice(address: String, level: SidetoneLevel) =
+        applied<SidetoneLevel>(address, "setting self voice", { it.name.lowercase() }) {
+            when (val after = Drivers.BoseQc35.writeSelfVoice(it.transport, level)) {
+                null -> Confirmation.Unverifiable
+                level -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
         }
