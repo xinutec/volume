@@ -193,6 +193,31 @@ start_op() {
 # Spaces are stripped rather than rejected — `Hex.parse` ignores them too, so they are
 # never significant and refusing them would only make this tool disagree with the docs it
 # is used from. Everything else is refused loudly. #1132.
+# ⚠ **An unquoted hex list with a space in it is a TRUNCATED frame, not an error.**
+# `./probe.sh seq MAC UUID 0103020121` is one argument; write it `01030201 21` and the
+# shell hands this script two, of which only the first was ever read. What goes out is
+# `01 03 02 01` — a frame whose length byte promises a payload byte that is not there —
+# and the device answers `04 01 01` bad-argument, which reads as a fact about the
+# protocol rather than a typo. Made repeatedly, across sessions, because nothing
+# anywhere says the second half was dropped.
+#
+# `hex_arg` strips spaces INSIDE one argument, so quoting works; this catches the case
+# where the shell split it before this script could see it.
+reject_extra() {
+  local want=$1
+  shift
+  if [ $# -gt "$want" ]; then
+    local i joined=""
+    for ((i = want; i <= $#; i++)); do joined="$joined${!i}"; done
+    {
+      echo "probe: ${*:want+1} — unexpected extra argument(s)."
+      echo "probe: a hex list must be ONE argument. Quote it or close the gaps:"
+      echo "         ./probe.sh $1 ... '$joined'"
+    } >&2
+    exit 2
+  fi
+}
+
 hex_arg() {
   local raw="${1//[[:space:]]/}" part
   [ -n "$raw" ] || { echo "empty hex payload" >&2; exit 2; }
@@ -232,6 +257,7 @@ case "${1:-list}" in
     watch_log "${LIST_WAIT:-20}"
     ;;
   sweep)
+    reject_extra 6 "$@"
     # Walk a protocol's read surface. GET-shaped packets only — see Sweep.kt.
     mac="${2:?mac}"; uuid="${3:?uuid}"; proto="${4:?proto: bose|fastpair}"
     args=(--es op sweep --es mac "$mac" --es uuid "$uuid" --es proto "$proto")
@@ -241,6 +267,7 @@ case "${1:-list}" in
     watch_log "${SWEEP_WAIT:-180}"
     ;;
   seq)
+    reject_extra 4 "$@"
     # The WRITE tool: several packets down ONE socket, in order. The Bose ANC write
     # is transactional (an operator-05 Start, then the change), so it cannot be
     # expressed with `send`, which opens a fresh socket per packet. ⚠ Only that one
@@ -270,6 +297,7 @@ case "${1:-list}" in
     watch_log "${GATT_WAIT:-60}"
     ;;
   gatt)
+    reject_extra 4 "$@"
     # The LE write path, addressed by advertised NAME: the LE address rotates, so a
     # literal one goes stale and fails slowly rather than saying "no such device".
     who="${2:?device name substring, e.g. 'JBL TOUR', or a MAC}"
@@ -330,6 +358,7 @@ case "${1:-list}" in
     watch_log "${SETTINGS_WAIT:-60}"
     ;;
   send|raw)
+    reject_extra 6 "$@"
     mac="${2:?mac}"; uuid="${3:?uuid}"
     # ⚠ `if`, not `[ … ] && …`: under `set -e` a false test as the whole command exits
     # the script, and a payload-less `send` is the documented connect-only probe.
