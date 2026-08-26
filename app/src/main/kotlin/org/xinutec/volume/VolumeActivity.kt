@@ -61,6 +61,7 @@ import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseStandbyTimer
+import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.ChatSensitivity
 import org.xinutec.volume.protocol.DeviceCard
@@ -79,6 +80,7 @@ import org.xinutec.volume.protocol.RefusalReason
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
+import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SonyEq
@@ -243,6 +245,14 @@ interface SettingActions {
 
     /** The QC35's standby timer, in minutes; ⚠ `0` is the device's "never". */
     fun setStandby(address: String, minutes: Int)
+
+    /** ⚠ Carries the prompt LANGUAGE across — it shares the byte. */
+    fun setVoicePrompts(address: String, on: Boolean)
+
+    /** ⚠ Carries the on/off state across, for the same reason. */
+    fun setPromptLanguage(address: String, language: BoseVoicePromptLanguage)
+
+    fun setSelfVoice(address: String, level: SidetoneLevel)
 
     /** ⚠ A refused action CLEARS the binding — see `Drivers.JblBes.writeGesture`. */
     fun setGesture(address: String, g: Gesture, want: GestureAction)
@@ -849,17 +859,29 @@ private fun SettingsSection(
         }
 
         settings.voicePrompts?.let { on ->
-            // The language belongs on this row: it is the same byte, and "on" without it
-            // leaves out the half of the setting a person would actually change.
-            val lang =
+            SettingRow(
+                "Voice prompts",
                 settings.promptLanguage
                     ?.name
                     ?.lowercase()
-                    ?.replace('_', ' ')
-            SettingLabel(
-                "Voice prompts",
-                listOfNotNull(if (on) "on" else "off", lang.takeIf { on }).joinToString(", "),
+                    ?.replace('_', ' ') ?: "",
+                writable = true,
+                checked = on,
+                onChange = { actions.setVoicePrompts(address, it) },
             )
+            // ⚠ The device's OWN list, not the enum: this unit speaks thirteen of the
+            // twenty-two, and the missing ones are not guessable — UK English is absent
+            // while US English is present. Offered while off, like the JBL's timeouts,
+            // because the language survives the switch.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (l in settings.supportedLanguages) {
+                    FilterChip(
+                        selected = l == settings.promptLanguage,
+                        onClick = { actions.setPromptLanguage(address, l) },
+                        label = { Text(l.name.lowercase().replace('_', ' ')) },
+                    )
+                }
+            }
         }
 
         settings.standby?.let { st ->
@@ -879,9 +901,16 @@ private fun SettingsSection(
         }
 
         settings.selfVoice?.let { level ->
-            // Read-only: every level change so far was made in the vendor app, so a
-            // control here would be this repo guessing that `01 0b` takes a plain write.
             SettingLabel("Self voice", level.name.lowercase())
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (l in SidetoneLevel.entries) {
+                    FilterChip(
+                        selected = l == level,
+                        onClick = { actions.setSelfVoice(address, l) },
+                        label = { Text(l.name.lowercase()) },
+                    )
+                }
+            }
         }
 
         settings.advancedAnc?.let { a ->

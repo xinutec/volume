@@ -2,6 +2,7 @@ package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -381,5 +382,72 @@ class BoseBatteryAndLanguageTest {
         val all = BoseAllSettings.state(Hex.parse("01 03 03 05 a1 00 04 cf de"))
         assertEquals(true, all?.voicePrompts)
         assertEquals(BoseVoicePromptLanguage.US_ENGLISH, all?.promptLanguage)
+    }
+}
+
+/**
+ * The writes, against the frames Bose Connect actually sent.
+ *
+ * ⚠ **Captured, not derived.** Before 2026-08-26 this repo's stated expectation was that
+ * `01 0b` takes a one-byte payload "by the shape of every other setting on this block".
+ * It takes two. Shipping that guess would have sent a malformed frame and read the
+ * device's refusal as a fact about what it permits.
+ */
+class BoseWritesTest {
+    @Test
+    fun `self voice sends persist AND level, which is two payload bytes`() {
+        // 01 0b 02 02 01 03 — exactly what the vendor app sent for Medium -> Low.
+        assertEquals(
+            "01 0b 02 02 01 03",
+            Hex.format(BoseWrites.sidetone(0x01, SidetoneLevel.LOW)),
+        )
+        assertEquals(
+            "01 0b 02 02 01 02",
+            Hex.format(BoseWrites.sidetone(0x01, SidetoneLevel.MEDIUM)),
+        )
+    }
+
+    @Test
+    fun `the voice-prompt write carries the language in the same byte`() {
+        // 21 = on, US English. 01 = off, US English. Both captured.
+        assertEquals(
+            "01 03 02 01 21",
+            Hex.format(BoseWrites.voicePrompts(true, BoseVoicePromptLanguage.US_ENGLISH)),
+        )
+        assertEquals(
+            "01 03 02 01 01",
+            Hex.format(BoseWrites.voicePrompts(false, BoseVoicePromptLanguage.US_ENGLISH)),
+        )
+    }
+
+    @Test
+    fun `turning prompts on does not silently reset the language`() {
+        // ⚠ The failure this guards: a write of a bare 0x20 for "on" is language 00,
+        // UK English — one bit from the US English this unit uses, and inaudible to
+        // anyone not listening for the accent.
+        val french = BoseWrites.voicePrompts(true, BoseVoicePromptLanguage.FRENCH)
+        assertEquals("01 03 02 01 22", Hex.format(french))
+        assertNotEquals("01 03 02 01 20", Hex.format(french))
+    }
+
+    @Test
+    fun `bit 7 is the device's and is never written back`() {
+        // Status reads a1; the vendor app writes 21 for that same state. Echoing the
+        // read byte would hand the device a flag it never asked for.
+        val on = BoseWrites.voicePrompts(true, BoseVoicePromptLanguage.US_ENGLISH)
+        assertEquals(0x21, on[4].toInt() and 0xff)
+    }
+
+    @Test
+    fun `the supported languages are the device's thirteen, not the enum's twenty-two`() {
+        // 00 04 cf de, as this unit answers.
+        val all = BoseAllSettings.state(Hex.parse("01 03 03 05 a1 00 04 cf de"))
+        val got = all?.supportedLanguages.orEmpty()
+        assertEquals(13, got.size)
+        // ⚠ The pairs that look inseparable are not: US present, UK absent.
+        assertTrue(BoseVoicePromptLanguage.US_ENGLISH in got)
+        assertFalse(BoseVoicePromptLanguage.UK_ENGLISH in got)
+        assertTrue(BoseVoicePromptLanguage.MEXICAN_SPANISH in got)
+        assertFalse(BoseVoicePromptLanguage.EUROPEAN_SPANISH in got)
     }
 }

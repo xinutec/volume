@@ -298,6 +298,16 @@ data class BoseAll(
     val voicePrompts: Boolean? = null,
     /** ⚠ Shares [voicePrompts]' byte — see [BoseVoicePromptLanguage]. */
     val promptLanguage: BoseVoicePromptLanguage? = null,
+    /**
+     * Which languages this unit will speak, from the four bytes after the flags.
+     *
+     * ⚠ **Its list, not our enum.** The QC35 offers thirteen of the twenty-two the SDK
+     * names, and the pairs that look like they travel together do not: UK English is
+     * absent while US English is present, and European Spanish is absent while Mexican
+     * Spanish is present. Offering the enum instead would put languages on a picker
+     * that the headphones would refuse.
+     */
+    val supportedLanguages: List<BoseVoicePromptLanguage> = emptyList(),
     val standby: BoseStandby? = null,
     val sidetone: SidetoneLevel? = null,
 )
@@ -373,6 +383,7 @@ object BoseAllSettings {
                     out.copy(
                         voicePrompts = BoseVoicePrompts.enabled(it),
                         promptLanguage = BoseVoicePromptLanguage.of(it),
+                        supportedLanguages = BoseVoicePrompts.supported(it),
                     )
             }
             BoseFrame.payload(f, BLOCK, BoseStandbyTimer.FN)?.let {
@@ -472,6 +483,21 @@ object BoseVoicePrompts {
      */
     fun enabled(payload: ByteArray): Boolean? =
         payload.getOrNull(0)?.let { (it.toInt() shr 5) and 1 == 1 }
+
+    /**
+     * The languages this unit will speak — bytes 1–4, big-endian, bit *n* being the
+     * language whose wire value is *n*.
+     *
+     * ⚠ **LSB-first within the number**, from `BitSetUtil.b`, which shifts right one bit
+     * at a time. Reading it the other way round yields a plausible list of the wrong
+     * languages.
+     */
+    fun supported(payload: ByteArray): List<BoseVoicePromptLanguage> {
+        if (payload.size < 5) return emptyList()
+        var mask = 0
+        for (i in 1..4) mask = (mask shl 8) or (payload[i].toInt() and 0xff)
+        return BoseVoicePromptLanguage.entries.filter { (mask shr it.ordinal) and 1 == 1 }
+    }
 }
 
 /**
@@ -548,4 +574,50 @@ enum class BoseVoicePromptLanguage {
                 ?.and(0x1f)
                 ?.let { entries.getOrNull(it) }
     }
+}
+
+/**
+ * The writes for `01 03` and `01 0b`, **as Bose Connect sends them**.
+ *
+ * ⚠ **Both are read-modify-write, and that is not a style choice.** Each carries a field
+ * this app is not changing — the voice-prompt byte holds the switch *and* the language,
+ * and the sidetone payload leads with a persist flag. Writing a value assembled from
+ * scratch would set the other field to whatever this code happened to assume. Captured
+ * 2026-08-26; before that the shape here was a guess, and the guess was wrong: sidetone
+ * takes a TWO-byte payload, not the one byte every other setting on this block takes.
+ */
+object BoseWrites {
+    /**
+     * `01 03 02 01 <(on ? 0x20 : 0) | language>`.
+     *
+     * ⚠ **Bit 7 is NOT written.** The status frame reads `a1` and the vendor app writes
+     * `21` for the same state, so bit 7 belongs to the device. Echoing the byte back
+     * unchanged would send it a flag it never asked for.
+     *
+     * ⚠ **The language rides in the same byte**, so "turn prompts on" without carrying
+     * the current language across silently resets it to `00` — UK English, one bit from
+     * the US English this unit uses.
+     */
+    fun voicePrompts(on: Boolean, language: BoseVoicePromptLanguage): ByteArray =
+        BoseFrame.encode(
+            BoseAllSettings.BLOCK,
+            BoseVoicePrompts.FN,
+            BoseFrame.SET_GET,
+            byteArrayOf((((if (on) 0x20 else 0x00) or language.ordinal)).toByte()),
+        )
+
+    /**
+     * `01 0b 02 02 <persist> <level>`.
+     *
+     * ⚠ **Two payload bytes.** `01 0b 02 01 <level>` is what the shape of every
+     * neighbouring setting suggests, and it is wrong — [persist] is byte 0 of the reply
+     * and the vendor app sends it back verbatim. Read it; do not assume `01`.
+     */
+    fun sidetone(persist: Byte, level: SidetoneLevel): ByteArray =
+        BoseFrame.encode(
+            BoseAllSettings.BLOCK,
+            BoseSidetone.FN,
+            BoseFrame.SET_GET,
+            byteArrayOf(persist, level.ordinal.toByte()),
+        )
 }
