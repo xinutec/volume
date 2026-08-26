@@ -355,6 +355,7 @@ class ScreenTest {
                 "voicePrompts" to Settings(voicePrompts = true),
                 "standby" to Settings(standby = BoseStandby(60)),
                 "selfVoice" to Settings(selfVoice = SidetoneLevel.MEDIUM),
+                "promptLanguage" to Settings(promptLanguage = BoseVoicePromptLanguage.US_ENGLISH),
                 "advancedAnc" to Settings(advancedAnc = AdvancedAnc(tuning = AncTuning.ADAPTIVE)),
                 "leAudio" to Settings(leAudio = false),
                 "auracast" to Settings(auracast = true),

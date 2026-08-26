@@ -184,6 +184,8 @@ data class Settings(
      * one.
      */
     val selfVoice: SidetoneLevel? = null,
+    /** Which language the QC35 speaks its prompts in. ⚠ Read; there is no setter here. */
+    val promptLanguage: BoseVoicePromptLanguage? = null,
     /**
      * Voice Prompts' switch — **read, never written.**
      *
@@ -323,6 +325,7 @@ data class Settings(
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
                 voicePrompts != null || standby != null || selfVoice != null ||
+                promptLanguage != null ||
                 dsee != null || pauseOnRemoval != null || speakToChat != null ||
                 chatDetail != null || touchPanel != null ||
                 voiceGuidance != null || codec != null || focusOnVoice != null

@@ -39,8 +39,12 @@ class JblBatteryTest {
     fun `the charging bit is not part of the percentage`() {
         val charging = JblBattery.state(Hex.parse("aa250d010000bcbcffffffffffffffff"))
         assertEquals(60, charging?.percent)
-        assertTrue(charging!!.charging)
-        assertFalse(JblBattery.state(Hex.parse(sixty))!!.charging)
+        // ⚠ `== true` / `== false`, not the bare Boolean: [Battery.charging] became
+        // nullable for the Bose, which reports a level and no charging state at all.
+        // The JBL always knows — the bit is in the same byte as the percentage — so
+        // these stay exact rather than being loosened to a null check.
+        assertEquals(true, charging!!.charging)
+        assertEquals(false, JblBattery.state(Hex.parse(sixty))!!.charging)
     }
 
     /**

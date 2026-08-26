@@ -11,7 +11,16 @@ package org.xinutec.volume.protocol
  */
 data class Battery(
     val percent: Int,
-    val charging: Boolean,
+    /**
+     * Whether it is charging, or **null when the device does not say**.
+     *
+     * ⚠ **Nullable since 2026-08-26, and the null is the point.** The Bose QC35 reports
+     * one battery byte and its `02 05` CHARGER_DETECT is *not supported*, so nothing on
+     * that device establishes a charging state. Defaulting to `false` would have put
+     * "not charging" on a card as though it were a reading, which is the same class of
+     * invention as the mode table that was wrong at all three values.
+     */
+    val charging: Boolean?,
 )
 
 /**

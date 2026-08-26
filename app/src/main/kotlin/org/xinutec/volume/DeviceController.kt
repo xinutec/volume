@@ -8,6 +8,7 @@ import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
+import org.xinutec.volume.protocol.BoseBattery
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.ButtonWrite
@@ -312,6 +313,10 @@ class DeviceController(
                     standby = all?.standby,
                     selfVoice = all?.sidetone,
                     voicePrompts = all?.voicePrompts,
+                    promptLanguage = all?.promptLanguage,
+                    // ⚠ A second exchange, because battery is block 02 and GET_ALL only
+                    // covers the block it is asked about.
+                    battery = BoseBattery.state(s.transport.exchange(BoseBattery.get())),
                     attempted = true,
                 )
             }

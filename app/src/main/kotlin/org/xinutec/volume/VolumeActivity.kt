@@ -849,7 +849,17 @@ private fun SettingsSection(
         }
 
         settings.voicePrompts?.let { on ->
-            SettingLabel("Voice prompts", if (on) "on" else "off")
+            // The language belongs on this row: it is the same byte, and "on" without it
+            // leaves out the half of the setting a person would actually change.
+            val lang =
+                settings.promptLanguage
+                    ?.name
+                    ?.lowercase()
+                    ?.replace('_', ' ')
+            SettingLabel(
+                "Voice prompts",
+                listOfNotNull(if (on) "on" else "off", lang.takeIf { on }).joinToString(", "),
+            )
         }
 
         settings.standby?.let { st ->
@@ -936,7 +946,9 @@ private fun SettingsSection(
         settings.battery?.let { b ->
             SettingLabel(
                 "Battery",
-                if (b.charging) "${b.percent}%, charging" else "${b.percent}%",
+                // ⚠ `== true`, not truthiness: null means the device never said, and
+                // saying nothing is right there — see [Battery.charging].
+                if (b.charging == true) "${b.percent}%, charging" else "${b.percent}%",
             )
         }
 
