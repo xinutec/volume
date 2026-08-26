@@ -686,3 +686,36 @@ subscribes": the *app* never subscribes, and the device volunteers regardless. S
 must tolerate frames it did not request, interleaved with the reply it is waiting for —
 one more reason [[BoseFrame.frames]] exists, and a reason to match on block/function
 rather than taking the first frame in the buffer.
+
+## ⚠ Block `09` NOTIFICATION — already ON. The work is LISTENING, not subscribing.
+
+Written up earlier the same day as "the app never subscribes, so there is no subscription
+mechanism to copy". True and misleading: **the device subscribes itself.**
+
+```
+00 02  ALL_FUNCTION_BLOCKS  21 03 3f → 00 01 02 03 04 05 08 09 10 15
+09 02  NOTIFY BY_FBLOCK     21 00 3e → 01 02 03 04 05       10 15
+```
+
+Same encoding, and the subscription covers **every block that carries settings** — missing
+only `00` PRODUCT_INFO (static), `08` DEBUG and `09` itself. Nothing was ever sent to turn
+this on; it is the default. That is the account of the unsolicited `05 01` SOURCE and
+`15 02` AR frames that arrived mid-removal.
+
+`NotificationPackets` in `com.bose.monet` builds `09 02` as `<mode> <block bitmask>` with
+`NotificationBitmask` = `00` OVERWRITE · `01` ENABLE · `02` DISABLE — so changing it is
+possible and **there is nothing to change**. `09 03` BY_FUNCTION answers `04 01 01`
+(wants an argument) and `09 04` PERIODIC answers `04 01 04`, not supported.
+
+⚠ **So a live-updating card is not a subscription problem, it is a TRANSPORT problem.**
+[[Transport.exchange]] is request/response: it writes, reads a window, returns. A frame
+the device volunteers between exchanges has nowhere to go, and one volunteered *during* a
+window arrives glued to the reply — which is survivable only because every Bose decoder
+now splits the buffer and **matches on block and function** rather than taking the first
+frame. A card that updated itself would need a reader that runs without a request, which
+this transport has no shape for.
+
+⚠ **This is the second time today a "the app does not do X" observation nearly became "X
+is not available".** The first was `04 01 05` reading as "not gettable" when it meant "ask
+with Start". The vendor app's behaviour bounds what is *attested*, never what the device
+*does*.
