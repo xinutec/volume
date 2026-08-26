@@ -101,28 +101,48 @@ def read_records(path: Path) -> list[tuple[datetime, bool, bytes]]:
 
 def handle_addresses(
     records: list[tuple[datetime, bool, bytes]],
-) -> dict[int, str]:
-    """Which BD_ADDR each ACL handle belongs to, from the connection events.
+) -> list[tuple[datetime, int, str]]:
+    """Every connection event, in order: when a handle started meaning an address.
 
     ⚠ **Without this every device in the log looks like one stream.** This phone is
     bonded to thirteen things and routinely holds several at once, so a capture of
     "the headphones" also contains a watch and a laptop. Frames from the wrong device
     decode perfectly and mean nothing.
 
-    ⚠ **A handle is REUSED after a disconnect**, so this is last-writer-wins by
-    design: a mapping built once at the top of a long log would attribute later
-    traffic to whatever held the handle first.
+    ⚠⚠ **A handle is REUSED after a disconnect, so this CANNOT be one flat map.** The
+    first version built `{handle: address}` over the whole file and applied it
+    everywhere, which silently relabels earlier traffic with whoever held the handle
+    LAST. On 2026-08-26 that made a QC35 exchange look like a QC45 one and nearly put
+    "the vendor app wrote to your QC45" into the record — caught only because the
+    payload was five bytes where that device answers seven. **The tell was the data
+    disagreeing with the label, which is not a check that always exists.**
     """
-    out: dict[int, str] = {}
-    for _when, _sent, data in records:
+    out: list[tuple[datetime, int, str]] = []
+    for when, _sent, data in records:
         if len(data) < 3 or data[0] != H4_EVT or data[1] != EVT_CONNECTION_COMPLETE:
             continue
         if len(data) < 12 or data[3] != 0x00:  # non-zero status: the link failed
             continue
         handle = struct.unpack_from("<H", data, 4)[0] & 0x0FFF
         # The address is little-endian on the wire and written the other way round.
-        out[handle] = ":".join(f"{b:02X}" for b in reversed(data[6:12]))
+        out.append((when, handle, ":".join(f"{b:02X}" for b in reversed(data[6:12]))))
     return out
+
+
+def address_at(
+    events: list[tuple[datetime, int, str]], handle: int, when: datetime
+) -> str | None:
+    """Which address [handle] meant at [when] — the latest event at or before it.
+
+    ⚠ Returns None for traffic BEFORE any connection event for that handle. A log that
+    starts mid-connection has nothing to learn from, and guessing forward from a later
+    event is the mislabelling this replaced.
+    """
+    best: str | None = None
+    for at, h, addr in events:
+        if h == handle and at <= when:
+            best = addr
+    return best
 
 
 def rfcomm_payloads(records: list[tuple[datetime, bool, bytes]]) -> list[Payload]:
@@ -247,7 +267,7 @@ def main() -> int:
         records.extend(read_records(log))
     records.sort(key=lambda r: r[0])
 
-    addresses = handle_addresses(records)
+    connections = handle_addresses(records)
     payloads = rfcomm_payloads(records)
     if not payloads:
         # ⚠ An empty result is EVIDENCE, and saying so is the whole point — see
@@ -258,7 +278,8 @@ def main() -> int:
     if args.channels:
         seen: dict[tuple[str, int], tuple[int, int]] = {}
         for p in payloads:
-            key = (addresses.get(p.handle, f"handle {p.handle}"), p.dlci)
+            key = (address_at(connections, p.handle, p.when)
+                   or f"handle {p.handle}", p.dlci)
             n, ok = seen.get(key, (0, 0))
             seen[key] = (n + 1, ok + (bmap_frames(p.data, BOSE_BLOCKS) is not None))
         print(f"{'device':<20} dlci  payloads  BMAP-shaped")
@@ -280,8 +301,10 @@ def main() -> int:
             continue
         if args.dlci is not None and p.dlci != args.dlci:
             continue
-        if args.mac and addresses.get(p.handle, "").upper() != args.mac.upper():
-            continue
+        if args.mac:
+            at = address_at(connections, p.handle, p.when)
+            if at is None or at.upper() != args.mac.upper():
+                continue
         frames = bmap_frames(p.data, BOSE_BLOCKS)
         arrow = "→" if p.sent else "←"
         if frames is None:
