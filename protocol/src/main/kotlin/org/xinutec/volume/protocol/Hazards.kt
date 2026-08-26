@@ -52,6 +52,23 @@ object Hazards {
     private const val BOSE_CLEAR_LIST: Byte = 0x07
 
     /**
+     * Bose `04 03` — REMOVE_DEVICE, added 2026-08-26.
+     *
+     * ⚠ **`04 07` was guarded and this was not**, for the whole time both were known.
+     * It unpairs **one** device rather than all of them, which sounds milder and is
+     * not: the argument is a BD_ADDR, and the address most easily to hand is the
+     * phone's own — `04 04` LIST_DEVICES hands it back, and `04 05` INFO already takes
+     * it as a parameter. So the natural way to write a "forget this device" button is
+     * also the way to unpair the device the app is talking over.
+     *
+     * ⚠ Found while asking whether the vendor app's **Connections** screen could be
+     * built here. It could — and the first thing that screen wants is a remove button.
+     * Guarding it before anything is built is the point; a refusal added after a
+     * writer exists is a refusal added after the mistake is reachable.
+     */
+    private const val BOSE_REMOVE_DEVICE: Byte = 0x03
+
+    /**
      * Sony table-2 `38` PERI_SET_PARAM, whose `ConnectivityActionType` is
      * `00 DISCONNECT · 01 CONNECT · 02 UNPAIR`.
      *
@@ -100,15 +117,29 @@ object Hazards {
         return null
     }
 
-    private fun bose(payload: ByteArray): Refusal? =
-        if (payload[0] == BOSE_DEVICE_BLOCK && payload.getOrNull(1) == BOSE_CLEAR_LIST) {
-            Refusal(
-                "Bose 04 07 CLEAR_DEVICE_LIST",
-                "this erases the pairing list, including this phone",
-            )
-        } else {
-            null
+    private fun bose(payload: ByteArray): Refusal? {
+        if (payload[0] != BOSE_DEVICE_BLOCK) return null
+        return when (payload.getOrNull(1)) {
+            BOSE_CLEAR_LIST -> {
+                Refusal(
+                    "Bose 04 07 CLEAR_DEVICE_LIST",
+                    "this erases the pairing list, including this phone",
+                )
+            }
+
+            BOSE_REMOVE_DEVICE -> {
+                Refusal(
+                    "Bose 04 03 REMOVE_DEVICE",
+                    "this unpairs the device it names, and the address most easily to " +
+                        "hand is this phone's own",
+                )
+            }
+
+            else -> {
+                null
+            }
         }
+    }
 
     private fun bes(payload: ByteArray): Refusal? {
         if (payload[0] != Bes.HEADER) return null

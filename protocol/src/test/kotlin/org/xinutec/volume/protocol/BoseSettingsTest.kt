@@ -9,6 +9,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
+ * ⚠ **BD_ADDRs in these fixtures are REDACTED to `aa bb cc dd ee ff`.** This repo is
+ * public and the address that appeared here was the phone's own — a device that travels
+ * with its owner. Every other byte is as captured; the substitution is confined to the
+ * six address bytes, which no decode under test looks at.
+ *
  * Fixtures are **whole real frames** from the 2026-08-16 Bose Music capture
  * (`docs/captures.md`), copied out of `tshark` — not written to match the code.
  *
@@ -133,7 +138,7 @@ class BoseSettingsTest {
      */
     @Test
     fun `a second frame in the same window is not read as payload`() {
-        assertEquals(false, BoseMultipoint.state(bytes("010a0301060404030701fc4116e09d2a")))
+        assertEquals(false, BoseMultipoint.state(bytes("010a0301060404030701aabbccddeeff")))
     }
 
     // ---- Action button -----------------------------------------------------
