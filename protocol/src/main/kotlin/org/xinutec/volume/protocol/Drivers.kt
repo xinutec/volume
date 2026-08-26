@@ -118,24 +118,45 @@ object Drivers {
     /**
      * Bose QC35. Same framing as the QC45, different table — `01 06` is ANC here
      * and is a function the QC45 reports unsupported. Three states, not a scale.
+     *
+     * ⚠ **All three mode bytes were wrong until 2026-08-26, and in a way that
+     * inverted the two that matter.** The table read `00` ANC · `01` AMBIENT ·
+     * `03` OFF; the device means `00` **Off** · `01` **High** · `03` **Low**. So
+     * this app's "Off" chip turned cancelling *down* rather than off, and its
+     * "Noise cancelling" chip turned it *off* — the one a person reaches for in a
+     * noisy place did the opposite, which is a state somebody might answer by
+     * turning the volume up.
+     *
+     * ⚠ **The wrong table was self-consistent, so nothing on this side could catch
+     * it.** [read] and [write] shared it, so a write read back as the mode it had
+     * asked for, the card drew that mode, and `DriversTest` asserted the same three
+     * pairs. Every check agreed with every other and all of them were wrong
+     * together. What broke it was **the vendor app**: Bose Connect names these
+     * High/Low/Off on screen, and driving each one there while reading `01 06` from
+     * this side gave three labelled bytes that no amount of internal consistency
+     * could have produced.
+     *
+     * ⚠ **The QC35 has no pass-through at all** — see [AncMode.ANC_LOW]. The
+     * earlier table's `AMBIENT` was a mode this device does not have, which is the
+     * detail that should have looked wrong on paper before any of it was driven.
      */
     object BoseQc35 : AncDriver {
-        override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT)
+        override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.ANC_LOW)
 
         private fun value(mode: AncMode): Byte =
             when (mode) {
-                AncMode.ANC -> 0x00
-                AncMode.AMBIENT -> 0x01
-                AncMode.OFF -> 0x03
+                AncMode.OFF -> 0x00
+                AncMode.ANC -> 0x01
+                AncMode.ANC_LOW -> 0x03
                 else -> error("QC35 has no $mode")
             }
 
         override fun read(t: Transport): AncMode? {
             val r = t.exchange(byteArrayOf(0x01, 0x06, 0x01, 0x00))
             return when (r.getOrNull(4)) {
-                0x00.toByte() -> AncMode.ANC
-                0x01.toByte() -> AncMode.AMBIENT
-                0x03.toByte() -> AncMode.OFF
+                0x00.toByte() -> AncMode.OFF
+                0x01.toByte() -> AncMode.ANC
+                0x03.toByte() -> AncMode.ANC_LOW
                 else -> null
             }
         }

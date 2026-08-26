@@ -25,8 +25,13 @@ like the end of the map and is not.
 
 ```
 QC45   1f 03 05 02 <slot> 01     slot 0=Quiet 1=Aware 2=Home 3=unnamed
-QC35   01 06 02 01 <value>       00 / 01 / 03   (2nd reply byte 0b is constant)
+QC35   01 06 02 01 <value>       00 Off · 01 High · 03 Low   (2nd reply byte 0b is constant)
 ```
+⚠ **The QC35 names were WRONG in this repo until 2026-08-26** — see "Bose Connect is
+the only oracle" at the end of this page. This line recorded the value *set*,
+`00 / 01 / 03`, and never which was which, so the driver's invented meanings had
+nothing here to contradict them.
+
 Both driven; headphones announced each mode aloud. `01 05` on the QC45 reads the
 active level (`0b <level> 03`, Quiet=`00` Aware=`0a`) and is **read-only** — three
 writes there were refused `04 01 05`. The QC45 has 11 levels (`0b`), Quiet/Aware
@@ -352,3 +357,40 @@ sweeping to `12` and concluding the map ended.
 no 24-bit mask can express, so its `00 02` must answer **four or more bytes**. If it
 answers three, then either the mask is not what this page says it is, or the device does
 not list `1f` in it — and either would matter more than the row it was asked for.
+
+## ⚠ Bose Connect is the only oracle that could catch a scrambled mode table — 2026-08-26
+
+`Drivers.BoseQc35` mapped `00` ANC · `01` AMBIENT · `03` OFF. Every one is wrong, and
+the two that matter are inverted:
+
+| Bose Connect | wire | this repo said |
+| --- | --- | --- |
+| **Off** | `00` | ANC |
+| **High** | `01` | AMBIENT |
+| **Low** | `03` | OFF |
+
+So the app's *Off* chip turned cancelling **down**, and its *Noise cancelling* chip
+turned it **off** — the one a person reaches for in a noisy place did the opposite,
+which is a state somebody might answer by reaching for the volume.
+
+⚠ **NOTHING INSIDE THIS REPO COULD HAVE FOUND IT.** `read` and `write` shared the one
+table, so a write read back as the mode it had asked for; the card drew that mode;
+`DriversTest` asserted the same three pairs. **Every check agreed with every other and
+all of them were wrong together** — a closed loop is not evidence, however many members
+it has.
+
+**How it was actually found:** Bose Connect names the three states on screen. Selecting
+each one there and reading `01 06` from this side gives a byte *labelled by someone
+other than us*. Because the vendor app and this repo contend for the single SPP control
+channel, that is one cycle per state — set in the app, force-stop it, read.
+
+⚠ **The QC35 has no pass-through mode at all.** Its three rows are High, Low and Off;
+`AMBIENT` was a mode the hardware does not have, and that should have looked wrong on
+paper before anything was driven. `AncMode.ANC_LOW` now exists for the real third state,
+and Low is *not* a kind of Ambient — nothing is passed through, the same cancelling is
+turned down.
+
+⚠ **A second oracle was in the room the whole time and went unused:** the headphones
+announce the mode aloud when it changes. Whether they speak the level's *name* is
+untested here — but "the device says something at this moment" was known and never
+turned into a check.
