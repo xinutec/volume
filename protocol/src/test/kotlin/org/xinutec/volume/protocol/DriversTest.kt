@@ -2,6 +2,7 @@ package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -605,18 +606,44 @@ class DriversTest {
 
     @Test
     fun `qc35 has three states on its own function`() {
+        // ⚠ The bytes below are LABELLED BY BOSE CONNECT, not by this repo: each
+        // mode was selected in the vendor app and `01 06` read from this side while
+        // it held that state. The previous table was `00` ANC · `01` AMBIENT ·
+        // `03` OFF and this test asserted it — self-consistently, since read and
+        // write shared the table. An oracle outside the app was the only thing that
+        // could tell them apart.
         assertEquals(
-            AncMode.ANC,
+            AncMode.OFF,
             Drivers.BoseQc35.read(Replay("01 06 01 00" to "01 06 03 02 00 0b")),
         )
         assertEquals(
-            AncMode.AMBIENT,
+            AncMode.ANC,
             Drivers.BoseQc35.read(Replay("01 06 01 00" to "01 06 03 02 01 0b")),
         )
         assertEquals(
-            AncMode.OFF,
+            AncMode.ANC_LOW,
             Drivers.BoseQc35.read(Replay("01 06 01 00" to "01 06 03 02 03 0b")),
         )
+    }
+
+    @Test
+    fun `qc35 writes the byte the vendor app writes for each mode`() {
+        // The other half of the same table. A read test alone cannot catch an
+        // inverted map when write shares it — both were wrong together for months.
+        val table = listOf(AncMode.OFF to "00", AncMode.ANC to "01", AncMode.ANC_LOW to "03")
+        for ((mode, byte) in table) {
+            val w = Replay("01 06 02 01 $byte" to "01 06 03 02 $byte 0b")
+            Drivers.BoseQc35.write(w, mode)
+            assertEquals("01 06 02 01 $byte", w.sent.first())
+        }
+    }
+
+    @Test
+    fun `qc35 offers no pass-through mode`() {
+        // The device has none: Bose Connect's three rows are High, Low and Off.
+        // AMBIENT in this driver's table was a mode the hardware does not have.
+        assertFalse(AncMode.AMBIENT in Drivers.BoseQc35.modes)
+        assertFalse(AncMode.TALK_THRU in Drivers.BoseQc35.modes)
     }
 
     // ---- JLab ------------------------------------------------------------------
@@ -868,9 +895,13 @@ class DriversTest {
             listOf(
                 Triple(Drivers.BoseQc45, "01 05 01 00" to "01 05 03 03 0b 00 03", AncMode.ANC),
                 Triple(Drivers.BoseQc45, "01 05 01 00" to "01 05 03 03 0b 0a 03", AncMode.AMBIENT),
-                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 00 0b", AncMode.ANC),
-                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 01 0b", AncMode.AMBIENT),
-                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 03 0b", AncMode.OFF),
+                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 00 0b", AncMode.OFF),
+                Triple(Drivers.BoseQc35, "01 06 01 00" to "01 06 03 02 01 0b", AncMode.ANC),
+                Triple(
+                    Drivers.BoseQc35,
+                    "01 06 01 00" to "01 06 03 02 03 0b",
+                    AncMode.ANC_LOW,
+                ),
                 Triple(
                     Drivers.JblBes,
                     "aa 91 01 11" to "aa 91 07 12 01 01 02 00 03 00",

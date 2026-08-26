@@ -16,6 +16,19 @@ enum class AncMode {
     /** Noise cancelling on. */
     ANC,
 
+    /**
+     * Noise cancelling on, at a lower strength than [ANC].
+     *
+     * ⚠ **Not a kind of [AMBIENT].** Nothing is passed through — this is the same
+     * cancelling, turned down, which Bose describes as "fine-tuned for audio
+     * listening in quieter or windy environments". The QC35 offers exactly this,
+     * and mapping it onto [AMBIENT] is what made every one of that driver's three
+     * mode bytes wrong at once: a pass-through name attached to a cancelling state
+     * reads as correct forever, because nobody wearing them can tell the label from
+     * the behaviour without a second device to compare against.
+     */
+    ANC_LOW,
+
     /** Outside sound passed through. */
     AMBIENT,
 

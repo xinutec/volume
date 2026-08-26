@@ -1461,7 +1461,14 @@ fun reason(e: Emptiness): String =
 fun label(m: AncMode): String =
     when (m) {
         AncMode.OFF -> "Off"
+
         AncMode.ANC -> "Noise cancelling"
+
+        // Bose Connect's own word for the QC35's weaker cancelling. Not "Ambient":
+        // nothing is passed through — see AncMode.ANC_LOW.
+        AncMode.ANC_LOW -> "Low"
+
         AncMode.AMBIENT -> "Ambient"
+
         AncMode.TALK_THRU -> "TalkThru"
     }

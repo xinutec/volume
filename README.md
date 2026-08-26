@@ -72,7 +72,7 @@ need a transaction, reads that need an ack. So the fixtures are real captures, a
 
 ```
 QC45   1f 03 05 02 <slot> 01              slot 0=Quiet 1=Aware 2=Home 3=unnamed
-QC35   01 06 02 01 <value>                00 / 01 / 03
+QC35   01 06 02 01 <value>                00 Off · 01 High · 03 Low
 JBL    aa 91 07 10 01 <anc> 02 <amb> 03 <talkthru>     read with aa 91 01 11
 Sony   68 02 <on> 02 <nc> 01 00 <ambient>               read with 66 02
 JLab   c0 ff 00 46 03 00 <mode> 04 04 01 00 <sum>      00=off 01=NC on 02=Be Aware
