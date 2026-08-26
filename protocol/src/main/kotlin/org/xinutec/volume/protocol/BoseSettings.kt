@@ -548,6 +548,126 @@ object BoseVoicePrompts {
 }
 
 /**
+ * The QC45's named ANC modes — block `1f`, and the whole of its "custom modes" feature.
+ *
+ * ⚠ **This block is NOT in Bose Connect's SDK**, and Bose Music's own
+ * `SettingsCncPresets` (`01 0f`) answers `04 01 04` *function not supported* on this
+ * device. So none of the below comes from a decompile: it was captured off the wire
+ * while the vendor app edited a mode, then reconstructed and driven from this repo's
+ * own socket — level set to 3, read back, restored. See `docs/bose-read-surface.md`,
+ * "The mode-edit write, captured and replayed".
+ *
+ * ⚠ **The device has FOUR slots**, two built in (Quiet, Aware) and two the owner makes.
+ * The names are the device's own — this repo does not supply them.
+ */
+object BoseCncModes {
+    const val BLOCK: Byte = 0x1f
+
+    /** `1f 01` — a Start whose transaction returns every slot. */
+    const val LIST: Byte = 0x01
+
+    /** `1f 03` — read the active slot, or Start a selection. */
+    const val ACTIVE: Byte = 0x03
+
+    /** `1f 06` — one slot: Get by index, or SET_GET to edit it. */
+    const val SLOT: Byte = 0x06
+
+    /** `1f 08` — `<capacity> <bitmask of occupied slots>`. */
+    const val SLOTS: Byte = 0x08
+
+    /** How many bytes the name occupies in a record, NUL-padded, in both directions. */
+    private const val NAME_LEN = 32
+
+    /**
+     * ⚠ **The level is at a DIFFERENT offset in each direction** — `[35]` in the write
+     * and `[42]` in the reply. The two records are not the same struct and the reply is
+     * not an echo, so one constant for both would be five bytes wrong coming back.
+     */
+    private const val LEVEL_WRITE = 35
+    private const val LEVEL_READ = 42
+
+    /** The quietest and most transparent ends of the eleven-point scale. */
+    const val QUIETEST = 0
+    const val MOST_AWARE = 10
+
+    /**
+     * One slot as the device describes it.
+     *
+     * ⚠ [nameId] is **undecoded** — `01` Quiet, `02` Aware, and whatever the owner's
+     * modes were made with. It is constant across every edit of a given mode, so it
+     * belongs to the mode's identity rather than its level; it looked like the level on
+     * one mode where `07` happened to land in both bytes. It is carried through an edit
+     * unchanged rather than interpreted.
+     */
+    data class Mode(
+        val slot: Int,
+        val nameId: Int,
+        val name: String,
+        val level: Int,
+        val editable: Boolean,
+    )
+
+    fun list() = BoseFrame.encode(BLOCK, LIST, BoseFrame.START)
+
+    fun active() = BoseFrame.encode(BLOCK, ACTIVE, BoseFrame.GET)
+
+    fun slots() = BoseFrame.encode(BLOCK, SLOTS, BoseFrame.GET)
+
+    /**
+     * ⚠ **Selecting takes operator `05` Start and the payload `<slot> 01`**, not
+     * `01 <slot>`: the one captured example had `01` in both bytes and hid the order.
+     */
+    fun select(slot: Int) =
+        BoseFrame.encode(BLOCK, ACTIVE, BoseFrame.START, byteArrayOf(slot.toByte(), 0x01))
+
+    /**
+     * Move one mode's level, leaving its name and [Mode.nameId] as they are.
+     *
+     * ⚠ **Send this on release, not on change.** Bose Music writes once per slider
+     * position — eight frames for one adjustment — and there is no reason to copy that.
+     */
+    fun setLevel(mode: Mode, level: Int): ByteArray {
+        val name = mode.name.toByteArray(Charsets.UTF_8).copyOf(NAME_LEN)
+        val tail = byteArrayOf(level.coerceIn(QUIETEST, MOST_AWARE).toByte(), 0, 0, 0)
+        val body = byteArrayOf(mode.slot.toByte(), 0x00, mode.nameId.toByte()) + name + tail
+        check(body.size == LEVEL_WRITE + 4) { "record is ${body.size} bytes, not 39" }
+        return BoseFrame.encode(BLOCK, SLOT, BoseFrame.SET_GET, body)
+    }
+
+    /**
+     * Every occupied slot in a `1f 01` transaction's reply, or in one slot's Status.
+     *
+     * ⚠ The reply arrives as ONE batched buffer holding a dozen frames, so it has to be
+     * split before anything is read out of it — see [BoseFrame.frames].
+     */
+    fun modes(buffer: ByteArray): List<Mode> =
+        BoseFrame.frames(buffer).mapNotNull { frame ->
+            val p = BoseFrame.payload(frame, BLOCK, SLOT) ?: return@mapNotNull null
+            if (p.size <= LEVEL_READ) return@mapNotNull null
+            val name =
+                String(p, 6, NAME_LEN.coerceAtMost(p.size - 6), Charsets.UTF_8)
+                    .substringBefore('\u0000')
+            // ⚠ An empty name is an EMPTY SLOT, not a nameless mode: before its fourth
+            // mode existed this device answered a full-length record with no name in it.
+            if (name.isEmpty()) return@mapNotNull null
+            Mode(
+                slot = p[0].toInt() and 0xff,
+                nameId = p[2].toInt() and 0xff,
+                name = name,
+                level = p[LEVEL_READ].toInt() and 0xff,
+                editable = p[3].toInt() != 0,
+            )
+        }
+
+    /** Which slot is selected, from `1f 03 03 01 <slot>`. */
+    fun activeSlot(buffer: ByteArray): Int? {
+        val frames = BoseFrame.frames(buffer)
+        val payload = frames.firstNotNullOfOrNull { BoseFrame.payload(it, BLOCK, ACTIVE) }
+        return payload?.firstOrNull()?.toInt()?.and(0xff)
+    }
+}
+
+/**
  * `02 02` BATTERY_LEVEL — one byte, a percentage.
  *
  * ⚠ **Charging is NOT reported on the QC35**, and this returns null for it rather than
