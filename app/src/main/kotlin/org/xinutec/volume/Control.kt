@@ -66,6 +66,9 @@ object Control {
             t.close()
             return null
         }
+        // ⚠ Only now is it known to be a Bose, so only now can its terminator be
+        // adopted — see RfcommTransport.endsWith.
+        t.endsWith(BoseFrame::terminates)
         val model = if (driver === org.xinutec.volume.protocol.Drivers.BoseQc45) "QC45" else "QC35"
         onNote("identified by read: Bose $model")
         runCatching { driver.prepare(t) }

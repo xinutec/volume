@@ -115,8 +115,16 @@ object BoseFrame {
         val fn = sent[1]
         val ends =
             when (sent[2]) {
-                GET, SET_GET -> setOf(STATUS, ERROR)
+                // ⚠ **A GET can be answered with RESULT.** `04 08` PAIRING_MODE does
+                // exactly that — `04 08 01 00` draws `04 08 06 02 00 03`. That was
+                // written down the morning this rule was made and not carried into it,
+                // and the capture showed the cost precisely: every other exchange fell
+                // to ~13 ms while `04 08` alone stayed at 418 ms, still timing out.
+                // RESULT ends an exchange whatever started it.
+                GET, SET_GET -> setOf(STATUS, RESULT, ERROR)
+
                 START -> setOf(RESULT, ERROR)
+
                 else -> return false
             }
         return frames(buffer).any { it[0] == block && it[1] == fn && it[2] in ends }
