@@ -38,7 +38,7 @@ class RfcommTransport private constructor(
      * session rather than a request and a reply, and inventing a terminator for it would
      * be guessing at the one protocol here that has already punished guessing.
      */
-    private val finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
+    private var finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
 ) : Transport,
     Closeable {
     companion object {
@@ -121,6 +121,20 @@ class RfcommTransport private constructor(
         return out.toByteArray()
     }
 
+    /**
+     * Adopt a terminator **after** the device has been identified.
+     *
+     * ⚠ **A renamed device is identified by ASKING it**, which means the socket is open
+     * before anyone knows what is on the other end — so the rule cannot be chosen at
+     * construction for exactly the devices most likely to need it. Pippijn's QC35 is
+     * called "Pippijn Bose QC35", `Registry.fromAdvertisement` therefore returns null,
+     * and the whole early-stop change missed it while looking wired. The card said
+     * "**(renamed)**" the entire time.
+     */
+    fun endsWith(f: (sent: ByteArray, got: ByteArray) -> Boolean) {
+        finished = f
+    }
+
     override fun send(packet: ByteArray) {
         socket.outputStream.write(packet)
         socket.outputStream.flush()
@@ -189,7 +203,7 @@ class GattTransport private constructor(
      * session rather than a request and a reply, and inventing a terminator for it would
      * be guessing at the one protocol here that has already punished guessing.
      */
-    private val finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
+    private var finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
 ) : Transport,
     Closeable {
     companion object {
@@ -324,6 +338,20 @@ class GattTransport private constructor(
             }
         }
         return out.toByteArray()
+    }
+
+    /**
+     * Adopt a terminator **after** the device has been identified.
+     *
+     * ⚠ **A renamed device is identified by ASKING it**, which means the socket is open
+     * before anyone knows what is on the other end — so the rule cannot be chosen at
+     * construction for exactly the devices most likely to need it. Pippijn's QC35 is
+     * called "Pippijn Bose QC35", `Registry.fromAdvertisement` therefore returns null,
+     * and the whole early-stop change missed it while looking wired. The card said
+     * "**(renamed)**" the entire time.
+     */
+    fun endsWith(f: (sent: ByteArray, got: ByteArray) -> Boolean) {
+        finished = f
     }
 
     override fun send(packet: ByteArray) {

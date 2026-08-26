@@ -615,6 +615,14 @@ class BoseTerminatesTest {
     }
 
     @Test
+    fun `a GET answered with RESULT ends too`() {
+        // ⚠ 04 08 PAIRING_MODE answers a GET with 06 RESULT, not 03 STATUS. Measured on
+        // the wire: with RESULT missing from the GET set, that one exchange kept timing
+        // out at 418 ms while every other fell to ~13 ms.
+        assertTrue(BoseFrame.terminates(Hex.parse("04 08 01 00"), Hex.parse("04 08 06 02 00 03")))
+    }
+
+    @Test
     fun `a GET also ends at an ERROR, because that is an answer`() {
         assertTrue(BoseFrame.terminates(Hex.parse("01 15 01 00"), Hex.parse("01 15 04 01 04")))
     }

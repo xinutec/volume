@@ -731,12 +731,28 @@ device whose replies arrive about **1 ms** after the request (probe timestamps: 
 arrived — a `01`/`02` ends at `03` STATUS, a `05` START at `06` RESULT, either at `04`
 ERROR.
 
-⚠ **Measured 7.1 s → 6.0 s, which is ~1.1 s, not 2.8 s.** So the quiet window was real but
-**not the dominant cost**, and the model behind the change was wrong even though the change
-was right. ⚠ **The baseline is ONE sample against two after**, and the timing loop polls
-`uiautomator` at ~0.3 s granularity, so this is suggestive rather than settled.
+⚠ **Those first figures — 7.1 s and 6.0 s — were BOTH wrong, and the change had not even
+taken effect.** They were taken through a `uiautomator` poll, which reads the *focused*
+window; and the early stop was wired at one of the **two** `RfcommTransport.open` call
+sites. A **renamed** device does not match `Registry.fromAdvertisement`, so it is
+identified by *asking* it — down the other path, the unpatched one. Pippijn's QC35 is
+called "Pippijn Bose QC35"; the card had been printing "Bose QC35 **(renamed)**" all day.
 
-**What is unaccounted:** roughly six seconds. `RfcommTransport.open` does a socket connect
+✅ **Measured on the wire instead, which cannot be confounded by the UI: 8.77 s → 1.84 s**
+for the same forty frames, with the gap between a reply and the next request falling from
+**418 ms to a median of 13 ms**.
+
+⚠ **And the capture named its own remaining defect.** One exchange stayed at 418 ms —
+`04 08` PAIRING_MODE, whose GET is answered with `06` RESULT rather than `03` STATUS. That
+was written down in this file the same morning and not carried into the rule, so RESULT now
+ends a GET too.
+
+⚠ **What remains is REDUNDANT READS, and they are the real cost.** The wire shows the whole
+cycle — `01 06`, `01 02`, `01 01` GET_ALL, `04 04`, `04 05`, `04 08`, `02 02` — running two
+or three times per card open, and `01 06`/`01 02` fetched individually *before* the GET_ALL
+that already returns both. Forty frames where fourteen would do. #1191.
+
+**Formerly unaccounted:** roughly six seconds. `RfcommTransport.open` does a socket connect
 and then drains for up to 700 ms to swallow the device's greeting, and neither has been
 timed. ⚠ **Named rather than assumed** — the last time a number here was reasoned about
 instead of measured, `34 s` turned out to be the probe's own `SEQ_WAIT` window rather than
