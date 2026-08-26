@@ -84,6 +84,45 @@ object BoseFrame {
     }
 
     /**
+     * Does [buffer] already hold the frame that ENDS the exchange [sent] started?
+     *
+     * ⚠ **The point is not speed, it is that a timeout is the wrong instrument.** The
+     * transport otherwise waits 400 ms of quiet after the last byte, on a device that
+     * answers in about one millisecond — so a card that makes seven exchanges spends
+     * most of its time waiting to be sure nothing more is coming. The protocol already
+     * says when it is finished; asking it is both faster and more correct than guessing
+     * from silence.
+     *
+     * ⚠ **Stopping at the first frame that matches block and function would TRUNCATE.**
+     * A `05` START answers `07` PROCESSING, then one Status frame per item, then `06`
+     * RESULT — `01 01` GET_ALL returns eight frames that way. The terminator depends on
+     * the operator that was sent:
+     *
+     * ```
+     * sent 01 GET      ends at 03 STATUS    (or 04 ERROR)
+     * sent 02 SET_GET  ends at 03 STATUS    (or 04 ERROR)
+     * sent 05 START    ends at 06 RESULT    (or 04 ERROR)
+     * ```
+     *
+     * ⚠ **Returns false for anything else**, which means the caller falls back to its
+     * timeout rather than to a guess. Several functions on this device answer nothing at
+     * all (`01 07`, `01 08`), and a rule that claimed those were complete would turn a
+     * silence worth noticing into an empty buffer that looks like a decode failure.
+     */
+    fun terminates(sent: ByteArray, buffer: ByteArray): Boolean {
+        if (sent.size < 3) return false
+        val block = sent[0]
+        val fn = sent[1]
+        val ends =
+            when (sent[2]) {
+                GET, SET_GET -> setOf(STATUS, ERROR)
+                START -> setOf(RESULT, ERROR)
+                else -> return false
+            }
+        return frames(buffer).any { it[0] == block && it[1] == fn && it[2] in ends }
+    }
+
+    /**
      * The payload of [frame] if it is the expected block/fn/operator, else null.
      *
      * ⚠ **Trusts the length byte over the array's size**, and returns null when they

@@ -3,7 +3,9 @@ package org.xinutec.volume
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
+import org.xinutec.volume.protocol.BoseFrame
 import org.xinutec.volume.protocol.Channels
+import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Headphones
 import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Route
@@ -89,7 +91,25 @@ object Control {
     ): Session? =
         when (val r = h.route) {
             is Route.Rfcomm -> {
-                val t = RfcommTransport.open(adapter, bonded, UUID.fromString(r.uuid))
+                // ⚠ The early-stop rule is BOSE'S, so it is passed only on Bose's
+                // channel. The JLab speaks BES over this same SPP uuid, and its framing
+                // has no operator byte to read a terminator out of — handing it Bose's
+                // rule would end its reads on a coincidence.
+                val ends =
+                    if (r.uuid.equals(Channels.SPP, ignoreCase = true) &&
+                        h.driver is Drivers.BoseQc35
+                    ) {
+                        BoseFrame::terminates
+                    } else {
+                        null
+                    }
+                val t =
+                    RfcommTransport.open(
+                        adapter,
+                        bonded,
+                        UUID.fromString(r.uuid),
+                        finished = ends,
+                    )
                 if (t == null) {
                     onNote("${h.model}: ${r.uuid} would not open — is a vendor app holding it?")
                     null

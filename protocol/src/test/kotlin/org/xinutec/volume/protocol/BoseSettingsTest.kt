@@ -599,3 +599,56 @@ class BoseForgetTest {
         assertTrue(t.sent.none { it.startsWith("04 03") })
     }
 }
+
+/**
+ * The rule that lets a read stop when the protocol is finished rather than when the
+ * device has been quiet for 400 ms.
+ *
+ * ⚠ **Every case here is about NOT stopping too early.** Stopping late costs latency;
+ * stopping early costs a truncated reply that decodes as a missing setting — which is
+ * the failure #1154 is about, arriving by a different route.
+ */
+class BoseTerminatesTest {
+    @Test
+    fun `a GET ends at its STATUS`() {
+        assertTrue(BoseFrame.terminates(Hex.parse("01 04 01 00"), Hex.parse("01 04 03 01 3c")))
+    }
+
+    @Test
+    fun `a GET also ends at an ERROR, because that is an answer`() {
+        assertTrue(BoseFrame.terminates(Hex.parse("01 15 01 00"), Hex.parse("01 15 04 01 04")))
+    }
+
+    @Test
+    fun `a START does NOT end at the Processing frame`() {
+        // ⚠ The truncation this rule exists to avoid: 01 01 GET_ALL opens with 07
+        // PROCESSING and only finishes at 06 RESULT, eight frames later. Ending on the
+        // first block-and-function match would return the header and nothing else.
+        val sent = Hex.parse("01 01 05 00")
+        assertFalse(BoseFrame.terminates(sent, Hex.parse("01 01 07 00")))
+        assertFalse(
+            BoseFrame.terminates(sent, Hex.parse("01 01 07 00 01 04 03 01 3c")),
+        )
+        assertTrue(
+            BoseFrame.terminates(sent, Hex.parse("01 01 07 00 01 04 03 01 3c 01 01 06 00")),
+        )
+    }
+
+    @Test
+    fun `another function's reply does not end this exchange`() {
+        // The device volunteers frames — 05 01 SOURCE arrived unasked mid-removal. A
+        // rule keyed on operator alone would let someone else's status close our read.
+        assertFalse(
+            BoseFrame.terminates(Hex.parse("01 04 01 00"), Hex.parse("05 01 03 02 00 02")),
+        )
+    }
+
+    @Test
+    fun `an unknown operator falls back to the timeout rather than guessing`() {
+        // ⚠ False, not true. 01 07 and 01 08 answer NOTHING on this device; a rule that
+        // called an empty buffer "finished" would turn a silence worth noticing into a
+        // decode failure.
+        assertFalse(BoseFrame.terminates(Hex.parse("01 04 03 00"), Hex.parse("01 04 03 01 3c")))
+        assertFalse(BoseFrame.terminates(Hex.parse("01 04 01 00"), ByteArray(0)))
+    }
+}

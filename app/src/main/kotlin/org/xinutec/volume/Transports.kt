@@ -29,6 +29,16 @@ class RfcommTransport private constructor(
     private val socket: BluetoothSocket,
     private val perMs: Long,
     private val quietMs: Long,
+    /**
+     * ⚠ **When the PROTOCOL says the exchange is finished**, so the read can stop
+     * instead of waiting out [quietMs] on a device that has already answered.
+     *
+     * Null for channels with no such rule, which keeps the timeout behaviour exactly as
+     * it was — Sony's framing is escaped and length-prefixed but its exchanges are a
+     * session rather than a request and a reply, and inventing a terminator for it would
+     * be guessing at the one protocol here that has already punished guessing.
+     */
+    private val finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
 ) : Transport,
     Closeable {
     companion object {
@@ -45,6 +55,7 @@ class RfcommTransport private constructor(
             uuid: UUID,
             perMs: Long = 1500,
             quietMs: Long = 400,
+            finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
         ): RfcommTransport? {
             runCatching { adapter.cancelDiscovery() }
             for (secure in listOf(true, false)) {
@@ -57,7 +68,7 @@ class RfcommTransport private constructor(
                         }
                     }.getOrNull() ?: continue
                 if (runCatching { s.connect() }.isSuccess) {
-                    val t = RfcommTransport(s, perMs, quietMs)
+                    val t = RfcommTransport(s, perMs, quietMs, finished)
                     t.readFor(700, 300)
                     return t
                 }
@@ -69,7 +80,14 @@ class RfcommTransport private constructor(
 
     override fun exchange(packet: ByteArray): ByteArray {
         send(packet)
-        return readFor(perMs, quietMs)
+        return drain(
+            socket.inputStream,
+            perMs,
+            quietMs,
+            finished?.let { f ->
+                { got -> f(packet, got) }
+            },
+        )
     }
 
     /**
@@ -123,7 +141,12 @@ class RfcommTransport private constructor(
     private fun readFor(totalMs: Long, quietMs: Long): ByteArray =
         drain(socket.inputStream, totalMs, quietMs)
 
-    private fun drain(input: InputStream, totalMs: Long, quietMs: Long): ByteArray {
+    private fun drain(
+        input: InputStream,
+        totalMs: Long,
+        quietMs: Long,
+        done: ((ByteArray) -> Boolean)? = null,
+    ): ByteArray {
         val out = java.io.ByteArrayOutputStream()
         val buf = ByteArray(4096)
         val start = System.nanoTime()
@@ -133,6 +156,9 @@ class RfcommTransport private constructor(
             if (n > 0) {
                 out.write(buf, 0, n)
                 lastData = System.nanoTime()
+                // ⚠ Checked after every read, not only on quiet: the terminator can
+                // arrive in the same chunk as the frames before it — this device batches.
+                if (done != null && done(out.toByteArray())) break
             } else {
                 if (out.size() > 0 && (System.nanoTime() - lastData) / 1_000_000 > quietMs) break
                 Thread.sleep(20)
@@ -154,6 +180,16 @@ class GattTransport private constructor(
     private val notifications: LinkedBlockingQueue<ByteArray>,
     private val perMs: Long,
     private val quietMs: Long,
+    /**
+     * ⚠ **When the PROTOCOL says the exchange is finished**, so the read can stop
+     * instead of waiting out [quietMs] on a device that has already answered.
+     *
+     * Null for channels with no such rule, which keeps the timeout behaviour exactly as
+     * it was — Sony's framing is escaped and length-prefixed but its exchanges are a
+     * session rather than a request and a reply, and inventing a terminator for it would
+     * be guessing at the one protocol here that has already punished guessing.
+     */
+    private val finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
 ) : Transport,
     Closeable {
     companion object {
