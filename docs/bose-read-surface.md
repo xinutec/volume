@@ -864,7 +864,77 @@ the other device's pattern. Read as six bytes instead, every bit falls past the 
 entries and the device offers no languages at all, which is not a state the firmware can
 be in.
 
-⚠ **That is still an argument from neatness, which this page has been burned by.** The
-oracle is Bose Music's own voice-prompt language screen on this device — eight entries,
-led by English (U.S.), or the reading is wrong. Not asked yet: it needs the phone's
-screen, and the phone was Pippijn's at the time.
+⚠ **That is still an argument from neatness, which this page has been burned by** — so it
+was settled a different way the same day, off the vendor parser rather than off the
+vendor's screen. See "The language mask is four bytes — from the parser, not from
+neatness" at the end of this page: `get()` then `getInt()`, four bytes, confirmed.
+
+## ✅ Three of the four QC45 settings, driven and restored — 2026-08-26
+
+Each one driven to a value it did **not** hold, verified by an independent GET, and put
+back. The frames are the QC35's, unchanged.
+
+    01 04  →  02 01 3c   ← 03 01 3c    GET → 3c      restore 00   GET → 00    standby
+    01 0b  →  02 02 01 03 ← 03 01 03 0f GET → 01 03 0f restore 02  GET → 02   self voice
+    01 03  →  02 01 01   ← (nothing)   GET → 81      restore 21   GET → a1   voice prompts
+
+**`01 04` is writable and persists on the QC45**, which is the half #966 left open. ⚠ It
+proves the field takes a value and survives a separate read — **not** that the headphones
+actually power down after sixty minutes. That costs an hour of idleness and nobody has
+spent it.
+
+### ⚠⚠ `01 03` answers NOTHING when it changes something — and only `01 03`
+
+Five packets down one socket, both directions of change:
+
+    → 01 03 02 01 21   ← 01 03 03 07 a1 …    already on: NO-OP, answered at once
+    → 01 03 02 01 01   ← (nothing)           on → off:   a real change, SILENT
+    → 01 03 01 00      ← 01 03 03 07 81 …    the GET shows it took
+    → 01 03 02 01 21   ← (nothing)           off → on:   a real change, SILENT
+    → 01 03 01 00      ← 01 03 03 07 a1 …    the GET shows it took
+
+**Silence here means the write WORKED**, which is the opposite of how this repo has read
+silence everywhere else. The first time it happened the setting had already been applied
+and a read-back was the only thing that could have said so.
+
+⚠ **Do not generalise it to "QC45 writes are silent".** In the same sitting `01 04` and
+`01 0b` each changed state *and* answered a Status normally. It is this one function —
+plausibly because toggling prompts makes the device reload prompt audio and the reply
+falls outside the read window.
+
+⚠ **This breaks the early-stop for `01 03`.** `BoseFrame.terminates` treats a SET_GET as
+finished on Status/Result/Error, so a real toggle has no terminator and falls through to
+the timeout — an eight-second stall per switch press. Whatever wires this (#1193) has to
+take its confirmation from a follow-up GET rather than from the write's own reply.
+
+### ✅ The language mask is four bytes — from the parser, not from neatness
+
+The earlier note here argued the window from how tidily the two devices' bits overlap and
+said plainly that this was an argument from neatness. It is now read off the code:
+`SettingsBmapPacketParser` does `ByteBuffer.wrap(payload)`, then **`get()`** for byte 0
+and **`getInt()`** for the supported mask. Four bytes, big-endian, immediately after byte
+0 — so the QC45's two trailing bytes are simply past what the vendor reads.
+
+    QC35  a1 00 04 cf de           13 languages
+    QC45  e1 00 01 81 5e 00 00      8: US English, French, Italian, German,
+                                       Mexican Spanish, Mandarin, Japanese, Cantonese
+
+The same method settles the flags: the parser builds `VoicePromptEvent(bit5, bit7, …)` —
+it tests **bit 5 and bit 7 and nothing else**.
+
+### ⚠ Bit 6 was set on the QC45, and this session cleared it for good
+
+The QC45 read `e1` — bits 7, 6, 5 — before anything was written to it. After the first
+real toggle it reads `a1`, and it has stayed there: three reads over eighty seconds, and
+a deliberate `01 03 02 01 61` which the device answered `a1`, refusing the bit.
+
+⚠ **Neither of the writes that cleared it touched bit 6** — `BoseWrites.voicePrompts`
+sends `0x20 | language` and nothing else. So this is a device-owned flag that a toggle
+resets, is not settable from here, and Bose Connect never reads.
+
+✅ **A falsifiable guess, worth one power cycle:** bit 6 means *not modified since
+power-on*. It fits everything seen — set on a QC45 that had not been written to, cleared
+by the first write, never returning, and absent from the QC35, which had been written to
+all day before its `a1` was recorded. **Power the QC45 off and on and read `01 03`. If it
+answers `e1`, that is the meaning; if it answers `a1`, the guess is dead** and the flag is
+something a toggle destroys permanently, which would matter more.
