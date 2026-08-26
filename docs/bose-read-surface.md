@@ -938,3 +938,59 @@ by the first write, never returning, and absent from the QC35, which had been wr
 all day before its `a1` was recorded. **Power the QC45 off and on and read `01 03`. If it
 answers `e1`, that is the meaning; if it answers `a1`, the guess is dead** and the flag is
 something a toggle destroys permanently, which would matter more.
+
+## ✅ The QC45 slot record, decoded by watching Bose Music edit one — 2026-08-26
+
+Pippijn created a mode in the vendor app while this session was reading the table, which
+gave a before and an after of one controlled change. **That is the diff that decoded the
+record**, and it did it in a way no amount of staring at a single reading could.
+
+    slot 3 before   03 00 00 01 00 00  ""         [41]=09
+    slot 3 after    03 00 07 01 01 01  "Commute"  [41]=09  [42]=07
+    1f 08 before    04 07              1f 08 after  04 0f
+
+So `1f 08` is `<capacity> <bitmask of occupied slots>` — four slots, and filling the
+fourth turned `0111` into `1111`. `1f 03` is the active slot; `1f 01 05 00` dumps them all.
+
+### ⚠ TWO fields looked like the level, and the obvious one is wrong
+
+`[2]` and `[42]` both read `07` on the new mode. **That agreement is a coincidence**, and
+it is the same trap this page records for the slot order — "the one captured example had
+`01` in both bytes, hiding the order". Selecting each slot in turn and reading `01 05`
+separates them 4/4:
+
+    slot  name      [2]   [42]   01 05 reads
+    00    Quiet     01    00     00      ← [2] would predict 01
+    01    Aware     02    0a     0a      ← [2] would predict 02
+    02    Home      0a    00     00      ← [2] would predict 0a
+    03    Commute   07    07     07        both agree, by luck
+
+✅ **`[42]` is the level.** `[2]` is wrong on three of the four and is **undecoded** —
+`01` Quiet, `02` Aware, `0a` Home, `07` Commute. It is not a level and this page does not
+guess what it is.
+
+⚠ **The discriminating read was Home**: `[2]`=`0a` against `[42]`=`00`, the widest
+disagreement available. Testing only Commute — the mode that had just changed and was
+therefore the tempting one to look at — would have confirmed both fields and settled
+nothing.
+
+### The rest of the record, as far as it goes
+
+    [0]      slot index
+    [1]      always 00
+    [2]      ⚠ undecoded, and NOT the level
+    [3]      1 on the two user slots, 0 on Quiet and Aware — set even while slot 3 was EMPTY
+    [4] [5]  0 0 on the empty slot, 1 1 once it held a mode
+    [6…]     name, NUL-padded
+    [41]     09 on both user slots, including while slot 3 was empty — so a property of the
+             SLOT, not of the mode in it. Undecoded.
+    [42]     the ANC level, 00 quiet … 0a aware
+
+### What reimplementing custom modes still needs
+
+Reading and selecting are done: `1f 01 05 00` lists, `1f 03 05 02 <slot> 01` selects, and
+all four were driven this session. **The write that CREATES or EDITS a mode is not
+attested** — the app sent it, and only the result was seen. `1f 06` answers a Get with an
+index, so a Set there is the obvious shape, but the shape of a 47-byte record write is a
+guess and this page's own rule is one bounded guess with a read-back, then capture. All
+four slots are occupied, so there is no free slot to experiment in.
