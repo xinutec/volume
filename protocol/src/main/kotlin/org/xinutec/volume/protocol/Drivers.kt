@@ -96,7 +96,42 @@ object Drivers {
             val buffer = t.exchange(BoseCncModes.list())
             val modes = BoseCncModes.modes(buffer)
             if (modes.isEmpty()) return null
-            return CncModes(modes, BoseCncModes.activeSlot(buffer))
+            // ⚠ `1f 08` rides along in the same transaction, so occupancy costs no extra
+            // round trip — and without it a free slot cannot be told from a full one.
+            return CncModes(modes, BoseCncModes.activeSlot(buffer), BoseCncModes.slotsOf(buffer))
+        }
+
+        /**
+         * Fill an empty slot, then report the table as it stands.
+         *
+         * ⚠ **Both frames or neither.** The record write alone leaves the slot
+         * unoccupied and the mode invisible — see [BoseCncModes.create].
+         */
+        fun createMode(t: Transport, slot: Int, name: BosePromptName, level: Int): CncModes? {
+            val slots = readModes(t)?.slots ?: return null
+            if (slots.holds(slot)) return null
+            for (frame in BoseCncModes.create(slot, name.id, name.label, level, slots)) {
+                t.exchange(frame)
+            }
+            return readModes(t)
+        }
+
+        /**
+         * Empty a slot, then report the table as it stands.
+         *
+         * ⚠ **Destructive, and the device has only four slots.** Refuses a slot the
+         * device reports as not editable: Quiet and Aware are built in, and a blanked
+         * record in one of those is not something this repo can put back.
+         */
+        fun deleteMode(t: Transport, slot: Int): CncModes? {
+            val before = readModes(t) ?: return null
+            val slots = before.slots ?: return null
+            if (!slots.holds(slot)) return null
+            if (before.modes.none { it.slot == slot && it.editable }) return null
+            for (frame in BoseCncModes.delete(slot, slots)) {
+                t.exchange(frame)
+            }
+            return readModes(t)
         }
 
         /**

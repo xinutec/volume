@@ -1337,3 +1337,77 @@ interface BoseSettingsDriver : AncDriver {
         return BoseSidetone.level(after)
     }
 }
+
+/**
+ * The vendor's table of mode names, and the byte `[2]` of a slot record indexes it.
+ *
+ * ⚠ **This is a DECOMPILE, checked against the wire.** Read out of Bose Music's
+ * `AudioModesPrompt` `<clinit>` by tracking registers — its constructor is
+ * `(BBLjava/lang/String;)`, and the two bytes are exactly the record's `[1]` and `[2]`,
+ * with `[1]` zero for all 37 entries. Four of these were measured independently on a
+ * QC45 before the decompile was read: Quiet `01`, Aware `02`, Commute `07`, Home `0a`.
+ * They all agree, which is what makes the other 33 worth having.
+ *
+ * ⚠⚠ **The table is NOT alphabetical, and reasoning as if it were is how this repo got
+ * it wrong once.** Commute `07` and Home `0a` are three apart while the vendor's PICKER
+ * — which is sorted — shows only Focus between them; that was written up as "at least
+ * one entry the picker does not show". The picker is a product-specific SUBSET presented
+ * in display order, and the wire order is this one.
+ *
+ * ⚠ [OFFERED] is the subset Bose Music offers for the QC45, read off its own picker.
+ * The other entries are decoded but unattested ON THIS PRODUCT: nothing here has seen
+ * what the headphones do with a name their vendor app never sends them.
+ */
+enum class BosePromptName(
+    val id: Int,
+    val label: String,
+) {
+    NONE(0x00, "None"),
+    QUIET(0x01, "Quiet"),
+    AWARE(0x02, "Aware"),
+    TRANSPARENT(0x03, "Transparent"),
+    TRANSPARENCY(0x04, "Transparency"),
+    MASKING(0x05, "Masking"),
+    COMFORT(0x06, "Comfort"),
+    COMMUTE(0x07, "Commute"),
+    OUTDOOR(0x08, "Outdoor"),
+    WORKOUT(0x09, "Workout"),
+    HOME(0x0a, "Home"),
+    WORK(0x0b, "Work"),
+    MUSIC(0x0c, "Music"),
+    FOCUS(0x0d, "Focus"),
+    RELAX(0x0e, "Relax"),
+    FLIGHT(0x0f, "Flight"),
+    AIRPORT(0x10, "Airport"),
+    DRIVING(0x11, "Driving"),
+    TRAINING(0x12, "Training"),
+    GYM(0x13, "Gym"),
+    RUN(0x14, "Run"),
+    WALK(0x15, "Walk"),
+    HIKE(0x16, "Hike"),
+    TALK(0x17, "Talk"),
+    CALL(0x18, "Call"),
+    WHISPER(0x19, "Whisper"),
+    HEARING(0x1a, "Hearing"),
+    LEARN(0x1b, "Learn"),
+    PODCAST(0x1c, "Podcast"),
+    AUDIOBOOK(0x1d, "Audiobook"),
+    CALM(0x1e, "Calm"),
+    SLEEP(0x1f, "Sleep"),
+    MEDITATE(0x20, "Meditate"),
+    YOGA(0x21, "Yoga"),
+    IMMERSION(0x22, "Immersion"),
+    STEREO(0x23, "Stereo"),
+    CINEMA(0x24, "Cinema"),
+    ;
+
+    companion object {
+        fun of(id: Int) = entries.firstOrNull { it.id == id }
+
+        /**
+         * What the QC45's own Bose Music lets you pick, in ITS order (alphabetical),
+         * read off the picker on 2026-08-28.
+         */
+        val OFFERED = listOf(COMMUTE, FOCUS, HOME, MUSIC, OUTDOOR, RELAX, RUN, WALK, WORK, WORKOUT)
+    }
+}

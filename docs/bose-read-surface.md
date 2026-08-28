@@ -1529,3 +1529,54 @@ creation was at **20:15:04** — outside the window — and the frame at 20:15:3
 slider being released afterwards. The device settled it: replaying the single write left
 the slot unoccupied. **A window that starts after the event shows the aftermath and reads
 like the event.**
+
+## ✅✅ The nameId table, decompiled and checked against the wire — 2026-08-28
+
+`[2]` indexes Bose Music's `AudioModesPrompt`, whose constructor is `(BBLjava/lang/String;)`
+— **the two bytes are the record's `[1]` and `[2]`**, and `[1]` is zero for all 37 entries,
+which is why it has only ever been seen as `00`. Read out of `<clinit>` by tracking
+registers, with the row count checked against the `.field` declarations (37 = 37):
+
+    00 None        07 Commute     0e Relax       15 Walk        1c Podcast
+    01 Quiet       08 Outdoor     0f Flight      16 Hike        1d Audiobook
+    02 Aware       09 Workout     10 Airport     17 Talk        1e Calm
+    03 Transparent 0a Home        11 Driving     18 Call        1f Sleep
+    04 Transparency 0b Work       12 Training    19 Whisper     20 Meditate
+    05 Masking     0c Music       13 Gym         1a Hearing     21 Yoga
+    06 Comfort     0d Focus       14 Run         1b Learn       22 Immersion
+                                                                23 Stereo
+                                                                24 Cinema
+
+✅ **Four of these were measured on the wire BEFORE the decompile was read** — Quiet `01`,
+Aware `02`, Commute `07`, Home `0a` — and all four agree. That is what makes the other 33
+worth having, and it is the check this page demands of any decompile.
+
+⚠⚠ **The table is NOT alphabetical, and this page reasoned as if it were.** It recorded
+"Commute `07` and Home `0a` are three apart where the picker puts only Focus between them,
+so at least one entry is hidden". The truth is that `08` and `09` are Outdoor and Workout;
+the *picker* is sorted for display and shows a product-specific subset, and nothing about
+the wire order follows from it. **A sorted view of a subset says nothing about the order or
+the completeness of the thing it is a view of.**
+
+⚠ The QC45's Bose Music offers ten: Commute, Focus, Home, Music, Outdoor, Relax, Run, Walk,
+Work, Workout — `07`-`0e` plus `14` and `15`. `BosePromptName.OFFERED` is that set, and the
+card offers only it: the other 27 are decoded but **unattested on this product**, and
+nothing here has seen what a QC45 does with a name its own app never sends it.
+
+## ✅ Create and delete are on the card — 2026-08-28
+
+Driven end to end on hardware, all four steps through the app's own UI: Home deleted from
+its card, "Add a mode" offering the vendor's ten, Home recreated at the default level `05`,
+the slider moved to `0`, Commute reselected — then read off the wire and compared to a
+baseline taken before any of it. **Identical, byte for byte.**
+
+⚠ **The delete is confirmed by the OCCUPANCY bit, not by the record.** A blanked slot still
+answers with a full-length record, so reading the name back would report success for a
+delete whose `1f 08` write never landed — which is exactly the half-done state this repo
+produced while decoding the pair. `Confirmation.Confirmed` here means `1f 08` says the slot
+is free.
+
+⚠ **A free slot cannot be found from the mode list** for the same reason, so `CncModes.free`
+reads the bitmask. The dialog names what is lost rather than asking "are you sure", and
+`Drivers.BoseQc45.deleteMode` refuses a slot the device does not call editable — a second
+refusal on a list read inside the call, because the order of that list moves.

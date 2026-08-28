@@ -203,4 +203,56 @@ class BoseCncModesTest {
             }
         assertTrue(e.isFailure)
     }
+
+    /**
+     * ⚠ **The four the WIRE gave, before the decompile was read.** These are the check on
+     * the other 33 names: they were measured off a QC45's own slot records on 2026-08-26
+     * and 2026-08-28, and if the decompiled table disagreed with any of them the table
+     * would be the thing that is wrong.
+     */
+    @Test
+    fun `the decompiled name table agrees with every byte measured on the wire`() {
+        assertEquals("Quiet", BosePromptName.of(0x01)?.label)
+        assertEquals("Aware", BosePromptName.of(0x02)?.label)
+        assertEquals("Commute", BosePromptName.of(0x07)?.label)
+        assertEquals("Home", BosePromptName.of(0x0a)?.label)
+    }
+
+    @Test
+    fun `the name table is not alphabetical, which is what misread it once`() {
+        // Commute 07 and Home 0a are three apart with Outdoor and Workout between them,
+        // not Focus — the vendor PICKER is sorted, the wire table is not.
+        assertEquals("Outdoor", BosePromptName.of(0x08)?.label)
+        assertEquals("Workout", BosePromptName.of(0x09)?.label)
+        assertEquals(0x0d, BosePromptName.FOCUS.id)
+    }
+
+    @Test
+    fun `an id the table does not have is null rather than a guess`() {
+        assertNull(BosePromptName.of(0xff))
+    }
+
+    @Test
+    fun `a free slot comes from the bitmask, not from the record list`() {
+        // The delete leaves a full-length record behind, so `modes` still describes four
+        // slots; only 1f 08 knows slot 2 is empty.
+        val cnc =
+            CncModes(
+                modes = BoseCncModes.modes(transaction),
+                active = 3,
+                slots = BoseCncModes.Slots(capacity = 4, occupied = 0x0b),
+            )
+        assertEquals(2, cnc.free)
+    }
+
+    @Test
+    fun `a full table offers no free slot`() {
+        val cnc =
+            CncModes(
+                modes = BoseCncModes.modes(transaction),
+                active = 3,
+                slots = BoseCncModes.Slots(capacity = 4, occupied = 0x0f),
+            )
+        assertNull(cnc.free)
+    }
 }

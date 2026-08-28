@@ -107,10 +107,20 @@ data class Focus(
 data class CncModes(
     val modes: List<BoseCncModes.Mode>,
     val active: Int?,
+    /**
+     * ⚠ **The only place occupancy lives** — `1f 08`. A record's `[5]` is a view of this
+     * bit, not a field of its own, so a free slot cannot be found by looking at [modes]:
+     * an emptied slot still answers with a full-length record.
+     */
+    val slots: BoseCncModes.Slots? = null,
 ) {
     /** The slot the device says is selected, if it is one this list knows about. */
     val current: BoseCncModes.Mode?
         get() = modes.firstOrNull { it.slot == active }
+
+    /** The lowest slot the device says is empty, or null when the table is full. */
+    val free: Int?
+        get() = slots?.let { s -> (0 until s.capacity).firstOrNull { !s.holds(it) } }
 }
 
 /**
