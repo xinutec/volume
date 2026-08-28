@@ -185,8 +185,8 @@ obeys.
 **Open:** #1202 the QC45's modes can be selected and edited but not created or deleted · #1203 a chip
 tap during a write is silently dropped · #974 the three JBL rows still outside the app ·
 #935 disconnect, the one connections verb still unattested · #1038 the probe's
-decode-and-print · #1154 a settings read that drops a row · #1191 a card open still
-re-reads everything two or three times.
+decode-and-print · #1154 a settings read that drops a row · #1191 a card open still reads
+the ANC level and the name four times each, both already in the GET_ALL beside them.
 
 **Closed 2026-08-28 on the QC45**: #1193 the four settings the QC35 code already spoke —
 all wired, all driven from the app's own card and restored, and three things found only by
@@ -194,6 +194,12 @@ driving them: `01 03` applies asynchronously so a Get sent at once reads the sta
 before the write, a confirmed rename showed the old name because both name displays were
 Android's bonded record, and a factory-named QC45 never got the protocol's early-stop rule
 because the test named one model instead of the framing.
+
+**#1191, QC45 half, 2026-08-28**: the card asked again for the tone, the button and
+multipoint, all three of which arrive inside the GET_ALL it had just made — **18 requests →
+12, 946 ms → 710 ms** for one card open, measured from one snoop capture covering both
+builds. ⚠ The first framing of that comparison spanned the whole window and read as *no
+improvement*; 4.84 s of it was the `sleep` in the driving script.
 
 **Closed 2026-08-26 on the QC45**: #1185 the ANC labels are right and the device said so
 itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP inventory, whose
