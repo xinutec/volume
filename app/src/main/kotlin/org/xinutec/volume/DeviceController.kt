@@ -10,6 +10,7 @@ import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseBattery
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BosePromptName
 import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
@@ -582,6 +583,40 @@ class DeviceController(
             when {
                 after == null -> Confirmation.Unverifiable
                 after.active == slot -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    override fun createCncMode(address: String, slot: Int, name: BosePromptName, level: Int) =
+        applied<CncModes>(
+            address,
+            "creating an ANC mode",
+            { it.modes.firstOrNull { m -> m.slot == slot }?.name ?: "nothing" },
+        ) {
+            val after = Drivers.BoseQc45.createMode(it.transport, slot, name, level)
+            when {
+                after == null -> Confirmation.Unverifiable
+                after.slots?.holds(slot) == true -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    /**
+     * ⚠ **Confirmed by the OCCUPANCY bit, not by the record.** A blanked slot still
+     * answers with a full-length record, so reading the name back would report success
+     * for a delete whose `1f 08` write never landed — which is exactly the half-done
+     * state this repo produced on hardware while decoding the pair.
+     */
+    override fun deleteCncMode(address: String, slot: Int) =
+        applied<CncModes>(
+            address,
+            "deleting an ANC mode",
+            { "${it.modes.count { m -> m.editable }} of your own left" },
+        ) {
+            val after = Drivers.BoseQc45.deleteMode(it.transport, slot)
+            when {
+                after == null -> Confirmation.Unverifiable
+                after.slots?.holds(slot) == false -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
         }

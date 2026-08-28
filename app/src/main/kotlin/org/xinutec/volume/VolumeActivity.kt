@@ -64,6 +64,7 @@ import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseCncModes
+import org.xinutec.volume.protocol.BosePromptName
 import org.xinutec.volume.protocol.BoseStandbyTimer
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.ChatDetail
@@ -259,6 +260,17 @@ interface SettingActions {
      * ⚠ **Called on release, not while dragging** — see the implementation.
      */
     fun setCncLevel(address: String, slot: Int, level: Int)
+
+    /** Fill a free QC45 mode slot with one of the vendor's names. */
+    fun createCncMode(address: String, slot: Int, name: BosePromptName, level: Int)
+
+    /**
+     * Empty a QC45 mode slot.
+     *
+     * ⚠ **Destructive and there are only four**, two of them built in. The driver
+     * refuses a slot the device does not call editable.
+     */
+    fun deleteCncMode(address: String, slot: Int)
 
     /**
      * Bose's "Connect new" — put the headphones in pairing mode.
@@ -631,6 +643,12 @@ private fun DeviceRow(
 }
 
 /**
+ * The level Bose Music starts a new mode at — its slider opens at the midpoint, and the
+ * device writes the same `05` into a slot it is blanking.
+ */
+private const val NEW_MODE_LEVEL = 5
+
+/**
  * Everything a device has beyond ANC.
  *
  * ⚠ **A setting that will not move is drawn as a value, not a control.** The XM4
@@ -643,6 +661,7 @@ private fun DeviceRow(
  * of multipoint and false of the button, and the note rendered under them said so out
  * loud — see [RefusalReason].
  */
+
 @Composable
 private fun SettingsSection(
     address: String,
@@ -655,6 +674,62 @@ private fun SettingsSection(
     actions: SettingActions,
     onPowerOff: () -> Unit,
 ) {
+    var confirmDelete by remember { mutableStateOf<BoseCncModes.Mode?>(null) }
+    var addingAt by remember { mutableStateOf<Int?>(null) }
+
+    confirmDelete?.let { m ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Delete ${m.name}?") },
+            // ⚠ Says what cannot be undone rather than "are you sure": the level and the
+            // name go, and this app cannot restore a mode it did not record first.
+            text = {
+                Text(
+                    "The headphones keep four mode slots and two are built in. " +
+                        "Deleting ${m.name} frees its slot; its level of ${m.level} is not kept.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    actions.deleteCncMode(address, m.slot)
+                    confirmDelete = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) { Text("Keep it") }
+            },
+        )
+    }
+
+    addingAt?.let { slot ->
+        AlertDialog(
+            onDismissRequest = { addingAt = null },
+            title = { Text("Add a mode") },
+            // ⚠ The vendor's OWN ten for this product, not all 37 it knows: nothing here
+            // has seen what a QC45 does with a name its app never sends — see OFFERED.
+            text = {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (n in BosePromptName.OFFERED) {
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                // ⚠ Created at the midpoint the vendor app starts a new
+                                // mode at; the slider then moves it.
+                                actions.createCncMode(address, slot, n, NEW_MODE_LEVEL)
+                                addingAt = null
+                            },
+                            label = { Text(n.label) },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { addingAt = null }) { Text("Cancel") }
+            },
+        )
+    }
+
     if (settings == null) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1024,7 +1099,18 @@ private fun SettingsSection(
                             BoseCncModes.QUIETEST.toFloat()..BoseCncModes.MOST_AWARE.toFloat(),
                         steps = BoseCncModes.MOST_AWARE - 1,
                     )
+                    // ⚠ Only for a mode the DEVICE calls editable, which is the same
+                    // guard the driver applies again on the list it reads in the call.
+                    // Two independent refusals, because the order of this list moves.
+                    TextButton(onClick = { confirmDelete = m }) {
+                        Text("Delete ${m.name}", color = MaterialTheme.colorScheme.error)
+                    }
                 }
+            }
+            // ⚠ **A free slot cannot be found from the mode list** — an emptied slot
+            // still answers with a full-length record. `cnc.free` reads `1f 08`.
+            cnc.free?.let { slot ->
+                TextButton(onClick = { addingAt = slot }) { Text("Add a mode") }
             }
         }
 
