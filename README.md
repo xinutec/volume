@@ -115,7 +115,7 @@ Anything else is named in a task; the frames are in `docs/`, not repeated here.
 | ANC | ✅ 4 named modes, 11 levels | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
 | EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
-| Auto power off | 👁 read `00`, not wired #1193 | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
+| Auto power off | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ same | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
 | Sound quality | — | — | ✅ | — | — |
 | Battery | — | ✅ read | ✅ read | ✅ read | — |
 | Voice guidance | — | — | ✅ | — | — |
@@ -128,9 +128,9 @@ Anything else is named in a task; the frames are in `docs/`, not repeated here.
 | Touch sensor panel | — | — | ✅ | — | — |
 | Focus on Voice | — | — | ✅ ⚠ ambient only | — | — |
 | Button / gestures | ✅ | ❓ #1188 | ✅ ⚠ needs the alert answered | ✅ editable, restores a refusal | — |
-| Self voice (sidetone) | — | ✅ off / low / medium / high | — | — | — |
-| Voice prompts | — | ✅ + language, 13 the device offers | — | ✅ read | — |
-| Rename | — | ✅ | — | — | — |
+| Self voice (sidetone) | ✅ off / low / medium / high | ✅ same | — | — | — |
+| Voice prompts | ✅ + language, 8 offered ⚠ applied asynchronously | ✅ + language, 13 offered | — | ✅ read | — |
+| Rename | ✅ | ✅ | — | — | — |
 | Paired devices | — | ✅ list · connect new · forget | — | — | — |
 
 ⚠ **Speak-to-Chat spent an hour in this table as "sent, not taken" and it was wrong.**
@@ -182,12 +182,18 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Open:** #1193 the four QC45 settings this code already speaks and does not wire ·
-#1202 the QC45's modes can be selected and edited but not created or deleted · #1203 a chip
+**Open:** #1202 the QC45's modes can be selected and edited but not created or deleted · #1203 a chip
 tap during a write is silently dropped · #974 the three JBL rows still outside the app ·
 #935 disconnect, the one connections verb still unattested · #1038 the probe's
 decode-and-print · #1154 a settings read that drops a row · #1191 a card open still
 re-reads everything two or three times.
+
+**Closed 2026-08-28 on the QC45**: #1193 the four settings the QC35 code already spoke —
+all wired, all driven from the app's own card and restored, and three things found only by
+driving them: `01 03` applies asynchronously so a Get sent at once reads the state from
+before the write, a confirmed rename showed the old name because both name displays were
+Android's bonded record, and a factory-named QC45 never got the protocol's early-stop rule
+because the test named one model instead of the framing.
 
 **Closed 2026-08-26 on the QC45**: #1185 the ANC labels are right and the device said so
 itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP inventory, whose

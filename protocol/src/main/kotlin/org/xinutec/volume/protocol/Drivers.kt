@@ -45,7 +45,7 @@ object Drivers {
      * two ends.
      */
     object BoseQc45 :
-        AncDriver,
+        BoseSettingsDriver,
         MultipointDriver {
         override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
 
@@ -157,22 +157,19 @@ object Drivers {
     /** Shared by both Bose models, whose framing is identical. */
     private object Bose {
         /**
-         * `01 02` is the device name, as the owner set it.
+         * `01 02` is the device name, as the owner set it — see [BoseName.of] for the
+         * leading byte that is not part of it.
          *
-         * ⚠ The payload begins with a byte that is **not** part of the name — the
-         * QC35 answers `01 02 03 12 00 "Pippijn Bose QC35"`. Its meaning is not
-         * established; what matters is that including it yields a name with a
-         * leading NUL, which `trim()` does not remove and which renders as nothing,
-         * so the bug would have shown up as a name that silently lost a character.
+         * ⚠ **A separate exchange, and usually an unnecessary one.** The same frame comes
+         * back inside `01 01` GET_ALL, so a caller that is reading the settings anyway
+         * should take [BoseAll.name] instead of asking twice. This exists for the paths
+         * that have no settings read: identifying a renamed device, where the answer is
+         * what decides *which driver* to use.
          */
-        fun name(t: Transport): String? {
-            val r = t.exchange(byteArrayOf(0x01, 0x02, 0x01, 0x00))
-            // <block><fn><operator><length><payload…>; only a Status frame carries one.
-            if (r.size < 6 || r[2] != 0x03.toByte()) return null
-            val len = ((r[3].toInt() and 0xff) - 1).coerceAtMost(r.size - 5)
-            if (len <= 0) return null
-            return String(r, 5, len, Charsets.UTF_8).trim { it <= ' ' }.ifBlank { null }
-        }
+        fun name(t: Transport): String? =
+            BoseFrame.frames(t.exchange(BoseName.get())).firstNotNullOfOrNull {
+                BoseFrame.payload(it, BoseName.BLOCK, BoseName.FN)?.let(BoseName::of)
+            }
     }
 
     /**
@@ -200,7 +197,7 @@ object Drivers {
      * earlier table's `AMBIENT` was a mode this device does not have, which is the
      * detail that should have looked wrong on paper before any of it was driven.
      */
-    object BoseQc35 : AncDriver {
+    object BoseQc35 : BoseSettingsDriver {
         override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.ANC_LOW)
 
         private fun value(mode: AncMode): Byte =
@@ -223,20 +220,6 @@ object Drivers {
 
         override fun write(t: Transport, mode: AncMode) {
             t.exchange(byteArrayOf(0x01, 0x06, 0x02, 0x01, value(mode)))
-        }
-
-        /**
-         * Rename the headphones.
-         *
-         * ⚠ **Confirmed by a separate read**, because SET_GET echoes the resulting state
-         * and an echo is the device repeating what it was told. Returns the name the
-         * device reports afterwards, which is what the card should show — if the device
-         * trimmed or refused it, that is the truth and not what was typed.
-         */
-        fun writeName(t: Transport, name: String): String? {
-            val frame = BoseName.set(name) ?: return null
-            t.exchange(frame)
-            return Bose.name(t)
         }
 
         /**
@@ -293,75 +276,6 @@ object Drivers {
         fun startPairing(t: Transport): Boolean? {
             t.exchange(BosePairing.enter())
             return BosePairing.on(t.exchange(BosePairing.get()))
-        }
-
-        /**
-         * Turn the prompts on or off **without touching the language**.
-         *
-         * ⚠ **Re-reads first, deliberately.** The switch and the language share one byte,
-         * so a write assembled from a remembered language would set whatever this app
-         * last saw rather than what the device holds — and the two differ the moment
-         * anything else changes it. See [BoseWrites.voicePrompts].
-         */
-        fun writeVoicePrompts(t: Transport, on: Boolean): Boolean? {
-            val lang = readPromptByte(t)?.let { BoseVoicePromptLanguage.of(it) } ?: return null
-            t.exchange(BoseWrites.voicePrompts(on, lang))
-            return readPromptByte(t)?.let { BoseVoicePrompts.enabled(it) }
-        }
-
-        /** The other half of the same byte; the switch is carried across unchanged. */
-        fun writePromptLanguage(
-            t: Transport,
-            language: BoseVoicePromptLanguage,
-        ): BoseVoicePromptLanguage? {
-            val on = readPromptByte(t)?.let { BoseVoicePrompts.enabled(it) } ?: return null
-            t.exchange(BoseWrites.voicePrompts(on, language))
-            return readPromptByte(t)?.let { BoseVoicePromptLanguage.of(it) }
-        }
-
-        /**
-         * ⚠ **The persist byte is READ, not assumed.** It has only ever been seen as
-         * `01`, which is exactly the kind of constant that turns out to mean something
-         * on the next device.
-         */
-        fun writeSelfVoice(t: Transport, level: SidetoneLevel): SidetoneLevel? {
-            val cur =
-                BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
-                    ?: return null
-            val persist = cur.getOrNull(0) ?: return null
-            t.exchange(BoseWrites.sidetone(persist, level))
-            val after =
-                BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
-                    ?: return null
-            return BoseSidetone.level(after)
-        }
-
-        private fun readPromptByte(t: Transport): ByteArray? =
-            BoseFrame.payload(t.exchange(BoseVoicePrompts.get()), 0x01, BoseVoicePrompts.FN)
-
-        /**
-         * Every setting the device has, in ONE exchange.
-         *
-         * ⚠ **Six separate Gets would be the wrong shape here**, and not just slower:
-         * the reply enumerates what this unit actually has, so a missing setting is
-         * distinguishable from an unreadable one. That is how `01 07` EQ and `01 08`
-         * ALERTS — which answer nothing at all to a direct ask — were established as
-         * absent rather than merely silent.
-         */
-        fun readAll(t: Transport): BoseAll? =
-            BoseAllSettings.state(t.exchange(BoseAllSettings.get()))
-
-        /**
-         * ⚠ **Read back with a separate Get, not from the SET_GET's own echo.** An echo
-         * is the device repeating what it was told; only an independent read says the
-         * value stuck. Driven and restored on hardware 2026-08-26.
-         */
-        fun writeStandby(t: Transport, minutes: Int): BoseStandby? {
-            t.exchange(BoseStandbyTimer.set(minutes))
-            return BoseStandbyTimer.state(
-                BoseFrame.payload(t.exchange(BoseStandbyTimer.get()), 0x01, BoseStandbyTimer.FN)
-                    ?: return null,
-            )
         }
 
         override fun name(t: Transport): String? = Bose.name(t)

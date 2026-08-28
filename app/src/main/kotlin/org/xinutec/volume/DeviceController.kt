@@ -10,6 +10,7 @@ import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseBattery
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.ButtonWrite
@@ -321,6 +322,7 @@ class DeviceController(
                     devices = Drivers.BoseQc35.readDevices(s.transport),
                     pairing = Drivers.BoseQc35.readPairing(s.transport),
                     canRename = true,
+                    deviceName = all?.name,
                     // ⚠ A second exchange, because battery is block 02 and GET_ALL only
                     // covers the block it is asked about.
                     battery = BoseBattery.state(s.transport.exchange(BoseBattery.get())),
@@ -329,6 +331,11 @@ class DeviceController(
             }
 
             Drivers.BoseQc45 -> {
+                // ⚠ The same GET_ALL the QC35 branch makes, and for the same reason —
+                // what comes back is the device's own enumeration of what it has. It
+                // also carries `01 07`, `01 09` and `01 0a`, which the three reads below
+                // ask for separately; folding those in belongs to #1191, not here.
+                val all = Drivers.BoseQc45.readAll(s.transport)
                 Settings(
                     tone = Drivers.BoseQc45.readEq(s.transport),
                     multipoint = Drivers.BoseQc45.readMultipoint(s.transport),
@@ -337,6 +344,13 @@ class DeviceController(
                     // cannot express — see CncModes. Read every time the card opens:
                     // the button on the headphones moves the selection.
                     cnc = Drivers.BoseQc45.readModes(s.transport),
+                    standby = all?.standby,
+                    selfVoice = all?.sidetone,
+                    voicePrompts = all?.voicePrompts,
+                    promptLanguage = all?.promptLanguage,
+                    supportedLanguages = all?.supportedLanguages ?: emptyList(),
+                    canRename = true,
+                    deviceName = all?.name,
                     attempted = true,
                 )
             }
@@ -369,6 +383,23 @@ class DeviceController(
                 Settings()
             }
         }
+
+    /**
+     * The block-`01` settings of whatever is on the other end, or null if it is not a Bose.
+     *
+     * ⚠ **This replaced `Drivers.BoseQc35` written out at five call sites** — including
+     * on QC45 sessions, where it worked. The drivers are stateless and the frames are
+     * identical, so nothing failed and nothing could; the code simply named the wrong
+     * model, and a reader checking whether the QC45 had these settings would have
+     * concluded from those five lines that it did not.
+     *
+     * ⚠ Null here means "not a Bose", which the card never offers these rows for — so it
+     * is a programming error rather than a device state. It is reported as
+     * [Confirmation.Unverifiable] all the same, because that is the outcome that cannot
+     * render as success.
+     */
+    private val Session.bose: BoseSettingsDriver?
+        get() = headphones.driver as? BoseSettingsDriver
 
     /** Every settings write goes through here: drive it, then re-read the truth. */
     private fun <T> applied(
@@ -573,7 +604,7 @@ class DeviceController(
             // as "0 min" — which would read as powering off at once.
             { if (it.minutes == 0) "never" else "${it.minutes} min" },
         ) {
-            when (val after = Drivers.BoseQc35.writeStandby(it.transport, minutes)) {
+            when (val after = it.bose?.writeStandby(it.transport, minutes)) {
                 null -> Confirmation.Unverifiable
                 BoseStandby(minutes) -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
@@ -582,7 +613,7 @@ class DeviceController(
 
     override fun setName(address: String, name: String) =
         applied<String>(address, "renaming", { it }) {
-            when (val after = Drivers.BoseQc35.writeName(it.transport, name)) {
+            when (val after = it.bose?.writeName(it.transport, name)) {
                 null -> Confirmation.Unverifiable
 
                 name -> Confirmation.Confirmed
@@ -633,7 +664,7 @@ class DeviceController(
 
     override fun setVoicePrompts(address: String, on: Boolean) =
         applied<Boolean>(address, "setting voice prompts", { if (it) "on" else "off" }) {
-            when (val after = Drivers.BoseQc35.writeVoicePrompts(it.transport, on)) {
+            when (val after = it.bose?.writeVoicePrompts(it.transport, on)) {
                 null -> Confirmation.Unverifiable
                 on -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
@@ -646,7 +677,7 @@ class DeviceController(
             "setting prompt language",
             { it.name.lowercase().replace('_', ' ') },
         ) {
-            when (val after = Drivers.BoseQc35.writePromptLanguage(it.transport, language)) {
+            when (val after = it.bose?.writePromptLanguage(it.transport, language)) {
                 null -> Confirmation.Unverifiable
                 language -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
@@ -655,7 +686,7 @@ class DeviceController(
 
     override fun setSelfVoice(address: String, level: SidetoneLevel) =
         applied<SidetoneLevel>(address, "setting self voice", { it.name.lowercase() }) {
-            when (val after = Drivers.BoseQc35.writeSelfVoice(it.transport, level)) {
+            when (val after = it.bose?.writeSelfVoice(it.transport, level)) {
                 null -> Confirmation.Unverifiable
                 level -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)

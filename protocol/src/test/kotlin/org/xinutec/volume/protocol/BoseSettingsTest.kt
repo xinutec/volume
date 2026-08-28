@@ -418,11 +418,11 @@ class BoseWritesTest {
         // 21 = on, US English. 01 = off, US English. Both captured.
         assertEquals(
             "01 03 02 01 21",
-            Hex.format(BoseWrites.voicePrompts(true, BoseVoicePromptLanguage.US_ENGLISH)),
+            Hex.format(BoseWrites.voicePrompts(0x21, true, BoseVoicePromptLanguage.US_ENGLISH)),
         )
         assertEquals(
             "01 03 02 01 01",
-            Hex.format(BoseWrites.voicePrompts(false, BoseVoicePromptLanguage.US_ENGLISH)),
+            Hex.format(BoseWrites.voicePrompts(0x21, false, BoseVoicePromptLanguage.US_ENGLISH)),
         )
     }
 
@@ -431,17 +431,37 @@ class BoseWritesTest {
         // ⚠ The failure this guards: a write of a bare 0x20 for "on" is language 00,
         // UK English — one bit from the US English this unit uses, and inaudible to
         // anyone not listening for the accent.
-        val french = BoseWrites.voicePrompts(true, BoseVoicePromptLanguage.FRENCH)
+        val french = BoseWrites.voicePrompts(0x00, true, BoseVoicePromptLanguage.FRENCH)
         assertEquals("01 03 02 01 22", Hex.format(french))
         assertNotEquals("01 03 02 01 20", Hex.format(french))
     }
 
     @Test
-    fun `bit 7 is the device's and is never written back`() {
-        // Status reads a1; the vendor app writes 21 for that same state. Echoing the
-        // read byte would hand the device a flag it never asked for.
-        val on = BoseWrites.voicePrompts(true, BoseVoicePromptLanguage.US_ENGLISH)
-        assertEquals(0x21, on[4].toInt() and 0xff)
+    fun `the undecoded high bits are carried rather than dropped`() {
+        // ⚠ This test asserted the OPPOSITE until 2026-08-28 — that bit 7 is the
+        // device's and is never written back — on the reasoning that the vendor app
+        // writes 21 where the device reads a1. True of bit 7, which the device restores
+        // by itself. Bit 6 it does not restore: a QC45 read e1 before any write to this
+        // function and a1 after one, through a re-enable and a power cycle.
+        //
+        // ⚠ **This is not a proof that carrying the bit would have saved it.** That
+        // experiment died with the bit — the same unit refuses to set bit 6 from zero.
+        // What is asserted here is only that the write no longer discards a field whose
+        // meaning nobody knows.
+        assertEquals(
+            "01 03 02 01 c1",
+            Hex.format(
+                BoseWrites.voicePrompts(0xe1.toByte(), false, BoseVoicePromptLanguage.US_ENGLISH),
+            ),
+        )
+        // ...and writing back the state it already holds is byte-for-byte a no-op, which
+        // is what lets the driver skip the write entirely. See BoseVoicePrompts.set.
+        assertEquals(
+            "01 03 02 01 e1",
+            Hex.format(
+                BoseWrites.voicePrompts(0xe1.toByte(), true, BoseVoicePromptLanguage.US_ENGLISH),
+            ),
+        )
     }
 
     @Test

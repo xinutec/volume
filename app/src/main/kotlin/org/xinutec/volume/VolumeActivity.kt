@@ -246,7 +246,7 @@ interface SettingActions {
     /** ⚠ Only the switch moves; the timeout is sent back as it was read. */
     fun setTimedOff(address: String, v: TimedOff)
 
-    /** The QC35's standby timer, in minutes; ⚠ `0` is the device's "never". */
+    /** Bose's standby timer, in minutes; ⚠ `0` is the device's "never". */
     fun setStandby(address: String, minutes: Int)
 
     /** Select one of the QC45's named ANC modes by its slot. */
@@ -918,11 +918,15 @@ private fun SettingsSection(
 
         if (settings.canRename) {
             var renaming by remember(address) { mutableStateOf(false) }
-            SettingLabel("Name", name)
+            // ⚠ The DEVICE's name, falling back to the bonded one only when it will not
+            // say. Showing the bonded name here made a successful rename look like a
+            // no-op — Android keeps its own record and this protocol does not touch it.
+            val held = settings.deviceName ?: name
+            SettingLabel("Name", held)
             TextButton(onClick = { renaming = true }) { Text("Rename") }
             if (renaming) {
                 RenameDialog(
-                    current = name,
+                    current = held,
                     onDismiss = { renaming = false },
                     onConfirm = {
                         renaming = false
@@ -1537,7 +1541,7 @@ internal fun hz(v: Int): String =
     }
 
 /**
- * The QC35's standby timer, in the vendor app's own words.
+ * Bose's standby timer, in the vendor app's own words.
  *
  * ⚠ **Zero is "never", not "0 min".** It is a row in Bose Connect's picker rather than a
  * degenerate duration, and printing it as a number would read as "powers off immediately"

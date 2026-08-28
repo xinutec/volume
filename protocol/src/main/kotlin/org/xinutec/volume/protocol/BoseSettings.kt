@@ -348,15 +348,27 @@ data class BoseAll(
     /**
      * Which languages this unit will speak, from the four bytes after the flags.
      *
-     * ⚠ **Its list, not our enum.** The QC35 offers thirteen of the twenty-two the SDK
-     * names, and the pairs that look like they travel together do not: UK English is
-     * absent while US English is present, and European Spanish is absent while Mexican
-     * Spanish is present. Offering the enum instead would put languages on a picker
-     * that the headphones would refuse.
+     * ⚠ **Its list, not our enum, and not the same list on two units.** Both models here
+     * offer a subset of the twenty-two the SDK names, and they are different subsets — so
+     * a number written down anywhere but a test against a capture is a number about one
+     * device. The pairs that look like they travel together do not: UK English is absent
+     * while US English is present, and European Spanish is absent while Mexican Spanish
+     * is present. Offering the enum instead would put languages on a picker that the
+     * headphones would refuse.
      */
     val supportedLanguages: List<BoseVoicePromptLanguage> = emptyList(),
     val standby: BoseStandby? = null,
     val sidetone: SidetoneLevel? = null,
+    /**
+     * The name the device holds — ⚠ **not the one Android has bonded.**
+     *
+     * It arrives in the same reply as everything else, so reading it costs nothing. What
+     * it costs to *omit* was visible the first time a QC45 was renamed from the app: the
+     * write was confirmed against an independent read, and both places the screen shows a
+     * name went on showing the old one, because both were showing the bonded record. A
+     * rename that works and a rename that does nothing looked identical.
+     */
+    val name: String? = null,
 )
 
 /**
@@ -439,6 +451,9 @@ object BoseAllSettings {
             BoseFrame.payload(f, BLOCK, BoseSidetone.FN)?.let {
                 out = out.copy(sidetone = BoseSidetone.level(it))
             }
+            BoseFrame.payload(f, BLOCK, BoseName.FN)?.let {
+                out = out.copy(name = BoseName.of(it))
+            }
         }
         return out
     }
@@ -517,7 +532,91 @@ object BoseSidetone {
 object BoseVoicePrompts {
     const val FN: Byte = 0x03
 
+    /** How many times [set] will wait and re-ask before reporting what it still sees. */
+    private const val SETTLE_READS = 2
+
     fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+
+    /**
+     * The payload as the device holds it right now — **the only safe basis for a write.**
+     *
+     * ⚠ **Walks the frames** rather than decoding the buffer as one. A `01 03` Get is
+     * normally answered alone, but a preceding write can leave its own Status ahead of
+     * this one, and reading the buffer as a single frame would then return the wrong
+     * one. See [BoseSettingsDriver.writeVoicePrompts], which is exactly that sequence.
+     */
+    fun read(t: Transport): ByteArray? =
+        BoseFrame.frames(t.exchange(get())).firstNotNullOfOrNull {
+            BoseFrame.payload(it, BoseAllSettings.BLOCK, FN)
+        }
+
+    /**
+     * Change the switch, the language, or both, and answer with the payload afterwards.
+     *
+     * One primitive for two settings, because they are **one byte**: a caller that
+     * changed only its own half would still have to read the other, and two copies of
+     * that read-modify-write is two places for the carried field to be dropped.
+     * Null for either argument means "leave it as it is".
+     *
+     * ⚠⚠ **A write that CHANGES something draws no reply at all.** Discriminated on a
+     * QC45 over one socket, 7/7 across two sittings: writing the byte the device already
+     * holds answers a Status in about a millisecond, and writing a different one answers
+     * nothing while applying the change. `01 04` and `01 0b` changed state and answered
+     * normally in the same sitting, so this is `01 03`'s alone. [BoseFrame.terminates]
+     * ends a SET_GET on Status, Result or Error — so a real change has no terminator and
+     * would sit out the transport's whole window on every switch press, and the reply it
+     * eventually failed to get would be worth nothing anyway.
+     *
+     * So the write is **sent, not exchanged**, and the truth comes from the Get after it.
+     *
+     * ⚠⚠ **And that Get has to WAIT, or it reads the state from before the write.** The
+     * first build of this sent the write and asked immediately; the device answered with
+     * the byte it had held a millisecond earlier, so a toggle that worked was reported to
+     * the owner as *"this pair refused that"* — twice, once in each direction, while the
+     * card's own later refresh drew the new value beside that message. The change is
+     * applied asynchronously: a Get about 430 ms after the write has shown the new byte
+     * every time it has been asked, and one sent at once has never shown it.
+     *
+     * [Transport.receive] is what buys that time — bounded by the transport rather than
+     * by a number invented here, and it also carries off anything the device volunteered
+     * instead of leaving it in the socket for the next exchange to adopt.
+     *
+     * ⚠ **Two attempts, not a loop until it changes.** A device that genuinely refuses
+     * the write looks exactly like one that is still applying it, so an unbounded wait
+     * would hang on the one case that most needs reporting.
+     *
+     * ⚠ **A no-op is not written at all**, which is what keeps the send-and-do-not-wait
+     * safe: the one case that does answer is the one that never happens here, so nothing
+     * is left in the socket for the next exchange to mistake for its own answer. If a
+     * firmware ever does reply to a real change, its Status lands in a Get's window and
+     * [read] walks past it to the right frame — wasteful, not wrong.
+     */
+    fun set(
+        t: Transport,
+        on: Boolean? = null,
+        language: BoseVoicePromptLanguage? = null,
+    ): ByteArray? {
+        val current = read(t) ?: return null
+        val byte = current.getOrNull(0) ?: return null
+        val frame =
+            BoseWrites.voicePrompts(
+                byte,
+                on ?: enabled(current) ?: return null,
+                language ?: BoseVoicePromptLanguage.of(current) ?: return null,
+            )
+        // The frame is a one-byte payload, so its last byte IS the byte being asked for.
+        if (frame.last() == byte) return current
+        t.send(frame)
+        var after = current
+        repeat(SETTLE_READS) {
+            t.receive()
+            after = read(t) ?: return null
+            if (after.getOrNull(0) != byte) return after
+        }
+        // Still the old byte after both attempts: the caller must report that as it is,
+        // because "refused" and "slower than we waited" are not distinguishable here.
+        return after
+    }
 
     /**
      * ⚠ **Bit 5 of byte 0**, from `SettingsBmapPacketParser`: it shifts right by five
@@ -755,22 +854,40 @@ enum class BoseVoicePromptLanguage {
  */
 object BoseWrites {
     /**
-     * `01 03 02 01 <(on ? 0x20 : 0) | language>`.
+     * `01 03 02 01 <current bits 7–6 | (on ? 0x20 : 0) | language>`.
      *
-     * ⚠ **Bit 7 is NOT written.** The status frame reads `a1` and the vendor app writes
-     * `21` for the same state, so bit 7 belongs to the device. Echoing the byte back
-     * unchanged would send it a flag it never asked for.
+     * ⚠ **[current] is carried because one byte holds four fields**, two of them
+     * undecoded. This function used to build the byte from [on] and [language] alone, on
+     * the reasoning that the vendor app writes `21` where the device reads `a1` — so the
+     * high bits were the device's to maintain. That is right about bit 7, which the
+     * device restores by itself, and unestablished about bit 6.
+     *
+     * ⚠ **A QC45's bit 6 was set before any write to this function and has been clear
+     * ever since one**, across a re-enable and a power cycle. **Whether carrying it would
+     * have saved it cannot now be tested**: a deliberate `61` to that unit read back `a1`,
+     * so the bit cannot be set from zero, and the only device that could answer the
+     * question is one still holding it. Carrying it is the cheap side of an unknown, not
+     * a demonstrated fix — the demonstrated part is only that dropping it is not free.
+     *
+     * ✅ **Writing the high bits back is accepted, and that IS measured**: `a1` written to
+     * a QC45 holding `a1` read back `a1`, and `81` likewise, on 2026-08-28.
      *
      * ⚠ **The language rides in the same byte**, so "turn prompts on" without carrying
      * the current language across silently resets it to `00` — UK English, one bit from
      * the US English this unit uses.
      */
-    fun voicePrompts(on: Boolean, language: BoseVoicePromptLanguage): ByteArray =
+    fun voicePrompts(current: Byte, on: Boolean, language: BoseVoicePromptLanguage): ByteArray =
         BoseFrame.encode(
             BoseAllSettings.BLOCK,
             BoseVoicePrompts.FN,
             BoseFrame.SET_GET,
-            byteArrayOf((((if (on) 0x20 else 0x00) or language.ordinal)).toByte()),
+            byteArrayOf(
+                (
+                    (current.toInt() and 0xc0) or
+                        (if (on) 0x20 else 0x00) or
+                        language.ordinal
+                ).toByte(),
+            ),
         )
 
     /**
@@ -966,6 +1083,20 @@ object BoseName {
     fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
 
     /**
+     * The name out of a `01 02` payload.
+     *
+     * ⚠ **Byte 0 is not part of the name**, as the frames above show — including it
+     * yields a name with a leading NUL, which `trim()` does not remove and which renders
+     * as nothing, so the bug appears as a name that silently lost its first character.
+     */
+    fun of(payload: ByteArray): String? {
+        if (payload.size < 2) return null
+        return String(payload, 1, payload.size - 1, Charsets.UTF_8)
+            .trim { it <= ' ' }
+            .ifBlank { null }
+    }
+
+    /**
      * ⚠ **Returns null rather than truncating.** The device's own limit is unknown —
      * Bose Connect's field stops somewhere this repo has not established — so the only
      * bound enforced is the one the protocol imposes: a length byte. Silently cutting a
@@ -975,5 +1106,95 @@ object BoseName {
         val bytes = name.toByteArray(Charsets.UTF_8)
         if (bytes.isEmpty() || bytes.size > 0xff) return null
         return BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, bytes)
+    }
+}
+
+/**
+ * Block `01` as **both Bose models speak it** — everything in the settings block that is
+ * not ANC: the name, the voice prompts, the standby timer, self voice.
+ *
+ * ⚠ **This exists because these writes lived on the QC35's driver and were being called
+ * with a QC45's transport.** They worked — the drivers are stateless and the frames are
+ * identical — so nothing ever failed and nothing could. What was wrong was quieter: the
+ * code said "QC35" about a QC45, and the QC45's own read branch had never been given
+ * these settings at all, so its card simply had no rows for them. Four settings the repo
+ * could already speak were absent from one device's screen for that reason alone.
+ *
+ * ⚠ **Sharing a block number is NOT sharing a meaning**, and this interface is the
+ * exception rather than the rule — `01 05` and `01 06` are different functions on these
+ * two models. What justifies it here is that each function below appears in *both*
+ * devices' own `01 01` enumeration, in the same shape, and was read from each.
+ */
+interface BoseSettingsDriver : AncDriver {
+    /**
+     * Every setting the device has, in ONE exchange.
+     *
+     * ⚠ **Separate Gets would be the wrong shape here**, and not just slower: the reply
+     * enumerates what this unit actually has, so a missing setting is distinguishable
+     * from an unreadable one. That is how `01 07` EQ and `01 08` ALERTS — which answer
+     * nothing at all to a direct ask on the QC35 — were established as absent rather than
+     * merely silent. The QC45 answers the same ask with ten settings, `01 07` among them.
+     */
+    fun readAll(t: Transport): BoseAll? = BoseAllSettings.state(t.exchange(BoseAllSettings.get()))
+
+    /**
+     * ⚠ **Read back with a separate Get, not from the SET_GET's own echo.** An echo is
+     * the device repeating what it was told; only an independent read says the value
+     * stuck. Driven and restored on a QC35 2026-08-26 and on a QC45 2026-08-28.
+     */
+    fun writeStandby(t: Transport, minutes: Int): BoseStandby? {
+        t.exchange(BoseStandbyTimer.set(minutes))
+        return BoseStandbyTimer.state(
+            BoseFrame.payload(t.exchange(BoseStandbyTimer.get()), 0x01, BoseStandbyTimer.FN)
+                ?: return null,
+        )
+    }
+
+    /**
+     * Rename the headphones.
+     *
+     * ⚠ **Confirmed by a separate read**, because SET_GET echoes the resulting state and
+     * an echo is the device repeating what it was told. Returns the name the device
+     * reports afterwards, which is what the card should show — if the device trimmed or
+     * refused it, that is the truth and not what was typed.
+     */
+    fun writeName(t: Transport, name: String): String? {
+        val frame = BoseName.set(name) ?: return null
+        t.exchange(frame)
+        return name(t)
+    }
+
+    /**
+     * Turn the prompts on or off **without touching the language**, and vice versa.
+     *
+     * ⚠ Both halves live in one byte and both traps are [BoseVoicePrompts.set]'s: the
+     * field this call is not changing has to be carried, and a write that changes
+     * anything draws no reply.
+     */
+    fun writeVoicePrompts(t: Transport, on: Boolean): Boolean? =
+        BoseVoicePrompts.set(t, on = on)?.let { BoseVoicePrompts.enabled(it) }
+
+    /** The other half of the same byte; the switch is carried across unchanged. */
+    fun writePromptLanguage(
+        t: Transport,
+        language: BoseVoicePromptLanguage,
+    ): BoseVoicePromptLanguage? =
+        BoseVoicePrompts.set(t, language = language)?.let { BoseVoicePromptLanguage.of(it) }
+
+    /**
+     * ⚠ **The persist byte is READ, not assumed.** It has only ever been seen as `01`,
+     * which is exactly the kind of constant that turns out to mean something on the next
+     * device.
+     */
+    fun writeSelfVoice(t: Transport, level: SidetoneLevel): SidetoneLevel? {
+        val current =
+            BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+                ?: return null
+        val persist = current.getOrNull(0) ?: return null
+        t.exchange(BoseWrites.sidetone(persist, level))
+        val after =
+            BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+                ?: return null
+        return BoseSidetone.level(after)
     }
 }
