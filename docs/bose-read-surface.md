@@ -1240,3 +1240,47 @@ reason alone.
 particular, whether `01 03` on the QC35 also answers nothing to a real change, and whether
 it also applies asynchronously, is untested; the shared path is correct either way, at the
 cost of one settle window per write.
+
+## ✅ #1191 (QC45 half) — three reads folded into the GET_ALL, measured on the wire
+
+`01 07` EQ, `01 09` button and `01 0a` multipoint all come back inside `01 01` GET_ALL,
+and the card asked for each of them again immediately afterwards. Each was read
+individually off the device first and compared to the frame inside the GET_ALL reply:
+
+    01 07   03 0c f6 0a 00 00 f6 0a 00 01 f6 0a 00 02      identical
+    01 09   03 0b 80 09 03 00 01 40 08 00 00 00 80         identical
+    01 0a   03 01 06                                       identical
+
+⚠ **That comparison is the whole justification.** `01 05` and `01 06` already mean
+different things on these two models, so "it appears in the GET_ALL reply" is not by
+itself a reason to believe it is the same reading.
+
+**One card open, both builds, one capture, one clock** (2026-08-28):
+
+    requests   18 → 12     (6 fewer, 33%)
+    burst     946 → 710 ms (236 ms, 25%)
+
+⚠ **Six went, not three, because the whole cycle runs TWICE per open.** That is #1191's
+original finding, and this capture confirms it on the QC45 as well as the QC35.
+
+### ⚠ The first framing of this measurement was wrong, and read as "no improvement"
+
+Taken as the span of the whole window — from `am start` to the last frame — it came out
+5.335 s before and 5.749 s after, i.e. slightly *worse*. That span is dominated by a 4.84 s
+gap which is **the `sleep` in the driving script**, between launching the app and tapping
+the card. The card open is the burst *after* that gap. A window drawn around the operator's
+own pacing measures the operator.
+
+### What is left on the QC45, and it is the larger half
+
+Of the 12 requests that remain in a card open, **eight are `01 05` and `01 02`** — four
+each — and **both are already in the GET_ALL reply**:
+
+    01 05  ANC level      → also `01 05 STATUS 0b 07 03` inside GET_ALL
+    01 02  device name    → also `01 02 STATUS 00 "Pippijn Bose QC45"` inside GET_ALL
+
+They are not fixable from the settings branch. They come from the card's Ready state being
+built — `AncDriver.read` and `AncDriver.name` — which happens at a different moment and for
+a different reason than the settings read, and happens again on every reconcile. This is
+the same shape the QC35 half of #1191 records (`01 06` + `01 02` there), so the two halves
+are one fix, not two.

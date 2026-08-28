@@ -360,6 +360,15 @@ data class BoseAll(
     val standby: BoseStandby? = null,
     val sidetone: SidetoneLevel? = null,
     /**
+     * The three tone bands — ⚠ **present on the QC45, absent on the QC35**, which does
+     * not list `01 07` in its own enumeration at all.
+     */
+    val tone: BoseBands? = null,
+    /** What the action button does — `01 09`. */
+    val button: BoseButton.Action? = null,
+    /** Two devices at once — `01 0a`. */
+    val multipoint: Boolean? = null,
+    /**
      * The name the device holds — ⚠ **not the one Android has bonded.**
      *
      * It arrives in the same reply as everything else, so reading it costs nothing. What
@@ -454,6 +463,13 @@ object BoseAllSettings {
             BoseFrame.payload(f, BLOCK, BoseName.FN)?.let {
                 out = out.copy(name = BoseName.of(it))
             }
+            // ⚠ **The FRAME, not the payload** — each of these decoders checks the
+            // block and function itself, which is what lets them be handed every frame
+            // in turn. Passing a payload would find nothing and report three settings
+            // the device plainly has as absent.
+            BoseEq.state(f)?.let { out = out.copy(tone = it) }
+            BoseButton.state(f)?.let { out = out.copy(button = it) }
+            BoseMultipoint.state(f)?.let { out = out.copy(multipoint = it) }
         }
         return out
     }
