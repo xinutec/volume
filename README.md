@@ -194,6 +194,13 @@ before the write, a confirmed rename showed the old name because both name displ
 Android's bonded record, and a factory-named QC45 never got the protocol's early-stop rule
 because the test named one model instead of the framing.
 
+**#1232, 2026-08-28 — a Bose answers NOTHING on a fresh socket until block `00` is read.**
+The QC35 was bonded, connected, the active audio device and completely unreadable; the app
+said "it answered `01 06` in neither shape". The snoop showed every frame going out and
+nothing coming back, while the device's protobuf channel answered normally in the same log.
+Send `00 01` first and everything answers. ⚠ Why it started is not established — it did not
+need waking two days earlier.
+
 **#1191, on the QC45, 2026-08-28 — 18 requests → 4, 946 ms → 292 ms** for one card open,
 measured on the wire across three builds. Three causes, none of them the ones the task had
 guessed at: the card asked again for the tone, the button and multipoint, all three of which
