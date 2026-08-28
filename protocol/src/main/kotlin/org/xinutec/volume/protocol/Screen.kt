@@ -142,6 +142,13 @@ data class Settings(
     /** The JBL's drawn curve — a third EQ shape, for the reason [EqCurve] gives. */
     val curve: EqCurve? = null,
     val multipoint: Boolean? = null,
+    /**
+     * Bose `01 0e` — whether the noise setting persists.
+     *
+     * ⚠ The name is the vendor's and the behaviour behind it is untested; the card says
+     * so rather than promising what it does.
+     */
+    val cncPersistence: Boolean? = null,
     val autoOff: AutoOff? = null,
     /** ⚠ The JBL's timer, which is not [autoOff]'s rule — see [TimedOff]. */
     val timedOff: TimedOff? = null,
@@ -399,6 +406,7 @@ data class Settings(
     val any: Boolean
         get() =
             eq != null || tone != null || curve != null || multipoint != null ||
+                cncPersistence != null ||
                 autoOff != null || timedOff != null || soundQuality != null ||
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||

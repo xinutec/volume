@@ -262,6 +262,13 @@ interface SettingActions {
     fun setCncLevel(address: String, slot: Int, level: Int)
 
     /**
+     * Bose `01 0e` — whether the noise setting persists.
+     *
+     * ⚠ The name is the vendor's; what it does is untested here.
+     */
+    fun setCncPersistence(address: String, on: Boolean)
+
+    /**
      * Bose's per-mode wind block.
      *
      * ⚠ **Turning it on moves the level to 0** — the device takes the level over. The
@@ -1299,6 +1306,20 @@ private fun SettingsSection(
                 "hearing protection — this app will read it, never change it",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+
+        settings.cncPersistence?.let { on ->
+            // ⚠ The subtitle does not promise a behaviour. The byte is decoded and driven
+            // both ways; whether the noise setting actually survives a power cycle was
+            // never measured, because measuring it needs the headphones switched off.
+            SettingRow(
+                "Keep noise setting",
+                if (on) "on — Bose's name for it, effect untested" else "off",
+                writable = true,
+                checked = on,
+                onChange = { actions.setCncPersistence(address, it) },
+                refusal = null,
             )
         }
 

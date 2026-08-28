@@ -358,6 +358,7 @@ class DeviceController(
                 Settings(
                     tone = all?.tone,
                     multipoint = all?.multipoint,
+                    cncPersistence = all?.cncPersistence,
                     button = all?.button?.name,
                     // ⚠ The device's own named modes, which the two-ended AncMode
                     // cannot express — see CncModes. Read every time the card opens:
@@ -527,6 +528,16 @@ class DeviceController(
     override fun setMultipoint(address: String, on: Boolean) =
         applied<Boolean>(address, "setting multipoint", { if (it) "on" else "off" }) {
             (it.headphones.driver as MultipointDriver).setMultipoint(it.transport, on)
+        }
+
+    /**
+     * ⚠ The Status echoes the byte written, unlike multipoint's flags word, so this
+     * compares directly — see [BoseCncPersistence].
+     */
+    override fun setCncPersistence(address: String, on: Boolean) =
+        applied<Boolean>(address, "setting noise persistence", { if (it) "on" else "off" }) { s ->
+            val d = s.bose ?: return@applied Confirmation.Unverifiable
+            d.writeCncPersistence(s.transport, on)
         }
 
     override fun setAutoOff(address: String, mode: AutoOff) =

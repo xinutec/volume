@@ -760,4 +760,27 @@ class BoseNameTest {
         // separates "drop the link" from "forget the pairing".
         assertEquals(0x02, BoseDisconnect.FN.toInt())
     }
+
+    /**
+     * ⚠ The exact exchange driven on a QC45 2026-08-28 and restored: read `01`, write
+     * `00`, read `00`, write `01`, read `01`.
+     */
+    @Test
+    fun `cnc persistence writes the byte and reads it straight back`() {
+        assertEquals(Hex.parse("01 0e 02 01 00").toList(), BoseCncPersistence.set(false).toList())
+        assertEquals(Hex.parse("01 0e 02 01 01").toList(), BoseCncPersistence.set(true).toList())
+        assertEquals(true, BoseCncPersistence.state(Hex.parse("01 0e 03 01 01")))
+        assertEquals(false, BoseCncPersistence.state(Hex.parse("01 0e 03 01 00")))
+    }
+
+    @Test
+    fun `cnc persistence compares the whole byte, unlike multipoint's flags`() {
+        // ⚠ Multipoint reads 06 off and 07 on, so it MASKS bit 0. This one tests the whole
+        // byte for 1, which is what Bose Music's own parser does, so a hypothetical 03
+        // reads false here and would read true under a mask. ⚠ 03 has never been seen from
+        // this device — the row exists to pin the difference between the two functions,
+        // not to claim anything about what 03 would mean.
+        assertEquals(false, BoseCncPersistence.state(Hex.parse("01 0e 03 01 03")))
+        assertEquals(true, BoseMultipoint.state(Hex.parse("01 0a 03 01 07")))
+    }
 }

@@ -242,6 +242,42 @@ object BoseEq {
 }
 
 /**
+ * `01 0e` SETTINGS_CNC_PERSISTENCE — Bose Music's `SettingsCncPersistence`.
+ *
+ * ```
+ * → 01 0e 01 00        ← 01 0e 03 01 01
+ * → 01 0e 02 01 00     ← 01 0e 03 01 00
+ * → 01 0e 02 01 01     ← 01 0e 03 01 01
+ * ```
+ *
+ * ⚠ **A plain boolean, unlike its neighbour [BoseMultipoint]** — the Status echoes the
+ * byte that was written rather than a flags word, so a straight comparison is right here
+ * and wrong one function along. Driven both ways and restored on a QC45, 2026-08-28.
+ *
+ * The name is the vendor's: `SettingsCncPersistenceResponse` parses payload `[0] == 1`
+ * into an `isEnabled: Z`, and its SetGet packet takes a boolean into a one-byte payload.
+ *
+ * ⚠⚠ **What it DOES is untested.** "Persistence" is a name, not a measurement: whether
+ * the noise setting survives a power cycle was never checked, because checking it means
+ * switching the headphones off and on, which needs hands on the device. The byte moves
+ * and reads back; the behaviour behind it is not attested here.
+ */
+object BoseCncPersistence {
+    const val BLOCK: Byte = 0x01
+    const val FN: Byte = 0x0e
+
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+
+    fun set(on: Boolean) =
+        BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, byteArrayOf(if (on) 0x01 else 0x00))
+
+    fun state(frame: ByteArray): Boolean? {
+        val payload = BoseFrame.payload(frame, BLOCK, FN) ?: return null
+        return payload.firstOrNull()?.let { it.toInt() == 1 }
+    }
+}
+
+/**
  * Multipoint — block `01`, function `0a`. The one setting here that is symmetric,
  * unlike the Sony's, whose two taps used two different subsystems.
  *
@@ -255,6 +291,7 @@ object BoseEq {
  * stopped short of it or the device answered differently then; re-sweep before
  * treating that list as complete.
  */
+
 object BoseMultipoint {
     const val BLOCK: Byte = 0x01
     const val FN: Byte = 0x0a
@@ -369,6 +406,13 @@ data class BoseAll(
     /** Two devices at once — `01 0a`. */
     val multipoint: Boolean? = null,
     /**
+     * Whether the noise setting persists — `01 0e`.
+     *
+     * ⚠ The NAME is the vendor's; the behaviour behind it is untested — see
+     * [BoseCncPersistence].
+     */
+    val cncPersistence: Boolean? = null,
+    /**
      * The name the device holds — ⚠ **not the one Android has bonded.**
      *
      * It arrives in the same reply as everything else, so reading it costs nothing. What
@@ -470,6 +514,7 @@ object BoseAllSettings {
             BoseEq.state(f)?.let { out = out.copy(tone = it) }
             BoseButton.state(f)?.let { out = out.copy(button = it) }
             BoseMultipoint.state(f)?.let { out = out.copy(multipoint = it) }
+            BoseCncPersistence.state(f)?.let { out = out.copy(cncPersistence = it) }
         }
         return out
     }
@@ -1361,6 +1406,21 @@ interface BoseSettingsDriver : AncDriver {
      * merely silent. The QC45 answers the same ask with ten settings, `01 07` among them.
      */
     fun readAll(t: Transport): BoseAll? = BoseAllSettings.state(t.exchange(BoseAllSettings.get()))
+
+    /**
+     * `01 0e` — whether the noise setting persists.
+     *
+     * ⚠ **Read back with a separate Get**, the same rule as [writeStandby]: the SET_GET
+     * echoes the resulting state, and an echo is the device repeating what it was told.
+     * Driven both ways and restored on a QC45, 2026-08-28.
+     */
+    fun writeCncPersistence(t: Transport, on: Boolean): Confirmation<Boolean> {
+        t.exchange(BoseCncPersistence.set(on))
+        val after =
+            BoseCncPersistence.state(t.exchange(BoseCncPersistence.get()))
+                ?: return Confirmation.Unverifiable
+        return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+    }
 
     /**
      * ⚠ **Read back with a separate Get, not from the SET_GET's own echo.** An echo is
