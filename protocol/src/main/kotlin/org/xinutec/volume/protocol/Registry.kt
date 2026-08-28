@@ -98,17 +98,45 @@ object Registry {
     }
 
     /**
+     * Wake a Bose BMAP session — ⚠ **a fresh socket answers NOTHING until this is sent.**
+     *
+     * ⚠⚠ **Measured on a QC35, 2026-08-28, and it made the device unusable from this app.**
+     * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew
+     * no reply at all — four in a row in one socket, then more across 28 minutes and two
+     * reconnections. The snoop shows the frames leaving and nothing coming back, while the
+     * device's *other* RFCOMM channel answered normally throughout. It reads exactly like
+     * broken headphones. Send any block-`00` read first and every one of those functions
+     * answers immediately.
+     *
+     * ⚠ **Block 00, not one magic frame**: `00 01` and `00 02` were each shown to work on a
+     * fresh socket. And it is not "the first frame is swallowed" — four consecutive reads
+     * with no block-`00` among them drew nothing.
+     *
+     * ⚠ **Harmless on a QC45**, which needs no waking and answers `00 01` with its protocol
+     * version (`1.1.0`, against the QC35's `1.0.4`). So it is sent unconditionally rather
+     * than per model — a device that does not need it pays one cheap read.
+     */
+    fun wakeBose(t: Transport) {
+        t.exchange(byteArrayOf(0x00, 0x01, 0x01, 0x00))
+    }
+
+    /**
      * Tell a QC45 from a QC35 by **asking it**, for the case the SDP record cannot.
      *
      * `01 06` is the QC35's ANC function and one the QC45 reports unsupported, so a
      * single read separates them — and a read is safe on headphones someone is
      * wearing, which a probing write would not be.
      *
+     * ⚠ **Wakes the session first.** Without it a QC35 answers nothing here and is
+     * reported "unidentified", which is what it did all afternoon on 2026-08-28 — see
+     * [wakeBose]. The null return below cannot tell a silent device from an asleep one.
+     *
      * Returns null if it answers neither way; the caller should say "unidentified"
      * rather than pick one, because the two tables disagree about what `01 06`
      * even means.
      */
     fun identifyBose(t: Transport): AncDriver? {
+        wakeBose(t)
         val r = t.exchange(byteArrayOf(0x01, 0x06, 0x01, 0x00))
         val operator = r.getOrNull(2) ?: return null
         return when (operator) {

@@ -72,6 +72,9 @@ class RegistryTest {
         assertTrue(a !== b)
     }
 
+    /** The session opener every Bose read now goes behind — `Registry.wakeBose`. */
+    private val wake = "00 01 01 00" to "00 01 03 05 31 2e 30 2e 34"
+
     /**
      * The real device on this desk: a QC35 renamed by its owner, whose record holds
      * nothing but standard and shared UUIDs. Guessing would be wrong for anyone who
@@ -82,31 +85,36 @@ class RegistryTest {
         assertNull(Registry.fromAdvertisement("LE-Pippijn Headphon", qc35))
     }
 
+    /**
+     * ⚠ **The block-`00` read in front is not decoration** — without it a QC35 answers
+     * `01 06` with nothing and is reported unidentified. See `Registry.wakeBose`.
+     */
     @Test
     fun `a renamed bose is identified by a read`() {
         // The QC35 answers 01 06 with a Status frame carrying its ANC value.
-        val q35 = Replay("01 06 01 00" to "01 06 03 02 00 0b")
+        val q35 = Replay(wake, "01 06 01 00" to "01 06 03 02 00 0b")
         assertSame(Drivers.BoseQc35, Registry.identifyBose(q35))
+        q35.assertDrained()
 
         // The QC45 refuses it: operator 04, "function not supported".
-        val q45 = Replay("01 06 01 00" to "01 06 04 01 04")
+        val q45 = Replay(wake, "01 06 01 00" to "01 06 04 01 04")
         assertSame(Drivers.BoseQc45, Registry.identifyBose(q45))
+        q45.assertDrained()
     }
 
-    /** ⚠ A read, never a write — this runs against headphones someone is wearing. */
+    /** ⚠ Reads only, never a write — this runs against headphones someone is wearing. */
     @Test
-    fun `identification uses a Get and touches nothing`() {
-        val t = Replay("01 06 01 00" to "01 06 03 02 00 0b")
+    fun `identification uses Gets and touches nothing`() {
+        val t = Replay(wake, "01 06 01 00" to "01 06 03 02 00 0b")
         Registry.identifyBose(t)
-        assertEquals(1, t.sent.size)
         // Operator 01 is Get; anything else could change a setting.
-        assertEquals("01 06 01 00", t.sent.first())
+        assertEquals(listOf("00 01 01 00", "01 06 01 00"), t.sent)
     }
 
     @Test
     fun `an answer that settles nothing is reported as such`() {
-        assertNull(Registry.identifyBose(Replay("01 06 01 00" to "")))
-        assertNull(Registry.identifyBose(Replay("01 06 01 00" to "01 06 07 00")))
+        assertNull(Registry.identifyBose(Replay(wake, "01 06 01 00" to "")))
+        assertNull(Registry.identifyBose(Replay(wake, "01 06 01 00" to "01 06 07 00")))
     }
 
     @Test
