@@ -8,6 +8,44 @@ Swept against the QC45 (304 packets, ~2 min) and the QC35, 2026-08-15.
 the QC45 keeps ANC. Blocks `0a`–`0d` answer "block not supported", which reads
 like the end of the map and is not.
 
+## Where this stands — read this before anything below
+
+⚠ **Everything under this section is a LOG, in the order things were discovered, and the
+early parts are snapshots that later sections correct.** It is kept that way on purpose:
+the wrong turns are the most reusable thing on this page. But it means the section you hit
+first is often not the current answer, so the current answer lives here.
+
+**The QC45 is finished.** Every function it answers is decoded and driven from the card:
+
+| what | wire | state |
+|---|---|---|
+| ANC level | `01 05` | driven |
+| named modes: select, edit level | `1f 03`, `1f 06` | driven |
+| modes: **create and delete** | `1f 06` + `1f 08`, both frames | driven |
+| **wind block**, per mode | write `[38]`, read `[46]` | driven |
+| **noise persistence** | `01 0e` | driven ⚠ its NAME is refuted, see below |
+| tone / range control | `01 07` | driven |
+| rename | `01 02` | driven |
+| voice prompts, standby, self voice | `01 03`, `01 04`, `01 0b` | driven |
+| multipoint, action button | `01 0a`, `01 09` | driven |
+| battery | `02 02` | read |
+| pairing mode, forget, **disconnect** | `04 08`, `04 03`, `04 02` | driven |
+
+**Decoded and deliberately NOT offered**, because `[41]` reports them immutable on every
+mode — `autoCNCMutable`, `spatialMutable`, `ancToggleMutable` are all `0`, so a control
+would flip and spring back. `[47]` ancToggleEnabled is not even sent by this unit.
+
+**Named but not decoded:** `01 0c` SettingsSetupComplete. Writable, deliberately not
+written — it is an out-of-box flag, not a preference.
+
+**Unobservable from here:** record bytes `[38]`–`[40]` and `[45]`, which the vendor's own
+parser does not index and which read `00` in every record this unit has ever produced.
+
+⚠⚠ **Two things on this page are refutations, and they are the easiest to misread as
+features.** `01 0e` is called CNC *persistence* and does NOT carry the mode or level across
+a power cycle — tested both ways on hardware. And `1f 07` is NOT an occupancy list; it
+stayed `00 01 02 03` across a delete, and `1f 08`'s bitmask is the whole of the occupancy.
+
 ## The error codes are the map
 
 | Reply | Meaning |
@@ -62,6 +100,11 @@ from them was plausible and inert.
 
 ## QC45 reads
 
+⚠ **A SNAPSHOT of the 2026-08-15 sweep, not a current reading.** `1f 08` shows `04 07`
+here because only three mode slots were filled that day; it reads `04 0f` with four. The
+table also predates `01 0c`, `01 0e` and most of block `1f` being named — see the state
+section at the top of this page.
+
 ```
 00 00/00 01  "1.1.0"        00 05  "1.0.6-80+f5f219b"    00 06  own BD_ADDR
 00 07  "084896T50188177AE"  00 0a  "SOR"                 01 02  device name
@@ -103,7 +146,10 @@ Differs from the QC45 — battery moves, ANC moves:
 09 02  21 00 3e
 ```
 
-## Not yet
+## Not yet — ⚠ as of 2026-08-15, and most of it is now settled
+
+⚠ **This heading is historical.** Nothing below is an open question any more; it is kept
+for the reasoning, not the status. The open list is in the state section at the top.
 
 ✅ **QC35 block `1f` does NOT exist** — settled 2026-08-25, see the end of this page.
 

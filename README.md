@@ -112,7 +112,10 @@ Anything else is named in a task; the frames are in `docs/`, not repeated here.
 
 | | QC45 | QC35 | Sony XM4 | JBL M2 | JLab |
 | --- | --- | --- | --- | --- | --- |
-| ANC | ✅ 4 named modes, 11 levels | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
+| ANC | ✅ 4 named modes, 11 levels, **create + delete** | ✅ | ✅ | ✅ 4 modes, +TalkThru | ✅ |
+| Wind block | ✅ per mode ⚠ takes the level over | — | — | — | — |
+| Noise persistence | ✅ `01 0e` ⚠ name refuted, see docs | — | — | — | — |
+| Disconnect a device | ✅ `04 02` | ✅ | — | — | — |
 | EQ / tone | ✅ 3 bands | — | ✅ preset + 6 bands | ✅ 10-band curve | — |
 | Multipoint | ✅ | — | ⛔ refused | — | — |
 | Auto power off | ✅ never / 5 / 20 / 40 min / 1 / 3 hr | ✅ same | ✅ | ✅ + 30 min / 1 hr / 2 hr | — |
@@ -182,11 +185,18 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Open:** #1202 the QC45's modes can be selected and edited but not created or deleted · #1203 a chip
-tap during a write is silently dropped · #974 the three JBL rows still outside the app ·
-#935 disconnect, the one connections verb still unattested · #1038 the probe's
-decode-and-print · #1154 a settings read that drops a row · #1232 why the QC35 started
-needing a wake at all.
+**Closed 2026-08-28:** #1202 modes can now be created and deleted (both are a record write
+AND a `1f 08` write) · #1203 the chip tap was never dropped — the busy card grew 73 px and
+the chip moved out from under it · #935 disconnect is `04 02`, sent and attested · #1242
+the 47-byte mode record is decoded from the vendor's own parser.
+
+**Open:** #974 the three JBL rows still outside the app · #1038 the probe's
+decode-and-print and its Python port · #1154 a settings-read dropout, fixed and awaiting
+one live card read · #1232 why the QC35 started needing a wake at all.
+
+⚠ **The QC45 is finished** — every function it answers is driven from the card. See
+`docs/bose-read-surface.md`, "Where this stands", which is the current state; the rest of
+that page is a discovery log whose early sections later ones correct.
 
 **Closed 2026-08-28 on the QC45**: #1193 the four settings the QC35 code already spoke —
 all wired, all driven from the app's own card and restored, and three things found only by
