@@ -1642,3 +1642,41 @@ The card offers the toggle only where `[41]` bit 3 says it is mutable — clear 
 Aware — and its subtitle says "on — the headphones set the level" rather than pretending it
 is a plain switch. `setLevel` now carries the wind-block byte through, so moving the slider
 cannot silently switch it off.
+
+## ✅ Block `04`'s whole function table, out of `BmapFunction` — 2026-08-28
+
+The enum's constructor is `(String name, int ordinal, BmapFunctionBlock block, byte value)`,
+so each entry names its own block AND its wire byte. Read from `<clinit>` by tracking
+registers (280 entries parsed); the `DeviceManagement` block is:
+
+    00 FblockInfo        07 ClearDeviceList  ⚠ THE HAZARD      0e Features
+    01 Connect           08 PairingMode                        0f BoseProduct
+    02 Disconnect        09 AppAddress                         10 ConnectionPriority
+    03 RemoveDevice      0a PrepareP2p                         11 UserCarouselSelect
+    04 ListDevices       0b P2pMode                            12 AvailableToConnect
+    05 Info              0c Routing                            13 LeAudioCheck
+    06 ExtendedInfo      0d P2pFeatures
+
+✅ **Five of these were already known from the wire and all five agree** — `03`
+REMOVE_DEVICE, `04` LIST_DEVICES, `05` INFO, `07` CLEAR_DEVICE_LIST, `08` PAIRING_MODE.
+That is the check on the rest.
+
+### `04 02` is DISCONNECT — decoded, NOT driven
+
+`DeviceManagementDisconnectStartPacket`'s constructor takes a bare `[B` and hands it
+to `BmapPacket` as the payload, with operator START — the same shape as `04 03`
+REMOVE_DEVICE, which this repo already sends as `04 03 05 06 <address>`. So the frame is
+
+    04 02 05 06 <6-byte address>
+
+⚠⚠ **This has NOT been sent, and no writer for it exists in this repo.** The precedent is
+`BosePairing`, which implements entering pairing mode and refuses to implement leaving it:
+"presumably is not a word this file gets to use about an untested frame". Three independent
+lines point at this frame — the decompiled function byte, the packet class's operator and
+payload shape, and #935's own observation that removing a CONNECTED device drew unsolicited
+`04 02` frames back — but agreement between three readings is not the same as having sent it.
+
+⚠ Driving it disconnects whatever address it names, and the QC45's device list holds
+exactly one entry. **The recovery path is proven**: Settings → the device's gear →
+Disconnect, then Connect, after which the BMAP channel answers again (measured 2026-08-28).
+So the cost of trying it is bounded; it simply has not been tried.
