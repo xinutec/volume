@@ -701,9 +701,15 @@ object BoseCncModes {
     /** `1f 08` — `<capacity> <bitmask of occupied slots>`. */
     const val SLOTS: Byte = 0x08
 
-    // ⚠ **The block ends at `08`**: `1f 09` and `1f 0a` answer `04 01 04`
-    // function-not-supported. The rest of it is read-only so far and none of it is
-    // named here, because naming a byte is a decode and these are readings:
+    // ⚠⚠ **`04 01 04` here means NOT ON THIS DEVICE, not "no such function".** `1f 09`
+    // and `1f 0a` were read as not-supported and written up as "the block ends at 08";
+    // a capture of Bose Music the same evening shows it sending `1f 09 05 01 <slot>` as
+    // its DELETE, three times, taking the error, and falling back — and probing `1f 0b`
+    // too. So the block extends past `08` in the protocol and this QC45 declines part of
+    // it. An error code bounds the DEVICE, never the protocol.
+    //
+    // The rest is read-only so far and none of it is named here, because naming a byte
+    // is a decode and these are readings:
     //
     //   1f 00  "1.0.0"                the block's own version, not the protocol's
     //   1f 02  02 02 00 00 00 09      constant across a selection change
@@ -711,11 +717,13 @@ object BoseCncModes {
     //                                 03 -> 02 -> 03 with [ACTIVE], so it is not a
     //                                 previous-slot register. What it is for is unknown.
     //   1f 05  01                     constant across a selection change
-    //   1f 07  00 01 02 03            the slot list, with all four slots occupied
+    //   1f 07  00 01 02 03            the four slot INDICES — see the correction below
     //
-    // ⚠ `1f 07` is the one that matters for create/delete: a delete has to change it or
-    // [SLOTS]'s bitmask, and its shape with a GAP in it has never been seen. Measured
-    // 2026-08-28 — see `docs/bose-read-surface.md`.
+    // ⚠ **`1f 07` is NOT an occupancy list.** It was written up here as "the shape a
+    // delete must change"; deleting a mode later the same day left it at `00 01 02 03`
+    // while [SLOTS] went `04 0f` -> `04 0b`. It is a static index list and the occupancy
+    // lives in [SLOTS]'s bitmask alone. Measured 2026-08-28 by deleting slot 2 and
+    // reading both — see `docs/bose-read-surface.md`.
 
     /** How many bytes the name occupies in a record, NUL-padded, in both directions. */
     private const val NAME_LEN = 32
@@ -756,6 +764,91 @@ object BoseCncModes {
     fun slots() = BoseFrame.encode(BLOCK, SLOTS, BoseFrame.GET)
 
     /**
+     * `1f 08`'s reply: how many slots the device has, and which are occupied.
+     *
+     * ⚠ The bitmask is the ONLY place occupancy lives. [Mode] does not carry it, because
+     * a record's `[5]` is a view of this bit rather than a field of its own — see
+     * [occupancy].
+     */
+    data class Slots(
+        val capacity: Int,
+        val occupied: Int,
+    ) {
+        fun holds(slot: Int) = occupied and (1 shl slot) != 0
+
+        fun with(slot: Int, held: Boolean) =
+            copy(occupied = if (held) occupied or (1 shl slot) else occupied and (1 shl slot).inv())
+    }
+
+    fun slotsOf(buffer: ByteArray): Slots? {
+        val p =
+            BoseFrame.frames(buffer).firstNotNullOfOrNull {
+                BoseFrame.payload(it, BLOCK, SLOTS)
+            } ?: return null
+        if (p.size < 2) return null
+        return Slots(p[0].toInt() and 0xff, p[1].toInt() and 0xff)
+    }
+
+    /** `1f 08` as a WRITE — the other half of both [create] and [delete]. */
+    fun occupancy(slots: Slots): ByteArray =
+        BoseFrame.encode(
+            BLOCK,
+            SLOTS,
+            BoseFrame.SET_GET,
+            byteArrayOf(slots.capacity.toByte(), slots.occupied.toByte()),
+        )
+
+    /**
+     * The 39-byte record write. [setLevel] is the special case that keeps everything but
+     * the level; this is the general one, and an empty [name] with [nameId] 0 is how a
+     * slot is blanked.
+     */
+    private fun record(slot: Int, nameId: Int, name: String, level: Int): ByteArray {
+        val padded = name.toByteArray(Charsets.UTF_8).copyOf(NAME_LEN)
+        val tail = byteArrayOf(level.coerceIn(QUIETEST, MOST_AWARE).toByte(), 0, 0, 0)
+        val body = byteArrayOf(slot.toByte(), 0x00, nameId.toByte()) + padded + tail
+        check(body.size == LEVEL_WRITE + 4) { "record is ${body.size} bytes, not 39" }
+        return BoseFrame.encode(BLOCK, SLOT, BoseFrame.SET_GET, body)
+    }
+
+    /**
+     * Fill an empty slot. **Both frames, in order** — captured off Bose Music creating a
+     * mode on 2026-08-28 and replayed from this repo's own socket the same evening.
+     *
+     * ⚠⚠ **The record write ALONE does not create anything.** Sent on its own it stores
+     * the name and level and leaves `[5]` at `00`, so the mode is invisible to every
+     * reader including the vendor app — measured, not reasoned about: this repo sent
+     * exactly that frame and read the record back still unoccupied. The `1f 08` write is
+     * what brings it into existence, and [delete] is the same two frames inverted.
+     *
+     * ⚠ [nameId] is an index into a vendor name table this repo has NOT decoded — Home is
+     * `0a`, Commute `07`. Creating a mode with a nameId nothing has observed is a guess at
+     * a byte the device may use for its icon or its ordering, so pass one that has been
+     * seen on this device.
+     */
+    fun create(slot: Int, nameId: Int, name: String, level: Int, slots: Slots): List<ByteArray> {
+        require(name.isNotEmpty()) { "an empty name is a delete, not a create" }
+        return listOf(record(slot, nameId, name, level), occupancy(slots.with(slot, true)))
+    }
+
+    /**
+     * Empty a slot. **Both frames, in order.**
+     *
+     * ⚠ The blanked record carries level `05`, which is what Bose Music writes and what
+     * the device then reports at `[42]` for an unoccupied slot. It is a leftover, not a
+     * level — read `[5]`, or [Slots.holds], before believing any of it.
+     *
+     * ⚠⚠ **`1f 09 05 01 <slot>` is the protocol's own delete and this device REFUSES it**
+     * (`04 01 04`), which is why the operation is two writes rather than one. Bose Music
+     * tries `1f 09` three times, takes the error, and falls back to exactly this pair.
+     */
+    fun delete(slot: Int, slots: Slots): List<ByteArray> =
+        listOf(record(slot, 0, "", DELETED_LEVEL), occupancy(slots.with(slot, false)))
+
+    /** What Bose Music writes into a slot it is emptying. */
+    private const val DELETED_LEVEL = 5
+
+    /**
      * ⚠ **Selecting takes operator `05` Start and the payload `<slot> 01`**, not
      * `01 <slot>`: the one captured example had `01` in both bytes and hid the order.
      */
@@ -768,13 +861,8 @@ object BoseCncModes {
      * ⚠ **Send this on release, not on change.** Bose Music writes once per slider
      * position — eight frames for one adjustment — and there is no reason to copy that.
      */
-    fun setLevel(mode: Mode, level: Int): ByteArray {
-        val name = mode.name.toByteArray(Charsets.UTF_8).copyOf(NAME_LEN)
-        val tail = byteArrayOf(level.coerceIn(QUIETEST, MOST_AWARE).toByte(), 0, 0, 0)
-        val body = byteArrayOf(mode.slot.toByte(), 0x00, mode.nameId.toByte()) + name + tail
-        check(body.size == LEVEL_WRITE + 4) { "record is ${body.size} bytes, not 39" }
-        return BoseFrame.encode(BLOCK, SLOT, BoseFrame.SET_GET, body)
-    }
+    fun setLevel(mode: Mode, level: Int): ByteArray =
+        record(mode.slot, mode.nameId, mode.name, level)
 
     /**
      * Every occupied slot in a `1f 01` transaction's reply, or in one slot's Status.
