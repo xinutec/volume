@@ -257,10 +257,15 @@ object BoseEq {
  * The name is the vendor's: `SettingsCncPersistenceResponse` parses payload `[0] == 1`
  * into an `isEnabled: Z`, and its SetGet packet takes a boolean into a one-byte payload.
  *
- * ⚠⚠ **What it DOES is untested.** "Persistence" is a name, not a measurement: whether
- * the noise setting survives a power cycle was never checked, because checking it means
- * switching the headphones off and on, which needs hands on the device. The byte moves
- * and reads back; the behaviour behind it is not attested here.
+ * ⚠⚠ **The name was tested against the device and the obvious reading did NOT survive.**
+ * Power-cycled with this ON (Home, level 0) and again with it OFF (Commute, level 7) —
+ * hardware, 2026-08-28 — and the slot AND the level came back both times. So whatever this
+ * flag governs, it is not whether the ANC selection persists across a power cycle.
+ *
+ * ⚠ That is a refutation, not a decode: one trial per arm, and "off and on" was the owner
+ * switching the headphones rather than a measured full power-down. It says what this byte
+ * is NOT for. Nothing here knows what it IS for, and the card says so rather than
+ * repeating the vendor's word back at the owner.
  */
 object BoseCncPersistence {
     const val BLOCK: Byte = 0x01
