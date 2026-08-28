@@ -701,6 +701,22 @@ object BoseCncModes {
     /** `1f 08` — `<capacity> <bitmask of occupied slots>`. */
     const val SLOTS: Byte = 0x08
 
+    // ⚠ **The block ends at `08`**: `1f 09` and `1f 0a` answer `04 01 04`
+    // function-not-supported. The rest of it is read-only so far and none of it is
+    // named here, because naming a byte is a decode and these are readings:
+    //
+    //   1f 00  "1.0.0"                the block's own version, not the protocol's
+    //   1f 02  02 02 00 00 00 09      constant across a selection change
+    //   1f 04  <slot>                 a SECOND report of the active slot — it moved
+    //                                 03 -> 02 -> 03 with [ACTIVE], so it is not a
+    //                                 previous-slot register. What it is for is unknown.
+    //   1f 05  01                     constant across a selection change
+    //   1f 07  00 01 02 03            the slot list, with all four slots occupied
+    //
+    // ⚠ `1f 07` is the one that matters for create/delete: a delete has to change it or
+    // [SLOTS]'s bitmask, and its shape with a GAP in it has never been seen. Measured
+    // 2026-08-28 — see `docs/bose-read-surface.md`.
+
     /** How many bytes the name occupies in a record, NUL-padded, in both directions. */
     private const val NAME_LEN = 32
 

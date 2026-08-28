@@ -1378,3 +1378,60 @@ early-stop rule came to be measured on a device it had never run on (#1191).
 ⚠ **Whether this is new firmware or a state the QC35 was always in is NOT established.** It
 answered without waking on 2026-08-26; its protocol version reads `1.0.4` and nothing here
 recorded that number before, so there is nothing to compare against.
+
+## ✅ Block `1f` mapped end to end, and `[41]` re-litigated for nothing — 2026-08-28
+
+### ⚠ The lesson first: this page already held the answer I went to the hardware for
+
+Task #1202 carried a warning that `[41]` might be the ANC level rather than `[42]`,
+because Home reads `00` at `[42]` while carrying `09` at `[41]`. Two things on this page
+already refuted that, and neither was read before the headphones were driven:
+
+- `[41]` was `09` on slot 3 **while that slot was still empty**, above. A byte holding
+  `09` on a slot that contains no mode cannot be that mode's level.
+- The four-row "select each slot, read `01 05`" table above already recorded Home at
+  `00` — the exact reading the new run went to take.
+
+Re-run anyway (select Home, read `01 05` twice 440 ms apart, restore Commute, one
+socket): `01 05 03 03 0b 00 03`, level `00`, then Commute back at `07` with `1f 03`
+reporting slot `03`. It agrees, and it cost a mode switch on somebody's headphones to
+learn nothing. ⚠ **Read the decode section before re-measuring a byte it names.**
+
+There is also an argument needing no device at all: `[41]` is `09` on Home *and* on
+Commute, whose levels are `00` and `07`. One byte cannot be both.
+
+### The whole block, by asking every function whether it exists
+
+`1f 09` and `1f 0a` answer `04 01 04` function-not-supported, so the block ends at `08`:
+
+    1f 00  03 05 "1.0.0"          the block's own version, not the protocol's
+    1f 01  START -> transaction   every slot, batched into one buffer
+    1f 02  03 06 02 02 00 00 00 09    undecoded, constant across a selection change
+    1f 03  03 01 <slot>           the active slot; START selects
+    1f 04  03 01 <slot>           MIRRORS 1f 03 — see below
+    1f 05  03 01 01               undecoded, constant across a selection change
+    1f 06  03 2f <47-byte record> one slot, by index
+    1f 07  03 04 00 01 02 03      undecoded, and the shape a DELETE must change
+    1f 08  03 02 04 0f            capacity 4, occupied bitmask 1111
+
+### `1f 04` follows the selection, and why that is not the same as decoding it
+
+Selecting Home and restoring Commute in one socket moved it in both directions:
+
+    1f 03  03 -> 02 -> 03
+    1f 04  03 -> 02 -> 03
+
+So it is not a previous-slot register, which would have read `03` while `1f 03` read
+`02`. ⚠ **What it is FOR is undecoded** — two functions reporting one value is the
+observation, not an explanation, and a write to `1f 04` has never been sent.
+
+`1f 02`, `1f 05` and `1f 07` were read inside the same socket either side of that change
+and did not move, which is what rules them out as selection state.
+
+### ⚠ `1f 07` is the one worth having for create/delete
+
+`00 01 02 03`, four bytes for four occupied slots, is the slot list — and deleting a mode
+has to change either it or `1f 08`'s bitmask, probably both. It was read here with all
+four slots full, so **its shape with a gap in it is unattested**: whether a deleted slot 2
+gives `00 01 03`, `00 01 03 ff`, or three bytes is exactly what a capture of Bose Music
+deleting a mode would settle, and it is not guessable from one reading.
