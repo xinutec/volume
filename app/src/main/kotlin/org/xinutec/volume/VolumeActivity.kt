@@ -1310,12 +1310,14 @@ private fun SettingsSection(
         }
 
         settings.cncPersistence?.let { on ->
-            // ⚠ The subtitle does not promise a behaviour. The byte is decoded and driven
-            // both ways; whether the noise setting actually survives a power cycle was
-            // never measured, because measuring it needs the headphones switched off.
+            // ⚠ **The subtitle does not say what the name suggests, because the name was
+            // tested and did not survive.** Pippijn power-cycled the headphones with this
+            // ON (Home, level 0) and again with it OFF (Commute, level 7): the mode AND
+            // the level came back both times. So this flag is not what carries the noise
+            // setting across a power cycle, whatever else it does — see BoseCncPersistence.
             SettingRow(
                 "Keep noise setting",
-                if (on) "on — Bose's name for it, effect untested" else "off",
+                if (on) "on — mode and level return either way" else "off",
                 writable = true,
                 checked = on,
                 onChange = { actions.setCncPersistence(address, it) },

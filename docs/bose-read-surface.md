@@ -1723,10 +1723,27 @@ hypothetical `03` "on"; comparing the whole byte is what Bose Music itself does.
 neighbouring booleans, two different reply conventions — the same trap this page records
 for `01 05` against `01 06`.
 
-⚠⚠ **What it DOES is untested, and the card says so.** "Persistence" is a name, not a
-measurement: whether the noise setting survives a power cycle was never checked, because
-checking it means switching the headphones off and on. The row reads
-**"on — Bose's name for it, effect untested"** rather than promising a behaviour.
+#### ⚠⚠ The name was tested on hardware, and the obvious reading of it FAILED
+
+Pippijn power-cycled the headphones twice, once per arm:
+
+    persistence ON   selected Home,    level 0   ->  came back Home,    level 0
+    persistence OFF  selected Commute, level 7   ->  came back Commute, level 7
+
+**Both survived.** So this flag is not what carries the ANC selection across a power
+cycle — the mode and the level return either way. The card says
+**"on — mode and level return either way"** rather than repeating the vendor's word back
+at the owner.
+
+⚠ **This is a refutation, not a decode.** It says what the byte is NOT for. Nothing here
+knows what it IS for. ⚠ One trial per arm, and "off and on" was the owner switching the
+headphones rather than a measured full power-down — a device that keeps this state in
+flash regardless would produce exactly this result too.
+
+⚠ It is worth having anyway: the plausible reading of a vendor's own field name was
+sitting one power cycle away from being written into this repo as fact, and two cycles
+retired it. **A name from a decompile is a hypothesis with a good pedigree, not a
+measurement.**
 
 ### ⚠ `01 0c` SetupComplete reads `01` and is left alone ON PURPOSE
 
