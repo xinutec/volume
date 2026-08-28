@@ -1305,3 +1305,46 @@ is a UX trade for two round trips out of a 292 ms open, and it is not obviously 
 ⚠ The QC35 shows the same shape (`01 06` + `01 02` there). Both fixes above are
 model-independent and should help it too, **but it was switched off on 2026-08-28 and none
 of this was measured on it.**
+
+## ⚠⚠ A fresh socket answers NOTHING until block `00` is read — 2026-08-28
+
+The QC35 spent an afternoon looking broken. It was bonded, connected, the active audio
+device, and the app said **"it answered `01 06` in neither shape — leaving it
+unidentified"**. The probe agreed: `01 06`, `01 02` and `01 01` all drew `(nothing)`.
+
+**The snoop settled what no amount of retrying could.** Every frame went out on the wire and
+nothing came back — four in one socket, then more across 28 minutes and two reconnections —
+while the same log showed the device's *other* RFCOMM channel (dlci 20, protobuf) answering
+normally throughout, with a firmware string and a timezone push. The device was alive. Its
+BMAP server was not answering.
+
+    12:18:25.502  → d9  01 06 GET   len=00     (nothing back)
+    12:18:26.408  → d9  01 02 GET   len=00     (nothing back)
+    12:18:27.315  → d9  01 01 START len=00     (nothing back)
+
+✅ **Send any block-`00` read first and every one of them answers immediately:**
+
+    → 00 01 01 00    ← 00 01 03 05 "1.0.4"          the BMAP protocol version
+    → 00 02 01 00    ← 00 02 03 03 21 03 3f         the function-block mask
+    → 01 06 01 00    ← 01 06 03 02 01 0b            ANC High — the read that drew nothing
+    → 01 02 01 00    ← 01 02 03 12 00 "Pippijn Bose QC35"
+
+⚠ **It is block `00`, not one magic frame.** `00 01` and `00 02` were each shown to work on
+a fresh socket.
+
+⚠ **And it is NOT "the first frame is swallowed".** Four consecutive reads with no block-`00`
+among them drew nothing at all — that control is in the same capture.
+
+⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
+version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally
+rather than per model: a device that does not need it pays one cheap read.
+
+⚠ **Two call sites, because there are two ways in.** `identifyBose` wakes before its `01 06`
+— a renamed device is identified by asking, and that ask was the thing being swallowed. And
+`BoseSettingsDriver.prepare` wakes for a device recognised from its advertisement, which
+never goes through identification at all. Wiring one and not the other is exactly how the
+early-stop rule came to be measured on a device it had never run on (#1191).
+
+⚠ **Whether this is new firmware or a state the QC35 was always in is NOT established.** It
+answered without waking on 2026-08-26; its protocol version reads `1.0.4` and nothing here
+recorded that number before, so there is nothing to compare against.
