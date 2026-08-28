@@ -1307,6 +1307,25 @@ re-read and must: the tile watcher and the post-write refresh exist because some
     → 01 01    GET_ALL, ten Status frames in one reply
     → 1f 01    the mode table, six slot records in one reply
 
+### ✅ The QC35 measured too, 2026-08-28 — the cycle runs ONCE
+
+Once it was readable again (the block-`00` wake, below), the same card open on a QC35:
+
+    12:49:44.288  → 01 06     the ANC read
+    12:49:44.390  → 01 02     the name
+    12:49:44.496  → 01 01     GET_ALL — and its reply carries 01 02, 01 03, 01 04,
+                              01 06, 01 09, 01 0b in one go
+    12:49:44.625  → 04 04     paired devices
+    12:49:44.650  → 04 05     …and their names
+    12:49:44.671  → 04 08     pairing mode
+    12:49:44.693  → 02 02     battery
+
+    7 requests, 21 frames, 419 ms — the cycle exactly once
+
+That is the sequence this task recorded running **two or three times per open**. It now runs
+once, on the same fix that took the QC45 from 18 requests to 4: one tap was calling
+`loadSettings` twice.
+
 ### ⚠ What is left, and why it was not taken
 
 `01 05` and `01 02` are still asked once each immediately before the GET_ALL that returns
@@ -1314,9 +1333,8 @@ both. Removing them means the card cannot show its mode until the settings read 
 `describe` runs first precisely so the card leaves "connecting" as early as possible. That
 is a UX trade for two round trips out of a 292 ms open, and it is not obviously worth it.
 
-⚠ The QC35 shows the same shape (`01 06` + `01 02` there). Both fixes above are
-model-independent and should help it too, **but it was switched off on 2026-08-28 and none
-of this was measured on it.**
+⚠ The QC35 shows exactly the same shape — `01 06` and `01 02` immediately before the
+GET_ALL that returns both — so 2 of its 7 requests are the same deliberate trade.
 
 ## ⚠⚠ A fresh socket answers NOTHING until block `00` is read — 2026-08-28
 
