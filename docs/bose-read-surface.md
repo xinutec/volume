@@ -1271,16 +1271,37 @@ gap which is **the `sleep` in the driving script**, between launching the app an
 the card. The card open is the burst *after* that gap. A window drawn around the operator's
 own pacing measures the operator.
 
-### What is left on the QC45, and it is the larger half
+### ✅ Then the two causes of the repetition, same afternoon
 
-Of the 12 requests that remain in a card open, **eight are `01 05` and `01 02`** — four
-each — and **both are already in the GET_ALL reply**:
+**One tap called `loadSettings` twice.** The button's `onClick` started the read, and a
+`LaunchedEffect` added later as "a safety net, not the mechanism" started it as well — on
+the same condition (`settings == null`), at the same moment. Neither was the
+redundant-looking one. The effect covers strictly more paths, so it is the one that stayed.
 
-    01 05  ANC level      → also `01 05 STATUS 0b 07 03` inside GET_ALL
-    01 02  device name    → also `01 02 STATUS 00 "Pippijn Bose QC45"` inside GET_ALL
+**Each `loadSettings` then described the card twice.** `openIfNeeded` describes it, and a
+second `describe` after the settings read put it back to `Ready` — asking the device again
+for its mode and its name, both of which the GET_ALL *in between* had just returned. It now
+restores the state captured a moment earlier. ⚠ The other four `describe` call sites still
+re-read and must: the tile watcher and the post-write refresh exist because something moved.
 
-They are not fixable from the settings branch. They come from the card's Ready state being
-built — `AncDriver.read` and `AncDriver.name` — which happens at a different moment and for
-a different reason than the settings read, and happens again on every reconcile. This is
-the same shape the QC35 half of #1191 records (`01 06` + `01 02` there), so the two halves
-are one fix, not two.
+**One QC45 card open, measured on the wire across three builds:**
+
+    18 requests, 946 ms    the three folded reads, and the cycle running twice
+    12 requests, 710 ms    after folding 01 07 / 01 09 / 01 0a into GET_ALL
+     4 requests, 292 ms    after the duplicate trigger and the second describe
+
+    → 01 05    the ANC level        ⚠ also inside the GET_ALL below
+    → 01 02    the device name      ⚠ also inside the GET_ALL below
+    → 01 01    GET_ALL, ten Status frames in one reply
+    → 1f 01    the mode table, six slot records in one reply
+
+### ⚠ What is left, and why it was not taken
+
+`01 05` and `01 02` are still asked once each immediately before the GET_ALL that returns
+both. Removing them means the card cannot show its mode until the settings read finishes —
+`describe` runs first precisely so the card leaves "connecting" as early as possible. That
+is a UX trade for two round trips out of a 292 ms open, and it is not obviously worth it.
+
+⚠ The QC35 shows the same shape (`01 06` + `01 02` there). Both fixes above are
+model-independent and should help it too, **but it was switched off on 2026-08-28 and none
+of this was measured on it.**
