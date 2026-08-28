@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -475,11 +476,32 @@ private fun DeviceRow(
                 }
 
                 is DeviceState.Busy -> {
+                    // ⚠⚠ **The spinner is sized to the TEXT LINE, and that is load-bearing
+                    // — it is the whole of #1203.** A default CircularProgressIndicator is
+                    // 40.dp where the Ready branch below is one `bodySmall` line, so going
+                    // Busy made this row ~24.dp taller and pushed EVERY control under it
+                    // down the screen. Measured on a Pixel 9: the ANC chips moved from
+                    // y=2037 to y=2110, **73 px**, within a frame of the first tap.
+                    //
+                    // That is what "a chip tap during a write does nothing" actually was.
+                    // The gesture was never swallowed: the second tap landed where the
+                    // chip had been and hit empty card. Proved by aiming the second tap at
+                    // the SHIFTED position instead — two taps 75 ms apart, tighter than the
+                    // failing case, and both fired. Three earlier hypotheses (alpha,
+                    // composition identity, a pointer block) each changed nothing, because
+                    // none of them was ever the cause.
+                    //
+                    // ⚠ So the rule is a HEIGHT rule, not a spinner rule: whatever this
+                    // branch draws must occupy the same height as the Ready branch's first
+                    // line, or the bug comes straight back.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        CircularProgressIndicator(Modifier.padding(2.dp))
+                        CircularProgressIndicator(
+                            Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                        )
                         Text(s.what, style = MaterialTheme.typography.bodySmall)
                     }
                 }
