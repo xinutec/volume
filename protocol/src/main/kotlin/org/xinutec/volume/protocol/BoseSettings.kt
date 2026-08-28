@@ -574,14 +574,25 @@ object BoseVoicePrompts {
      * that read-modify-write is two places for the carried field to be dropped.
      * Null for either argument means "leave it as it is".
      *
-     * ⚠⚠ **A write that CHANGES something draws no reply at all.** Discriminated on a
-     * QC45 over one socket, 7/7 across two sittings: writing the byte the device already
-     * holds answers a Status in about a millisecond, and writing a different one answers
-     * nothing while applying the change. `01 04` and `01 0b` changed state and answered
-     * normally in the same sitting, so this is `01 03`'s alone. [BoseFrame.terminates]
-     * ends a SET_GET on Status, Result or Error — so a real change has no terminator and
-     * would sit out the transport's whole window on every switch press, and the reply it
-     * eventually failed to get would be worth nothing anyway.
+     * ⚠⚠ **On a QC45, a write that CHANGES something draws no reply at all.**
+     * Discriminated over one socket, 7/7 across two sittings: writing the byte the device
+     * already holds answers a Status in about a millisecond, and writing a different one
+     * answers nothing while applying the change. `01 04` and `01 0b` changed state and
+     * answered normally in the same sitting, so on that model it is this function's alone.
+     * [BoseFrame.terminates] ends a SET_GET on Status, Result or Error — so a real change
+     * has no terminator and would sit out the transport's whole window on every switch
+     * press, and the reply it eventually failed to get would be worth nothing anyway.
+     *
+     * ⚠ **The QC35 does the OPPOSITE, and it is the same function.** Measured 2026-08-28,
+     * same seven-step discrimination: every write answers a Status at once, carrying the
+     * new byte, and a Get immediately after agrees. No silence and no settle delay. So
+     * "`01 03` is asynchronous" is a fact about one model, not about the protocol — which
+     * is the mistake this file has made before with `01 05` and `01 06`.
+     *
+     * The path below is written for the harder of the two and is correct on both: the QC35
+     * answers the write, [Transport.receive] carries that answer off, and the Get that
+     * follows reads the same value. It costs that model one settle window it does not
+     * need — measured, accepted, and cheaper than a per-model branch here.
      *
      * So the write is **sent, not exchanged**, and the truth comes from the Get after it.
      *

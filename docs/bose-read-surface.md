@@ -1236,10 +1236,22 @@ had never been given these settings at all, so its card had no rows for them. Fo
 settings the repo could already speak were absent from one device's screen for that
 reason alone.
 
-⚠ **The QC35 half is asserted by tests, not re-driven** — it was switched off. In
-particular, whether `01 03` on the QC35 also answers nothing to a real change, and whether
-it also applies asynchronously, is untested; the shared path is correct either way, at the
-cost of one settle window per write.
+✅ **The QC35 was driven on 2026-08-28 and does the OPPOSITE on `01 03`.** Same seven-step
+discrimination, one socket:
+
+    → 01 03 02 01 a1   ← 01 03 03 05 a1 …    already on: NO-OP, answered at once
+    → 01 03 02 01 81   ← 01 03 03 05 81 …    on → off:   a real change, ANSWERED at once
+    → 01 03 01 00      ← 01 03 03 05 81 …    and already applied — no settle delay
+    → 01 03 02 01 a1   ← 01 03 03 05 a1 …    off → on:   answered, applied
+
+So the silent asynchronous write is the **QC45's**, not the protocol's — the same shape of
+mistake as `01 05` vs `01 06`. The shared path is written for the harder model and is
+correct on both; the QC35 pays one settle window it does not need, which is cheaper than a
+per-model branch.
+
+⚠ **`01 09` is a different shape on the two models too** — QC35 `10 04 02 07`, QC45
+`80 09 03 00 01 40 08 00 00 00 80`. `BoseButton.state` checks its two-byte selector and so
+returns null on the QC35 rather than decoding four bytes as if they were the QC45's.
 
 ## ✅ #1191 (QC45 half) — three reads folded into the GET_ALL, measured on the wire
 
