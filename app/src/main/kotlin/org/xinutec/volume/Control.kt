@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import org.xinutec.volume.protocol.BoseFrame
+import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Headphones
@@ -69,7 +70,7 @@ object Control {
         // ⚠ Only now is it known to be a Bose, so only now can its terminator be
         // adopted — see RfcommTransport.endsWith.
         t.endsWith(BoseFrame::terminates)
-        val model = if (driver === org.xinutec.volume.protocol.Drivers.BoseQc45) "QC45" else "QC35"
+        val model = if (driver === Drivers.BoseQc45) "QC45" else "QC35"
         onNote("identified by read: Bose $model")
         runCatching { driver.prepare(t) }
         return Session(
@@ -98,9 +99,19 @@ object Control {
                 // channel. The JLab speaks BES over this same SPP uuid, and its framing
                 // has no operator byte to read a terminator out of — handing it Bose's
                 // rule would end its reads on a coincidence.
+                //
+                // ⚠ **This asked for `Drivers.BoseQc35` until 2026-08-28, and an `object`
+                // matches only itself** — so a QC45 got no terminator and waited out the
+                // quiet timer on every single exchange. It was invisible on the hardware
+                // here because both of these headphones are renamed: a renamed device
+                // falls through to `connect`'s identify-by-read path, which sets the rule
+                // unconditionally. Only a QC45 with its factory name reached this line.
+                //
+                // Asking what the driver SPEAKS rather than which model it is also means
+                // a third Bose arrives with the rule already attached.
                 val ends =
                     if (r.uuid.equals(Channels.SPP, ignoreCase = true) &&
-                        h.driver is Drivers.BoseQc35
+                        h.driver is BoseSettingsDriver
                     ) {
                         BoseFrame::terminates
                     } else {

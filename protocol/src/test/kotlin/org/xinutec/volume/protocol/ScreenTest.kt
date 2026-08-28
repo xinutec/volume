@@ -560,9 +560,16 @@ class ScreenTest {
                 "supportedLanguages",
                 // ⚠ A capability, not a reading — see Settings.canPowerOff.
                 "canPowerOff",
-                // Same: the name is on the card already, so this says only whether the
-                // control exists, not what it would show.
+                // Same: a capability, saying only whether the control exists.
                 "canRename",
+                // ⚠ Accompanies canRename and never stands alone, like `bands` does
+                // `eq` — the row is drawn by the capability, and a device that answered
+                // its name and nothing else has no settings section to put it in.
+                //
+                // ⚠ It is NOT the name on the card. That one is Android's bonded record,
+                // which a rename over this protocol does not change; showing it here made
+                // a confirmed rename look like it had done nothing.
+                "deviceName",
             )
     }
 }

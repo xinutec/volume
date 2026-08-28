@@ -1255,4 +1255,163 @@ class DriversTest {
         assertEquals(jazz, Drivers.JblBes.writeCurve(t, jazz.table, jazz.bands.map { it.gain }))
         t.assertDrained()
     }
+
+    // ---- Bose QC45, block 01 -----------------------------------------------------
+
+    /**
+     * `01 01 05 00` on the QC45, read 2026-08-28 — the whole reply, unedited.
+     *
+     * ⚠ **This is the device enumerating itself**, which is the evidence that the four
+     * settings below are the QC35's and not merely shaped like them. Ten functions come
+     * back: `02` name, `03` voice prompts, `04` standby, `05` the ANC level, `07` EQ,
+     * `09` the action button, `0a` multipoint, `0b` self voice, `0c` and `0e` undecoded.
+     */
+    private val qc45All =
+        "01 01 07 00 " +
+            "01 02 03 12 00 50 69 70 70 69 6a 6e 20 42 6f 73 65 20 51 43 34 35 " +
+            "01 03 03 07 a1 00 01 81 5e 00 00 " +
+            "01 04 03 01 00 " +
+            "01 05 03 03 0b 07 03 " +
+            "01 07 03 0c f6 0a 00 00 f6 0a 00 01 f6 0a 00 02 " +
+            "01 09 03 0b 80 09 03 00 01 40 08 00 00 00 80 " +
+            "01 0a 03 01 06 " +
+            "01 0b 03 03 01 02 0f " +
+            "01 0c 03 01 01 " +
+            "01 0e 03 01 01 " +
+            "01 01 06 00"
+
+    @Test
+    fun `the QC45 answers GET_ALL with the four settings only the QC35 used to offer`() {
+        val t = Replay("01 01 05 00" to qc45All)
+        val all = Drivers.BoseQc45.readAll(t)!!
+        t.assertDrained()
+        assertEquals(BoseStandby(0), all.standby)
+        assertEquals(SidetoneLevel.MEDIUM, all.sidetone)
+        assertEquals(true, all.voicePrompts)
+        assertEquals(BoseVoicePromptLanguage.US_ENGLISH, all.promptLanguage)
+        // ⚠ The name comes back in the SAME reply, so the card needs no second ask —
+        // and it is the device's own, not the bonded record the card header shows.
+        assertEquals("Pippijn Bose QC45", all.name)
+    }
+
+    /**
+     * ⚠ **The languages are asserted as a LIST, not a count.** Eight of anything would
+     * pass a count, and the bit order within the mask is the thing most likely to be
+     * wrong — read the other way round it yields a plausible set of the wrong languages.
+     */
+    @Test
+    fun `the QC45 names the eight languages it will speak`() {
+        val all = Drivers.BoseQc45.readAll(Replay("01 01 05 00" to qc45All))!!
+        assertEquals(
+            listOf(
+                BoseVoicePromptLanguage.US_ENGLISH,
+                BoseVoicePromptLanguage.FRENCH,
+                BoseVoicePromptLanguage.ITALIAN,
+                BoseVoicePromptLanguage.GERMAN,
+                BoseVoicePromptLanguage.MEXICAN_SPANISH,
+                BoseVoicePromptLanguage.MANDARIN_CHINESE,
+                BoseVoicePromptLanguage.JAPANESE,
+                BoseVoicePromptLanguage.CANTONESE,
+            ),
+            all.supportedLanguages,
+        )
+    }
+
+    /**
+     * ⚠⚠ **A real `01 03` change draws no reply, so the write is SENT and never awaited.**
+     * Measured on the QC45 over one socket: the byte it already holds answers a Status in
+     * about a millisecond, a different byte answers nothing and applies the change. An
+     * `exchange` here would sit out the transport's entire window on every switch press
+     * and then confirm from a reply that never came.
+     */
+    @Test
+    fun `a voice-prompt change is sent rather than exchanged, and confirmed by a Get`() {
+        val t =
+            Replay(
+                "01 03 01 00" to "01 03 03 07 a1 00 01 81 5e 00 00",
+                "01 03 01 00" to "01 03 03 07 81 00 01 81 5e 00 00",
+            )
+        assertEquals(false, Drivers.BoseQc45.writeVoicePrompts(t, false))
+        t.assertDrained()
+        assertEquals(
+            listOf("01 03 01 00", "01 03 02 01 81", "01 03 01 00"),
+            t.sent,
+        )
+    }
+
+    /**
+     * ⚠ **The no-op is what makes the send-and-do-not-wait safe.** The one case the
+     * device does answer is a write of the byte it already holds — so not writing it
+     * leaves nothing in the socket for the next exchange to mistake for its own reply.
+     */
+    @Test
+    fun `asking for the state the device already holds writes nothing at all`() {
+        val t = Replay("01 03 01 00" to "01 03 03 07 a1 00 01 81 5e 00 00")
+        assertEquals(true, Drivers.BoseQc45.writeVoicePrompts(t, true))
+        t.assertDrained()
+        assertEquals(listOf("01 03 01 00"), t.sent)
+    }
+
+    /** The other half of the byte moves; the switch and the undecoded bits do not. */
+    @Test
+    fun `a language change carries the switch and the bits nobody has decoded`() {
+        val t =
+            Replay(
+                "01 03 01 00" to "01 03 03 07 a1 00 01 81 5e 00 00",
+                "01 03 01 00" to "01 03 03 07 a2 00 01 81 5e 00 00",
+            )
+        assertEquals(
+            BoseVoicePromptLanguage.FRENCH,
+            Drivers.BoseQc45.writePromptLanguage(t, BoseVoicePromptLanguage.FRENCH),
+        )
+        assertEquals("01 03 02 01 a2", t.sent[1])
+    }
+
+    /**
+     * ⚠⚠ **The confirming Get is not instant, and asking at once reads the state from
+     * BEFORE the write.** Driven through the app on a QC45: both directions came back
+     * with the byte held a millisecond earlier, so a toggle that had worked was reported
+     * to the owner as "this pair refused that" — while the card's own later refresh drew
+     * the new value directly beneath that message.
+     */
+    @Test
+    fun `a Get that still shows the old byte is asked again rather than believed`() {
+        val on = "01 03 03 07 a1 00 01 81 5e 00 00"
+        val t =
+            Replay(
+                "01 03 01 00" to on,
+                "01 03 01 00" to on,
+                "01 03 01 00" to "01 03 03 07 81 00 01 81 5e 00 00",
+            )
+        assertEquals(false, Drivers.BoseQc45.writeVoicePrompts(t, false))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **Bounded, because a refusal and a slow apply look identical from here.** Waiting
+     * until the byte changes would hang on exactly the case that most needs reporting.
+     */
+    @Test
+    fun `a change that never appears is reported as it stands rather than waited on`() {
+        val on = "01 03 03 07 a1 00 01 81 5e 00 00"
+        val t = Replay("01 03 01 00" to on, "01 03 01 00" to on, "01 03 01 00" to on)
+        // Still on after both attempts — the caller turns this into Contradicted.
+        assertEquals(true, Drivers.BoseQc45.writeVoicePrompts(t, false))
+        t.assertDrained()
+    }
+
+    /**
+     * ⚠ **The confirming Get walks the frames.** Reading its buffer as a single frame
+     * was the shape this code had, and it works only while nothing else is in flight —
+     * which a write that may or may not answer is precisely the way to break.
+     */
+    @Test
+    fun `the confirming read steps over a frame that is not its own`() {
+        val t =
+            Replay(
+                "01 03 01 00" to "01 04 03 01 00 01 03 03 07 a1 00 01 81 5e 00 00",
+            )
+        assertEquals(true, Drivers.BoseQc45.writeVoicePrompts(t, true))
+        t.assertDrained()
+    }
 }

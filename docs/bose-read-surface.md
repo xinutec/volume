@@ -839,12 +839,11 @@ task's premise is that Bose Music never shows this row on this device at all.
     01 0a  06     multipoint off      01 0b  01 02 0f               self voice
     01 0c  01                         01 0e  01
 
-⚠ **Four of these are built for the QC35 and unwired on the QC45**: `01 02` rename,
-`01 03` voice prompts, `01 04` standby, `01 0b` self voice. Same block, same functions,
-and `01 0b`'s `01 02 0f` is byte-for-byte the QC35's Medium. But "same wire identity, so
-the same meaning" is precisely the assumption this page has been wrong about before —
-`01 05` and `01 06` differ by model — so each row needs its own read before it is drawn.
-#1193.
+✅ **All four are wired now** — `01 02` rename, `01 03` voice prompts, `01 04` standby,
+`01 0b` self voice — each read from this device and each driven and restored on it.
+"Same wire identity, so the same meaning" is the assumption this page has been wrong about
+before (`01 05` and `01 06` differ by model), so none of them was drawn on the strength of
+the QC35: the section below records what each one did on this unit. #1193.
 
 ### ⚠ `01 03` is SEVEN bytes on the QC45 and five on the QC35
 
@@ -904,8 +903,8 @@ falls outside the read window.
 
 ⚠ **This breaks the early-stop for `01 03`.** `BoseFrame.terminates` treats a SET_GET as
 finished on Status/Result/Error, so a real toggle has no terminator and falls through to
-the timeout — an eight-second stall per switch press. Whatever wires this (#1193) has to
-take its confirmation from a follow-up GET rather than from the write's own reply.
+the timeout — a stall on every switch press. ✅ Resolved in `BoseVoicePrompts.set`: the
+write is **sent** rather than exchanged, and the truth comes from a follow-up Get.
 
 ### ✅ The language mask is four bytes — from the parser, not from neatness
 
@@ -929,8 +928,14 @@ real toggle it reads `a1`, and it has stayed there: three reads over eighty seco
 a deliberate `01 03 02 01 61` which the device answered `a1`, refusing the bit.
 
 ⚠ **Neither of the writes that cleared it touched bit 6** — `BoseWrites.voicePrompts`
-sends `0x20 | language` and nothing else. So this is a device-owned flag that a toggle
+sent `0x20 | language` and nothing else. So this is a device-owned flag that a toggle
 resets, is not settable from here, and Bose Connect never reads.
+
+⚠ **That write now carries the byte's high bits instead of dropping them** (2026-08-28).
+It cannot be shown to save bit 6: the experiment needs a device still holding it, and the
+`61` above says the bit cannot be set from zero. What is measured is only that writing the
+high bits back is accepted — `a1` in, `a1` out — so carrying an undecoded field is free
+and dropping one has a known cost.
 
 ⛔ **That guess was "not modified since power-on". It is DEAD** — checked 2026-08-26 and
 the branch that mattered more is the one that happened. Pippijn power-cycled the QC45 and
@@ -1167,3 +1172,71 @@ must be tested with input it REJECTS** — anything else exercises the device in
 ⚠ **Not one answered `04 01 03` block-not-supported**, so `00 02`'s mask told the truth
 about all seven. `12 01`'s `fb fe fc` are plausibly signed (`-5 -2 -4`) but nothing here
 establishes that, and the leading `07` is unexplained.
+
+## ✅ #1193 — the four settings wired, and what driving them through the app taught
+
+Each one driven from the app's own card on 2026-08-28, on the QC45, and restored. The
+frames are the QC35's unchanged; what was not the QC35's is everything below.
+
+    01 02  rename    "Pippijn Bose QC452" → GET confirms → renamed back      ✅
+    01 03  prompts   off, on, and the language to French and back            ✅
+    01 04  standby   never → 5 min → never                                   ✅
+    01 0b  self voice medium → low → medium                                  ✅
+
+### ⚠⚠ `01 03` applies ASYNCHRONOUSLY, and a Get sent at once reads the old state
+
+The write draws no reply (above), so the driver sends it and confirms with a Get. The
+first build asked immediately — and the device answered with the byte it had held a
+millisecond earlier. **Both directions, both wrong:**
+
+    tapped off  →  wrote=Contradicted(actual=true)    the card: "this pair refused that"
+    tapped on   →  wrote=Contradicted(actual=false)   ...while drawing the NEW value below it
+
+The write had worked every time. The card's own later refresh proved it, on screen, three
+lines under a message saying the headphones had refused.
+
+⚠ **The probe never saw this and could not have.** `probe.sh seq` leaves ~430 ms between
+packets, which is longer than the device needs; every capture on this page therefore shows
+the Get returning the new value. The app sends the next packet in about a millisecond. **A
+tool that is slower than the device cannot find a race** — the instrument's own pacing was
+the reason four sittings of evidence all agreed and all missed it.
+
+The fix is `Transport.receive` between the write and the Get: bounded by the transport
+rather than by a number invented here, and it carries off anything the device volunteered
+instead of leaving it for the next exchange. Two attempts, then report what is there —
+"refused" and "slower than we waited" are not distinguishable from this side, so an
+unbounded wait would hang on exactly the case that most needs saying.
+
+### ⚠ A renamed device showed the OLD name after a confirmed rename
+
+`setName` reports `Confirmed` only when an independent read returns the string that was
+asked for — and it did, while both places the screen shows a name went on saying the old
+one. Both were showing **Android's bonded record**, which a rename over this protocol does
+not touch.
+
+`Settings.deviceName` now carries the device's own name, parsed out of the `01 02` frame
+that `01 01` GET_ALL already returns — so it costs no extra exchange on either model. The
+card header still shows the bonded name deliberately; the Name row and the rename dialog
+show the device's.
+
+### ⚠ The QC45 never got the early-stop rule, and only a factory-named one would notice
+
+`Control.open` asked `h.driver is Drivers.BoseQc35`, and an `object` matches only itself —
+so a QC45 identified from its advertisement waited out the quiet timer on every exchange.
+Invisible here because **both** of these headphones are renamed: a renamed device falls
+through to the identify-by-read path, which sets the rule unconditionally. The predicate
+now asks what the driver *speaks* (`BoseSettingsDriver`), so a third Bose arrives with it.
+
+### The block-01 surface is shared, and now says so
+
+The five writes lived on `BoseQc35` and were being called with a QC45's transport. They
+worked — the drivers are stateless, the frames identical — so nothing failed and nothing
+could. What was wrong was that the code named the wrong model, and the QC45's read branch
+had never been given these settings at all, so its card had no rows for them. Four
+settings the repo could already speak were absent from one device's screen for that
+reason alone.
+
+⚠ **The QC35 half is asserted by tests, not re-driven** — it was switched off. In
+particular, whether `01 03` on the QC35 also answers nothing to a real change, and whether
+it also applies asynchronously, is untested; the shared path is correct either way, at the
+cost of one settle window per write.

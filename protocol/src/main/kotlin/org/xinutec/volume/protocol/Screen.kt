@@ -189,7 +189,7 @@ data class Settings(
      */
     val psap: Boolean? = null,
     /**
-     * The QC35's standby timer — how long until it powers itself off, in minutes.
+     * Bose's standby timer — how long until it powers itself off, in minutes.
      *
      * ⚠ **Not [timedOff], which is the JBL's and carries its own on/off switch.** This
      * device has no such switch: "Never" is the value `0`, one of the six its app
@@ -198,7 +198,7 @@ data class Settings(
      */
     val standby: BoseStandby? = null,
     /**
-     * The QC35's Self Voice — how much of your own voice you hear on a call.
+     * Bose's Self Voice — how much of your own voice you hear on a call.
      *
      * ✅ **Writable since 2026-08-26, once the vendor app's own frame was captured.** The
      * guess this doc used to carry — "a plain SET_GET by the shape of every other setting
@@ -228,25 +228,41 @@ data class Settings(
     /**
      * Whether this pair can be renamed from here.
      *
-     * ⚠ A capability rather than a reading, like [canPowerOff] — the name itself is on
-     * the card already, so a second copy of it in [Settings] would be two places to be
-     * wrong about one string.
+     * ⚠ A capability rather than a reading — [deviceName] is the string.
      */
     val canRename: Boolean = false,
-    /** Which language the QC35 speaks its prompts in. */
+    /**
+     * The name the **headphones** hold, which is not [DeviceCard.name].
+     *
+     * ⚠⚠ **This used to be deliberately absent**, on the reasoning that the card already
+     * had a name and a second copy would be two places to be wrong about one string. They
+     * are two different strings. The card's is Android's bonded record, which a rename
+     * over this protocol does not touch — so renaming a QC45 from the app on 2026-08-28
+     * was confirmed against an independent read while every name on screen went on
+     * saying the old one. A write that works and a write that does nothing looked the
+     * same, which is the failure [Confirmation] exists to prevent.
+     *
+     * ⚠ Null when the device was not asked or would not say; the card falls back to the
+     * bonded name rather than showing a blank.
+     */
+    val deviceName: String? = null,
+    /** Which language a Bose speaks its prompts in. */
     val promptLanguage: BoseVoicePromptLanguage? = null,
     /**
      * Which languages it *will* speak — ⚠ **its list, not our enum**, for the same reason
-     * [buttonOptions] is carried: this unit offers thirteen of the twenty-two, and the
-     * absent ones are not the ones you would guess.
+     * [buttonOptions] is carried. Each unit offers a different subset, and the absent
+     * ones are not the ones you would guess; the two here do not even agree on how many.
+     * `DriversTest` asserts each device's list against its own capture, which is the only
+     * place a number belongs.
      */
     val supportedLanguages: List<BoseVoicePromptLanguage> = emptyList(),
     /**
-     * Voice Prompts' switch — **read, never written.**
+     * Voice Prompts' switch.
      *
-     * ⚠ Read-only because the neighbouring sub-commands of `aa 93` reach the voice-prompt
-     * LANGUAGE, which the vendor pushes as a file over its DFU path. This repo does no
-     * OTA work, so it does not guess sub-commands there.
+     * ⚠ **Writable on Bose, read-only on the JBL**, and the asymmetry is the JBL's: the
+     * neighbouring sub-commands of `aa 93` reach the voice-prompt LANGUAGE, which that
+     * vendor pushes as a file over its DFU path, and this repo does no OTA work. Bose
+     * carries the switch and the language in one byte of `01 03` and both are driven.
      */
     val voicePrompts: Boolean? = null,
     /**
