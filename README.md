@@ -185,7 +185,8 @@ obeys.
 **Open:** #1202 the QC45's modes can be selected and edited but not created or deleted · #1203 a chip
 tap during a write is silently dropped · #974 the three JBL rows still outside the app ·
 #935 disconnect, the one connections verb still unattested · #1038 the probe's
-decode-and-print · #1154 a settings read that drops a row.
+decode-and-print · #1154 a settings read that drops a row · #1232 why the QC35 started
+needing a wake at all.
 
 **Closed 2026-08-28 on the QC45**: #1193 the four settings the QC35 code already spoke —
 all wired, all driven from the app's own card and restored, and three things found only by
@@ -209,9 +210,11 @@ a `LaunchedEffect` added as "a safety net" fired on the same condition as the bu
 already started the read; and each load described the card twice, the second time re-reading
 the ANC mode and the name that the GET_ALL between them had just returned.
 
+✅ **And on the QC35, measured the same day once it was readable again: the cycle runs
+once** — 7 requests, 419 ms, where this task had recorded it running two or three times.
+
 ⚠ The first framing of that comparison spanned the whole window and read as *no
-improvement*; 4.84 s of it was the `sleep` in the driving script. ⚠ The QC35 shows the same
-shape and was switched off — none of this is measured on it.
+improvement*; 4.84 s of it was the `sleep` in the driving script.
 
 **Closed 2026-08-26 on the QC45**: #1185 the ANC labels are right and the device said so
 itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP inventory, whose
