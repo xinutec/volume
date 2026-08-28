@@ -781,10 +781,26 @@ class DriversTest {
         t.assertDrained()
     }
 
-    /** Nobody else needs one, and pretending otherwise would cost a round trip. */
+    /**
+     * ⚠ **Both Bose models open one too, since 2026-08-28.** This test asserted that
+     * nobody but Sony did, on the reasoning that an opener costs a round trip nothing
+     * needs — and a QC35 spent an afternoon reporting itself unreadable because of it.
+     * A fresh socket answers no `01 xx` read at all until a block-`00` read has been
+     * sent. See `Registry.wakeBose`.
+     */
+    @Test
+    fun `both bose models open a session before they ask anything`() {
+        for (d in listOf(Drivers.BoseQc45, Drivers.BoseQc35)) {
+            val t = Replay("00 01 01 00" to "00 01 03 05 31 2e 30 2e 34")
+            d.prepare(t)
+            t.assertDrained()
+        }
+    }
+
+    /** The two that genuinely need no opener, where one would cost a round trip. */
     @Test
     fun `the other drivers need no opener`() {
-        for (d in listOf(Drivers.BoseQc45, Drivers.BoseQc35, Drivers.JblBes, Drivers.JLabQcy)) {
+        for (d in listOf(Drivers.JblBes, Drivers.JLabQcy)) {
             val t = Replay()
             d.prepare(t)
             assertEquals("${d.javaClass.simpleName} sent something", 0, t.sent.size)

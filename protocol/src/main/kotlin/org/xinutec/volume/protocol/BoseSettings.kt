@@ -1143,6 +1143,14 @@ object BoseName {
  */
 interface BoseSettingsDriver : AncDriver {
     /**
+     * ⚠ **A fresh socket answers NOTHING until the session is woken** — see
+     * [Registry.wakeBose] for the measurement. This is the other path to it: a device
+     * identified from its advertisement never goes through `identifyBose`, so without
+     * this override it would open, read, and be told the headphones had nothing to say.
+     */
+    override fun prepare(t: Transport) = Registry.wakeBose(t)
+
+    /**
      * Every setting the device has, in ONE exchange.
      *
      * ⚠ **Separate Gets would be the wrong shape here**, and not just slower: the reply
