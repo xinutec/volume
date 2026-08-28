@@ -340,6 +340,7 @@ class ScreenTest {
                 "tone" to Settings(tone = BoseBands(0, 0, 0)),
                 "curve" to Settings(curve = EqCurve(table = 0, bands = emptyList())),
                 "multipoint" to Settings(multipoint = true),
+                "cncPersistence" to Settings(cncPersistence = true),
                 "autoOff" to Settings(autoOff = AutoOff.NEVER),
                 "timedOff" to Settings(timedOff = TimedOff(on = true, minutes = 30)),
                 "volumeLimit" to Settings(volumeLimit = true),

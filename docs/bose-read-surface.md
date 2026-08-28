@@ -1705,8 +1705,33 @@ what either byte means beyond that:
 - `SettingsSetupComplete` reads like a one-time out-of-box flag rather than a preference.
   ⚠ It is not obviously a control, and clearing it might put the headphones back into a
   setup state — so it is a **read-only curiosity until something says otherwise**.
-- `SettingsCncPersistence` is the only genuine candidate for a new control on this device:
-  whether the noise setting survives a power cycle is a preference an owner might want. It
-  was named `01 0e CncPersistence` on this page already, as the one neighbour of `01 0f`
-  that answers. ⚠ **Its value space is unknown** — `01` is the only byte ever seen, and a
-  toggle needs to know what "off" looks like before it can be offered.
+- ✅ **`SettingsCncPersistence` is a plain boolean, and it is now a control** — see below.
+
+### ✅ `01 0e` CNC persistence — decoded, driven both ways, and on the card
+
+    → 01 0e 01 00        ← 01 0e 03 01 01
+    → 01 0e 02 01 00     ← 01 0e 03 01 00
+    → 01 0e 02 01 01     ← 01 0e 03 01 01
+
+A plain boolean. `SettingsCncPersistenceResponse` parses payload `[0] == 1` into an
+`isEnabled`, and the SetGet packet takes a boolean into a one-byte payload — then driven
+from this repo's socket in both directions and restored, and driven again from the card.
+
+⚠ **The Status echoes the byte written, unlike `01 0a` multipoint one function along**,
+which reads `06` off and `07` on and therefore has to be masked. Masking here would call a
+hypothetical `03` "on"; comparing the whole byte is what Bose Music itself does. Two
+neighbouring booleans, two different reply conventions — the same trap this page records
+for `01 05` against `01 06`.
+
+⚠⚠ **What it DOES is untested, and the card says so.** "Persistence" is a name, not a
+measurement: whether the noise setting survives a power cycle was never checked, because
+checking it means switching the headphones off and on. The row reads
+**"on — Bose's name for it, effect untested"** rather than promising a behaviour.
+
+### ⚠ `01 0c` SetupComplete reads `01` and is left alone ON PURPOSE
+
+Its SetGet packet takes a boolean exactly like `01 0e`, so writing it is trivially
+available — and that is the reason to say why it is not done. **It is not a preference.**
+It reads like the out-of-box flag, and writing `00` would tell the headphones their setup
+is incomplete, with no attested way back and no idea what the device does on the strength
+of it. ⚠ **A byte being writable is not a reason to write it.**
