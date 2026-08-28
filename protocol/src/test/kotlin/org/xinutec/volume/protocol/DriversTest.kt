@@ -1295,6 +1295,23 @@ class DriversTest {
     }
 
     /**
+     * ⚠ **The three the card used to ask for again, one exchange each.**
+     *
+     * Every value here was read individually from the same device minutes before the
+     * capture above and came back byte-for-byte identical — `01 07 03 0c f6 0a 00 00 …`,
+     * `01 09 03 0b 80 09 03 00 01 …`, `01 0a 03 01 06`. That comparison is what makes
+     * folding them in a measurement rather than an assumption: two functions on these
+     * models already mean different things by the same number.
+     */
+    @Test
+    fun `GET_ALL also carries the tone, the button and multipoint`() {
+        val all = Drivers.BoseQc45.readAll(Replay("01 01 05 00" to qc45All))!!
+        assertEquals(BoseBands(0, 0, 0), all.tone)
+        assertEquals(BoseButton.Action.HEAR_BATTERY_LEVEL, all.button)
+        assertEquals(false, all.multipoint)
+    }
+
+    /**
      * ⚠ **The languages are asserted as a LIST, not a count.** Eight of anything would
      * pass a count, and the bit order within the mask is the thing most likely to be
      * wrong — read the other way round it yields a plausible set of the wrong languages.

@@ -331,15 +331,24 @@ class DeviceController(
             }
 
             Drivers.BoseQc45 -> {
-                // ⚠ The same GET_ALL the QC35 branch makes, and for the same reason —
-                // what comes back is the device's own enumeration of what it has. It
-                // also carries `01 07`, `01 09` and `01 0a`, which the three reads below
-                // ask for separately; folding those in belongs to #1191, not here.
+                // ⚠ **ONE exchange for the whole of block 01** — the reply is the
+                // device's own enumeration, and it already carries the tone, the button
+                // and multipoint. This branch asked for those three again, individually,
+                // immediately after.
+                //
+                // ✅ Measured on the wire, one card open, 2026-08-28: **18 requests → 12,
+                // 946 ms → 710 ms.** Six went rather than three because the whole read
+                // cycle runs TWICE per open — which is #1191 and is still open.
+                //
+                // ⚠ The three payloads were compared byte-for-byte against their
+                // individual reads before those reads were deleted. `01 05` and `01 06`
+                // already mean different things on these two models, so "it is in the
+                // GET_ALL reply" is not on its own a reason to believe it is the same.
                 val all = Drivers.BoseQc45.readAll(s.transport)
                 Settings(
-                    tone = Drivers.BoseQc45.readEq(s.transport),
-                    multipoint = Drivers.BoseQc45.readMultipoint(s.transport),
-                    button = Drivers.BoseQc45.readButton(s.transport)?.name,
+                    tone = all?.tone,
+                    multipoint = all?.multipoint,
+                    button = all?.button?.name,
                     // ⚠ The device's own named modes, which the two-ended AncMode
                     // cannot express — see CncModes. Read every time the card opens:
                     // the button on the headphones moves the selection.
