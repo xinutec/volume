@@ -736,6 +736,22 @@ object BoseCncModes {
     private const val LEVEL_WRITE = 35
     private const val LEVEL_READ = 42
 
+    /**
+     * Where the wind-block byte sits in each direction — `[38]` going out, `[46]` coming
+     * back, the same asymmetry [LEVEL_WRITE] and [LEVEL_READ] have.
+     *
+     * ⚠ Read off Bose Music's parser: `AudioModesModeConfigResponse.createFromPacket`
+     * indexes `0x2e` into `WindBlockEnabledTypes`, and the write builder's parameter order
+     * puts it last in a 39-byte record. Then driven — `[38]` set to `01` came back at
+     * `[46]` as `01`, and was put back.
+     */
+    private const val WIND_WRITE = 38
+    private const val WIND_READ = 46
+
+    /** `[41]`, a bitfield of mutability flags rather than any kind of level. */
+    private const val FLAGS_READ = 41
+    private const val WIND_MUTABLE_BIT = 3
+
     /** The quietest and most transparent ends of the eleven-point scale. */
     const val QUIETEST = 0
     const val MOST_AWARE = 10
@@ -755,6 +771,19 @@ object BoseCncModes {
         val name: String,
         val level: Int,
         val editable: Boolean,
+        /**
+         * `[46]` — Bose Music's `windBlockToggleEnabled`.
+         *
+         * ⚠⚠ **Turning this ON takes the level over.** Written `01` alongside level `07`
+         * in one frame, the device read back level `00`; the same frame with `00` and
+         * level `07` took the level fine, so a level beside a wind-block change is not
+         * ignored in general — the zero came from wind block. The vendor's own screen
+         * says it "automatically adjusts noise cancellation". ⚠ Whether the device FORCES
+         * `0` or merely reports `0` while it manages the level is NOT separated.
+         */
+        val windBlock: Boolean = false,
+        /** `[41]` bit 3 — `anrWindToggleMutable`. False on Quiet and Aware. */
+        val windBlockMutable: Boolean = false,
     )
 
     fun list() = BoseFrame.encode(BLOCK, LIST, BoseFrame.START)
@@ -803,9 +832,21 @@ object BoseCncModes {
      * the level; this is the general one, and an empty [name] with [nameId] 0 is how a
      * slot is blanked.
      */
-    private fun record(slot: Int, nameId: Int, name: String, level: Int): ByteArray {
+    private fun record(
+        slot: Int,
+        nameId: Int,
+        name: String,
+        level: Int,
+        windBlock: Boolean = false,
+    ): ByteArray {
         val padded = name.toByteArray(Charsets.UTF_8).copyOf(NAME_LEN)
-        val tail = byteArrayOf(level.coerceIn(QUIETEST, MOST_AWARE).toByte(), 0, 0, 0)
+        val tail =
+            byteArrayOf(
+                level.coerceIn(QUIETEST, MOST_AWARE).toByte(),
+                0,
+                0,
+                if (windBlock) 1 else 0,
+            )
         val body = byteArrayOf(slot.toByte(), 0x00, nameId.toByte()) + padded + tail
         check(body.size == LEVEL_WRITE + 4) { "record is ${body.size} bytes, not 39" }
         return BoseFrame.encode(BLOCK, SLOT, BoseFrame.SET_GET, body)
@@ -862,7 +903,16 @@ object BoseCncModes {
      * position — eight frames for one adjustment — and there is no reason to copy that.
      */
     fun setLevel(mode: Mode, level: Int): ByteArray =
-        record(mode.slot, mode.nameId, mode.name, level)
+        record(mode.slot, mode.nameId, mode.name, level, mode.windBlock)
+
+    /**
+     * Turn wind block on or off, leaving the rest of the record alone.
+     *
+     * ⚠ **The level goes with it when this turns ON** — see [Mode.windBlock]. The caller
+     * re-reads rather than assuming, which is what makes that visible on the card.
+     */
+    fun setWindBlock(mode: Mode, on: Boolean): ByteArray =
+        record(mode.slot, mode.nameId, mode.name, mode.level, on)
 
     /**
      * Every occupied slot in a `1f 01` transaction's reply, or in one slot's Status.
@@ -886,6 +936,9 @@ object BoseCncModes {
                 name = name,
                 level = p[LEVEL_READ].toInt() and 0xff,
                 editable = p[3].toInt() != 0,
+                windBlock = p.getOrNull(WIND_READ)?.toInt() == 1,
+                windBlockMutable =
+                    (p.getOrNull(FLAGS_READ)?.toInt() ?: 0) shr WIND_MUTABLE_BIT and 1 == 1,
             )
         }
 

@@ -101,6 +101,14 @@ object Drivers {
             return CncModes(modes, BoseCncModes.activeSlot(buffer), BoseCncModes.slotsOf(buffer))
         }
 
+        /** Turn a mode's wind block on or off, then report the table as it stands. */
+        fun setWindBlock(t: Transport, slot: Int, on: Boolean): CncModes? {
+            val mode = readModes(t)?.modes?.firstOrNull { it.slot == slot } ?: return null
+            if (!mode.windBlockMutable) return null
+            t.exchange(BoseCncModes.setWindBlock(mode, on))
+            return readModes(t)
+        }
+
         /**
          * Fill an empty slot, then report the table as it stands.
          *

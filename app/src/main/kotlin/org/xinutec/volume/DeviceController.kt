@@ -587,6 +587,32 @@ class DeviceController(
             }
         }
 
+    override fun setWindBlock(address: String, slot: Int, on: Boolean) =
+        applied<CncModes>(
+            address,
+            "setting wind block",
+            { m ->
+                m.modes.firstOrNull { it.slot == slot }?.let {
+                    "${it.name}: wind block ${if (it.windBlock) "on" else "off"}, level ${it.level}"
+                } ?: "unknown"
+            },
+        ) {
+            val after = Drivers.BoseQc45.setWindBlock(it.transport, slot, on)
+            when {
+                after == null -> {
+                    Confirmation.Unverifiable
+                }
+
+                after.modes.firstOrNull { m -> m.slot == slot }?.windBlock == on -> {
+                    Confirmation.Confirmed
+                }
+
+                else -> {
+                    Confirmation.Contradicted(after)
+                }
+            }
+        }
+
     override fun createCncMode(address: String, slot: Int, name: BosePromptName, level: Int) =
         applied<CncModes>(
             address,

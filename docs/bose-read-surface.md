@@ -1463,11 +1463,17 @@ active mode was returned to Commute at level 7 where it started.
     slot 2  before  02 00 0a 01 01 01 "Home"  [41]=09 [42]=00
     slot 2  after   02 00 00 01 01 00 ""      [41]=09 [42]=05
 
-### ✅ `[5]` is the OCCUPIED flag
+### ✅ `[5]` tracks occupancy — and the vendor calls it `favorite`
 
 `01` on Quiet, Aware and Commute, and `00` on the emptied slot. It also matches the
 2026-08-26 reading of slot 3 before its mode existed (`[4] [5]` = `0 0`, then `1 1`
-once filled). That is two independent transitions in opposite directions.
+once filled). That is two independent transitions in opposite directions, and it flips
+when the `1f 08` write lands rather than when the record is blanked.
+
+⚠ **"Occupied" was MY name for it from that behaviour; Bose Music calls the field
+`favorite`** (see the record decode below). The measured behaviour stands — it is a view
+of the occupancy bit — but the vendor's own word for the concept is not "occupied", and a
+name taken from behaviour is a hypothesis about meaning, not a reading.
 
 ⚠ `[3]` and `[4]` do NOT track occupancy: both stayed `01` across the delete. `[4]` was
 `00` on a slot that had never held a mode and is `01` on one that has been emptied, so it
@@ -1580,3 +1586,59 @@ is free.
 reads the bitmask. The dialog names what is lost rather than asking "are you sure", and
 `Drivers.BoseQc45.deleteMode` refuses a slot the device does not call editable — a second
 refusal on a list read inside the call, because the order of that list moves.
+
+## ✅✅ The whole 47-byte record, out of Bose Music's own parser — 2026-08-28
+
+`AudioModesModeConfigResponse.Companion.createFromPacket` indexes the payload directly, so
+the offsets are read rather than inferred, and the register moves before its
+`invoke-direct/range` give the field names:
+
+    [0]       modeIndex — the slot
+    [1] [2]   AudioModesPrompt.find(byte1, byte2) — the name table
+    [3]       userConfigurable        ← this repo's `editable`
+    [4]       userConfigured
+    [5]       favorite                ← tracks the 1f 08 occupancy bit
+    [6…37]    name, 32 bytes
+    [41]      a BITFIELD, not a level:
+                bit 0  cncMutable
+                bit 1  autoCNCMutable
+                bit 2  spatialAudioMutable
+                bit 3  anrWindToggleMutable
+                bit 4  ancToggleMutable
+    [42]      cncLevel
+    [43]      autoCNCEnabled
+    [44]      currentSpatialAudioMode
+    [46]      windBlockToggleEnabled
+    [47]      ancToggleEnabled  ⚠ needs a 48-byte record; this QC45 sends 47, so ABSENT
+
+✅ **Three of these were measured before the parser was read, and all three agree** —
+which is what makes the rest of the mapping worth trusting:
+
+- `[3]` is the repo's `editable`: false on Quiet and Aware, true on the owner's two.
+- `[4]` was recorded as "sticky — `00` on a slot never used, `01` on one emptied". The
+  vendor's word for it is `userConfigured`, which is exactly that.
+- `[42]` is the level, agreeing with four independent wire readings.
+- And `[41]` = `09` = bits 0 and 3 on the owner's modes, `00` on the built-ins. Bit 0 is
+  `cncMutable`, which is precisely the set of modes this repo already draws a level slider
+  for — a prediction the decode makes and the existing behaviour confirms.
+
+### ✅ Wind block: written at `[38]`, read at `[46]`, and it TAKES THE LEVEL
+
+The write builder's parameters are `(modeIndex, prompt, name, cncLevel, Z, spatial,
+windBlock, ancToggle)`, which puts wind block last in a 39-byte record. One bounded write
+with a read-back settled it — `[38]`=`01` came back as `[46]`=`01`, and was put back:
+
+    → 1f 06 02 27 03 00 07 "Commute"<pad 32> 07 00 00 01
+    ← [46] = 01   ⚠ and [42] = 00, where it had been 07
+
+⚠⚠ **Turning wind block on moved the level to `0`.** The same frame shape with `00` and
+level `07` restored the level fine, so a level written beside a wind-block change is not
+ignored in general — the zero came from wind block. The vendor's own screen says it
+"automatically adjusts noise cancellation", which is a plausible mechanism but is text,
+not evidence about the wire. ⚠ **Whether the device FORCES `0` or merely REPORTS `0` while
+it manages the level is not separated**, and nothing here should claim it is.
+
+The card offers the toggle only where `[41]` bit 3 says it is mutable — clear on Quiet and
+Aware — and its subtitle says "on — the headphones set the level" rather than pretending it
+is a plain switch. `setLevel` now carries the wind-block byte through, so moving the slider
+cannot silently switch it off.
