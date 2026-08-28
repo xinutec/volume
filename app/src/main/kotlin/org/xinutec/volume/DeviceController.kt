@@ -242,6 +242,13 @@ class DeviceController(
         work.execute {
             holding(address) {
                 val s = openIfNeeded(address) ?: return@holding
+                // ⚠ **Kept, not re-read.** `openIfNeeded` has just described this card,
+                // and describing it again after the read below asks the device for its
+                // mode and its name a second time — on the QC45 both are functions the
+                // settings read in between already returns. Restoring the state from a
+                // moment ago costs nothing; asking again cost two round trips and could
+                // not have learned anything the mode table did not. #1191.
+                val ready = screen.cards.firstOrNull { it.address == address }?.state
                 update(address, DeviceState.Busy("reading settings…"))
                 val settings = runCatching { readSettings(s) }.getOrNull()
                 if (settings == null) {
@@ -250,8 +257,10 @@ class DeviceController(
                     return@holding
                 }
                 // Put the card back to Ready before attaching, or `withSettings`
-                // finds a Busy card and drops the read on the floor.
-                describe(address, s)
+                // finds a Busy card and drops the read on the floor. ⚠ Falls back to
+                // asking when there was no Ready state to keep — an unread card, which
+                // is the one case where the values are not already known.
+                if (ready is DeviceState.Ready) update(address, ready) else describe(address, s)
                 emit(screen.withSettings(address, settings))
             }
         }

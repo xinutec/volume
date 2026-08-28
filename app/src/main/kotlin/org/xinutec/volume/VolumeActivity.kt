@@ -558,27 +558,32 @@ private fun DeviceRow(
             if (open) {
                 TextButton(
                     onClick = {
-                        // ⚠ `expanded` is derived, so it still reads the OLD value here —
-                        // unlike the `var` this replaced, which the toggle had already
-                        // flipped. Naming the new state keeps the load firing on open.
-                        val opening = !expanded
-                        if (opening) {
-                            openSections += card.address
-                        } else {
+                        // ⚠ **Opening the section is ALL this does.** The read is started
+                        // by the effect below, and starting it here as well is what made
+                        // every card open run the whole read cycle twice — measured on
+                        // the wire 2026-08-28, two GET_ALLs and two mode-table reads for
+                        // one tap. Both triggers fired on the same condition at the same
+                        // moment, so neither was ever the redundant-looking one. #1191.
+                        if (expanded) {
                             openSections -= card.address
+                        } else {
+                            openSections += card.address
                         }
-                        if (opening && card.settings == null) actions.loadSettings(card.address)
                     },
                     contentPadding = PaddingValues(0.dp),
                 ) {
                     Text(if (expanded) "Hide settings" else "Settings")
                 }
                 if (expanded) {
-                    // ⚠ A safety net, not the mechanism: [DeviceCard.settings] now
-                    // survives the Busy transitions that used to wipe it, and this
-                    // catches any other path that leaves the section open with
-                    // nothing — which is otherwise a spinner that never resolves,
-                    // because the read is triggered by opening the section.
+                    // ⚠ **THE mechanism, and deliberately the only one.** It was added as
+                    // a safety net beside the button's own call, on the reasoning that a
+                    // section could be opened by some other path and then spin forever —
+                    // but it fires on exactly the condition the button did, at the same
+                    // moment, so it was never a net. It covers strictly more paths than
+                    // the button did, so it is the one that stayed.
+                    //
+                    // ⚠ Keyed on `settings == null` so a completed read stops it and a
+                    // failed one does not retry in a loop.
                     LaunchedEffect(card.address, card.settings == null) {
                         if (card.settings == null) actions.loadSettings(card.address)
                     }
