@@ -1402,7 +1402,12 @@ Commute, whose levels are `00` and `07`. One byte cannot be both.
 
 ### The whole block, by asking every function whether it exists
 
-`1f 09` and `1f 0a` answer `04 01 04` function-not-supported, so the block ends at `08`:
+⚠⚠ **The heading below claimed the block "ends at `08`" because `1f 09` and `1f 0a`
+answered `04 01 04`. That was wrong, and a capture the same evening shows why**: Bose
+Music sends `1f 09 05 01 <slot>` as its DELETE, three times, takes the error and falls
+back — and probes `1f 0b` as well. `04 01 04` bounds what THIS DEVICE implements; it says
+nothing about what the block contains. The same page already records the converse trap
+for `01 0f`, a function in the vendor SDK that the device does not have.
 
     1f 00  03 05 "1.0.0"          the block's own version, not the protocol's
     1f 01  START -> transaction   every slot, batched into one buffer
@@ -1411,7 +1416,7 @@ Commute, whose levels are `00` and `07`. One byte cannot be both.
     1f 04  03 01 <slot>           MIRRORS 1f 03 — see below
     1f 05  03 01 01               undecoded, constant across a selection change
     1f 06  03 2f <47-byte record> one slot, by index
-    1f 07  03 04 00 01 02 03      undecoded, and the shape a DELETE must change
+    1f 07  03 04 00 01 02 03      the four slot INDICES — NOT occupancy, see the delete below
     1f 08  03 02 04 0f            capacity 4, occupied bitmask 1111
 
 ### `1f 04` follows the selection, and why that is not the same as decoding it
@@ -1428,10 +1433,99 @@ observation, not an explanation, and a write to `1f 04` has never been sent.
 `1f 02`, `1f 05` and `1f 07` were read inside the same socket either side of that change
 and did not move, which is what rules them out as selection state.
 
-### ⚠ `1f 07` is the one worth having for create/delete
+### ⚠ `1f 07` looked like the one worth having for create/delete. It was not.
 
-`00 01 02 03`, four bytes for four occupied slots, is the slot list — and deleting a mode
-has to change either it or `1f 08`'s bitmask, probably both. It was read here with all
-four slots full, so **its shape with a gap in it is unattested**: whether a deleted slot 2
-gives `00 01 03`, `00 01 03 ff`, or three bytes is exactly what a capture of Bose Music
-deleting a mode would settle, and it is not guessable from one reading.
+`00 01 02 03`, four bytes read with all four slots full, was written up here as the slot
+list, with "deleting a mode has to change either it or `1f 08`'s bitmask, probably both",
+and its shape with a gap called out as the thing a capture would settle.
+
+⚠⚠ **Deleting a mode the same day left `1f 07` at `00 01 02 03`, unchanged.** It is a
+static list of the four slot INDICES and says nothing about what is in them; `1f 08`'s
+bitmask is the whole of the occupancy. The prediction was drawn from one reading of a
+full table, where an index list and an occupancy list are the same four bytes — the two
+hypotheses were indistinguishable in the only sample available, and saying which of them
+a delete "must" change was reaching past it. See the delete section below.
+
+## ✅✅ A mode DELETED and RECREATED on hardware — 2026-08-28
+
+Pippijn gave explicit consent to delete one of his own ANC modes, on the understanding
+that Bose Music is the only thing that can put it back: this repo has no attested create.
+**"Home" (slot 2, nameId `0a`, level 0) was deleted in the vendor app and recreated there,
+and it came back byte-for-byte identical.** The whole table either side agrees, and the
+active mode was returned to Commute at level 7 where it started.
+
+### What the delete moved, read from this repo's own socket with the vendor app closed
+
+    1f 08   04 0f  ->  04 0b        bitmask 1111 -> 1011, bit 2 cleared
+    1f 07   00 01 02 03  ->  00 01 02 03      ⚠ UNCHANGED
+    1f 03   03 -> 00                the active mode fell back to Quiet, not to a neighbour
+
+    slot 2  before  02 00 0a 01 01 01 "Home"  [41]=09 [42]=00
+    slot 2  after   02 00 00 01 01 00 ""      [41]=09 [42]=05
+
+### ✅ `[5]` is the OCCUPIED flag
+
+`01` on Quiet, Aware and Commute, and `00` on the emptied slot. It also matches the
+2026-08-26 reading of slot 3 before its mode existed (`[4] [5]` = `0 0`, then `1 1`
+once filled). That is two independent transitions in opposite directions.
+
+⚠ `[3]` and `[4]` do NOT track occupancy: both stayed `01` across the delete. `[4]` was
+`00` on a slot that had never held a mode and is `01` on one that has been emptied, so it
+is **sticky** — a slot that has been used is not the same as a slot that is in use, and
+`[4]` is undecoded beyond that.
+
+⚠ `[42]` reads `05` on the empty slot, and `05` is the midpoint the vendor app's new-mode
+slider starts at. **So `[42]` on an unoccupied slot is a default, not a level** — reading
+it without checking `[5]` first would report a mode at level 5 that does not exist.
+
+### ✅ nameId is DETERMINISTIC from the name the vendor app offers
+
+Recreating "Home" returned nameId `0a`, the same byte it had before. The create flow is a
+picker of ten fixed names — Commute, Focus, Home, Music, Outdoor, Relax, Run, Walk, Work,
+Workout — so `[2]` is an index into a vendor name table, not a per-mode identifier minted
+at creation. ⚠ **The table is NOT the picker list.** Commute is `07` and Home is `0a`,
+three apart, where the picker puts only Focus between them. At least one entry exists that
+the picker does not show, so the mapping cannot be read off the ten visible rows and this
+page does not guess the rest of it.
+
+### ⚠ A per-mode setting this repo has never seen: Wind Block
+
+The vendor app's mode editor carries a **Wind Block** toggle beside the noise slider, off
+on both Home and Commute. Nothing in the 47-byte record is known to hold it. It is a
+candidate for one of the undecoded bytes and it was NOT tested — testing it means toggling
+a setting on somebody's headphones and reading the record either side, which is a separate
+piece of work from this one.
+
+### ✅✅ The create and delete writes, captured and replayed — 2026-08-28
+
+Snoop of the vendor app doing both, then both driven from this repo's own socket against
+the same headphones, with the table read back identical to a baseline taken beforehand.
+
+    DELETE slot 2
+      → 1f 09 05 01 02                      ⚠ the protocol's own delete
+      ← 1f 09 04 01 04                        REFUSED — three times, then it gives up
+      → 1f 06 02 27 02 00 00 <32 NUL> 05 00 00 00     blank the record
+      → 1f 08 02 02 04 0b                            clear the occupancy bit
+
+    CREATE slot 2 as "Home"
+      → 1f 06 02 27 02 00 0a "Home"<pad to 32> <level> 00 00 00
+      → 1f 08 02 02 04 0f                            set the occupancy bit
+
+**Both operations are TWO writes, and the pair is the operation.** ⚠⚠ The record write
+alone does nothing visible: this repo sent exactly that frame with no `1f 08` after it and
+read the slot back holding the name and level with `[5]` still `00` — a mode stored and
+invisible to every reader including the vendor app. `1f 08` is what brings a slot into
+existence or takes it out.
+
+⚠ **`1f 09 05 01 <slot>` is the delete the protocol intends, and this QC45 refuses it.**
+Bose Music tries it three times, takes `04 01 04` each time, and falls back to the pair
+above. So the two-write dance is a workaround for a device that does not implement its
+own delete — on a Bose that does, one frame would do it.
+
+⚠ **How this page got the create wrong once, in the hour it was written.** Reading the
+snoop from 20:15:30 showed a lone `1f 06` record write with no `1f 08` near it, and that
+was written up as "create is one write, the device sets occupancy itself". The actual
+creation was at **20:15:04** — outside the window — and the frame at 20:15:37 was the
+slider being released afterwards. The device settled it: replaying the single write left
+the slot unoccupied. **A window that starts after the event shows the aftermath and reads
+like the event.**

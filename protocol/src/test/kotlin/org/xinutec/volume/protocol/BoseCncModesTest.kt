@@ -125,4 +125,82 @@ class BoseCncModesTest {
     fun `no active frame reads as unknown`() {
         assertNull(BoseCncModes.activeSlot(Hex.parse("1f 08 03 02 04 0f")))
     }
+
+    /**
+     * ⚠ **These two are the frames Bose Music sent**, lifted from the 2026-08-28 snoop of
+     * a real delete and a real create, not from what this file implements. Both were then
+     * replayed from this repo's own socket against the same headphones, and the table read
+     * back byte-for-byte identical to the baseline taken before any of it.
+     */
+    private val capturedDelete =
+        Hex.parse(
+            """
+        1f 06 02 27 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 00 00 00
+        """,
+        )
+
+    private val capturedCreate =
+        Hex.parse(
+            """
+        1f 06 02 27 02 00 0a 48 6f 6d 65 00 00 00 00 00 00 00 00 00 00 00
+        00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        """,
+        )
+
+    private val full = BoseCncModes.Slots(capacity = 4, occupied = 0x0f)
+
+    @Test
+    fun `1f 08 carries the capacity and the occupancy bitmask`() {
+        val slots = BoseCncModes.slotsOf(transaction)
+        assertEquals(BoseCncModes.Slots(4, 0x0f), slots)
+        assertTrue(slots!!.holds(2))
+    }
+
+    @Test
+    fun `deleting writes the blanked record Bose Music writes`() {
+        val frames = BoseCncModes.delete(slot = 2, slots = full)
+        assertEquals(capturedDelete.toList(), frames[0].toList())
+    }
+
+    @Test
+    fun `deleting clears only its own occupancy bit`() {
+        val frames = BoseCncModes.delete(slot = 2, slots = full)
+        assertEquals(Hex.parse("1f 08 02 02 04 0b").toList(), frames[1].toList())
+    }
+
+    @Test
+    fun `creating writes the record Bose Music writes`() {
+        val frames =
+            BoseCncModes.create(
+                2,
+                nameId = 0x0a,
+                name = "Home",
+                level = 0,
+                slots = full.with(2, false),
+            )
+        assertEquals(capturedCreate.toList(), frames[0].toList())
+    }
+
+    @Test
+    fun `creating sets its occupancy bit, because the record alone does not`() {
+        val frames =
+            BoseCncModes.create(
+                2,
+                nameId = 0x0a,
+                name = "Home",
+                level = 0,
+                slots = full.with(2, false),
+            )
+        assertEquals(Hex.parse("1f 08 02 02 04 0f").toList(), frames[1].toList())
+    }
+
+    @Test
+    fun `an empty name is refused, because that is a delete`() {
+        val e =
+            runCatching {
+                BoseCncModes.create(2, nameId = 0x0a, name = "", level = 0, slots = full)
+            }
+        assertTrue(e.isFailure)
+    }
 }
