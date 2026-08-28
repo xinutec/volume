@@ -740,4 +740,24 @@ class BoseNameTest {
         // The length byte is a byte count; "é" is two bytes in UTF-8.
         assertEquals("01 02 02 02 c3 a9", Hex.format(BoseName.set("é")!!))
     }
+
+    /**
+     * ⚠ The frame that was SENT on 2026-08-28 and dropped the link (ACL 1 → 0), with the
+     * address replaced — this repo is public and a real BD_ADDR does not go in a fixture.
+     */
+    @Test
+    fun `disconnect is a start carrying the address, like forget`() {
+        val addr = Hex.parse("aa bb cc dd ee ff")
+        assertEquals(
+            Hex.parse("04 02 05 06 aa bb cc dd ee ff").toList(),
+            BoseDisconnect.frame(addr).toList(),
+        )
+    }
+
+    @Test
+    fun `disconnect is function 02 and not its destructive neighbours`() {
+        // ⚠ 03 is REMOVE_DEVICE and 07 is CLEAR_DEVICE_LIST. This asserts the byte that
+        // separates "drop the link" from "forget the pairing".
+        assertEquals(0x02, BoseDisconnect.FN.toInt())
+    }
 }
