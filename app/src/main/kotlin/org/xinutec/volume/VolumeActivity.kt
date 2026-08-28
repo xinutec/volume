@@ -261,6 +261,14 @@ interface SettingActions {
      */
     fun setCncLevel(address: String, slot: Int, level: Int)
 
+    /**
+     * Bose's per-mode wind block.
+     *
+     * ⚠ **Turning it on moves the level to 0** — the device takes the level over. The
+     * card re-reads, so the slider follows rather than lying about it.
+     */
+    fun setWindBlock(address: String, slot: Int, on: Boolean)
+
     /** Fill a free QC45 mode slot with one of the vendor's names. */
     fun createCncMode(address: String, slot: Int, name: BosePromptName, level: Int)
 
@@ -1099,6 +1107,34 @@ private fun SettingsSection(
                             BoseCncModes.QUIETEST.toFloat()..BoseCncModes.MOST_AWARE.toFloat(),
                         steps = BoseCncModes.MOST_AWARE - 1,
                     )
+                    // ⚠ Offered only where the device says the toggle is mutable —
+                    // `[41]` bit 3, which is clear on Quiet and Aware.
+                    if (m.windBlockMutable) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                SettingLabel(
+                                    "Wind block",
+                                    // ⚠ Says what it COSTS, because it is not a plain
+                                    // toggle: switching it on drops the level to 0 and
+                                    // the device keeps it. Measured, not guessed.
+                                    if (m.windBlock) {
+                                        "on — the headphones set the level"
+                                    } else {
+                                        "off"
+                                    },
+                                )
+                            }
+                            Switch(
+                                checked = m.windBlock,
+                                onCheckedChange = {
+                                    actions.setWindBlock(address, m.slot, it)
+                                },
+                            )
+                        }
+                    }
                     // ⚠ Only for a mode the DEVICE calls editable, which is the same
                     // guard the driver applies again on the list it reads in the call.
                     // Two independent refusals, because the order of this list moves.

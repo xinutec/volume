@@ -255,4 +255,61 @@ class BoseCncModesTest {
             )
         assertNull(cnc.free)
     }
+
+    /**
+     * Commute as the device returned it with wind block ON — `[46]`=01, and `[42]`=00
+     * where it had been 07 a second earlier. Read off the wire 2026-08-28 after writing
+     * `[38]`=01, and put back in the same sitting.
+     */
+    private val windBlockOn =
+        Hex.parse(
+            """
+        1f 06 03 2f 03 00 07 01 01 01 43 6f 6d 6d 75 74 65 00 00 00 00 00
+        00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        00 09 00 00 00 00 01
+        """,
+        )
+
+    @Test
+    fun `wind block is read from byte 46`() {
+        val m = BoseCncModes.modes(windBlockOn).single()
+        assertTrue(m.windBlock)
+    }
+
+    @Test
+    fun `turning wind block on took the level with it`() {
+        // ⚠ Not an assertion about what SHOULD happen — this is what the device did when
+        // 07 was written into the level beside a wind-block enable.
+        assertEquals(0, BoseCncModes.modes(windBlockOn).single().level)
+    }
+
+    @Test
+    fun `wind block is mutable on the owner's modes and not on the built-ins`() {
+        val modes = BoseCncModes.modes(transaction).associateBy { it.name }
+        assertTrue(modes.getValue("Commute").windBlockMutable)
+        assertTrue(modes.getValue("Home").windBlockMutable)
+        assertEquals(false, modes.getValue("Quiet").windBlockMutable)
+        assertEquals(false, modes.getValue("Aware").windBlockMutable)
+    }
+
+    @Test
+    fun `the wind block write is the frame that was driven`() {
+        val commute = BoseCncModes.modes(transaction).single { it.name == "Commute" }
+        val expected =
+            Hex.parse(
+                """
+                1f 06 02 27 03 00 07 43 6f 6d 6d 75 74 65 00 00 00 00 00 00 00 00
+                00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 07 00 00 01
+                """,
+            )
+        assertEquals(expected.toList(), BoseCncModes.setWindBlock(commute, true).toList())
+    }
+
+    @Test
+    fun `setting a level keeps wind block where it was`() {
+        val on = BoseCncModes.modes(windBlockOn).single()
+        // ⚠ The regression this guards: setLevel used to build a record from scratch, so
+        // moving the slider would silently turn wind block off.
+        assertEquals(1, BoseCncModes.setLevel(on, 4).last().toInt())
+    }
 }
