@@ -1680,3 +1680,33 @@ payload shape, and #935's own observation that removing a CONNECTED device drew 
 exactly one entry. **The recovery path is proven**: Settings → the device's gear →
 Disconnect, then Connect, after which the BMAP channel answers again (measured 2026-08-28).
 So the cost of trying it is bounded; it simply has not been tried.
+
+## ✅ Block `01`'s function table, and the QC45's last two unnamed rows — 2026-08-28
+
+Same method as block `04`: `BmapFunction`'s `<clinit>` names each entry's block and byte.
+The `Settings` block has 29 functions; the QC45's `01 01` enumeration answers ten of them.
+✅ Eight are already wired here and the vendor's names agree with what this page worked out
+from the wire — `02` ProductName, `03` VoicePrompts, `04` StandbyTimer, `05` Cnc, `09`
+Buttons, `0a` Multipoint, `0b` Sidetone.
+
+⚠ **`01 07` is `SettingsRangeControl`, not anything with "EQ" in the name.** This repo's
+`BoseEq` is right — it was captured, driven and restored from the card — but a reader
+grepping the vendor smali for "equaliser" finds nothing. Bass/mid/treble are three
+frequency *ranges*, so the names agree on the thing and differ on the word.
+
+### The two rows this page had left blank
+
+    01 0c  →  01     SettingsSetupComplete
+    01 0e  →  01     SettingsCncPersistence
+
+⚠ **Named, NOT decoded and NOT driven.** Both answer a single `01` and nothing here knows
+what either byte means beyond that:
+
+- `SettingsSetupComplete` reads like a one-time out-of-box flag rather than a preference.
+  ⚠ It is not obviously a control, and clearing it might put the headphones back into a
+  setup state — so it is a **read-only curiosity until something says otherwise**.
+- `SettingsCncPersistence` is the only genuine candidate for a new control on this device:
+  whether the noise setting survives a power cycle is a preference an owner might want. It
+  was named `01 0e CncPersistence` on this page already, as the one neighbour of `01 0f`
+  that answers. ⚠ **Its value space is unknown** — `01` is the only byte ever seen, and a
+  toggle needs to know what "off" looks like before it can be offered.
