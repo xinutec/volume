@@ -1231,6 +1231,39 @@ sealed interface Forget {
     data object StillThere : Forget
 }
 
+/**
+ * `04 02` DISCONNECT — drop a device's link without forgetting it.
+ *
+ * ```
+ * → 04 02 05 06 <6-byte address>
+ * ← (nothing)
+ * ```
+ *
+ * ⚠ **The silence IS the reply.** The link dies with the frame, so the socket carrying it
+ * dies too and no Processing or Result can arrive. This is attested by its EFFECT — ACL
+ * went 1 → 0 on the device it named — not by an answer, and no reply shape is known.
+ *
+ * ⚠⚠ **The phone does NOT come back on its own.** Measured 2026-08-28: twelve seconds at
+ * ACL 0, then Android Settings → the device's gear → Connect brought it back and the BMAP
+ * channel answered normally. So this is recoverable, but only by an explicit reconnect.
+ *
+ * ⚠ **Deliberately NOT offered on the card.** The QC45's `04 04` list holds exactly one
+ * entry — the phone running this app — so the only link it can drop is the app's own, and
+ * with no auto-reconnect a tap would strand the owner in Settings with no way back from
+ * this screen. The frame belongs here; the button does not.
+ *
+ * ⚠ Block `04` again, so the same rule as [BosePairing]: block and function are FIXED
+ * here. `04 03` REMOVE_DEVICE and `04 07` CLEAR_DEVICE_LIST are neighbours and a writer
+ * that took either as a parameter must not exist.
+ */
+object BoseDisconnect {
+    const val FN: Byte = 0x02
+
+    /** ⚠ START, and the payload is the address to drop — the same shape as [BoseForget]. */
+    fun frame(address: ByteArray) =
+        BoseFrame.encode(BoseDevices.BLOCK, FN, BoseFrame.START, address)
+}
+
 /** `04 03` REMOVE_DEVICE — Bose Connect's "disconnect & forget". */
 object BoseForget {
     /**
