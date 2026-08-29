@@ -82,6 +82,8 @@ object Frames {
             else -> "${payload.size} bytes, no framing recognised: ${hex(payload)}"
         }
 
+    private const val BOSE_GET: Byte = 0x01
+
     private fun bose(payload: ByteArray): String {
         if (payload.size < 4) return "a short Bose frame: ${hex(payload)}"
         val block = payload[0].toInt() and 0xff
@@ -122,18 +124,61 @@ object Frames {
             BES_NAMES[cmd]?.let { "$it (aa %02x)".format(cmd) }
                 ?: "aa %02x — unknown command".format(cmd)
         val shape =
-            when {
-                cmd == (Bes.STATUS_GET.toInt() and 0xff) -> "read"
-
-                BES_NAMES.containsKey(cmd) &&
-                    payload.size == 4 &&
-                    payload[2] == 0x01.toByte() &&
-                    payload[3] == 0x01.toByte() -> "read"
-
-                else -> "${payload.size - 3} payload byte(s)"
-            }
+            if (besReads(payload)) "read" else "${payload.size - 3} payload byte(s)"
         return "$name, $shape"
     }
+
+    /**
+     * True only when this BES frame is POSITIVELY a read — see [bes] for why shape alone
+     * cannot decide it.
+     *
+     * ⚠ **Shared with [reads] deliberately.** The sentence printed to a person and the rule
+     * deciding whether bytes leave the phone must not be able to disagree; two copies of
+     * this would drift, and the printed line would stop describing what actually happened.
+     */
+    private fun besReads(payload: ByteArray): Boolean {
+        val cmd = payload.getOrNull(1)?.toInt()?.and(0xff) ?: return false
+        if (cmd == (Bes.STATUS_GET.toInt() and 0xff)) return true
+        return BES_NAMES.containsKey(cmd) &&
+            payload.size == 4 &&
+            payload[2] == 0x01.toByte() &&
+            payload[3] == 0x01.toByte()
+    }
+
+    /**
+     * BMAP says it outright: byte 2 is the operator and `01` is GET.
+     *
+     * ⚠ `02` SET_GET both writes and reads, and `05` START opens a transaction. Neither is
+     * a read. Only a bare GET qualifies.
+     */
+    private fun boseReads(payload: ByteArray): Boolean = payload.size >= 4 && payload[2] == BOSE_GET
+
+    /**
+     * True only when [payload] is POSITIVELY a read — never as a default.
+     *
+     * ⚠⚠ **THE POINT IS WHAT THIS RETURNS FOR A FRAME IT CANNOT PLACE: false.** It gates
+     * the dry-run, so "I cannot tell" has to mean "do not send". On 2026-08-26 `06 01 00`
+     * was sent seven times as a probe and the device re-framed the STREAM into a SET to
+     * block `06` that nobody typed; a classifier that guessed "probably a read" for
+     * anything unfamiliar would have passed every one of them.
+     *
+     * ⚠ Reads are not gated, because dry-running them would make this tool useless for the
+     * job it exists to do. The rule is about MUTATION, and a read mutates nothing.
+     */
+    fun reads(uuid: String?, payload: ByteArray, table2: Boolean = false): Boolean =
+        when {
+            payload.isEmpty() -> false
+
+            // ⚠ No Sony get/set rule here survives inspection, so every Sony frame counts
+            // as unknown. Fail closed rather than invent a convention.
+            uuid.equals(Channels.SONY, ignoreCase = true) -> false
+
+            uuid.equals(Channels.SPP, ignoreCase = true) -> boseReads(payload)
+
+            payload[0] == Bes.HEADER -> besReads(payload)
+
+            else -> false
+        }
 
     /**
      * `aa 77 03 <SET> <gesture> <action>` spelled out as the binding it makes.
