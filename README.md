@@ -190,9 +190,12 @@ AND a `1f 08` write) · #1203 the chip tap was never dropped — the busy card g
 the chip moved out from under it · #935 disconnect is `04 02`, sent and attested · #1242
 the 47-byte mode record is decoded from the vendor's own parser.
 
+**Closed 2026-08-29:** #1154 the settings-read dropout — nine live card reads all rendered
+17 of 17 rows, and instrumenting `ask` caught the failure happening once in 85 reads and
+recovering, so it is now demonstrated rather than argued.
+
 **Open:** #974 the three JBL rows still outside the app · #1038 the probe's
-decode-and-print and its Python port · #1154 a settings-read dropout, fixed and awaiting
-one live card read · #1232 why the QC35 started needing a wake at all.
+decode-and-print and its Python port · #1232 why the QC35 started needing a wake at all.
 
 ⚠ **The QC45 is finished** — every function it answers is driven from the card. See
 `docs/bose-read-surface.md`, "Where this stands", which is the current state; the rest of
