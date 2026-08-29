@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.xinutec.volume.protocol.Channels.Protocol
 
 /**
  * ⚠ **Half of these assert that something is ALLOWED, deliberately.** A guard that
@@ -194,5 +195,90 @@ class HazardsTest {
     fun `a truncated frame is judged on what it actually contains`() {
         assertNull(Hazards.check(Channels.SONY, bytes("38"), table2 = true))
         assertNull(Hazards.check(Channels.SONY, bytes("38 01"), table2 = true))
+    }
+
+    /**
+     * `<block> <fn> <operator> <len>` — the BMAP twin of the BES length rule, and the
+     * mistake it exists for is `01 04 02 14`: a value typed into the LENGTH byte. It
+     * looks like a plausible four-byte frame, so nothing downstream can catch it; the
+     * device re-frames it and answers `04 01 01` bad-argument, which reads as a fact
+     * about the protocol rather than a typo.
+     */
+    @Test
+    fun `a Bose frame whose length byte disagrees with its payload is refused`() {
+        val r = Hazards.check(Channels.SPP, bytes("01 04 02 14"), protocol = Protocol.BOSE)
+        assertNotNull(r)
+        assertEquals(
+            "Bose frame with a wrong length byte (says 20, carries 0)",
+            r!!.what,
+        )
+    }
+
+    /**
+     * The 2026-08-26 incident: `06 01 00` was sent seven times, meant as `06 01 01 00`.
+     * Three bytes is not a BMAP frame at all — there is no length byte to disagree with
+     * — and the device re-framed the STREAM into commands nobody typed.
+     */
+    @Test
+    fun `a Bose frame with no length byte at all is refused`() {
+        assertNotNull(Hazards.check(Channels.SPP, bytes("06 01 00"), protocol = Protocol.BOSE))
+    }
+
+    /**
+     * ⚠⚠ **THE REGRESSION THIS RULE EXISTS TO NOT CAUSE.** The JLab JBuds is routed over
+     * the SAME SPP uuid as the QC45 and QC35 ([Registry]), and its ordinary ANC read is
+     * `c0 ff 00 44 …` — byte 2 is `00`, a valid BMAP operator, and byte 3 is `0x44`, so a
+     * BMAP length rule reads it as declaring 68 payload bytes while carrying 5.
+     *
+     * The shell guard this replaced DID refuse it, which was harmless only because it was
+     * wired to one subcommand. **A uuid does not determine a protocol here**, so the rule
+     * fires on positive protocol evidence and nothing else: wide for a hazard, narrow for
+     * a syntax rule.
+     */
+    @Test
+    fun `the JLab's own read is not refused on the shared SPP uuid`() {
+        val jlab = bytes("c0 ff 00 44 00 00 01 00 04")
+        assertNull(Hazards.check(Channels.SPP, jlab, protocol = Protocol.NONE))
+        assertNull(
+            "an unidentified device must not be guessed at",
+            Hazards.check(Channels.SPP, jlab),
+        )
+    }
+
+    /**
+     * ⚠ Without positive evidence the rule does NOT fire, so an unbonded or unidentified
+     * device behaves exactly as before. That is a deliberate hole: refusing frames on a
+     * device nobody could identify would break the probing this tool exists for.
+     */
+    @Test
+    fun `an unidentified device keeps the old behaviour`() {
+        assertNull(Hazards.check(Channels.SPP, bytes("01 04 02 14")))
+    }
+
+    /**
+     * The other half: the reads this app sends on every card open must survive the rule.
+     */
+    @Test
+    fun `ordinary Bose frames are allowed under the length rule`() {
+        assertNull(Hazards.check(Channels.SPP, bytes("01 06 01 00"), protocol = Protocol.BOSE))
+        assertNull(Hazards.check(Channels.SPP, bytes("00 01 01 00"), protocol = Protocol.BOSE))
+        assertNull(Hazards.check(Channels.SPP, bytes("01 03 02 01 21"), protocol = Protocol.BOSE))
+        assertNull(Hazards.check(Channels.SPP, BoseEq.get(), protocol = Protocol.BOSE))
+        assertNull(
+            Hazards.check(
+                Channels.SPP,
+                bytes("04 05 01 06 aa bb cc dd ee ff"),
+                protocol = Protocol.BOSE,
+            ),
+        )
+    }
+
+    /**
+     * ⚠ A byte that is not a valid operator means this is not a BMAP frame being typed,
+     * so the length byte is not a length and must not be read as one.
+     */
+    @Test
+    fun `a payload whose third byte is no operator is left alone`() {
+        assertNull(Hazards.check(Channels.SPP, bytes("01 06 09 14"), protocol = Protocol.BOSE))
     }
 }

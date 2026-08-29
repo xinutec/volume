@@ -107,6 +107,40 @@ class Probes(
         }
     }
 
+    /**
+     * What the bonded device at [mac] speaks, or null if it is not bonded.
+     *
+     * ⚠ **A uuid is not a protocol here.** SPP is the QC45's and QC35's control channel
+     * AND the JLab JBuds' ([Registry]), so a rule keyed on the uuid would read the
+     * JLab's ordinary read as a malformed BMAP frame. [Channels.detect] already knows
+     * SPP is ambiguous and answers `NONE` for a device it cannot name.
+     *
+     * ⚠ Null on any failure, including a missing permission — this feeds a syntax check
+     * that must not fire without evidence, and an exception here would otherwise turn a
+     * permissions problem into a refused frame.
+     */
+    private fun protocolOf(
+        adapter: android.bluetooth.BluetoothAdapter,
+        mac: String,
+    ): Channels.Protocol? =
+        try {
+            adapter.bondedDevices
+                ?.firstOrNull { it.address.equals(mac, ignoreCase = true) }
+                ?.let { d ->
+                    Channels
+                        .detect(
+                            d.name.orEmpty(),
+                            d.uuids
+                                ?.map { it.uuid.toString() }
+                                .orEmpty()
+                                .toSet(),
+                        ).protocol
+                }
+        } catch (e: SecurityException) {
+            emit("  (protocol unknown: ${e.message})")
+            null
+        }
+
     private fun list(adapter: android.bluetooth.BluetoothAdapter) {
         val bonded =
             try {
@@ -143,7 +177,23 @@ class Probes(
         // ⚠ **Before the frame is built, and before the socket is opened.** This is the
         // last point where a hand-typed payload is still just bytes on this side. The
         // Sony's `38` means different things per table, so the type byte goes in too.
-        if (!refused(uuid, payload, table2 = type == SonyFrame.TYPE_DATA_MDR_NO2, intent)) return
+        //
+        // ⚠ **The protocol comes from the DEVICE, not the uuid**, because SPP carries
+        // both BMAP and the JLab's own framing — see `Hazards.boseLength`. Resolved
+        // here rather than passed in, so a caller that goes straight to the service
+        // cannot skip it. Null when nothing is bonded at that address, which keeps the
+        // old behaviour instead of guessing.
+        val protocol = protocolOf(adapter, mac)
+        if (!refused(
+                uuid,
+                payload,
+                table2 = type == SonyFrame.TYPE_DATA_MDR_NO2,
+                intent,
+                protocol,
+            )
+        ) {
+            return
+        }
 
         val wire = if (raw) payload else SonyFrame.encode(type, seq, payload)
 
@@ -197,13 +247,14 @@ class Probes(
         payload: ByteArray,
         table2: Boolean,
         intent: Intent,
+        protocol: Channels.Protocol? = null,
     ): Boolean {
         // ⚠ **Printed for every send, allowed or refused, and BEFORE the verdict.** The
         // hex is not checkable by a person — `aa 77 03 00 06 05` and `…05 06` differ by a
         // transposition and bind different buttons — so the sentence is what makes a
         // wrong frame visible while it can still be stopped. #1038.
         emit("  means: ${Frames.describe(uuid, payload, table2)}")
-        val r = Hazards.check(uuid, payload, table2) ?: return true
+        val r = Hazards.check(uuid, payload, table2, protocol) ?: return true
         if (intent.getBooleanExtra("force", false)) {
             emit("⚠ FORCED past a refusal: ${r.what}")
             emit("  ${r.why}")
@@ -214,6 +265,34 @@ class Probes(
         emit("  ${r.why}")
         emit("  nothing was sent. --ez force true sends it anyway.")
         return false
+    }
+
+    /**
+     * Every packet of a multi-packet run, checked before ANY of them is sent.
+     *
+     * ⚠⚠ **FAIL CLOSED ACROSS THE WHOLE RUN.** `seq` exists because some writes are
+     * transactional — an operator-`05` Start and then the change — so sending the
+     * allowed prefix of a refused run is worse than sending nothing: it leaves the
+     * device half-way through a transaction nobody finished. Every packet is judged
+     * first, then the run goes or does not.
+     *
+     * ⚠ **Judged on the payloads, not the wire bytes**, exactly as [send] does: the
+     * Sony framing is applied afterwards, and a refusal has to name what was typed.
+     */
+    private fun anyRefused(
+        uuid: String?,
+        packets: List<ByteArray>,
+        table2: Boolean,
+        intent: Intent,
+        protocol: Channels.Protocol? = null,
+    ): Boolean {
+        var bad = false
+        packets.forEachIndexed { n, p ->
+            emit("  [${n + 1}/${packets.size}]")
+            if (!refused(uuid, p, table2, intent, protocol)) bad = true
+        }
+        if (bad) emit("⛔ nothing was sent — the whole run is refused, not just the packet.")
+        return bad
     }
 
     /**
@@ -343,6 +422,11 @@ class Probes(
             }
         val how = if (sony) " (sony framed, acked)" else ""
         emit("seq: ${packets.size} packets on one socket to $mac$how")
+        // ⚠ **`seq` reached the device with NO hazard check until 2026-08-29.** #1038
+        // wired the guard into `send` only, so the repo's most dangerous subcommand —
+        // the write tool — was the one without it: `04 07 02 00` CLEAR_DEVICE_LIST went
+        // straight out. The shell's `check_frames` is a SHAPE rule and allows it.
+        if (anyRefused(uuid, raw, table2, intent, protocolOf(adapter, mac))) return
         var i = 0
         val err =
             Probe.exchangeAll(
@@ -767,6 +851,11 @@ class Probes(
 
         emit("gatt: ${packets.size} writes to ${device.address}")
         emit("  service $service")
+        // ⚠⚠ **THIS is the path `aa 95` is typed on.** The JBL is driven over GATT, the
+        // BES factory reset lives there, and this subcommand had no hazard check at all
+        // until 2026-08-29 — the one place the repo's loudest standing rule applies.
+        // A null uuid falls through to the BES rules, which is what catches it.
+        if (anyRefused(null, packets, table2 = false, intent = intent)) return
         var i = 0
         val err =
             Gatt.exchange(

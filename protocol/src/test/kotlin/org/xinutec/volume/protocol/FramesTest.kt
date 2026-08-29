@@ -91,4 +91,33 @@ class FramesTest {
         assertEquals(true, read.contains("read"))
         assertEquals(true, write.contains("write") || write.contains("→"))
     }
+
+    /**
+     * ⚠ **A refusal you cannot read is half a warning.** `Frames.describe` prints before
+     * the verdict so a wrong frame is visible while it can still be stopped — so any
+     * command [Hazards] is prepared to refuse must have a NAME here. Driven against the
+     * phone on 2026-08-29, `aa 95` printed "unknown command" while being refused as a
+     * factory reset: the guard knew and the sentence above it did not.
+     *
+     * ⚠ This does NOT weaken "an unknown command must read as unknown" — that rule is
+     * about commands nobody has established. These two are established and dangerous.
+     */
+    @Test
+    fun `the commands the guard refuses are named, not printed as unknown`() {
+        for (hex in listOf("aa 95 00", "aa 97 00", "aa 77 03 00 06 05")) {
+            val said = Frames.describe(null, bytes(hex), false)
+            assertEquals("$hex must be named", false, said.contains("unknown command"))
+        }
+    }
+
+    /**
+     * The pair a slip lands between — they must not read alike.
+     */
+    @Test
+    fun `factory reset and power off do not read the same`() {
+        val reset = Frames.describe(null, bytes("aa 95 00"), false)
+        val off = Frames.describe(null, bytes("aa 97 00"), false)
+        assertEquals(false, reset == off)
+        assertEquals(true, reset.contains("FACTORY RESET"))
+    }
 }

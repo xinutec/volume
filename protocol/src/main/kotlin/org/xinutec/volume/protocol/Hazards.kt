@@ -69,6 +69,13 @@ object Hazards {
     private const val BOSE_REMOVE_DEVICE: Byte = 0x03
 
     /**
+     * BMAP operators run `00` SET to `07` PROCESSING (`docs/protocols.md`). Anything
+     * above that is not an operator, so the frame is not BMAP and its byte 3 is not a
+     * length — see [boseLength].
+     */
+    private const val BOSE_MAX_OPERATOR: Int = 0x07
+
+    /**
      * Sony table-2 `38` PERI_SET_PARAM, whose `ConnectivityActionType` is
      * `00 DISCONNECT · 01 CONNECT · 02 UNPAIR`.
      *
@@ -99,11 +106,16 @@ object Hazards {
      * unrecognised land there. Guessing WIDE is the safe direction: the cost of a false
      * refusal is one `force`, the cost of a miss is a wiped device.
      */
-    fun check(uuid: String?, payload: ByteArray, table2: Boolean = false): Refusal? =
+    fun check(
+        uuid: String?,
+        payload: ByteArray,
+        table2: Boolean = false,
+        protocol: Channels.Protocol? = null,
+    ): Refusal? =
         when {
             payload.isEmpty() -> null
             uuid.equals(Channels.SONY, ignoreCase = true) -> sony(payload, table2)
-            uuid.equals(Channels.SPP, ignoreCase = true) -> bose(payload)
+            uuid.equals(Channels.SPP, ignoreCase = true) -> bose(payload, protocol)
             else -> bes(payload)
         }
 
@@ -123,8 +135,8 @@ object Hazards {
         return null
     }
 
-    private fun bose(payload: ByteArray): Refusal? {
-        if (payload[0] != BOSE_DEVICE_BLOCK) return null
+    private fun bose(payload: ByteArray, protocol: Channels.Protocol?): Refusal? {
+        if (payload[0] != BOSE_DEVICE_BLOCK) return boseLength(payload, protocol)
         return when (payload.getOrNull(1)) {
             BOSE_CLEAR_LIST -> {
                 Refusal(
@@ -142,9 +154,53 @@ object Hazards {
             }
 
             else -> {
-                null
+                boseLength(payload, protocol)
             }
         }
+    }
+
+    /**
+     * `<block> <fn> <operator> <len>` — refuse a BMAP frame whose length byte disagrees
+     * with what it carries. The twin of [besLength], and the mistake it exists for is a
+     * value typed into the length byte: `01 04 02 14` is operator `02` declaring a
+     * 20-byte payload and carrying none. It looks like a plausible four-byte frame, so
+     * nothing downstream can catch it — the device re-frames it and answers `04 01 01`
+     * bad-argument, which reads as a fact about the protocol rather than a typo.
+     *
+     * ⚠⚠ **A UUID DOES NOT DETERMINE THE PROTOCOL HERE, so this needs [protocol].** The
+     * JLab JBuds is routed over the same SPP channel as the QC45 and QC35, and its
+     * ordinary ANC read `c0 ff 00 44 00 00 01 00 04` has `00` in byte 2 — a valid BMAP
+     * operator — and `0x44` in byte 3. Read as BMAP it declares 68 payload bytes and
+     * carries 5, so a uuid-keyed version of this rule REFUSES A WORKING DEVICE'S MAIN
+     * READ. The shell guard in `probe.sh` does exactly that; it was harmless only
+     * because it was wired to one subcommand out of four.
+     *
+     * ⚠ So this fires on positive evidence and nothing else — **wide for a hazard,
+     * narrow for a syntax rule**. An unbonded or unidentified device keeps the old
+     * behaviour, which is a deliberate hole: refusing frames on a device nobody could
+     * identify would break the probing this tool exists for.
+     *
+     * ⚠ **A byte that is not a valid operator means this is not a BMAP frame at all**,
+     * so byte 3 is not a length and must not be read as one.
+     */
+    private fun boseLength(payload: ByteArray, protocol: Channels.Protocol?): Refusal? {
+        if (protocol != Channels.Protocol.BOSE) return null
+        val operator = payload.getOrNull(2)?.toInt()?.and(0xff) ?: return null
+        if (operator > BOSE_MAX_OPERATOR) return null
+        val declared =
+            payload.getOrNull(3)?.toInt()?.and(0xff)
+                ?: return Refusal(
+                    "Bose frame with no length byte (${payload.size} bytes)",
+                    "a <block> <fn> <operator> <len> header is FOUR bytes, so the device " +
+                        "re-frames this into a command nobody typed — check the hex",
+                )
+        val actual = payload.size - 4
+        if (declared == actual) return null
+        return Refusal(
+            "Bose frame with a wrong length byte (says $declared, carries $actual)",
+            "the device parses by the length byte, so this sends a DIFFERENT frame " +
+                "than the one meant — check the hex before forcing it",
+        )
     }
 
     private fun bes(payload: ByteArray): Refusal? {
