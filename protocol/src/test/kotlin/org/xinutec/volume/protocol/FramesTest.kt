@@ -120,4 +120,39 @@ class FramesTest {
         assertEquals(false, reset == off)
         assertEquals(true, reset.contains("FACTORY RESET"))
     }
+
+    /**
+     * ⚠⚠ **A WRITE MUST NOT BE DESCRIBED AS A READ.** This sentence is printed before every
+     * send so a wrong frame is visible while it can still be stopped — describing a write
+     * as a read is the one error that makes it worse than printing nothing.
+     *
+     * BES getters and setters are the SAME SHAPE: `JblAutoPlay.get()` is
+     * `aa 21 01 38` and `set(true)` is `aa 35 01 01` — both four bytes with `01` at
+     * index 2. So shape cannot decide it and the command byte must.
+     */
+    @Test
+    fun `a BES write is not called a read`() {
+        val write = Frames.describe(null, JblAutoPlay.set(true), false)
+        assertEquals(
+            "`${hexOf(JblAutoPlay.set(true))}` must not claim to be a read: $write",
+            false,
+            write.contains("read"),
+        )
+    }
+
+    /**
+     * The other half — a genuine getter must still say so, or the rule above is satisfied
+     * by a decoder that never identifies anything.
+     */
+    @Test
+    fun `a BES status get is still called a read`() {
+        val read = Frames.describe(null, JblAutoPlay.get(), false)
+        assertEquals(
+            "`${hexOf(JblAutoPlay.get())}` should read as a read: $read",
+            true,
+            read.contains("read"),
+        )
+    }
+
+    private fun hexOf(b: ByteArray) = b.joinToString(" ") { "%02x".format(it) }
 }

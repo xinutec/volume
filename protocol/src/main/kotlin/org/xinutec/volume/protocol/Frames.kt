@@ -93,6 +93,26 @@ object Frames {
             .format(block, fn, opName, len, if (len == 1) "" else "s")
     }
 
+    /**
+     * ⚠⚠ **DIRECTION IS DECIDED BY THE COMMAND BYTE, NEVER BY SHAPE.** A BES getter and its
+     * setter are the same size: `JblAutoPlay.get()` is `aa 21 01 38` and `set(true)` is
+     * `aa 35 01 01` — both four bytes with `01` at index 2. This used to read that shape and
+     * call the SETTER a "read", which is the worst thing this sentence can do, since its
+     * whole job is to make a wrong frame visible before it is sent (caught by a test, not by
+     * a person, 2026-08-29).
+     *
+     * ⚠ So "read" is claimed on POSITIVE evidence only, and there are exactly two kinds.
+     * `Bes.STATUS_GET`, which is always one. And `aa <named cmd> 01 01` — the other getter
+     * convention — which is safe **because every setter built on a named command carries a
+     * `SET` sub-command and a length of 2 or more**. The lone four-byte setter shape,
+     * `aa <SET> 01 <v>`, uses a dedicated setter byte (`JblAutoPlay.SET` = `35`) that is
+     * deliberately NOT in [BES_NAMES], so it cannot collide.
+     *
+     * ⚠ Anything else reports its payload size and asserts no direction — a frame whose
+     * direction is unknown must READ as unknown, exactly like an unknown command. The
+     * gesture path above is the third positive case: it says "write" because it has decoded
+     * the binding being made.
+     */
     private fun bes(payload: ByteArray): String {
         val cmd =
             payload.getOrNull(1)?.toInt()?.and(0xff)
@@ -103,8 +123,13 @@ object Frames {
                 ?: "aa %02x — unknown command".format(cmd)
         val shape =
             when {
-                payload.size == 4 && payload[2] == 0x01.toByte() -> "read"
-                payload.getOrNull(3) == 0x00.toByte() -> "write"
+                cmd == (Bes.STATUS_GET.toInt() and 0xff) -> "read"
+
+                BES_NAMES.containsKey(cmd) &&
+                    payload.size == 4 &&
+                    payload[2] == 0x01.toByte() &&
+                    payload[3] == 0x01.toByte() -> "read"
+
                 else -> "${payload.size - 3} payload byte(s)"
             }
         return "$name, $shape"
