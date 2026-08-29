@@ -100,14 +100,16 @@ object Registry {
     /**
      * Wake a Bose BMAP session — a QC35 has been seen answering NOTHING until this is sent.
      *
-     * ⚠ **The condition is NOT unconditional, and its scope is unknown.** On 2026-08-29,
-     * after a power cycle, the same QC35 answered `01 06`, `01 0b` and `00 01` on fresh
-     * sockets with no block-`00` in them. So "a fresh socket is dead" is one device on one
-     * day, not a property of the protocol: either the state outlives a single RFCOMM link
-     * (so a wake earlier in the session still counts), or a power cycle clears it. #1232
-     * carries the one reading that separates those, and it is only takeable at a power
-     * cycle. Until then this is sent unconditionally because it is cheap, NOT because the
-     * device is known to need it.
+     * ⚠ **REFUTED as a rule, 2026-08-29 — this is a STATE, not a property of a fresh
+     * socket.** On a virgin session after a power cycle, with the activity and every vendor
+     * app stopped, the same QC35 answered `01 06` cold four times, including once after a
+     * five-minute idle gap. So the wake is kept because it costs one read, **NOT** because
+     * a fresh socket is known to need it.
+     *
+     * ⚠ What induces the silent state is still unknown. Idle is ruled out to five minutes.
+     * The 2026-08-28 silence survived 28 minutes and two RFCOMM reconnections, so whatever
+     * holds it is not per-socket. ⚠ **Nothing establishes that a power cycle clears it** —
+     * the device was never observed silent on the day it answered. #1232.
      *
      * ⚠⚠ **Measured on a QC35, 2026-08-28, and it made the device unusable from this app.**
      * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew
