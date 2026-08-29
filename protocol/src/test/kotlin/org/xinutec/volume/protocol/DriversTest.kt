@@ -785,8 +785,10 @@ class DriversTest {
      * ⚠ **Both Bose models open one too, since 2026-08-28.** This test asserted that
      * nobody but Sony did, on the reasoning that an opener costs a round trip nothing
      * needs — and a QC35 spent an afternoon reporting itself unreadable because of it.
-     * A fresh socket answers no `01 xx` read at all until a block-`00` read has been
-     * sent. See `Registry.wakeBose`.
+     * That afternoon a fresh socket answered no `01 xx` read at all until a block-`00`
+     * read had been sent; on 2026-08-29 the same device answered without one, so the
+     * opener is kept for being cheap rather than for being known necessary. See
+     * `Registry.wakeBose` and #1232.
      */
     @Test
     fun `both bose models open a session before they ask anything`() {

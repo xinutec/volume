@@ -208,7 +208,7 @@ before the write, a confirmed rename showed the old name because both name displ
 Android's bonded record, and a factory-named QC45 never got the protocol's early-stop rule
 because the test named one model instead of the framing.
 
-**#1232, 2026-08-28 — a Bose answers NOTHING on a fresh socket until block `00` is read.**
+**#1232, 2026-08-28 — a QC35 answered NOTHING on a fresh socket until block `00` was read.**
 The QC35 was bonded, connected, the active audio device and completely unreadable; the app
 said "it answered `01 06` in neither shape". The snoop showed every frame going out and
 nothing coming back, while the device's protobuf channel answered normally in the same log.

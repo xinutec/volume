@@ -1382,7 +1382,11 @@ is a UX trade for two round trips out of a 292 ms open, and it is not obviously 
 ⚠ The QC35 shows exactly the same shape — `01 06` and `01 02` immediately before the
 GET_ALL that returns both — so 2 of its 7 requests are the same deliberate trade.
 
-## ⚠⚠ A fresh socket answers NOTHING until block `00` is read — 2026-08-28
+## ⚠⚠ A QC35 answered NOTHING until block `00` was read — 2026-08-28
+
+⚠ **Read the 2026-08-29 update at the end of this section before generalising any of it.**
+The measurement below is sound; the rule it was written as is wider than the evidence.
+
 
 The QC35 spent an afternoon looking broken. It was bonded, connected, the active audio
 device, and the app said **"it answered `01 06` in neither shape — leaving it
@@ -1410,6 +1414,32 @@ a fresh socket.
 
 ⚠ **And it is NOT "the first frame is swallowed".** Four consecutive reads with no block-`00`
 among them drew nothing at all — that control is in the same capture.
+
+### ⚠ 2026-08-29 — the same device answered with no wake at all
+
+After a night off and a power cycle, the QC35 answered `01 06` → `01 06 03 02 01 0b`,
+`01 0b` → `01 0b 03 03 01 02 0f` and `00 01` → `1.0.4` on **fresh sockets carrying no
+block-`00`**. Everything above still happened; what is wrong is reading it as "a fresh
+socket is dead", which is a claim about the protocol. It is one device on one day.
+
+Two readings survive, and they are different worlds:
+
+- the state **outlives a single RFCOMM link**, so a wake sent earlier in the device session
+  still counts and "per socket" was never the right unit; or
+- **a power cycle clears it**, and 2026-08-28 was a state the device had got into.
+
+⚠ **2026-08-29 cannot decide between them, because the session was spoiled twice before the
+cold read** — once by a `probe.sh send` framing mistake that put SONY-framed bytes on the
+wire which parse as BMAP including a block `00`, and once by our own activity running while
+the device connected under it (`Registry.identifyBose` wakes on connect). Neither is
+subtractable after the fact.
+
+✅ **The BMAP protocol version has not moved**: `1.0.4` on both days, byte-identical. So a
+protocol-version bump is not the cause. ⚠ That is not "no firmware update" — a firmware
+revision can leave the protocol version alone.
+
+**#1232 holds the one reading that separates the two worlds**, and it is only takeable in
+the first frames after a power cycle, from `probe.sh` with the activity stopped.
 
 ⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
 version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally

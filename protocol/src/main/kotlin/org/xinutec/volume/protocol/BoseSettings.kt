@@ -1394,8 +1394,9 @@ object BoseName {
  */
 interface BoseSettingsDriver : AncDriver {
     /**
-     * ⚠ **A fresh socket answers NOTHING until the session is woken** — see
-     * [Registry.wakeBose] for the measurement. This is the other path to it: a device
+     * ⚠ **A QC35 has been seen answering NOTHING until the session is woken** — see
+     * [Registry.wakeBose], which also records why that is not unconditional. This override
+     * is sent regardless because it costs one read. This is the other path to it: a device
      * identified from its advertisement never goes through `identifyBose`, so without
      * this override it would open, read, and be told the headphones had nothing to say.
      */
