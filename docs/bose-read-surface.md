@@ -1438,8 +1438,10 @@ i.e. an accidental wake. That mistake spoiled the first attempt at this measurem
 
 - The silent state is **not** the normal condition of a fresh socket. Waking is kept because
   it costs one read, NOT because a fresh socket is known to need it.
-- **Idle does not induce it**, at least to five minutes. That was the leading candidate,
-  because the QC45's one unexplained silence followed ~3.5 minutes idle.
+- **Idle does not induce it at FIVE minutes.** ⚠ **That bound is the whole content of the
+  claim and must travel with it.** The one silent reading on 2026-08-29 had **~60 minutes**
+  of no contact behind it, so a five-minute null says almost nothing — see the entry below,
+  where this sentence had to be walked back.
 - **The BMAP protocol version has not moved**: `1.0.4` both days, byte-identical. ⚠ Not the
   same as "no firmware update" — firmware can move without it.
 
@@ -1476,6 +1478,31 @@ as one until repeated.
 ⚠ **Read the REPLY, not the echo.** `probe.sh` prints `payload …` before sending, so a
 loose grep over its output reports the request back as if it were an answer. Pair each
 `payload` with the line after `← N bytes`, or read logcat.
+
+### ⚠ 2026-08-29, 11:2x — phone-side REFUTED, and idle comes back
+
+`svc bluetooth disable` → `enable` — a full stack restart without a reboot. The QC35
+reconnected itself in ~10 s and the first cold read **answered**. So a Bluetooth stack
+restart does not induce the silence, and the reboot correlation does not survive as stated.
+
+⚠⚠ **With the phone ruled out, the surviving variable is IDLE, and the earlier null was
+under-powered:**
+
+| when | gap since last contact | cold read |
+| --- | --- | --- |
+| 09:52 | ~2 min (after headphone power cycle) | answered |
+| 09:59 | 5 min (the "idle is ruled out" test) | answered |
+| **10:59** | **~60 min** | **SILENT** |
+| 11:2x | minutes (after BT stack restart) | answered |
+
+**A five-minute null against a sixty-minute positive is not a refutation.** It was written
+here as "idle does not induce it" and that phrasing has been corrected above. Threshold, if
+any, is between 5 and 60 minutes.
+
+⚠ **A periodic prober CANNOT find this** — every probe resets the gap it is waiting for. A
+15-minute watch was started and stopped for exactly that reason
+([[feedback_measure_real_use_not_a_probe]] is the same lesson in another repo). The test is
+to touch nothing for over an hour and then read ONCE.
 
 ⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
 version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally
