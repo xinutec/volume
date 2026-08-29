@@ -1482,7 +1482,7 @@ loose grep over its output reports the request back as if it were an answer. Pai
 
 ### ⚠ 2026-08-29, 11:2x — a stack restart does NOT induce it
 
-`svc bluetooth disable` -> `enable` — a full stack restart without a reboot. The QC35
+`svc bluetooth disable` → `enable` — a full stack restart without a reboot. The QC35
 reconnected itself in ~10 s and the first cold read **answered**.
 
 ⚠ **This was written up here as "phone-side REFUTED" and that was over-claimed.** Against
@@ -1495,7 +1495,7 @@ one varied along both, including the axis it was meant to hold fixed.
 One cold read after 4500 s of no contact, with nothing else running and no probe in between
 to reset the gap:
 
-    12:42:34  01 06  cold, 75 min idle, 110 min after boot  ->  01 06 03 02 01 0b
+    12:42:34  01 06  cold, 75 min idle, 110 min after boot  →  01 06 03 02 01 0b
 
 **Idle alone does not induce the silence, up to 75 minutes.** Unlike the stack restart, this
 IS a single-variable control: it carries the same order of idle gap as the 10:59 silence and
