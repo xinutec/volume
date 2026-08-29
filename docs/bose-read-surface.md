@@ -1453,9 +1453,29 @@ fixes it" — has no reading behind it.
 **two RFCOMM reconnections**, so whatever holds it is not per-socket and not cleared by
 reconnecting. That pairing was never tested against a power cycle.
 
-**To make progress, the device has to be caught silent again** — the useful move then is a
-power cycle with a snoop armed, since that is the one transition never observed. Until then
-this is a state with a known cure, an unknown cause, and one ruled-out candidate.
+### ✅ 2026-08-29, later — caught silent again, and the UNIT was the mistake
+
+After a **phone reboot**, with the QC35 in a backpack and no app of any kind running:
+
+    10:59:21  01 06  cold, fresh socket              →  SILENT
+    10:59:47  01 06  cold, another fresh socket      →  SILENT
+    10:59:56  00 01  wake, another fresh socket      →  "1.0.4"
+    11:00:05  01 06  fresh socket, NO block-00 in it →  01 06 03 02 01 0b
+
+✅ **Per-DEVICE-SESSION, not per-socket.** The wake and the read that benefited from it were
+on different sockets. Every "contradiction" earlier that day follows from that: once
+anything sends a block-`00`, later sockets answer without one — including the accidental
+wake from a `probe.sh send` framing mistake.
+
+⚠ **The trigger looks phone-side, and this is n=1 each way.** A headphone power cycle left
+it answering; a phone reboot left it silent. That is the first thing that predicts the
+difference and it is cheap to repeat — reboot the phone with the headphones untouched and
+take one cold read — but it is **a correlation, not a cause**, and must not be written up
+as one until repeated.
+
+⚠ **Read the REPLY, not the echo.** `probe.sh` prints `payload …` before sending, so a
+loose grep over its output reports the request back as if it were an answer. Pair each
+`payload` with the line after `← N bytes`, or read logcat.
 
 ⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
 version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally
