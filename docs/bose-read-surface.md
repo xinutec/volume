@@ -1438,10 +1438,11 @@ i.e. an accidental wake. That mistake spoiled the first attempt at this measurem
 
 - The silent state is **not** the normal condition of a fresh socket. Waking is kept because
   it costs one read, NOT because a fresh socket is known to need it.
-- **Idle does not induce it at FIVE minutes.** ⚠ **That bound is the whole content of the
-  claim and must travel with it.** The one silent reading on 2026-08-29 had **~60 minutes**
-  of no contact behind it, so a five-minute null says almost nothing — see the entry below,
-  where this sentence had to be walked back.
+- **Idle does not induce it at FIVE minutes** — and five minutes was far too short to be
+  worth writing down on its own, because the one silent reading had **~60 minutes** behind
+  it. ⚠ A bound is the whole content of a null result and must travel with it; this one was
+  quoted without it, read as "idle is not the cause", and had to be walked back. It was
+  settled properly at **75 minutes** on the same day — see the 12:42 entry below.
 - **The BMAP protocol version has not moved**: `1.0.4` both days, byte-identical. ⚠ Not the
   same as "no firmware update" — firmware can move without it.
 
@@ -1479,30 +1480,49 @@ as one until repeated.
 loose grep over its output reports the request back as if it were an answer. Pair each
 `payload` with the line after `← N bytes`, or read logcat.
 
-### ⚠ 2026-08-29, 11:2x — phone-side REFUTED, and idle comes back
+### ⚠ 2026-08-29, 11:2x — a stack restart does NOT induce it
 
-`svc bluetooth disable` → `enable` — a full stack restart without a reboot. The QC35
-reconnected itself in ~10 s and the first cold read **answered**. So a Bluetooth stack
-restart does not induce the silence, and the reboot correlation does not survive as stated.
+`svc bluetooth disable` -> `enable` — a full stack restart without a reboot. The QC35
+reconnected itself in ~10 s and the first cold read **answered**.
 
-⚠⚠ **With the phone ruled out, the surviving variable is IDLE, and the earlier null was
-under-powered:**
+⚠ **This was written up here as "phone-side REFUTED" and that was over-claimed.** Against
+the silent reading it moved TWO things at once — no reboot *and* a gap of minutes instead of
+~60 — so it cannot say which of them mattered. A control has to vary along one axis; this
+one varied along both, including the axis it was meant to hold fixed.
 
-| when | gap since last contact | cold read |
+### ✅ 2026-08-29, 12:42 — 75 minutes untouched, and it ANSWERED
+
+One cold read after 4500 s of no contact, with nothing else running and no probe in between
+to reset the gap:
+
+    12:42:34  01 06  cold, 75 min idle, 110 min after boot  ->  01 06 03 02 01 0b
+
+**Idle alone does not induce the silence, up to 75 minutes.** Unlike the stack restart, this
+IS a single-variable control: it carries the same order of idle gap as the 10:59 silence and
+differs in how long the phone had been up — **110 minutes against 7**. So the gap is not
+what the silence was made of, and the threshold hunt between 5 and 60 minutes is off.
+
+**The grid, with every reading placed**
+
+| gap since last contact | phone booted just before | cold read |
 | --- | --- | --- |
-| 09:52 | ~2 min (after headphone power cycle) | answered |
-| 09:59 | 5 min (the "idle is ruled out" test) | answered |
-| **10:59** | **~60 min** | **SILENT** |
-| 11:2x | minutes (after BT stack restart) | answered |
+| ~2 min (after headphone power cycle) | no | answered (09:52, 09:53) |
+| 5 min | no | answered (09:59) |
+| minutes (after BT stack restart) | no | answered (11:2x) |
+| **75 min** | no | **answered (12:42)** |
+| ~60 min | **yes, 7 min before** | **SILENT (10:59)** |
+| short | **yes** | **UNTESTED — this is the next experiment** |
 
-**A five-minute null against a sixty-minute positive is not a refutation.** It was written
-here as "idle does not induce it" and that phrasing has been corrected above. Threshold, if
-any, is between 5 and 60 minutes.
+⚠ **The one silent cell is the only one with a fresh boot in it, and no reading separates
+the boot from the gap.** The empty cell does: reboot the phone, wait for the QC35 to
+reconnect, take ONE cold read straight away. SILENT means a recent boot is sufficient on its
+own and the gap is a coincidence of the first sighting; ANSWERING means neither variable
+alone does it, and the pair — or something not on this grid at all — is the cause.
 
 ⚠ **A periodic prober CANNOT find this** — every probe resets the gap it is waiting for. A
-15-minute watch was started and stopped for exactly that reason
-([[feedback_measure_real_use_not_a_probe]] is the same lesson in another repo). The test is
-to touch nothing for over an hour and then read ONCE.
+15-minute watch was started and stopped for exactly that reason. Each long-gap cell costs an
+hour of waiting to set up, which is why the grid has four cheap readings and one expensive
+one; the untested cell is cheap, and that is a reason to run it first.
 
 ⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
 version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally

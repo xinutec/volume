@@ -110,11 +110,12 @@ object Registry {
      * on one socket and a later, separate socket answered without a block-`00` of its own.
      * So this is sent once per session and the cost is one read, not one read per socket.
      *
-     * ⚠ What induces it is still unknown. The phone-side reading was REFUTED on
-     * 2026-08-29: a full Bluetooth stack restart left it answering. ⚠ **Idle is ruled out
-     * only to FIVE MINUTES, which is far short of the one silent reading's ~60** — quoting
-     * it without that bound reads as "idle is not the cause", and on the evidence it is the
-     * best remaining candidate. #1232.
+     * ⚠ What induces it is still unknown, and the two obvious answers are both spent.
+     * **Idle is out to 75 minutes** (2026-08-29: one cold read after 4500 s untouched,
+     * answered). **A Bluetooth stack restart does not induce it** either — though that
+     * control moved two variables at once and settles less than it was written up as. The
+     * only silence came 7 minutes after a phone reboot, with ~60 minutes of quiet behind
+     * it, and nothing yet separates those two. #1232.
      *
      * ⚠⚠ **Measured on a QC35, 2026-08-28, and it made the device unusable from this app.**
      * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew
