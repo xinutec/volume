@@ -250,7 +250,23 @@ gate's mypy row, which followed a channel and was being killed by a store GC.
 ./probe.sh seq  <mac> <uuid> <hex,hex>   # one socket — THE RFCOMM WRITE TOOL
 ./probe.sh gatt <name|addr> <hex,hex>    # one LE connection — THE GATT WRITE TOOL
 ./probe.sh sweep <mac> <uuid> <proto> [blocks] [fns]
+
+--apply                                  # actually SEND — see below
 ```
+
+⚠ **Anything not recognised as a READ is printed and NOT sent.** `--apply` sends it. A
+forgotten flag is the safe outcome, which is the whole point: this tool exists to put
+hand-typed bytes on a wire at speed, and the frame you did not mean is the one it must not
+send. Reads are exempt — the rule is about mutation, and gating reads would make the probe
+useless for the job it exists to do.
+
+⚠ **"Not recognised as a read" is not the same as "is a write."** `Frames.reads` answers
+false for anything it cannot place, so an unfamiliar frame costs one flag. That is
+deliberate: on 2026-08-26 `06 01 00` was sent seven times as a probe and the device
+re-framed the stream into a SET to a block nobody typed. BES direction in particular is only
+partly decidable — the GET/SET sub-command byte means **opposite things in different
+drivers** (`JblGestures` has `GET = 01`, one in `JblSettings` has `GET = 00`), so it is
+never guessed at.
 
 The app's own stack, end to end — registry → transport → driver → read-back:
 ```bash
