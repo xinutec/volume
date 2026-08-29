@@ -292,7 +292,7 @@ class Probes(
      * True if this run should STOP because it is a dry run.
      *
      * ⚠⚠ **DRY RUN IS THE DEFAULT AND `--apply` IS WHAT SENDS.** A forgotten flag has to be
-     * the safe outcome, not the destructive one ([[feedback_dry_run_default]]). The probe's
+     * the safe outcome, not the destructive one. The probe's
      * job is to send hand-typed bytes at speed, so the thing it must not do is send a frame
      * nobody meant.
      *
@@ -452,7 +452,8 @@ class Probes(
         // ⚠ **`seq` reached the device with NO hazard check until 2026-08-29.** #1038
         // wired the guard into `send` only, so the repo's most dangerous subcommand —
         // the write tool — was the one without it: `04 07 02 00` CLEAR_DEVICE_LIST went
-        // straight out. The shell's `check_frames` is a SHAPE rule and allows it.
+        // straight out. The shell guard that existed then judged frame SHAPE, not
+        // hazard, so it allowed all three destructive frames; it has since been deleted.
         if (anyRefused(uuid, raw, table2, intent, protocolOf(adapter, mac))) return
         if (dryRun(uuid, raw, table2, intent)) return
         var i = 0
