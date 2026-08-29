@@ -620,9 +620,35 @@ headphones count how often you use each feature and how long you listen, and the
 vendor app collects it. Nothing here reads `aa 13`, and nothing should start without a
 reason better than "the frame is understood".
 
-⚠ **This sweep is the cheapest lead left.** Every getter above has a setter by the
-mirror rule, and the ones still unnamed — `93`, `a5`, `90`, `b0`, `9b`, `a0` — are
-that many of the app's remaining rows.
+⚠ **This sweep WAS the cheapest lead left; it has now been spent.** Of the six named
+there as unknown, four were decoded in the months since — `93` Voice Prompts, `a5`
+SafeSoundCmd, `b0` LeaAudioCmd, `a0` PSAPCmd — leaving `90` and `9b`.
+
+✅ **Re-read against the live unit, 2026-08-29.** All seven getters replayed and every
+reply agreed with what this file already says, so the table above is current and not
+drifting. Two of them are exceptions to the `aa <cmd+1>` reply rule below, which is worth
+having written down:
+
+```
+aa 9b 02 01 01  →  aa 9b 03 02 01 00        multi-status: STATUS, key 01, value 00
+aa 82 00        →  aa 83 08 00 01 35 00 96 00 ff ff   Smart Audio & Video, as documented
+aa 21 01 35     →  aa 22 02 35 df           the known EnumMultiAIStatus anomaly, df = 223
+aa 90 01 03     →  aa 90 0f 04 + 14x 00     ⚠ replies under 90, NOT 91 — and all zero here
+aa b0 01 00     →  aa b0 02 10 01           LE Audio
+aa 61 02 fe 35  →  aa 00 02 61 00           ⚠ replies under aa 00, a generic ack, not aa 62
+aa 94 01 01     →  "TL1461-AN0018486"       serial, unchanged
+```
+
+⚠ **`90` and `61` do not follow `cmd+1`**, so a decoder that assumes it will wait for a
+reply that never comes and report the device silent. ⚠ **`90`'s fourteen zero bytes are
+not evidence of an empty feature** — nothing here establishes what it is asking, and an
+all-zero payload reads identically to a field this unit does not populate.
+
+⛔ **`EnumCmdId` name→byte failed a THIRD time, and the reason is now concrete: the enum
+groups all `REQ_*` together and all `RET_*` together** (ordinals 1–11 and 34/37 are REQ,
+12–33 and 35–42 are RET). There is no request/response adjacency, so the two observed
+pairs — `21`/`22` and `82`/`83` — cannot calibrate it, which is the method that worked for
+`GestureActionType`. Do not attempt this again without a new source.
 
 ### ✅ The SDK names the opcodes — no capture needed, 2026-08-16 22:30
 
