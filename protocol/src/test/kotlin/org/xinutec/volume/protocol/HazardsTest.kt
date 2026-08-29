@@ -20,6 +20,69 @@ class HazardsTest {
             .map { it.toInt(16).toByte() }
             .toByteArray()
 
+    /**
+     * ⚠ **A malformed length byte is a DIFFERENT failure from a hazard**, and it is the
+     * one a hand-typed frame actually hits. `aa <cmd> <len>` declares its own payload
+     * length, so a frame whose bytes disagree with it was mistyped or hand-built wrong —
+     * and the device parses by that byte, so it reads a different frame than was meant.
+     */
+    @Test
+    fun `a BES frame whose length byte disagrees with its payload is refused`() {
+        // says 1 payload byte, carries 2
+        val r = Hazards.check(null, bytes("aa a1 01 01 02"))
+        assertNotNull("a wrong length byte must not reach the wire", r)
+        assertEquals(true, r!!.why.contains("length"))
+        // says 4, carries 1
+        assertNotNull(Hazards.check(null, bytes("aa 9b 04 01")))
+    }
+
+    /**
+     * ⚠ **The frames this app actually sends must keep passing.** These are read
+     * straight from the objects that build them rather than typed here, because a
+     * fixture typed by hand is exactly the thing the guard is meant to catch — and
+     * three of this session's bugs were mistyped hex.
+     */
+    @Test
+    fun `every getter this repo builds satisfies the BES length invariant`() {
+        val getters =
+            listOf(
+                "JblAutoOff" to JblAutoOff.get(),
+                "JblEq" to JblEq.get(),
+                "JblSafeSound" to JblSafeSound.get(),
+                "JblSpatial" to JblSpatial.get(),
+                "JblVoiceAware" to JblVoiceAware.get(),
+                "JblSmartTalk" to JblSmartTalk.get(),
+                "JblLowVolumeEq" to JblLowVolumeEq.get(),
+                "JblBattery" to JblBattery.get(),
+                "JblPsap" to JblPsap.get(),
+                "JblGestures" to JblGestures.get(),
+            )
+        for ((name, frame) in getters) {
+            assertNull("$name must not be refused", Hazards.check(null, frame))
+        }
+    }
+
+    /**
+     * ⚠ **`aa a2` is a KNOWN exception and must stay allowed.** Its length byte
+     * undercounts its content by one — documented in `docs/protocols.md`, and the reason
+     * `Bes.frame` cannot skip past one. Enforcing the invariant on it would refuse the
+     * EQ curve, which this app reads on every card open.
+     */
+    @Test
+    fun `the aa a2 curve is exempt from the length invariant`() {
+        assertNull(Hazards.check(null, bytes("aa a2 02 01 01")))
+        // the reply shape, one byte longer than its length byte claims
+        assertNull(Hazards.check(null, bytes("aa a2 03 02 01 01 00")))
+    }
+
+    @Test
+    fun `a frame that is not BES at all is left alone`() {
+        // Bose BMAP over SPP has no aa header and its own framing; the invariant
+        // must not be applied to it, nor to arbitrary GATT probing.
+        assertNull(Hazards.check(Channels.SPP, bytes("01 06 01 00")))
+        assertNull(Hazards.check(null, bytes("01 02 03")))
+    }
+
     @Test
     fun `the BES factory reset is refused`() {
         val r = Hazards.check(null, bytes("aa 95 00"))

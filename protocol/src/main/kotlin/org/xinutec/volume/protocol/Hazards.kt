@@ -80,6 +80,12 @@ object Hazards {
     private const val SONY_PERI_SET: Byte = 0x38
     private const val SONY_UNPAIR: Byte = 0x02
 
+    /**
+     * `aa a2` — the EQ curve, and the ONE BES frame whose length byte is not its payload
+     * length: it undercounts by one. Exempt from [besLength] for that reason.
+     */
+    private const val BES_EQ_CURVE: Byte = 0xa2.toByte()
+
     /** Sony `a8` — the PLAYBACK_CONTROLLER setter, which reaches the volume. */
     private const val SONY_PLAYBACK_SET: Byte = 0xa8.toByte()
 
@@ -150,7 +156,42 @@ object Hazards {
                     "profile has no getter, so it cannot be read back first",
             )
         }
-        return besGesture(payload)
+        return besGesture(payload) ?: besLength(payload)
+    }
+
+    /**
+     * `aa <cmd> <len> <payload…>` — refuse a frame whose length byte disagrees with what
+     * it carries.
+     *
+     * ⚠ **This is not a hazard, it is a MISTYPING, and that is why it belongs here
+     * anyway**: it is caught at the same place, before the socket opens, so every caller
+     * gets it. A wrong length byte does not fail loudly — the device parses by that byte,
+     * so it reads a *different* frame than the one intended and answers plausibly. Three
+     * frames were mistyped by hand in one session on 2026-08-28; a length check would
+     * have caught the ones that changed the payload size.
+     *
+     * ⚠ **Only frames that actually look like BES are checked.** The caller's fall-through
+     * is BES for anything unrecognised, and applying a validity rule that widely would
+     * refuse ordinary GATT probing — which is the probe's whole job. Guessing wide is
+     * right for a hazard and wrong for a syntax rule.
+     *
+     * ⚠ **`aa a2` is exempt**: its length byte undercounts its content by one. That is
+     * documented in `docs/protocols.md` and is the reason [Bes.frame] cannot skip past
+     * one. Enforcing the invariant on it would refuse the EQ curve this app reads on
+     * every card open.
+     */
+    private fun besLength(payload: ByteArray): Refusal? {
+        if (payload.size < 3) return null
+        if (payload[1] == BES_EQ_CURVE) return null
+        val declared = payload[2].toInt() and 0xff
+        val actual = payload.size - 3
+        if (declared == actual) return null
+        return Refusal(
+            "BES frame with a wrong length byte " +
+                "(says $declared, carries $actual)",
+            "the device parses by the length byte, so this sends a DIFFERENT frame " +
+                "than the one meant — check the hex before forcing it",
+        )
     }
 
     /**
