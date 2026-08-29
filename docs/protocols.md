@@ -816,9 +816,28 @@ frame, every decoder correctly returns null, and a settings row silently disappe
 #1154, and the decoders were never wrong — they were handed the wrong offset.
 
 ✅ **Fixed in `Bes.frame` / `Drivers.JblBes.ask`**, which tries the whole buffer first and
-only then walks frames by their length byte. ⚠ **The symptom was never reproduced on
-demand** — it was seen once, across two renders — so this is argued from the mechanism above
-plus replay tests, not demonstrated against the failure.
+only then walks frames by their length byte.
+
+✅ **Observed happening, and caught, on 2026-08-29.** `ask` was instrumented over 85 live
+reads (a temporary `println`, reverted):
+
+| | |
+| --- | --- |
+| clean single frame | 70 |
+| trailing `aa 25` glue | 9 (10.6%) — the harmless case above, unchanged |
+| **leading `aa 25`, real reply behind it** | **1 (1.2%)** — the failure |
+
+    aa250d0100006464ffffffffffffffff aaa00702010002640300
+    └─ unsolicited battery, offset 0  └─ the real reply, offset 16
+
+The decoder was `JblPsap.state`, which rejects on `reply[1] != CMD`; `reply[1]` was `0x25`,
+not `0xa0`. Untreated, the **Sound amplification** row would have vanished. The skip found
+the reply behind the battery frame and decoded it.
+
+⚠ **It still cannot be triggered on demand** — it was waited for, not provoked, so the 1.2%
+is one occurrence and not a rate to plan against. ⚠ Five other buffers began `aa 25` and are
+NOT this bug: they are the battery row's own reply, which legitimately starts there. What
+separates them is whether a second frame follows.
 
 ⚠ **A skip cannot pass an `aa a2`**: that frame's length byte undercounts its content by
 one, so a skip over it lands a byte short. No curve has ever arrived unsolicited, so the case
