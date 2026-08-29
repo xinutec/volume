@@ -218,55 +218,21 @@ reject_extra() {
   fi
 }
 
-# ⚠ **A well-formed-looking hex string can still be a MALFORMED FRAME.**
+# ⚠ **Frame-shape validation lives at the WIRE now, not here.** `Hazards.boseLength`
+# and `Hazards.besLength` refuse a frame whose length byte disagrees with what it
+# carries, and every caller reaches them — including `am start-foreground-service`
+# straight to the service, which this script cannot protect.
 #
-# On 2026-08-26 this script sent `060100` seven times — three bytes each, meant as
-# `06 01 01 00`. Every one passed `hex_arg`: even digits, valid hex, no shell split.
-# What reached the QC45 was a byte STREAM, and the device re-framed it into commands
-# nobody typed: `06 01 00 07` parses as a **SET to block 06 with a seven-byte
-# payload**, and a reply came back for `00 13`, a function never sent. Operator `00`
-# is the one this repo has never deliberately used.
+# ⚠⚠ **The version that lived here was UNSOUND and this is why it is gone.** It keyed on
+# the payload alone: "if byte 2 is 00-07 it is a BMAP operator, so byte 3 is a length".
+# But SPP carries BOTH BMAP and the JLab JBuds' own framing, and the JLab's ordinary ANC
+# read is `c0 ff 00 44 00 00 01 00 04` — byte 2 is `00`, byte 3 is `0x44`. Read as BMAP
+# it declares 68 payload bytes and carries 5, so this REFUSED A WORKING DEVICE'S MAIN
+# READ. Measured 2026-08-29. It was harmless only because it was wired to `seq` and
+# nothing else, which is its own bug: `send`, `raw` and `gatt` never called it.
 #
-# ⚠ **Nothing downstream can catch it**, because what the device receives IS a
-# well-formed frame — just not the intended one. It has to be caught here. That is
-# what #979 means by frame-shape validation, and this is the cheap half of it.
-#
-# Two rules, both protocol-agnostic enough for every device here:
-#   * a packet shorter than 4 bytes cannot be a frame in any of these protocols
-#   * if byte 2 is a BMAP operator (00-07), byte 3 is a LENGTH and must agree with
-#     what follows — this is the check that would have refused the seven above
-#
-# ⚠ Set `PROBE_ANY_SHAPE=1` to send something deliberately malformed; that is a real
-# need when probing, and it should be a decision rather than a typo.
-check_frames() {
-  [ -z "${PROBE_ANY_SHAPE:-}" ] || return 0
-  local raw="$1" part n op len rest
-  for part in ${raw//,/ }; do
-    n=$(( ${#part} / 2 ))
-    if [ "$n" -lt 4 ]; then
-      {
-        echo "probe: '$part' is $n byte(s) — no frame here is shorter than 4."
-        echo "probe: a <block> <fn> <operator> <len> header is FOUR bytes; you probably"
-        echo "       meant '${part:0:4}01 00' or similar. PROBE_ANY_SHAPE=1 to override."
-      } >&2
-      exit 2
-    fi
-    op=$((16#${part:4:2}))
-    if [ "$op" -le 7 ]; then
-      len=$((16#${part:6:2}))
-      rest=$(( n - 4 ))
-      if [ "$len" -ne "$rest" ]; then
-        {
-          echo "probe: '$part' says length $len but carries $rest payload byte(s)."
-          echo "probe: byte 3 of a BMAP frame is the payload LENGTH. The device will"
-          echo "       re-frame a wrong one into a DIFFERENT command — see the note above."
-          echo "       PROBE_ANY_SHAPE=1 to send it anyway."
-        } >&2
-        exit 2
-      fi
-    fi
-  done
-}
+# ⚠ A uuid does not determine a protocol here, so the rule needs the DEVICE — which the
+# app has and a shell script would have to shell out for on every call. #979.
 
 hex_arg() {
   local raw="${1//[[:space:]]/}" part
@@ -323,9 +289,9 @@ case "${1:-list}" in
     # expressed with `send`, which opens a fresh socket per packet. ⚠ Only that one
     # is — Bose EQ, multipoint and the Action button each took a plain Set.
     mac="${2:?mac}"; uuid="${3:?uuid}"; packets="$(hex_arg "${4:?comma-separated hex}")"
-    # ⚠ After hex_arg, which strips the spaces — so the shapes checked are the bytes
-    # that actually go out, not what was typed.
-    check_frames "$packets"
+    # ⚠ Shape is judged at the wire, per packet, before the socket opens — and the run
+    # fails CLOSED, so a refused packet cancels the others rather than leaving a
+    # transaction half sent. See the note above `hex_arg`.
     args=(--es op seq --es mac "$mac" --es uuid "$uuid" --es packets "$packets")
     # SONY_SEQ=1 frames each payload and acks the device's data frames — its PARAM
     # reads only answer inside a session that does both.

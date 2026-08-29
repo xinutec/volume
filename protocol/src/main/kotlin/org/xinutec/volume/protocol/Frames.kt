@@ -33,6 +33,11 @@ object Frames {
             0x91 to "ANC",
             0x93 to "voice prompts",
             0x94 to "serial number",
+            // ⚠ Adjacent on purpose: `95` wipes the device and `97` only switches it
+            // off. `JblPowerOff` warns that a slip between them is unrecoverable, and
+            // this line is what makes the slip READABLE before it is sent.
+            0x95 to "FACTORY RESET",
+            0x97 to "power off",
             0x98 to "VoiceAware",
             0x99 to "environment noise check",
             0x9a to "ear canal test",

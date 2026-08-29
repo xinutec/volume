@@ -1195,10 +1195,17 @@ voice prompts `a1`, standby `00`, level `0b 07 03`, EQ, button, multipoint, self
 the selected mode, the paired list. That is luck about which block absorbed it, not a
 property of the mistake.
 
-✅ **`probe.sh check_frames` now refuses both shapes** — a packet under four bytes, and
-a BMAP length byte that disagrees with the payload that follows. `PROBE_ANY_SHAPE=1`
-overrides, because deliberately malformed frames are a real probing need and should be
-a decision rather than a typo. This is the cheap half of #979's frame-shape validation.
+✅ **Both shapes are refused — at the WIRE, by `Hazards.boseLength`.** A BMAP frame with
+no length byte, and one whose length byte disagrees with the payload that follows.
+`--ez force true` overrides per call, because deliberately malformed frames are a real
+probing need and should be a decision rather than a typo.
+
+⚠ **This lived in `probe.sh` as `check_frames` until 2026-08-29 and was UNSOUND there.**
+It keyed on the payload alone — "byte 2 is `00`-`07`, so byte 3 is a length" — but SPP
+carries the JLab JBuds as well as the QC45 and QC35, and the JLab's ordinary ANC read
+`c0 ff 00 44 00 00 01 00 04` fits that pattern while meaning nothing of the kind. The
+shell guard refused it. **A uuid does not determine a protocol here**, so the rule now
+runs only on a device that identifies as Bose, and an unidentified one is left alone.
 
 ⚠ **The first attempt to test that guard was itself a live write.** `01 06 02 01 14` was
 chosen as a "bad frame" and is in fact well-formed, so it sailed through and reached the
