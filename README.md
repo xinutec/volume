@@ -212,8 +212,11 @@ because the test named one model instead of the framing.
 The QC35 was bonded, connected, the active audio device and completely unreadable; the app
 said "it answered `01 06` in neither shape". The snoop showed every frame going out and
 nothing coming back, while the device's protobuf channel answered normally in the same log.
-Send `00 01` first and everything answers. ⚠ Why it started is not established — it did not
-need waking two days earlier.
+Send `00 01` first and everything answers. ⚠ **2026-08-29 refuted the general rule**: on a
+virgin session after a power cycle the same device answered `01 06` cold four times, once
+after a five-minute idle gap, so this is a state it gets into and not how a fresh socket
+behaves. What induces it is still unknown; idle is ruled out to five minutes, and nothing
+establishes that a power cycle clears it.
 
 **#1191, on the QC45, 2026-08-28 — 18 requests → 4, 946 ms → 292 ms** for one card open,
 measured on the wire across three builds. Three causes, none of them the ones the task had

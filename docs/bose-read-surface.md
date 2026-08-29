@@ -1415,31 +1415,47 @@ a fresh socket.
 ⚠ **And it is NOT "the first frame is swallowed".** Four consecutive reads with no block-`00`
 among them drew nothing at all — that control is in the same capture.
 
-### ⚠ 2026-08-29 — the same device answered with no wake at all
+### ⚠ 2026-08-29 — REFUTED as a rule: the same device answered cold, four times
 
-After a night off and a power cycle, the QC35 answered `01 06` → `01 06 03 02 01 0b`,
-`01 0b` → `01 0b 03 03 01 02 0f` and `00 01` → `1.0.4` on **fresh sockets carrying no
-block-`00`**. Everything above still happened; what is wrong is reading it as "a fresh
-socket is dead", which is a claim about the protocol. It is one device on one day.
+The silence above happened and is well measured. **What is wrong is the rule it was written
+as.** "A fresh socket answers nothing" is a claim about the protocol; it is a claim about a
+STATE this device was in on one afternoon.
 
-Two readings survive, and they are different worlds:
+Taken on a virgin session, immediately after a power cycle, with our activity force-stopped
+and every vendor app stopped — the logcat gap was checked afterwards to confirm nothing
+else touched the device:
 
-- the state **outlives a single RFCOMM link**, so a wake sent earlier in the device session
-  still counts and "per socket" was never the right unit; or
-- **a power cycle clears it**, and 2026-08-28 was a state the device had got into.
+    09:52:47  cold  01 06 01 00  →  01 06 03 02 01 0b     first frame of the session
+    09:53:44  cold  01 06 01 00  →  01 06 03 02 01 0b
+    09:53:54  cold  01 06 01 00  →  01 06 03 02 01 0b
+    09:59:10  cold  01 06 01 00  →  01 06 03 02 01 0b     after 5 min idle, gap verified quiet
 
-⚠ **2026-08-29 cannot decide between them, because the session was spoiled twice before the
-cold read** — once by a `probe.sh send` framing mistake that put SONY-framed bytes on the
-wire which parse as BMAP including a block `00`, and once by our own activity running while
-the device connected under it (`Registry.identifyBose` wakes on connect). Neither is
-subtractable after the fact.
+⚠ **`probe.sh raw`, never `probe.sh send`, for a Bose.** `send` applies SONY framing, and
+`3e 0c 00 00 00 00 04 01 06 01 00 18 3c` parses as BMAP frames — one of them block `00`,
+i.e. an accidental wake. That mistake spoiled the first attempt at this measurement.
 
-✅ **The BMAP protocol version has not moved**: `1.0.4` on both days, byte-identical. So a
-protocol-version bump is not the cause. ⚠ That is not "no firmware update" — a firmware
-revision can leave the protocol version alone.
+**What this establishes**
 
-**#1232 holds the one reading that separates the two worlds**, and it is only takeable in
-the first frames after a power cycle, from `probe.sh` with the activity stopped.
+- The silent state is **not** the normal condition of a fresh socket. Waking is kept because
+  it costs one read, NOT because a fresh socket is known to need it.
+- **Idle does not induce it**, at least to five minutes. That was the leading candidate,
+  because the QC45's one unexplained silence followed ~3.5 minutes idle.
+- **The BMAP protocol version has not moved**: `1.0.4` both days, byte-identical. ⚠ Not the
+  same as "no firmware update" — firmware can move without it.
+
+**What this does NOT establish**
+
+⚠ **That a power cycle clears the state.** The device was never observed silent on
+2026-08-29, so nothing was observed being cleared. The tempting sentence — "power cycling
+fixes it" — has no reading behind it.
+
+⚠ **What induces it.** Still unknown. Note the 2026-08-28 silence survived 28 minutes and
+**two RFCOMM reconnections**, so whatever holds it is not per-socket and not cleared by
+reconnecting. That pairing was never tested against a power cycle.
+
+**To make progress, the device has to be caught silent again** — the useful move then is a
+power cycle with a snoop armed, since that is the one transition never observed. Until then
+this is a state with a known cure, an unknown cause, and one ruled-out candidate.
 
 ⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
 version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally
