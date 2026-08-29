@@ -155,4 +155,61 @@ class FramesTest {
     }
 
     private fun hexOf(b: ByteArray) = b.joinToString(" ") { "%02x".format(it) }
+
+    /**
+     * ⚠⚠ **THE FAIL-CLOSED HALF, and the reason this classifier exists.** `reads` gates the
+     * dry-run, so anything it cannot place must come back false. `06 01 00` is the 2026-08-26
+     * frame the QC45 re-framed into a SET nobody typed; a classifier that guessed would have
+     * sent it.
+     */
+    @Test
+    fun `a frame that cannot be placed is not treated as a read`() {
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("06 01 00")))
+        assertEquals(false, Frames.reads(null, bytes("aa 35 01 01")))
+        assertEquals(false, Frames.reads(null, bytes("aa 42 09 01")))
+        assertEquals(false, Frames.reads(Channels.SONY, bytes("38 01 01")))
+        assertEquals(false, Frames.reads(null, ByteArray(0)))
+    }
+
+    /**
+     * ⚠ **And the half that stops it being a wall.** A classifier that returned false for
+     * everything would satisfy every test above and make the probe useless — these are the
+     * reads this app and its docs send constantly.
+     */
+    @Test
+    fun `the ordinary reads are still recognised as reads`() {
+        assertEquals(true, Frames.reads(Channels.SPP, bytes("01 06 01 00")))
+        assertEquals(true, Frames.reads(Channels.SPP, bytes("00 01 01 00")))
+        assertEquals(true, Frames.reads(Channels.SPP, BoseEq.get()))
+        assertEquals(true, Frames.reads(null, JblAutoPlay.get()))
+    }
+
+    /**
+     * ⚠⚠ **BES DIRECTION IS ONLY PARTLY DECIDABLE, AND THIS PINS THE PART THAT IS NOT.**
+     * `JblGestures.get()` is a genuine read that [Frames.reads] returns FALSE for, so it
+     * costs an `--apply`. That is deliberate: its shape is `aa 77 02 <GET> <arg>`, where
+     * the sub-command at index 3 says GET — but that byte has **no consistent meaning
+     * across drivers**. `JblGestures` uses `GET = 01, SET = 00`; another driver in
+     * `JblSettings` uses `GET = 00, SET = 01`, exactly inverted; a third uses `81`/`82`.
+     *
+     * So a generic index-3 rule would call a WRITE a read for half the drivers, which is
+     * the precise bug this classifier exists to avoid. Fail closed instead: a missed read
+     * costs one flag, a missed write costs the device.
+     */
+    @Test
+    fun `a getter whose direction is not generically decidable is not guessed at`() {
+        assertEquals(false, Frames.reads(null, JblGestures.get()))
+    }
+
+    /**
+     * ⚠ A BMAP write must not slip through as a read. `02` SET_GET writes before it reads
+     * and `05` START opens a transaction — neither is safe to send unasked.
+     */
+    @Test
+    fun `a BMAP set, set-get or start is not a read`() {
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 00 01 21")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 02 01 21")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 01 05 00")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("04 07 02 00")))
+    }
 }
