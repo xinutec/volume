@@ -12,6 +12,7 @@ import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Confirmation
 import org.xinutec.volume.protocol.Drivers
+import org.xinutec.volume.protocol.Frames
 import org.xinutec.volume.protocol.Hazards
 import org.xinutec.volume.protocol.Hex
 import org.xinutec.volume.protocol.SonyButton
@@ -197,6 +198,11 @@ class Probes(
         table2: Boolean,
         intent: Intent,
     ): Boolean {
+        // ⚠ **Printed for every send, allowed or refused, and BEFORE the verdict.** The
+        // hex is not checkable by a person — `aa 77 03 00 06 05` and `…05 06` differ by a
+        // transposition and bind different buttons — so the sentence is what makes a
+        // wrong frame visible while it can still be stopped. #1038.
+        emit("  means: ${Frames.describe(uuid, payload, table2)}")
         val r = Hazards.check(uuid, payload, table2) ?: return true
         if (intent.getBooleanExtra("force", false)) {
             emit("⚠ FORCED past a refusal: ${r.what}")
