@@ -12,6 +12,9 @@
 #   ./probe.sh settings <device> [k=v …]            EQ, multipoint, auto-off, button
 #   ./probe.sh free               force-stop every vendor app holding a channel
 #
+#   --apply                       actually SEND. Without it, anything not recognised as a
+#                                 read is printed and NOT sent — see Frames.reads.
+#
 # ⚠ Ops run in ProbeService, NOT the activity — an activity can be told to start and
 # never receive the intent (#967). Set VOLUME_PROBE_ACTIVITY=1 to route to the screen
 # instead, which is the only way to watch a run on the phone itself.
@@ -59,6 +62,20 @@ pick_device() {
       ;;
   esac
 }
+
+# ⚠ **DRY RUN IS THE DEFAULT for anything not recognised as a read.** `--apply` sends.
+# The app decides — see `Frames.reads` and `Probes.dryRun` — because a validator here would
+# protect only callers that come through this script, and the probe has been driven by
+# calling the service directly a dozen times.
+#
+# ⚠ Stripped from "$@" BEFORE the subcommands read their positional arguments, so it can be
+# written anywhere on the line without shifting `mac`, `uuid` or the hex into the wrong slot.
+APPLY=""
+_args=()
+for _a in "$@"; do
+  if [ "$_a" = "--apply" ]; then APPLY=1; else _args+=("$_a"); fi
+done
+set -- ${_args+"${_args[@]}"}
 
 DEV="$(pick_device)"
 ADB=("$ADB_BIN" -s "$DEV")
@@ -168,6 +185,9 @@ start_op() {
   # reports success and delivers nothing; `onStartCommand` is called for every start.
   # #967. `$ACT` is kept for `--activity`, which is still the way to watch a run on
   # the phone's own screen.
+  # ⚠ Added HERE rather than per subcommand: a send path that forgot it would silently
+  # apply by default, which is the one failure this flag exists to prevent.
+  [ -z "$APPLY" ] || set -- "$@" --ez apply true
   if [ -n "${VOLUME_PROBE_ACTIVITY:-}" ]; then
     "${ADB[@]}" shell am start -n "$ACT" -d "probe://run/$RUN_ID" --es run "$RUN_ID" "$@" \
       >/dev/null

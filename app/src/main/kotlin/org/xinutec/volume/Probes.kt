@@ -184,16 +184,9 @@ class Probes(
         // cannot skip it. Null when nothing is bonded at that address, which keeps the
         // old behaviour instead of guessing.
         val protocol = protocolOf(adapter, mac)
-        if (!refused(
-                uuid,
-                payload,
-                table2 = type == SonyFrame.TYPE_DATA_MDR_NO2,
-                intent,
-                protocol,
-            )
-        ) {
-            return
-        }
+        val table2 = type == SonyFrame.TYPE_DATA_MDR_NO2
+        if (!refused(uuid, payload, table2, intent, protocol)) return
+        if (dryRun(uuid, listOf(payload), table2, intent)) return
 
         val wire = if (raw) payload else SonyFrame.encode(type, seq, payload)
 
@@ -293,6 +286,40 @@ class Probes(
         }
         if (bad) emit("⛔ nothing was sent — the whole run is refused, not just the packet.")
         return bad
+    }
+
+    /**
+     * True if this run should STOP because it is a dry run.
+     *
+     * ⚠⚠ **DRY RUN IS THE DEFAULT AND `--apply` IS WHAT SENDS.** A forgotten flag has to be
+     * the safe outcome, not the destructive one ([[feedback_dry_run_default]]). The probe's
+     * job is to send hand-typed bytes at speed, so the thing it must not do is send a frame
+     * nobody meant.
+     *
+     * ⚠ **Reads are exempt, and that is not a loophole.** The rule is about MUTATION, and a
+     * read mutates nothing — gating reads would make this tool useless for the job it exists
+     * to do. [Frames.reads] decides, and it answers false for anything it cannot place, so
+     * "I am not sure" spends a flag rather than a device.
+     *
+     * ⚠ **All-or-nothing across a run**, matching [anyRefused]: a `seq` may be a
+     * transaction, so sending its read-shaped prefix and stopping at the first write would
+     * leave the device half way through one.
+     */
+    private fun dryRun(
+        uuid: String?,
+        packets: List<ByteArray>,
+        table2: Boolean,
+        intent: Intent,
+    ): Boolean {
+        if (intent.getBooleanExtra("apply", false)) return false
+        val writes = packets.filterNot { Frames.reads(uuid, it, table2) }
+        if (writes.isEmpty()) return false
+        emit("")
+        emit("◻ DRY RUN — nothing was sent. ${writes.size} of ${packets.size} packet(s) are")
+        emit("  not recognised as reads:")
+        writes.forEach { emit("    ${Hex.format(it)} — ${Frames.describe(uuid, it, table2)}") }
+        emit("  --ez apply true sends them. (probe.sh: --apply)")
+        return true
     }
 
     /**
@@ -427,6 +454,7 @@ class Probes(
         // the write tool — was the one without it: `04 07 02 00` CLEAR_DEVICE_LIST went
         // straight out. The shell's `check_frames` is a SHAPE rule and allows it.
         if (anyRefused(uuid, raw, table2, intent, protocolOf(adapter, mac))) return
+        if (dryRun(uuid, raw, table2, intent)) return
         var i = 0
         val err =
             Probe.exchangeAll(
@@ -856,6 +884,7 @@ class Probes(
         // until 2026-08-29 — the one place the repo's loudest standing rule applies.
         // A null uuid falls through to the BES rules, which is what catches it.
         if (anyRefused(null, packets, table2 = false, intent = intent)) return
+        if (dryRun(null, packets, table2 = false, intent = intent)) return
         var i = 0
         val err =
             Gatt.exchange(
