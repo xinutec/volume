@@ -515,6 +515,17 @@ was asked: it enumerates six settings and neither is among them. See "The silenc
 answered" below. What is still open is only *why* they answer nothing at all where every
 other absent function answers `04 01 04`.
 
+### ⚠⚠ EVERY "IT ANSWERS NOTHING, SO THIS MODEL LACKS IT" IN THIS FILE ASSUMES A WOKEN SESSION
+
+Silence is used as evidence of absence throughout this document. That inference is only
+safe on a session that has had a block-`00` read — because a QC35 in the un-woken state
+answers **nothing at all**, to every function, including ones it plainly supports (#1232).
+
+⚠ So any row here concluded from a fresh socket, before the wake was understood on
+2026-08-28, is worth re-checking: it may record the state of the session rather than a
+property of the device. The rows taken after the wake was wired are unaffected — the app
+sends it unconditionally.
+
 ## ⚠⚠ `04 01 05` DOES NOT MEAN "NOT GETTABLE" — it means "use Start" — 2026-08-26
 
 Captured Bose Connect cold-launching onto the QC35 (`~/.cache/volume-captures/
