@@ -15,6 +15,13 @@ frames straight out of the ACL stream has no such state.
 
     scripts/btsnoop.py <btsnoop-file> [more…] [--mac AA:BB:…] [--block 1f] [--all]
     scripts/btsnoop.py <btsnoop-file> --channels     which device said what, and where
+    scripts/btsnoop.py <btsnoop-file> --att --all    GATT, which is where the JBL talks
+
+⚠ **RFCOMM is not the whole log, and a GATT device reads as SILENT without `--att`.**
+The Bose pair speaks BMAP over RFCOMM; the JBL speaks BES over GATT and puts only HFP
+on RFCOMM. On 2026-08-29 a Personi-Fi capture showed zero RFCOMM payloads and no
+`aa`-prefixed frame for the JBL — which by the rule below reads as "nothing was sent" —
+while the same log held 7922 ATT packets carrying 1930 BES frames.
 
 Frames are matched by SHAPE — `<block> <fn> <operator> <len>` with the length
 agreeing with what follows — so a payload that merely contains a plausible byte pair
@@ -28,6 +35,7 @@ from __future__ import annotations
 import argparse
 import struct
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -37,7 +45,27 @@ from pathlib import Path
 EPOCH_OFFSET_US = 0x00DCDDB30F2F8000
 
 H4_ACL = 0x02
+
+# ATT's L2CAP channel is fixed at 0x0004, which is what makes GATT traffic findable
+# without tracking channel allocation the way RFCOMM needs.
+ATT_CID = 0x0004
+
+# The ATT opcodes that carry a value worth reading. A vendor frame travels as the
+# value of a write or a notification; the rest of ATT is discovery and bookkeeping.
+ATT_VALUE_OPS = {
+    0x0B: "ReadRsp",
+    0x12: "WriteReq",
+    0x1B: "Notify",
+    0x1D: "Indicate",
+    0x52: "WriteCmd",
+}
 H4_EVT = 0x04
+
+# LE links announce themselves through the LE Meta event rather than the BR/EDR
+# Connection Complete, with the address in the same place in both subevents.
+EVT_LE_META = 0x3E
+LE_CONNECTION_COMPLETE = 0x01
+LE_ENHANCED_CONNECTION_COMPLETE = 0x0A
 EVT_CONNECTION_COMPLETE = 0x03
 
 # The operators, from `docs/bose-read-surface.md`. A frame whose operator is outside
@@ -116,16 +144,38 @@ def handle_addresses(
     "the vendor app wrote to your QC45" into the record — caught only because the
     payload was five bytes where that device answers seven. **The tell was the data
     disagreeing with the label, which is not a check that always exists.**
+
+    ⚠ **LE links are announced by a DIFFERENT event, and missing it makes `--mac`
+    silently match nothing.** A GATT device connects through the LE Meta event, not
+    `EVT_CONNECTION_COMPLETE`; on 2026-08-29 that made `--att --mac <jbl>` print
+    "0 lines shown" over a log holding thousands of its frames — an empty answer that
+    reads exactly like the device having been quiet.
     """
     out: list[tuple[datetime, int, str]] = []
     for when, _sent, data in records:
-        if len(data) < 3 or data[0] != H4_EVT or data[1] != EVT_CONNECTION_COMPLETE:
+        if len(data) < 3 or data[0] != H4_EVT:
             continue
-        if len(data) < 12 or data[3] != 0x00:  # non-zero status: the link failed
+        if data[1] == EVT_CONNECTION_COMPLETE:
+            if len(data) < 12 or data[3] != 0x00:  # non-zero status: the link failed
+                continue
+            handle = struct.unpack_from("<H", data, 4)[0] & 0x0FFF
+            addr = data[6:12]
+        elif data[1] == EVT_LE_META and len(data) > 3 and data[3] in (
+            LE_CONNECTION_COMPLETE, LE_ENHANCED_CONNECTION_COMPLETE,
+        ):
+            # evt(1) code(1) plen(1) subevent(1) status(1) handle(2) role(1)
+            # peer_address_TYPE(1) peer_address(6) — ⚠ the type byte is easy to skip,
+            # and skipping it shifts every address one byte: the JBL's
+            # 70:4C:60:EC:2B:29 came out as 4C:60:EC:2B:29:01, which still LOOKS like
+            # a MAC and matches nothing.
+            if len(data) < 15 or data[4] != 0x00:
+                continue
+            handle = struct.unpack_from("<H", data, 5)[0] & 0x0FFF
+            addr = data[9:15]
+        else:
             continue
-        handle = struct.unpack_from("<H", data, 4)[0] & 0x0FFF
         # The address is little-endian on the wire and written the other way round.
-        out.append((when, handle, ":".join(f"{b:02X}" for b in reversed(data[6:12]))))
+        out.append((when, handle, ":".join(f"{b:02X}" for b in reversed(addr))))
     return out
 
 
@@ -145,16 +195,21 @@ def address_at(
     return best
 
 
-def rfcomm_payloads(records: list[tuple[datetime, bool, bytes]]) -> list[Payload]:
-    """Reassemble ACL fragments and pull the RFCOMM information field out of each.
+def _l2cap_pdus(
+    records: list[tuple[datetime, bool, bytes]],
+) -> Iterator[tuple[datetime, bool, int, int, bytes]]:
+    """Reassemble ACL fragments into whole L2CAP PDUs, with the channel they came on.
 
     ⚠ **Reassembly is not optional.** Bose batches its replies — eight frames in one
     write — and a batch crosses the ACL fragment boundary routinely. Reading only the
     first fragment silently truncates the interesting reply, which is the failure this
     repo already met once as "the device answered a short frame".
+
+    Yields `(when, sent, handle, cid, pdu)`. The CID is what separates GATT from
+    RFCOMM, and it used to be discarded here — which is why every JBL capture looked
+    empty until 2026-08-29 (see [att_payloads]).
     """
-    pending: dict[int, tuple[datetime, bool, bytearray, int]] = {}
-    out: list[Payload] = []
+    pending: dict[int, tuple[datetime, bool, bytearray, int, int]] = {}
     for when, sent, data in records:
         if not data or data[0] != H4_ACL or len(data) < 5:
             continue
@@ -170,16 +225,22 @@ def rfcomm_payloads(records: list[tuple[datetime, bool, bytes]]) -> list[Payload
         else:
             if len(body) < 4:
                 continue
-            l2_len, _cid = struct.unpack_from("<HH", body, 0)
-            pending[handle] = (when, sent, bytearray(body[4:]), l2_len)
+            l2_len, cid = struct.unpack_from("<HH", body, 0)
+            pending[handle] = (when, sent, bytearray(body[4:]), l2_len, cid)
         held = pending.get(handle)
         if held is None:
             continue
-        w, s, buf, want = held
+        w, s, buf, want, cid = held
         if len(buf) < want:
             continue
         del pending[handle]
-        pdu = bytes(buf[:want])
+        yield w, s, handle, cid, bytes(buf[:want])
+
+
+def rfcomm_payloads(records: list[tuple[datetime, bool, bytes]]) -> list[Payload]:
+    """The RFCOMM information field of every UIH frame in the log."""
+    out: list[Payload] = []
+    for when, sent, handle, _cid, pdu in _l2cap_pdus(records):
         frame = _rfcomm_information(pdu)
         if frame:
             # ⚠ **The DLCI is what separates the protocols**, and it has to be
@@ -187,8 +248,40 @@ def rfcomm_payloads(records: list[tuple[datetime, bool, bytes]]) -> list[Payload
             # runs several RFCOMM channels at once: on 2026-08-26 this log carried
             # Bose's BMAP alongside a protobuf stream whose bytes pass the BMAP shape
             # test by luck, and both would otherwise print as "frames".
-            out.append(Payload(when=w, sent=s, handle=handle,
+            out.append(Payload(when=when, sent=sent, handle=handle,
                                dlci=pdu[0] >> 3, data=frame))
+    return out
+
+
+def att_payloads(records: list[tuple[datetime, bool, bytes]]) -> list[Payload]:
+    """Attribute values carried over GATT, which is where the JBL talks.
+
+    ⚠ **This exists because a GATT device's capture reads as EMPTY otherwise.** On
+    2026-08-29 a Personi-Fi capture showed 0 RFCOMM payloads for the JBL and no
+    `aa`-prefixed frame anywhere, which by this file's own rule — an empty window is
+    evidence — says nothing was sent. 7922 ATT packets in the same log say otherwise.
+    The vendor app drives that model over GATT, and RFCOMM carried only HFP.
+
+    `dlci` on the returned [Payload] holds the ATT **attribute handle**, not a DLCI;
+    it is the nearest equivalent, and the caller prints it as `a<hex>` rather than `d<n>`.
+
+    ⚠ **`--mac` is unreliable here, and quietly so: an LE address ROTATES.** The JBL
+    answered on 70:4C:60:EC:2B:29 for nine minutes of this capture and on other
+    addresses either side, so filtering the whole log by one of them returns a
+    fraction of its traffic and looks like a complete answer. Its BR/EDR address
+    (28:6F:40:8A:D3:E4) matches NOTHING over ATT — different address space. Prefer
+    filtering by what the frames say: JBL BES frames start `aa`, so
+    `--att --all | grep "aa a1"` beats a MAC that expires.
+    """
+    out: list[Payload] = []
+    for when, sent, handle, cid, pdu in _l2cap_pdus(records):
+        if cid != ATT_CID or len(pdu) < 3 or pdu[0] not in ATT_VALUE_OPS:
+            continue
+        value = pdu[3:]
+        if value:
+            attribute = int.from_bytes(pdu[1:3], "little")
+            out.append(Payload(when=when, sent=sent, handle=handle,
+                               dlci=attribute, data=value))
     return out
 
 
@@ -258,6 +351,9 @@ def main() -> int:
                     help="only this RFCOMM channel; --channels lists them")
     ap.add_argument("--channels", action="store_true",
                     help="what each RFCOMM channel carried, then stop")
+    ap.add_argument("--att", action="store_true",
+                    help="read GATT (ATT) attribute values instead of RFCOMM — "
+                         "the JBL talks there, and RFCOMM looks empty for it")
     args = ap.parse_args()
 
     want_block = int(args.block, 16) if args.block else None
@@ -268,11 +364,19 @@ def main() -> int:
     records.sort(key=lambda r: r[0])
 
     connections = handle_addresses(records)
-    payloads = rfcomm_payloads(records)
+    transport = "ATT" if args.att else "RFCOMM"
+    payloads = att_payloads(records) if args.att else rfcomm_payloads(records)
     if not payloads:
         # ⚠ An empty result is EVIDENCE, and saying so is the whole point — see
         # `docs/captures.md`: no ACL means nothing was sent, not that this missed it.
-        print(f"{len(records)} HCI packets, NO RFCOMM payloads at all.", file=sys.stderr)
+        #
+        # ⚠⚠ **But only for the transport you asked about.** A GATT device is silent
+        # on RFCOMM by construction, so "no RFCOMM payloads" about a JBL is a fact
+        # about this flag, not about the device. Say which was read, and say what to
+        # try next, or the empty answer gets quoted as "nothing was sent".
+        other = "--att" if not args.att else "without --att"
+        print(f"{len(records)} HCI packets, NO {transport} payloads at all. "
+              f"If the device talks GATT, try {other}.", file=sys.stderr)
         return 1
 
     if args.channels:
@@ -309,7 +413,8 @@ def main() -> int:
         arrow = "→" if p.sent else "←"
         if frames is None:
             if args.all:
-                print(f"{local:%H:%M:%S.%f}  {arrow} d{p.dlci:<2} raw  {p.data.hex(' ')}")
+                chan = f"a{p.dlci:04x} " if args.att else f"d{p.dlci:<2} "
+                print(f"{local:%H:%M:%S.%f}  {arrow} {chan}raw  {p.data.hex(' ')}")
                 shown += 1
             continue
         if want_block is not None and not any(f[0] == want_block for f in frames):
@@ -320,7 +425,7 @@ def main() -> int:
             print(f"{local:%H:%M:%S.%f}  {arrow} d{p.dlci:<2} {show(f)}")
             shown += 1
 
-    print(f"\n{len(records)} HCI packets, {len(payloads)} RFCOMM payloads, "
+    print(f"\n{len(records)} HCI packets, {len(payloads)} {transport} payloads, "
           f"{shown} lines shown.", file=sys.stderr)
     return 0
 

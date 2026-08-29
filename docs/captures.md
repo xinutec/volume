@@ -53,8 +53,24 @@ capture** — `aa 40 01 01` drawing nothing is the signal to stop, not to try `a
 
 ### Extracting
 
+    adb shell bugreportz                      # ⚠ wait for the .tmp to VANISH first
+    adb pull /data/user_de/0/com.android.shell/files/bugreports/<name>.zip
     unzip -o -q bugreport-*.zip 'FS/data/misc/bluetooth/logs/*' -d extracted
     scripts/btsnoop.py extracted/FS/data/misc/bluetooth/logs/btsnoop_hci.log{.last,}
+    scripts/btsnoop.py …/btsnoop_hci.log{.last,} --att --all | grep "aa a1"   # GATT
+
+⚠ **The `.zip` exists BEFORE it is finished.** `bugreportz` leaves a `.tmp` beside it
+until the central directory is written. Pulling early gives a file with valid zip magic
+that `unzip` rejects with "cannot find zipfile directory" — and ⚠ **the size matches the
+device's at that instant**, so comparing sizes says "complete". Gate on the `.tmp`
+disappearing. Cost a pull and a re-pull on 2026-08-29; the finished file was 48 MB
+against the 10 MB that had looked whole.
+
+⚠ **`--att` or a GATT device reads as silent.** The JBL puts only HFP on RFCOMM; its
+BES frames ride ATT. Without `--att` its capture is empty, which the rule below would
+have you read as "nothing was sent". ⚠ `--mac` is near-useless there — an LE address
+rotates mid-capture and the device's BR/EDR address matches nothing over ATT — so filter
+on the frames (`grep "aa a1"`), not the address.
 
 ⚠ **`tshark` is NOT available on this Mac and should not be planned around.** On
 2026-08-26 there was no binary in the store and `nix shell nixpkgs#wireshark-cli`

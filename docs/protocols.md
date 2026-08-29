@@ -807,9 +807,38 @@ earlier sweep looked silent: the feature needs a 6 MB download before it will ru
 all. Once downloaded, this device already had a profile stored, so the switch could be
 cycled without anyone taking a hearing test.
 
-⚠ **`aa 9a` EarCanalTesting is still unexercised** — that is the RETEST button, and it
-plays tones into someone's ears. It is the one command here that cannot be reached
-without a person volunteering for it.
+⚠ **`aa 9a` EarCanalTesting is still unexercised as a TEST TRIGGER.** Pippijn ran RETEST
+on 2026-08-29 and the only `9a` on the wire was `→ aa 9a 01 01` with **no reply** — the
+same silent get this file already recorded. Whatever starts the test, it is not that.
+
+### ✅ `aa 99` EnvironmentNoiseCheckCmd — decoded from a RETEST run, 2026-08-29
+
+Step 1 of 3 of "Getting Ready" is an automatic ambient-noise measurement, and it is this:
+
+```
+→ aa 99 01 01     ← aa 99 05 02 1e 00 1e 00      about 5 s later
+```
+
+Three runs, all `1e 00 1e 00` in a quiet room, each taking ~5 s between request and reply.
+⚠ **The reading of the payload is INFERRED**: two little-endian 16-bit values, both
+`0x001e` = 30, most likely a per-side noise level. Nothing establishes the unit or which
+side is which — a quiet room gives no contrast, so this needs a noisy re-run to confirm
+the fields move independently.
+
+### ⚠ `aa a1` carries keys beyond `01`
+
+The RETEST flow drove two more keys through the same set grammar, 34 sets in one run:
+
+```
+→ aa a1 03 00 02 <v>    ← aa a1 03 02 02 <v>     v = 00 / 01, at start and mid-run
+→ aa a1 03 00 04 <v>    ← aa a1 03 02 04 <v>     v = 01 then 02 repeatedly, per step
+```
+
+⚠ **What the keys MEAN is not established** — `02` moved at the start and once mid-run,
+`04` stepped `01` → `02` and then repeated. They are recorded as observed traffic, not as
+named fields. ⚠ **No curve and no profile bytes appeared at any point**, which is
+consistent with a run that never completed: see #981, where the vendor app wedges at step
+2 of 18.
 
 ⚠ **TEST REPORT sends NOTHING.** The per-ear curve it draws is app-side in that window;
 no frame carried it. ⚠ And it is someone's hearing profile — a repo this public gets
