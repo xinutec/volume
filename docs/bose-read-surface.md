@@ -1924,6 +1924,30 @@ exactly one entry. **The recovery path is proven**: Settings → the device's ge
 Disconnect, then Connect, after which the BMAP channel answers again (measured 2026-08-28).
 So the cost of trying it is bounded; it simply has not been tried.
 
+### ⚠⚠ The QC45 answers INTERMITTENTLY, and it is not the QC35's phenomenon — 2026-08-30
+
+Six back-to-back `00 01` reads on the QC45, seconds apart:
+
+    silent · answer · silent · answer · silent · silent
+
+**Roughly half, alternating on the SAME frame** — not a session gate that one block-`00`
+closes. The QC35's silence is binary and stays cured once woken; this one does not stay
+anything. An earlier one-off (the wake frame itself drawing nothing, then answering 40 s
+later) was recorded as unexplained; this is that, reproduced and characterised.
+
+⚠⚠ **A SILENT QC45 REPLY PROVES NOTHING ABOUT A FRAME.** This was one step from being
+written down as "`04 0b` P2pMode is unsupported on the QC45": that run had `00 01` and
+`01 06` — both known-good — silent, while `04 0d` answered between them. **Ask a known-good
+frame in the same breath as an unknown one**, or the device's mood gets recorded as a fact
+about the protocol.
+
+⛔ **Not contention, and not the phone.** Measured with BOTH Bose connected simultaneously:
+the QC35 answered **4/4** while the QC45 managed **2/6**, same radio, same minute.
+
+⚠ **One confound is untested.** The QC45 was the ACTIVE A2DP device and the QC35 was not, so
+"flaky" and "active" have never been separated. Make the QC35 active and re-run both before
+believing this is about device identity.
+
 ### ✅ Music Share is P2P, and its state READS — QC35, 2026-08-30
 
 The vendor app's **Music Share** row had never been placed on the wire. It is the `P2p`
