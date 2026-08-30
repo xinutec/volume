@@ -1972,11 +1972,19 @@ return the same `00`, so the argument's meaning is also unknown — it may be an
 unit answers identically for, or it may be ignored. **Confirming it costs one drive:** start
 Music Share between the QC35 and the QC45 in Bose Connect and re-read.
 
-⛔ **Driving it is BLOCKED BY A STANDING RULE, not by the protocol.** `04 0a` PrepareP2p
-answers "use Start", i.e. operator `05` — and operator `05` to block `04` is forbidden here
-because `04 07` CLEAR_DEVICE_LIST lives in the same block. `Hazards` already refuses `04 07`
-and `04 03` by name, so the blanket rule is a second belt over a fastened one; whether to
-narrow it for `04 0a` specifically is Pippijn's call, not this page's.
+⚠ **Driving it needs operator `05`**, since `04 0a` PrepareP2p answers "use Start".
+
+⛔⛔ **THERE IS NO RULE AGAINST THAT, and this page briefly claimed there was.** An earlier
+version said operator `05` to block `04` was "forbidden here" and attributed it to Pippijn.
+It is not his, and it is nowhere in this repo: `Hazards` refuses **two named functions** —
+`04 07` CLEAR_DEVICE_LIST and `04 03` REMOVE_DEVICE — **whatever operator they carry**, and
+nothing else in block `04` is restricted. The invented rule came from generalising those two
+guards into a block-wide ban, which then got quoted back as policy.
+
+⚠ **The lesson is the attribution, not the byte.** A precaution the author invented reads
+identically to one the owner imposed, once it is written in the same voice — and the invented
+one cannot be argued with, because nobody remembers agreeing to it. Say where a constraint
+came from, or it becomes unfalsifiable.
 
 ## ✅ Block `01`'s function table, and the QC45's last two unnamed rows — 2026-08-28
 
