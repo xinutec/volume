@@ -414,6 +414,42 @@ show that, which is the limit of counting them.
 2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the
 same reason it was cheap: `GetSetFeatureCmd` names its own keys.
 
+### ⚠ What Bose Connect has, and what we have — QC35, 2026-08-30
+
+The same exercise for the QC35, which had never had one. Rows read off Bose Connect with
+`scripts/drive_bose.py --survey` (which taps nothing), against the driver's own surface.
+
+⚠ **This is the QC35 / Bose CONNECT only.** The QC45 is a Bose MUSIC device — a different
+app with different rows — so it needs its own survey and does not inherit this table.
+
+| Bose Connect's row | wire | us |
+| --- | --- | --- |
+| battery (home screen) | ✅ `02 02` | ✅ read |
+| Name | ✅ `01 02` | ✅ r/w, rename driven |
+| Connections | ✅ multipoint `01 0a`, pairing `04 08`, forget `04 03` | ✅ r/w |
+| Product Tour | ⚪ app content, no wire | n/a |
+| **Music Share** | ⚠ `04 0a` PrepareP2p · `04 0b` P2pMode · `04 0d` P2pFeatures | ⛔ **ABSENT** |
+| Noise Cancellation | ✅ `01 06` | ✅ r/w |
+| Action Button | ✅ `01 09` | ✅ r/w |
+| Self Voice | ✅ `01 0b` sidetone | ✅ r/w |
+| Standby Timer | ✅ `01 04` | ✅ r/w |
+| Voice Prompts | ✅ `01 03` | ✅ r/w |
+| Prompt Language | ✅ `01 03` language mask | ⛔ excluded — the picker pushes a file over DFU |
+| **DISCONNECT** | ✅ `04 02`, decoded 2026-08-28 | ⛔ **decoded, never sent** |
+| User Manual · Product Info | ⚪ app content | n/a |
+
+**Thirteen rows: nine driven, two app-only, two absent from our app.**
+
+⚠⚠ **Music Share was found by ACCIDENT, and that is the argument for this table.** It
+surfaced only because a survey happened to be run for another reason; nothing in the repo
+had ever named it, while `docs/bose-read-surface.md` said "the QC45 is finished". A claim
+of completeness that no column supports is how a whole feature stays invisible — the JBL
+table exists for exactly this reason and Bose had gone without one.
+
+⚠ **The two gaps are different in kind.** Music Share is undecoded work (`04 0b` reads, its
+meaning unconfirmed). `04 02` DISCONNECT is fully decoded and deliberately unsent — three
+independent readings agree on the frame, and agreement is not the same as having sent it.
+
 ### ✅ Switching the JBL OFF — found missing 2026-08-17 23:47, driven 2026-08-23 16:32
 
 The one thing a JBL owner most obviously wants, and for a week this app could not do it:
