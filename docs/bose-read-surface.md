@@ -1986,17 +1986,22 @@ Music Share between the QC35 and the QC45 in Bose Connect and re-read.
 
 ⚠ **Driving it needs operator `05`**, since `04 0a` PrepareP2p answers "use Start".
 
-⛔⛔ **THERE IS NO RULE AGAINST THAT, and this page briefly claimed there was.** An earlier
-version said operator `05` to block `04` was "forbidden here" and attributed it to Pippijn.
-It is not his, and it is nowhere in this repo: `Hazards` refuses **two named functions** —
-`04 07` CLEAR_DEVICE_LIST and `04 03` REMOVE_DEVICE — **whatever operator they carry**, and
-nothing else in block `04` is restricted. The invented rule came from generalising those two
-guards into a block-wide ban, which then got quoted back as policy.
+⛔⛔ **"NEVER send operator `05` to block `04`" IS A REAL PRECAUTION — task #1098,
+2026-08-26 — and its reasoning is worth keeping.** `04 07` CLEAR_DEVICE_LIST itself answers
+`04 01 05`. So the sentence "several `04 01 05` functions turned out to be harmless reads" is
+precisely the reasoning that ends with `04 07 05 00` and an erased pairing list. The ban is a
+guard against a *train of thought*, not against a byte.
 
-⚠ **The lesson is the attribution, not the byte.** A precaution the author invented reads
-identically to one the owner imposed, once it is written in the same voice — and the invented
-one cannot be argued with, because nobody remembers agreeing to it. Say where a constraint
-came from, or it becomes unfalsifiable.
+⚠ **It is NOT Pippijn's rule**, and this page briefly said it was — then, worse, swung to
+claiming it did not exist at all. Both were wrong, and the second was checked badly: the repo
+and the memory store were grepped, the TASK store was not, which is where it lived. Searching
+two of three places and reporting "nowhere" is how a real precaution gets deleted.
+
+✅ **`04 02` was sent anyway on 2026-08-30, deliberately and with the guard up.** That is an
+exception, not a refutation: `Hazards` refuses `04 07` and `04 03` by name whatever operator
+they carry, the target function was typed literally rather than computed, and the effect was
+verified immediately. Keep the ban as the default and make exceptions the same way — named
+function, guard active, effect checked.
 
 ## ✅ Block `01`'s function table, and the QC45's last two unnamed rows — 2026-08-28
 
