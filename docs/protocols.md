@@ -440,6 +440,35 @@ app with different rows — so it needs its own survey and does not inherit this
 
 **Thirteen rows: nine driven, two app-only, two absent from our app.**
 
+#### ⚠ The QC45 could NOT be surveyed the same way — Bose Music is opaque, 2026-08-30
+
+Bose Music (`com.bose.bosemusic`) shows the QC45 six tiles, and all four functional ones map
+onto things this repo already drives:
+
+| tile | wire | us |
+| --- | --- | --- |
+| Modes | `01 05` ANC + `1f` custom modes | ✅ driven |
+| Source | connections / multipoint | ✅ driven |
+| EQ | `01 07` tone | ✅ driven |
+| Shortcut | `01 09` action button | ✅ driven |
+| Tips · Product Support | ⚪ app content | n/a |
+
+⛔ **This is NOT a parity table and must not be counted as one.** The JBL and QC35 tables are
+trustworthy because every row of the vendor screen was enumerated. Here the enumeration
+FAILED: everything above the tile grid — where the battery, product name and any settings
+entry live — **exposes no accessibility nodes at all**, not merely empty `text`. `uiautomator`
+returns the six tiles and nothing else, and a swipe does not scroll (the activity and the row
+list are unchanged after one), so there is no more to reach by scrolling.
+
+⚠ **So "the QC45 is finished" remains an assertion.** What can be said is narrower: *the part
+of Bose Music that is machine-readable contains nothing we do not already drive.* Settings
+reached from the invisible chrome — rename, standby timer, self voice, voice prompts, all of
+which this repo drives from the wire — were never confirmed present in the app's own screens.
+
+⚠ **Completing it needs a different instrument**, not more of this one: a screenshot read by
+eye, or the app's own resources. Recorded so nobody re-runs the survey and concludes the app
+is empty.
+
 ⚠⚠ **Music Share was found by ACCIDENT, and that is the argument for this table.** It
 surfaced only because a survey happened to be run for another reason; nothing in the repo
 had ever named it, while `docs/bose-read-surface.md` said "the QC45 is finished". A claim
