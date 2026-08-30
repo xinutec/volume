@@ -66,6 +66,10 @@ TILE_GAP = 60
 
 REMOTE_DUMP = "/sdcard/window_dump.xml"
 
+# ⚠ The device policy's `maximumTimeToUnlock` on this phone. Writing more than this to
+# `screen_off_timeout` is accepted, reads back, and does nothing. See [screen_timeout].
+POLICY_MAX_MS = "300000"
+
 
 class NotInVendorApp(RuntimeError):
     """The foreground app is not the one we mean to drive."""
@@ -91,6 +95,17 @@ def focused_package() -> str:
     return found.group(1) if found else ""
 
 
+def focused_activity() -> str:
+    """The focused activity's short name, or "" — for reporting a navigation landed.
+
+    ⚠ A screen change is the only evidence [Driver.enter] can offer. A setting can be
+    read back and proved; a tap that opens a screen cannot, so say where it went.
+    """
+    dump = adb("shell", "dumpsys", "window", check=False)
+    found = re.search(r"mCurrentFocus=Window\{\S+ \S+ [^/}]+/(\S+?)\}", dump)
+    return found.group(1).rsplit(".", 1)[-1] if found else ""
+
+
 def screen_timeout(value: str | None = None) -> str:
     """Read, or set, the display sleep in milliseconds.
 
@@ -100,6 +115,18 @@ def screen_timeout(value: str | None = None) -> str:
     was 10:49:05, the screen went dark at 10:54 on a five-minute timeout, and preflight
     spent its full budget waiting for an app it had itself sent to the lock screen,
     then reported "never came up focused and connected". The device was fine.
+
+    ⚠⚠ **AND THE FIX FOR THAT DID NOT WORK — a value above the device policy's maximum
+    is SILENTLY CAPPED.** This phone carries `maximumTimeToUnlock=300000`, so the old
+    `1800000` was stored, read back as `1800000` by `settings get`, and still let the
+    display sleep at five minutes. The setting agreeing with what was written is not
+    evidence that it applies. Check the real ceiling with:
+
+        adb shell dumpsys device_policy | grep -i maximumTimeToUnlock
+
+    So five minutes is the most this can buy, and a run that goes longer than that
+    without a touch WILL still sleep. The only real wake lock on this phone is the
+    split-screen agent console.
     """
     if value is None:
         return adb("shell", "settings", "get", "system", "screen_off_timeout", check=False).strip()
@@ -149,6 +176,11 @@ class Node:
     checkable: bool
     checked: bool
     clickable: bool
+    # ⚠ **An affordance with EMPTY text is invisible to the whole label layer.** Bose
+    # Connect's landing screen carries every control this way — the settings gear is
+    # `content-desc="Settings"` with `text=""` — so a driver matching on text scrolls a
+    # screen it structurally cannot see. Measured 2026-08-30.
+    desc: str = ""
 
     @property
     def centre(self) -> tuple[int, int]:
@@ -191,6 +223,7 @@ def _nodes(root: ET.Element) -> Iterator[Node]:
             continue
         yield Node(
             text=element.get("text", ""),
+            desc=element.get("content-desc", ""),
             x0=numbers[0],
             y0=numbers[1],
             x1=numbers[2],
@@ -237,6 +270,20 @@ def survey() -> list[str]:
 
 def label(nodes: list[Node], want: str) -> Node | None:
     return next((n for n in nodes if n.text == want), None)
+
+
+def described(nodes: list[Node], want: str) -> Node | None:
+    """Find a CLICKABLE node by its `content-desc`, for screens with no text.
+
+    ⚠ Requires exactly ONE match. Two nodes describing themselves the same way is a
+    screen this cannot aim at, and guessing between them is how the wrong control gets
+    tapped — the fault this module exists to prevent.
+    """
+    want = want.strip().lower()
+    hits = [n for n in nodes if n.clickable and n.desc.strip().lower() == want]
+    if len(hits) != 1:
+        return None
+    return hits[0]
 
 
 def switch_for(nodes: list[Node], want: str) -> Node | None:
@@ -507,8 +554,24 @@ class Driver:
     def cycle(self, want: str) -> bool:
         return self.flip(want) and self.flip(want)
 
+    def enter(self, want: str) -> bool:
+        """Tap a `content-desc` affordance to NAVIGATE — not to change a setting.
 
-def preflight(driver: Driver) -> None:
+        Separate from [tap] on purpose: this one is for gears and back-arrows, whose
+        effect is a screen change rather than a value, so there is no switch to read
+        back and prove it moved. It reports the activity it landed on instead.
+        """
+        node = described(dump(), want)
+        if node is None:
+            say(f"!! nothing clickable is described '{want}' on this screen")
+            return False
+        self.tap(node, want)
+        time.sleep(self.wait)
+        say(f"    entered '{want}' -> {focused_activity()}")
+        return True
+
+
+def preflight(driver: Driver, ready: str, landing_scrolls: bool) -> None:
     """Release our link, put the VENDOR app in front, and prove it is there.
 
     ⚠ Two separate facts, and conflating them is what went wrong: the app must be
@@ -519,6 +582,17 @@ def preflight(driver: Driver) -> None:
     if locked():
         raise RuntimeError("the phone is locked — unlock it and re-run")
     adb("shell", "am", "force-stop", OURS, check=False)
+    # ⚠⚠ **THE VENDOR APP TOO, or "launch" means "resume wherever it was left".** The
+    # readiness check looks for a battery reading, and that is drawn on the app's LANDING
+    # screen — so an app resumed deep in its own settings never satisfies it, polls the
+    # full budget, and reports "never came up focused and connected" about a phone that is
+    # fine. Measured 2026-08-30 on Bose Connect, which came back on
+    # `ProductSettingsActivity` because that is where the previous command left it.
+    #
+    # ⚠ Same failure the scroll-position note below describes, one level up: there the
+    # check depended on where the LIST was scrolled, here on which ACTIVITY is resumed.
+    # A readiness check that depends on prior state reports the prior state.
+    adb("shell", "am", "force-stop", VENDOR, check=False)
     time.sleep(2)
     adb(
         "shell", "monkey", "-p", VENDOR, "-c",
@@ -537,6 +611,14 @@ def preflight(driver: Driver) -> None:
         # Connected == the app draws a battery reading. ⚠ Scoped to the vendor app
         # by the focus check above: on its own this regex matched another app.
         #
+        # ⚠⚠ **THE SHAPE OF THAT READING IS PER-APP, so the caller supplies it.** JBL
+        # draws `70%`; Bose Connect draws `70`, with no percent sign — measured
+        # 2026-08-30. A hardcoded `\d+%` was correct for the app it was written against
+        # and silently never matches the other one, which costs the poll's FULL budget
+        # and then reports "never came up focused and connected" about a healthy phone.
+        # That is the same false negative this function already warns about, by a new
+        # route: the readiness check reporting on itself rather than on the device.
+        #
         # ⚠ `dump()` asserts focus AGAIN and raises if it has moved, so it must be
         # caught HERE. Launching the app puts the launcher in front for an instant,
         # and letting that escape aborts the whole run during the very loop whose job
@@ -550,8 +632,23 @@ def preflight(driver: Driver) -> None:
             # readiness check that depends on scroll position reports the scroll
             # position. Going to the top first also gives every run the same starting
             # place, which is what makes a scroll count mean anything.
-            to_top()
-            settled = any(re.fullmatch(r"\d+%", n.text) for n in dump())
+            # ⚠⚠ **CHECK BEFORE SCROLLING, because a swipe is not always a scroll.**
+            # On Bose Connect a single swipe on the landing screen NAVIGATES into
+            # settings — measured 2026-08-30 — which throws away the battery reading
+            # this is waiting for, so scrolling first guaranteed the check could never
+            # pass. Checking first also keeps the JBL fix below intact: an app left
+            # scrolled down simply fails the first look and gets `to_top`.
+            settled = any(re.fullmatch(ready, n.text) for n in dump())
+            # ⚠⚠ **THE FALLBACK IS IRREVERSIBLE ON SOME APPS, so it is opt-in.** Scrolling
+            # to recover assumes a swipe is undoable. On Bose Connect one swipe LEAVES the
+            # landing screen for good, taking the battery reading with it — so a check that
+            # merely raced the app's first paint would scroll itself somewhere it can never
+            # pass, and poll the full budget from there. A recovery action that can destroy
+            # the condition it is recovering is worse than no recovery: without it, the next
+            # poll simply looks again and succeeds.
+            if not settled and landing_scrolls:
+                to_top()
+                settled = any(re.fullmatch(ready, n.text) for n in dump())
         except NotInVendorApp:
             continue
         if settled:
@@ -580,6 +677,8 @@ def run(
     banner: str,
     description: str,
     default: str,
+    ready: str,
+    landing_scrolls: bool,
 ) -> int:
     configure(package)
     parser = argparse.ArgumentParser(description=description)
@@ -675,10 +774,12 @@ def run(
     # run and given back in `finally` — including on Ctrl-C, because leaving someone's
     # screen set to never sleep is not a thing to do silently.
     was = screen_timeout()
-    say(f"screen sleep held off for the run (was {was} ms)")
-    screen_timeout("1800000")
+    # ⚠ The policy maximum, NOT a large number: anything above it is silently capped and
+    # reads back as whatever was written. See [screen_timeout].
+    say(f"screen sleep pushed to the {POLICY_MAX_MS} ms ceiling for the run (was {was} ms)")
+    screen_timeout(POLICY_MAX_MS)
     try:
-        preflight(driver)
+        preflight(driver, ready, landing_scrolls)
         for name in chosen:
             require_vendor()
             groups[name](driver)
