@@ -1912,12 +1912,24 @@ REMOVE_DEVICE, which this repo already sends as `04 03 05 06 <address>`. So the 
 
     04 02 05 06 <6-byte address>
 
-⚠⚠ **This has NOT been sent, and no writer for it exists in this repo.** The precedent is
-`BosePairing`, which implements entering pairing mode and refuses to implement leaving it:
-"presumably is not a word this file gets to use about an untested frame". Three independent
-lines point at this frame — the decompiled function byte, the packet class's operator and
-payload shape, and #935's own observation that removing a CONNECTED device drew unsolicited
-`04 02` frames back — but agreement between three readings is not the same as having sent it.
+✅ **SENT AND CONFIRMED — QC35, 2026-08-30 21:49:58.** The three readings were right:
+
+    → 04 02 05 06 <phone addr>        START
+    ← 04 02 07 07 21 <phone addr>     operator 07 PROCESSING, status byte 21
+
+and the phone's own log shows the cause, 0.6 s later — `Removed from HFP` at 21:49:58.802,
+`Removed from A2DP` at 21:49:58.826, against a send at 21:49:58.179. The QC35 then read
+`STATE_DISCONNECTED`. Reconnecting from the phone's Bluetooth settings restores it.
+
+⚠ **Operator `06` RESULT was never seen**, only `07` PROCESSING — unsurprising, since the
+link this reply would travel over is the one being torn down. So the transaction is confirmed
+by its EFFECT, not by its completion. ⚠ The status byte `21` is undecoded.
+
+⚠ **What it took to get here was not more evidence.** Three independent readings already
+agreed — the decompiled function byte, the packet class's operator and payload shape, and
+#935's unsolicited `04 02` frames. What blocked it for two days was an invented rule (see the
+Music Share section), not a gap in the decode. Agreement between readings is not proof, but
+neither is a precaution nobody can source.
 
 ⚠ Driving it disconnects whatever address it names, and the QC45's device list holds
 exactly one entry. **The recovery path is proven**: Settings → the device's gear →
