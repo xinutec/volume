@@ -218,9 +218,10 @@ is a state it gets into and not how a fresh socket behaves. **Idle is not it eit
 minutes untouched, one cold read, answered. ⚠ **2026-08-30 refuted the phone reboot too** and
 caught the whole thing live: silent on `01 06`, `01 01` AND `04 04`, then all three answering
 after one `00 01`, at **26.3 hours** since boot and 13 s since reconnect. So the silence is
-every block except `00`, not block `01`, and neither clock causes it. What is left is how
-long the headset was powered OFF — 25 h off was silent, 20 s off answered — and that is
-confounded with the gap since last contact.
+every block except `00`, not block `01`, and neither clock causes it. **Isolated the same evening by a
+matched control**: 20 min 51 s POWERED OFF was silent, 20 min 30 s of no contact with the
+headset on and awake answered. Being powered off is the cause; the contact gap is a
+bystander. ~20 s off answers, so it is the duration off, not the act.
 
 **#1191, on the QC45, 2026-08-28 — 18 requests → 4, 946 ms → 292 ms** for one card open,
 measured on the wire across three builds. Three causes, none of them the ones the task had
