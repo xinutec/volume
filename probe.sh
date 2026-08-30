@@ -412,7 +412,12 @@ case "${1:-list}" in
     [ -n "${5:-}" ] && args+=(--es type "$5")
     [ -n "${6:-}" ] && args+=(--es seq "$6")
     start_op "${args[@]}"
-    watch_log 8
+    # ⚠ Overridable, and the ONLY op that was not. 8 s does not cover an RFCOMM connect
+    # to a device that is off — measured 2026-08-30, the window shut before `✗ no
+    # exchange` was even printed, so the run showed the echo and nothing else. For the
+    # #1232 cold read that is a FALSE SILENT: "no reply" only means anything after
+    # `✓ connected`, so a short window manufactures the phenomenon being measured.
+    watch_log "${SEND_WAIT:-8}"
     ;;
   *)
     sed -n '2,13p' "${BASH_SOURCE[0]}" >&2
