@@ -1924,6 +1924,36 @@ exactly one entry. **The recovery path is proven**: Settings → the device's ge
 Disconnect, then Connect, after which the BMAP channel answers again (measured 2026-08-28).
 So the cost of trying it is bounded; it simply has not been tried.
 
+### ✅ Music Share is P2P, and its state READS — QC35, 2026-08-30
+
+The vendor app's **Music Share** row had never been placed on the wire. It is the `P2p`
+family in the block-`04` table above, and asking the QC35 each function separates them:
+
+| asked | reply | meaning |
+| --- | --- | --- |
+| `04 0d 01 00` P2pFeatures | `04 01 04` | function not supported on this model |
+| `04 0e 01 00` Features | `04 01 04` | function not supported |
+| `04 0b 01 00` P2pMode | `04 01 01` | bad/missing argument — **the function EXISTS** |
+| `04 0a 01 00` PrepareP2p | `04 01 05` | a Start transaction, as "prepare" implies |
+
+✅ **`04 0b` P2pMode takes a ONE-byte argument and answers:**
+
+    → 04 0b 01 01 00    ← 04 0b 03 01 00      operator 03 STATUS, value 00
+    → 04 0b 01 01 01    ← 04 0b 03 01 00      same value for arg 01
+    → 04 0b 01 02 00    ← 04 0b 04 01 01      two bytes is a bad argument
+
+⚠ **`00` is ASSUMED to mean "not sharing" and that is not established.** No Music Share
+session has been run, so nothing has been observed changing. Both arg `00` and arg `01`
+return the same `00`, so the argument's meaning is also unknown — it may be an index this
+unit answers identically for, or it may be ignored. **Confirming it costs one drive:** start
+Music Share between the QC35 and the QC45 in Bose Connect and re-read.
+
+⛔ **Driving it is BLOCKED BY A STANDING RULE, not by the protocol.** `04 0a` PrepareP2p
+answers "use Start", i.e. operator `05` — and operator `05` to block `04` is forbidden here
+because `04 07` CLEAR_DEVICE_LIST lives in the same block. `Hazards` already refuses `04 07`
+and `04 03` by name, so the blanket rule is a second belt over a fastened one; whether to
+narrow it for `04 0a` specifically is Pippijn's call, not this page's.
+
 ## ✅ Block `01`'s function table, and the QC45's last two unnamed rows — 2026-08-28
 
 Same method as block `04`: `BmapFunction`'s `<clinit>` names each entry's block and byte.
