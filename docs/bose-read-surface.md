@@ -15,7 +15,9 @@ early parts are snapshots that later sections correct.** It is kept that way on 
 the wrong turns are the most reusable thing on this page. But it means the section you hit
 first is often not the current answer, so the current answer lives here.
 
-**The QC45 is finished.** Every function it answers is decoded and driven from the card:
+**The QC45 is finished** — and as of 2026-08-30 that is a CHECKED claim, not an assertion:
+every row of its Bose Music settings screen is placed in `docs/protocols.md`, "What Bose
+Music has, and what we have". Every function it answers is decoded and driven from the card:
 
 | what | wire | state |
 |---|---|---|
