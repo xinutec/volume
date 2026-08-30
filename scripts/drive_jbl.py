@@ -216,6 +216,10 @@ def main() -> int:
         package=VENDOR,
         banner="=== JBL capture begins — every change is undone before the next starts ===",
         description=__doc__ or "",
+        # JBL draws the battery as `70%`.
+        # The JBL list scrolls, and can be left scrolled by earlier work.
+        landing_scrolls=True,
+        ready=r"\d+%",
         default="screens",
     )
 
