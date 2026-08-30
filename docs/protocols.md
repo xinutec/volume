@@ -435,7 +435,7 @@ app with different rows — so it needs its own survey and does not inherit this
 | Standby Timer | ✅ `01 04` | ✅ r/w |
 | Voice Prompts | ✅ `01 03` | ✅ r/w |
 | Prompt Language | ✅ `01 03` language mask | ⛔ excluded — the picker pushes a file over DFU |
-| **DISCONNECT** | ✅ `04 02`, decoded 2026-08-28 | ⛔ **decoded, never sent** |
+| **DISCONNECT** | ✅ `04 02`, sent and confirmed 2026-08-30 | ⛔ **no writer in the app yet** |
 | User Manual · Product Info | ⚪ app content | n/a |
 
 **Thirteen rows: nine driven, two app-only, two absent from our app.**
@@ -451,7 +451,7 @@ two consecutive screenshots byte-identical).
 | Product Name | ✅ `01 02` | ✅ r/w |
 | Product Update | ⛔ firmware | ⛔ excluded by rule, not by the device |
 | Product Tips · Common Questions | ⚪ app content | n/a |
-| Bluetooth Connections | ✅ `04 04`/`04 08`/`04 03`, multipoint `01 0a` | ✅ r/w — ⚠ `04 02` decoded, never sent |
+| Bluetooth Connections | ✅ `04 04`/`04 08`/`04 03`, multipoint `01 0a` | ✅ r/w — ⚠ `04 02` confirmed on the QC35, no writer yet |
 | Shortcut | ✅ `01 09` | ✅ r/w |
 | Modes | ✅ `01 05`, `1f 03`/`06`/`08` | ✅ r/w, incl. create and delete |
 | Equalizer | ✅ `01 07` | ✅ r/w |
