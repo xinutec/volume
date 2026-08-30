@@ -440,34 +440,48 @@ app with different rows — so it needs its own survey and does not inherit this
 
 **Thirteen rows: nine driven, two app-only, two absent from our app.**
 
-#### ⚠ The QC45 could NOT be surveyed the same way — Bose Music is opaque, 2026-08-30
+#### ⚠ What Bose Music has, and what we have — QC45, 2026-08-30
 
-Bose Music (`com.bose.bosemusic`) shows the QC45 six tiles, and all four functional ones map
-onto things this repo already drives:
+Every row of the QC45's Settings screen, read top to bottom, scrolled to the end (confirmed:
+two consecutive screenshots byte-identical).
 
-| tile | wire | us |
+| Bose Music's row | wire | us |
 | --- | --- | --- |
-| Modes | `01 05` ANC + `1f` custom modes | ✅ driven |
-| Source | connections / multipoint | ✅ driven |
-| EQ | `01 07` tone | ✅ driven |
-| Shortcut | `01 09` action button | ✅ driven |
-| Tips · Product Support | ⚪ app content | n/a |
+| battery (home) | ✅ `02 02` | ✅ read |
+| Product Name | ✅ `01 02` | ✅ r/w |
+| Product Update | ⛔ firmware | ⛔ excluded by rule, not by the device |
+| Product Tips · Common Questions | ⚪ app content | n/a |
+| Bluetooth Connections | ✅ `04 04`/`04 08`/`04 03`, multipoint `01 0a` | ✅ r/w — ⚠ `04 02` decoded, never sent |
+| Shortcut | ✅ `01 09` | ✅ r/w |
+| Modes | ✅ `01 05`, `1f 03`/`06`/`08` | ✅ r/w, incl. create and delete |
+| Equalizer | ✅ `01 07` | ✅ r/w |
+| Self Voice | ✅ `01 0b` | ✅ r/w |
+| Auto-Off | ✅ `01 04` | ✅ r/w |
+| Voice Prompts | ✅ `01 03` | ✅ r/w |
+| **Companion Device Permissions** | ⚠ **not placed on the wire** | ⛔ **ABSENT** |
+| Technical Info | ✅ `00 04` firmware/serial | ✅ read |
 
-⛔ **This is NOT a parity table and must not be counted as one.** The JBL and QC35 tables are
-trustworthy because every row of the vendor screen was enumerated. Here the enumeration
-FAILED: everything above the tile grid — where the battery, product name and any settings
-entry live — **exposes no accessibility nodes at all**, not merely empty `text`. `uiautomator`
-returns the six tiles and nothing else, and a swipe does not scroll (the activity and the row
-list are unchanged after one), so there is no more to reach by scrolling.
+**Nine device rows driven, one excluded by rule, one absent, the rest app content.** So
+"the QC45 is finished" survives — with one row it never mentioned.
 
-⚠ **So "the QC45 is finished" remains an assertion.** What can be said is narrower: *the part
-of Bose Music that is machine-readable contains nothing we do not already drive.* Settings
-reached from the invisible chrome — rename, standby timer, self voice, voice prompts, all of
-which this repo drives from the wire — were never confirmed present in the app's own screens.
+⚠ **`Companion Device Permissions` is unplaced.** It may be an app-side permissions screen
+with no wire identity at all, which is what `SilentNow` turned out to be on the JBL. Nothing
+here establishes that either way; it is listed as absent rather than dismissed.
 
-⚠ **Completing it needs a different instrument**, not more of this one: a screenshot read by
-eye, or the app's own resources. Recorded so nobody re-runs the survey and concludes the app
-is empty.
+⚠ **There is no Music Share row here**, which supports the generation split: Music Share is a
+Bose CONNECT feature and Bose Music offers `Source` instead.
+
+### ⚠⚠ THE ACCESSIBILITY TREE IS NOT THE SCREEN — and this survey needed both
+
+`uiautomator` returned **six tiles and nothing else** for the QC45's home screen. The render
+showed a title, a settings **gear**, and `60%` battery in the same region — none of which
+exist as nodes. This page briefly recorded Bose Music as "opaque, cannot be surveyed"; it is
+not opaque, it is merely unreadable by one instrument.
+
+⚠ **So a row count from `uiautomator` alone is a floor, never a total**, and on this app the
+entry point to every setting above was invisible to it. Survey with the dump for exact labels
+and bounds, and with a screenshot for what the dump cannot see. `docs/captures.md`'s drive
+loop uses the dump; that is correct for driving, and wrong for enumerating.
 
 ⚠⚠ **Music Share was found by ACCIDENT, and that is the argument for this table.** It
 surfaced only because a survey happened to be run for another reason; nothing in the repo
