@@ -458,15 +458,18 @@ two consecutive screenshots byte-identical).
 | Self Voice | ✅ `01 0b` | ✅ r/w |
 | Auto-Off | ✅ `01 04` | ✅ r/w |
 | Voice Prompts | ✅ `01 03` | ✅ r/w |
-| **Companion Device Permissions** | ⚠ **not placed on the wire** | ⛔ **ABSENT** |
+| Companion Device Permissions | ✅ none — Android's CompanionDeviceManager | ⚪ app/OS-side, correctly absent |
 | Technical Info | ✅ `00 04` firmware/serial | ✅ read |
 
-**Nine device rows driven, one excluded by rule, one absent, the rest app content.** So
-"the QC45 is finished" survives — with one row it never mentioned.
+**Nine device rows driven, one excluded by rule, the rest app or OS content. Every row of
+this screen is now placed**, so "the QC45 is finished" is a checked claim rather than an
+assertion — which it was not before 2026-08-30.
 
-⚠ **`Companion Device Permissions` is unplaced.** It may be an app-side permissions screen
-with no wire identity at all, which is what `SilentNow` turned out to be on the JBL. Nothing
-here establishes that either way; it is listed as absent rather than dismissed.
+✅ **`Companion Device Permissions` is NOT a gap** — opened 2026-08-30 and it is
+`CdmPermissionsSettingsActivity`, i.e. Android's **CompanionDeviceManager** association
+("enables widget access, improves product updates, and enhances the connections"). A
+phone-side OS permission with no wire identity, the same kind of thing `SilentNow` turned out
+to be on the JBL. ⚠ Recorded rather than dropped: an unexplained row invites a re-survey.
 
 ⚠ **There is no Music Share row here**, which supports the generation split: Music Share is a
 Bose CONNECT feature and Bose Music offers `Source` instead.
