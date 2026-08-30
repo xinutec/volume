@@ -1593,6 +1593,35 @@ it, and no reading covers a gap between 75 min and 25 h with the headset left ON
 ⚠ **The firmware did not change between the two sightings.** `00 01` read `1.0.4` on 08-28
 and `1.0.4` again on 08-30, so "new firmware" is not what happened in between.
 
+### ✅✅ 2026-08-30, later — the CAUSE, isolated by a matched control
+
+Two readings twenty minutes apart, durations matched to 21 seconds, everything else held:
+
+| | duration | headset | cold `01 06` |
+| --- | --- | --- | --- |
+| powered **OFF** | 20 min 51 s | off 18:55:38 → on 19:16:29 | **SILENT** |
+| **idle**, no contact | 20 min 30 s | on and awake throughout | **answered, 6 bytes** |
+
+**Being POWERED OFF is what induces it. Time since last contact is a bystander.**
+
+⚠ **The control's connection was proven continuous, not assumed.** Across the idle 20
+minutes the profile-connect line never moved from `19:16:30.480`, so the headset did not
+drop and silently turn the idle test into a second power-off test. The standby timer was
+read first — `01 04` → `3c`, 60 minutes — precisely so the headset could not power itself
+off mid-test.
+
+⚠ **A BRIEF power cycle does not do it.** ~20 s off answered cold (18:38). So it is the
+DURATION off, not the act of switching off, and the threshold lies between **20 s and
+20.9 min** — not yet bisected.
+
+**The reproduction recipe**, which this investigation lacked for two days: switch the QC35
+off, wait ~20 minutes, switch it on, read `01 06 01 00` before anything sends block `00`.
+Silent every time so far (2026-08-30 at 25.0 h off and at 20.9 min off).
+
+⛔ **This retires the idle/gap hypothesis for good.** The silent reading came after a
+38-minute contact gap while the 2026-08-29 12:42 reading answered after 75 minutes — longer
+gap, answering. Non-monotonic in gap, so gap alone was never the variable.
+
 ## ✅ Block `1f` mapped end to end, and `[41]` re-litigated for nothing — 2026-08-28
 
 ### ⚠ The lesson first: this page already held the answer I went to the hardware for

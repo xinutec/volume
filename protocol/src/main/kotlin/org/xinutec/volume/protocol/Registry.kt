@@ -117,8 +117,11 @@ object Registry {
      * **A phone reboot does not induce it** — 2026-08-30 caught a silence 26.3 HOURS after
      * boot, 13 s after the headset reconnected, which retires both clocks. That sitting also
      * showed the silence covers `04 04` as well as block `01`, so it is every block except
-     * `00`. What survives is how long the HEADSET was powered off, confounded with the gap
-     * since last contact. #1232.
+     * `00`. **The cause is how long the HEADSET was powered off**, isolated by a matched
+     * control: 20 min 51 s off was silent, while 20 min 30 s of no contact with the headset
+     * on and awake answered. ~20 s off answers, so it is the duration, not the act. The
+     * threshold is somewhere in 20 s … 20.9 min and was not chased, because this read is sent
+     * unconditionally and no branch asks. #1232.
      *
      * ⚠⚠ **Measured on a QC35, 2026-08-28, and it made the device unusable from this app.**
      * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew
