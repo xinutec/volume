@@ -486,11 +486,11 @@ entry point to every setting above was invisible to it. Survey with the dump for
 and bounds, and with a screenshot for what the dump cannot see. `docs/captures.md`'s drive
 loop uses the dump; that is correct for driving, and wrong for enumerating.
 
-⚠⚠ **Music Share was found by ACCIDENT, and that is the argument for this table.** It
-surfaced only because a survey happened to be run for another reason; nothing in the repo
-had ever named it, while `docs/bose-read-surface.md` said "the QC45 is finished". A claim
-of completeness that no column supports is how a whole feature stays invisible — the JBL
-table exists for exactly this reason and Bose had gone without one.
+⚠⚠ **Music Share was found by ACCIDENT, and that is the argument for these tables.** It
+surfaced only because a survey was run for an unrelated reason; nothing in the repo had ever
+named it. ⚠ It is a QC35 row, and **neither Bose model had a parity table until 2026-08-30**
+— so no completeness claim about either was checkable against anything. The JBL table exists
+for exactly this reason and Bose had gone without one.
 
 ⚠ **The two gaps are different in kind.** Music Share is undecoded work (`04 0b` reads, its
 meaning unconfirmed). `04 02` DISCONNECT is fully decoded and deliberately unsent — three
