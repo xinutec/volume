@@ -215,9 +215,12 @@ nothing coming back, while the device's protobuf channel answered normally in th
 Send `00 01` first and everything answers. ⚠ **2026-08-29 refuted the general rule**: on a
 virgin session after a power cycle the same device answered `01 06` cold four times, so this
 is a state it gets into and not how a fresh socket behaves. **Idle is not it either** — 75
-minutes untouched, one cold read, answered. Every reading that answered had a phone that had
-been up for a while; the one silence came 7 minutes after a phone reboot, and no reading yet
-separates the reboot from the hour of quiet that came with it.
+minutes untouched, one cold read, answered. ⚠ **2026-08-30 refuted the phone reboot too** and
+caught the whole thing live: silent on `01 06`, `01 01` AND `04 04`, then all three answering
+after one `00 01`, at **26.3 hours** since boot and 13 s since reconnect. So the silence is
+every block except `00`, not block `01`, and neither clock causes it. What is left is how
+long the headset was powered OFF — 25 h off was silent, 20 s off answered — and that is
+confounded with the gap since last contact.
 
 **#1191, on the QC45, 2026-08-28 — 18 requests → 4, 946 ms → 292 ms** for one card open,
 measured on the wire across three builds. Three causes, none of them the ones the task had

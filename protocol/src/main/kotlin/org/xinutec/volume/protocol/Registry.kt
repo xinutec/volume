@@ -114,8 +114,11 @@ object Registry {
      * **Idle is out to 75 minutes** (2026-08-29: one cold read after 4500 s untouched,
      * answered). **A Bluetooth stack restart does not induce it** either — though that
      * control moved two variables at once and settles less than it was written up as. The
-     * only silence came 7 minutes after a phone reboot, with ~60 minutes of quiet behind
-     * it, and nothing yet separates those two. #1232.
+     * **A phone reboot does not induce it** — 2026-08-30 caught a silence 26.3 HOURS after
+     * boot, 13 s after the headset reconnected, which retires both clocks. That sitting also
+     * showed the silence covers `04 04` as well as block `01`, so it is every block except
+     * `00`. What survives is how long the HEADSET was powered off, confounded with the gap
+     * since last contact. #1232.
      *
      * ⚠⚠ **Measured on a QC35, 2026-08-28, and it made the device unusable from this app.**
      * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew

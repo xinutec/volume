@@ -1488,11 +1488,11 @@ on different sockets. Every "contradiction" earlier that day follows from that: 
 anything sends a block-`00`, later sockets answer without one — including the accidental
 wake from a `probe.sh send` framing mistake.
 
-⚠ **The trigger looks phone-side, and this is n=1 each way.** A headphone power cycle left
-it answering; a phone reboot left it silent. That is the first thing that predicts the
-difference and it is cheap to repeat — reboot the phone with the headphones untouched and
-take one cold read — but it is **a correlation, not a cause**, and must not be written up
-as one until repeated.
+⛔ **"The trigger looks phone-side" — REFUTED on 2026-08-30.** It was written here as a
+correlation awaiting a repeat, and the repeat killed it: a silence at 26.3 hours since boot.
+A phone reboot is neither necessary nor, on this evidence, relevant. What made the reboot
+look load-bearing is that it takes the headphones off the phone and back, which moves the
+variable that is still standing — how long the HEADSET was powered off.
 
 ⚠ **Read the REPLY, not the echo.** `probe.sh` prints `payload …` before sending, so a
 loose grep over its output reports the request back as if it were an answer. Pair each
@@ -1529,18 +1529,18 @@ what the silence was made of, and the threshold hunt between 5 and 60 minutes is
 | minutes (after BT stack restart) | no | answered (11:2x) |
 | **75 min** | no | **answered (12:42)** |
 | ~60 min | **yes, 7 min before** | **SILENT (10:59)** |
-| short | **yes** | **UNTESTED — this is the next experiment** |
+| short | **yes** | ⛔ **RETIRED — boot age is refuted; see 2026-08-30 below** |
 
-⚠ **The one silent cell is the only one with a fresh boot in it, and no reading separates
-the boot from the gap.** The empty cell does: reboot the phone, wait for the QC35 to
-reconnect, take ONE cold read straight away. SILENT means a recent boot is sufficient on its
-own and the gap is a coincidence of the first sighting; ANSWERING means neither variable
-alone does it, and the pair — or something not on this grid at all — is the cause.
+⛔ **DO NOT RUN THE REBOOT EXPERIMENT THIS GRID ASKS FOR.** It was the right move while
+boot age was live; 2026-08-30 killed boot age outright, with a silence at 26.3 HOURS since
+boot. Both axes of this grid are refuted as causes, so a reading placed on it now says
+nothing. Kept visible rather than deleted because the experiment is written up in three
+places and a reader who acted on it would spend a reboot for no information.
 
 ⚠ **A periodic prober CANNOT find this** — every probe resets the gap it is waiting for. A
 15-minute watch was started and stopped for exactly that reason. Each long-gap cell costs an
 hour of waiting to set up, which is why the grid has four cheap readings and one expensive
-one; the untested cell is cheap, and that is a reason to run it first.
+one.
 
 ⚠ **Harmless on the QC45**, which needs no waking and answers `00 01` with its own protocol
 version — `1.1.0`, against the QC35's `1.0.4`. So `Registry.wakeBose` is sent unconditionally
@@ -1555,6 +1555,43 @@ early-stop rule came to be measured on a device it had never run on (#1191).
 ⚠ **Whether this is new firmware or a state the QC35 was always in is NOT established.** It
 answered without waking on 2026-08-26; its protocol version reads `1.0.4` and nothing here
 recorded that number before, so there is nothing to compare against.
+
+### ✅✅ 2026-08-30 — caught live end to end, and the silence is DEVICE-WIDE
+
+The whole phenomenon and its cure in one sitting, on hardware, with nothing else moving.
+The QC35 had been powered off since 08-29 17:30 (`reason:19`) — **25.0 hours off** — and was
+switched on at 18:31:48. First read 13 s later; the phone had been up **26.3 hours**.
+
+| read | before `00 01` | after `00 01` |
+| --- | --- | --- |
+| `01 06 01 00` | silent ×3 | `← 6 bytes` |
+| `01 01 01 00` | silent | `← 5 bytes` |
+| `04 04 01 00` | silent | `← 11 bytes` |
+
+    → 00 01 01 00    ← 00 01 03 05 31 2e 30 2e 34    "1.0.4", answered while the rest were silent
+
+Five silent reads, one block-`00`, three answering reads, nothing else changed.
+
+⚠⚠ **THE SILENCE IS NOT BLOCK `01` — IT IS EVERY BLOCK EXCEPT `00`.** `04 04` was silent in
+the same session and answered after the wake. Every earlier sighting probed only block `01`,
+so this page said "block 01" where the evidence only ever supported "the block we happened to
+ask". Block `00` is not merely the cure; it is the one block that ANSWERS during the silence.
+
+⛔ **Both clocks this page built a grid out of are refuted as causes.** The silence sat at
+**26.3 h since boot** (a recent boot is not necessary) and **13 s since reconnect** (a long
+reconnect gap is not necessary).
+
+⛔ **"A fresh device session induces it" was proposed and killed the same evening.** At 18:38,
+after ~20 s off, the QC35 answered `01 06` cold with no block-`00`. A brief power cycle does
+not make a cold device — the headset keeps its state across one.
+
+⚠ **What is left is DURATION POWERED OFF, and it is confounded.** 25.0 h off → silent, ~20 s
+off → answered. But the gap since last BMAP contact moved with it (25.3 h against 3 min), and
+nothing separates them: the 75-minute idle row bounds the gap explanation without eliminating
+it, and no reading covers a gap between 75 min and 25 h with the headset left ON.
+
+⚠ **The firmware did not change between the two sightings.** `00 01` read `1.0.4` on 08-28
+and `1.0.4` again on 08-30, so "new firmware" is not what happened in between.
 
 ## ✅ Block `1f` mapped end to end, and `[41]` re-litigated for nothing — 2026-08-28
 
