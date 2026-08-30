@@ -1912,7 +1912,10 @@ REMOVE_DEVICE, which this repo already sends as `04 03 05 06 <address>`. So the 
 
     04 02 05 06 <6-byte address>
 
-✅ **SENT AND CONFIRMED — QC35, 2026-08-30 21:49:58.** The three readings were right:
+✅ **Attested on 2026-08-28** (#935, `dea5222`) — `BoseDisconnect.frame()` ships with tests.
+⚠ It is a frame builder only; no driver method and no button reach it.
+
+✅ **First send on the QC35, 2026-08-30 21:49:58, and it CHANGES the reply story:**
 
     → 04 02 05 06 <phone addr>        START
     ← 04 02 07 07 21 <phone addr>     operator 07 PROCESSING, status byte 21
@@ -1921,9 +1924,12 @@ and the phone's own log shows the cause, 0.6 s later — `Removed from HFP` at 2
 `Removed from A2DP` at 21:49:58.826, against a send at 21:49:58.179. The QC35 then read
 `STATE_DISCONNECTED`. Reconnecting from the phone's Bluetooth settings restores it.
 
-⚠ **Operator `06` RESULT was never seen**, only `07` PROCESSING — unsurprising, since the
-link this reply would travel over is the one being torn down. So the transaction is confirmed
-by its EFFECT, not by its completion. ⚠ The status byte `21` is undecoded.
+⚠⚠ **"The silence IS the reply" is REFUTED for the QC35.** #935 recorded that the link dies
+with the frame so no Processing or Result can arrive, and that no reply shape is known. The
+QC35 answered `04 02 07 07 21 <addr>` — operator `07` PROCESSING — **before** dropping the
+link. So a reply shape IS known for this model. ⚠ Operator `06` RESULT was still never seen,
+and the status byte `21` is undecoded, so the transaction completes by EFFECT rather than by
+its Result.
 
 ⚠ **What it took to get here was not more evidence.** Three independent readings already
 agreed — the decompiled function byte, the packet class's operator and payload shape, and
