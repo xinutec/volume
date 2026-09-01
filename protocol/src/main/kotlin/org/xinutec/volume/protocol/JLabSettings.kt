@@ -92,12 +92,17 @@ object JLabFrame {
  * cells discharging at different rates and pins both the offsets and the plain-percent
  * scale.
  *
- * ⚠⚠ **WHICH BUD IS WHICH IS NOT ESTABLISHED.** [left] is the earlier byte because the
- * vendor app draws its `L` row above its `R` row, and that is the whole warrant — the
- * same standing as [JblBattery]'s master/slave note. **The test that would settle it:**
- * wait until the two levels differ (or charge one bud), then read this frame and compare
- * against the app's own two rows. Both were equal by the time the decode existed, so it
- * could not be done in the sitting that found it.
+ * ✅ **WHICH BUD IS WHICH IS SETTLED — 2026-09-01, and by measurement.** It could not be
+ * done when the decode was found, because both cells then read `50`. Once they had
+ * drifted to 70/60 the vendor app was opened beside a read of this frame and its two
+ * battery icons measured off the render: the `L` icon's green fill is **34 px** and the
+ * `R` icon's is **30 px**, while this frame read byte 6 = 70 and byte 7 = 60. Same
+ * direction, so byte 6 is [left]. ⚠ That fixes the ORDER only — the icon fill is not
+ * linear in the percentage (34/30 px for 70/60) and nothing here calibrates it.
+ *
+ * ⚠ This is the question [JblBattery]'s master/slave note still cannot answer, and the
+ * difference is worth keeping in view: that device's two bytes have been equal in every
+ * frame ever captured, so no render can separate them. These drifted apart on their own.
  *
  * ⚠ **Byte 8 is not decoded and is not the case.** It read `04` in every frame, through
  * three different level pairs, so nothing here has varied it. `docs/protocols.md` records
