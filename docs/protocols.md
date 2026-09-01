@@ -1362,7 +1362,7 @@ parse and is stated rather than dressed up.
 | `76` | `76` | `74` | Spatial Audio ON/OFF | the ablation below |
 | `58` | `59` | | ⚪ unidentified — reads `00` | |
 | `62` | `63` | | ⚪ unidentified — reads `04 04 04 04` | |
-| `66` | `67` | | ⚪ unidentified — reads `00` | |
+| `66` | `67` | ⛔ `68` | **Safe Hearing** — `00` Default · `01` 95 dB · `02` 85 dB | read at two values: `00` in two enumerations on Default, `02` in one on 85 dB; all three writes captured. ⚠ **higher = LOWER ceiling** |
 | `7a` | `7a` | | ⚪ unidentified — reads `00` | |
 | `7e` | `7f` | | ⚪ unidentified — reads `01 01 01` | |
 
@@ -1413,30 +1413,46 @@ driver's own surface.
 
 | the app's row | wire | us |
 | --- | --- | --- |
-| L / R battery | ✅ `30`/`31`, and broadcast unasked | ⛔ **ABSENT** — the wire is decoded, nothing reads it |
+| L / R battery | ✅ `30`/`31`, and broadcast unasked | ✅ read, both cells |
 | Noise Control Modes — Off · Be Aware · NC On | ✅ `44`/`45`/`46` | ✅ r/w, all three driven |
-| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ⚠ writer predicted, uncaptured | ⛔ **ABSENT** |
-| **Touch Controls** — 6 gestures × 2 sides | ✅ read `4c`/`4d`; ⚠ writer predicted, uncaptured | ⛔ **ABSENT** |
-| **Spatial Audio** on/off | ✅ `76` read, `74` write | ⛔ **ABSENT** |
-| **Spatial mode** — Music · Movie | ✅ `50`/`51`/`52` | ⛔ **ABSENT** |
-| **Safe Hearing** — 85 dB · 95 dB · Default | ⚪ not identified | ⛔ **read-only by rule** — see below |
+| **Spatial Audio** on/off | ✅ `76` read, `74` write | ✅ r/w |
+| **Spatial mode** — Music · Movie | ✅ `50`/`51`/`52` | ✅ r/w, driven from our own card |
+| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ⚠ writer predicted, uncaptured | ✅ read — ⛔ never written, hearing |
+| **Touch Controls** — 6 gestures × 2 sides | ✅ read `4c`/`4d`; ⚠ writer predicted, uncaptured | ✅ read — ⛔ no writer exists to capture |
+| **Safe Hearing** — 85 dB · 95 dB · Default | ✅ `66` read, `68` write | ✅ read — ⛔ never written, hearing |
 | Interval Timer — active/rest/repeat, Start Workout | ⚪ opening it sends nothing | ⚪ app-side timer |
 | Check for Update | ⛔ firmware | ⛔ excluded by rule, not by the device |
 | Settings tab — support, registration, language, legal, theme | ⚪ app content | n/a |
 | My JLab tab — Ambient Sounds, Burn-In Tool, Control Guide, Store | ⚪ app content | n/a |
 
-**Eleven rows: one driven, five absent with the wire in hand, one absent by hearing rule,
-four app-or-firmware.** ⚠ This is the widest gap of the five devices, and it is the first
-time the JLab has had a table to measure that against — before 2026-09-01 "the JLab is
-capture-only" was true and was also doing duty as an excuse not to count.
+**Every device row this app draws is now read.** The `us` column above is where that is
+checked, and it is deliberately the only place a tally lives: a count repeated in prose
+rots the moment a row moves, which this paragraph proved by getting the writable ones wrong
+on its first draft. `✅ r/w` is writable, `✅ read` is read-only — by choice where the note
+says hearing, for want of a captured writer otherwise — and `⚪`/`⛔` rows are app or
+firmware content this repo does not implement.
 
-⚠⚠ **`Safe Hearing` is an EXPOSURE CEILING and stays read-only until Pippijn says
-otherwise**, the same standing as the JBL's Max Volume Limiter and PSAP. Note the
-asymmetry that makes it worse than a normal setting: its three values are 85 dB, 95 dB and
-**Default**, so moving *toward* Default RAISES the ceiling. Identifying it on the wire
-needs a change, and the only safe change is downward — which does not come back without
-raising it again. So it was left unasked rather than guessed at, and the row above says
-"not identified" for that reason and no other.
+⚠ **Before 2026-09-01 it was one row and no table**, and "the JLab is capture-only" was
+true while also doing duty as an excuse not to count.
+
+✅ **`Safe Hearing` is identified — 2026-09-01, with Pippijn's explicit go-ahead**, and it
+is `66` read · `68` write · `00` Default, `01` 95 dB, `02` 85 dB.
+
+⚠⚠ **A HIGHER VALUE IS A LOWER CEILING.** `02` is the most protective and `00` the least.
+Anything that sorts or compares these as loudness has the control backwards, on the one row
+where backwards is harmful.
+
+✅ **It was identified moving DOWNWARD ONLY.** The slider was found on `Default` — the
+least protective of the three — so every step of the identification (`Default` → 85 dB →
+95 dB → `Default`, then `Default` → 85 dB → `Default`) was at or below where it started.
+Had it been found on 85 dB there would have been no safe first move, and the honest thing
+would have been to say so rather than to raise it.
+
+⛔ **No writer is shipped, and that is a decision rather than unfinished work.** The `68`
+frame is written up in `JLabSafeHearing`'s KDoc so nobody re-derives it, and is absent from
+the code so nothing can call it — the same standing as the JBL's Max Volume Limiter and
+PSAP. A test asserts the absence, so adding one has to be argued for rather than landed
+quietly.
 
 ⚠ **The EQ writer is deliberately unattempted**, and hearing is why. The captured Custom
 curve is `78 78 5a 78 78 78 5a 78 78 78` — two bands cut to `5a` against a `78` baseline —

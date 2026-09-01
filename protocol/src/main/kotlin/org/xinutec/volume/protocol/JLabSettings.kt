@@ -325,6 +325,59 @@ data class JLabCurve(
 )
 
 /**
+ * Safe Hearing — the exposure ceiling. `66` reads it.
+ *
+ * ```
+ * → c0 ff 00 66 00 00 01 00 26     ← 00 ff 01 67 01 00 <level> 00 00 <sum>
+ * ```
+ *
+ * ✅ **Measured at two values on 2026-09-01**, which is why this is a decode and not the
+ * reader+2 rule guessing: `67` read `00` in two cold enumerations taken while the app's
+ * slider sat on `Default`, then `02` in a third taken with it on `85 dB Limit`. One
+ * variable, one byte.
+ *
+ * ⚠⚠ **A HIGHER VALUE IS A LOWER CEILING, and reading it the other way round is the
+ * mistake this control punishes.** `02` is the most protective setting and `00` is the
+ * least. Anything that sorts or compares these numbers as "loudness" has them backwards.
+ *
+ * ⛔ **NO WRITER IS SHIPPED, and that is deliberate rather than unfinished.** The write is
+ * `c0 ff 00 68 01 00 <level> 01 00 <sum>`, captured for all three values and answered by
+ * `69` with a constant `01` that is an ack and not the state. It is recorded here so
+ * nobody has to re-derive it, and it is absent from the code so nothing can call it: this
+ * is an exposure ceiling, and moving it toward `Default` RAISES what the wearer can be
+ * exposed to. Same standing as the JBL's Max Volume Limiter and PSAP — read, never
+ * written. Changing that is Pippijn's call, not a refactor.
+ *
+ * ⚠ The three values were driven **downward from `Default` and back**, so the ceiling was
+ * never above where it started at any point in the identification.
+ */
+object JLabSafeHearing {
+    const val ASK: Byte = 0x66
+    const val REPLY: Byte = 0x67
+
+    /** ⚠ Ordered as the device numbers them, which is most-permissive first. */
+    enum class Level(
+        val wire: Byte,
+    ) {
+        DEFAULT(0x00),
+        DB_95(0x01),
+        DB_85(0x02),
+        ;
+
+        companion object {
+            fun of(wire: Byte): Level? = entries.firstOrNull { it.wire == wire }
+        }
+    }
+
+    fun get(): ByteArray = JLabFrame.read(ASK)
+
+    fun state(r: ByteArray): Level? {
+        val f = JLabFrame.replyTo(r, REPLY, atLeast = 7) ?: return null
+        return Level.of(f[6])
+    }
+}
+
+/**
  * What each tap does — `4c` reads the map.
  *
  * ```

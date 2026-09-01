@@ -227,6 +227,15 @@ data class Settings(
      * app draws this screen with every row inert, so no writer has ever been captured.
      */
     val jlabTouch: Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? = null,
+    /**
+     * The JLab's Safe Hearing ceiling — **shown, never written**.
+     *
+     * ⚠ Not in [refuses]: the device takes the write and its own app makes it freely. It
+     * is read-only because it is hearing protection, which is this repo's choice — the
+     * third control to get [volumeLimit]'s treatment, and the one where the direction is
+     * counter-intuitive: [JLabSafeHearing.Level.DEFAULT] is the LEAST protective.
+     */
+    val jlabSafeHearing: JLabSafeHearing.Level? = null,
     /** Auto Play & Pause — pauses when you take them off. */
     val autoPlay: Boolean? = null,
     /** Left/right balance; ⚠ the switch is offered, the level only carried. */
@@ -446,6 +455,7 @@ data class Settings(
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
                 budBattery != null || jlabEq != null || jlabTouch != null ||
+                jlabSafeHearing != null ||
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
                 voicePrompts != null || standby != null || selfVoice != null ||

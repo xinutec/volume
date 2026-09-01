@@ -356,6 +356,9 @@ class ScreenTest {
                 // ⚠ A real curve, not an empty one: the levels ARE the row, so a blank
                 // sample would let a renderer that draws only the preset number pass.
                 "jlabEq" to Settings(jlabEq = JLabCurve(preset = 3, levels = List(10) { 120 })),
+                // ⚠ DEFAULT rather than a limit: it is the value that means "no ceiling",
+                // so a renderer that treated it as absent would pass with any other one.
+                "jlabSafeHearing" to Settings(jlabSafeHearing = JLabSafeHearing.Level.DEFAULT),
                 "jlabTouch" to
                     Settings(
                         jlabTouch =
