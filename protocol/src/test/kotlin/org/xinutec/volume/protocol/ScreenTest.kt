@@ -588,6 +588,9 @@ class ScreenTest {
                 // ⚠ Which modes the chips may offer, not a reading — it has a non-null
                 // default and accompanies `spatial`, exactly as `bands` does `eq`.
                 "spatialModes",
+                // ⚠ The four stored curves, so a preset chip knows what to send. Never
+                // stands alone: without `jlabEq` there is nothing to show them against.
+                "jlabEqPresets",
                 // ⚠ Accompanies canRename and never stands alone, like `bands` does
                 // `eq` — the row is drawn by the capability, and a device that answered
                 // its name and nothing else has no settings section to put it in.

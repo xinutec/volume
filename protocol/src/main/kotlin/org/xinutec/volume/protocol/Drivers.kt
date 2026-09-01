@@ -1281,11 +1281,25 @@ object Drivers {
 
         fun readEq(t: Transport): JLabCurve? = ask(t, JLabEq.get(), JLabEq::state)
 
-        // ⚠ **No `readEqPresets` here on purpose.** `JLabEq.presets`/`allPresets` decode
-        // the stored curves and are covered by fixtures, but nothing displays them, and a
-        // driver method with no caller is a round trip waiting to be added by accident.
-        // The card shows the LIVE curve; the four presets are what the tests use to prove
-        // its preset index means what it says.
+        /**
+         * The four stored curves. ⚠ **This came back on 2026-09-01** — it was deleted as
+         * unreferenced when the EQ was read-only, and the writer is what gives it a
+         * caller: the card cannot offer a preset without knowing the curve to send for it.
+         */
+        fun readEqPresets(t: Transport): List<List<Int>>? =
+            ask(t, JLabEq.presets(), JLabEq::allPresets)
+
+        /**
+         * ⚠⚠ **Can RAISE band levels.** Writable at Pippijn's explicit request.
+         *
+         * ⚠ Re-reads: `4b` came back with preset `01` and a flat curve after a write of
+         * preset `03`, so it reports neither the request nor the state.
+         */
+        fun writeEq(t: Transport, preset: Int, levels: List<Int>): JLabCurve? {
+            val frame = JLabEq.set(preset, levels) ?: return null
+            t.exchange(frame)
+            return readEq(t)
+        }
 
         fun readSafeHearing(t: Transport): JLabSafeHearing.Level? =
             ask(t, JLabSafeHearing.get(), JLabSafeHearing::state)
