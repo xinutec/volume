@@ -223,6 +223,14 @@ data class Settings(
      */
     val jlabEq: JLabCurve? = null,
     /**
+     * The four stored curves, so the card can offer a preset by name.
+     *
+     * ⚠ Accompanies [jlabEq] and never stands alone, like `bands` does `eq` — a preset
+     * chip needs the curve to send for it, and the device is the only thing that knows
+     * what its own presets hold.
+     */
+    val jlabEqPresets: List<List<Int>>? = null,
+    /**
      * What each tap on the JLab does — **read only**, and not for a rule's sake: its own
      * app draws this screen with every row inert, so no writer has ever been captured.
      */

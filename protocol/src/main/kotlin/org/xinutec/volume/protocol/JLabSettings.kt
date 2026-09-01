@@ -267,13 +267,32 @@ object JLabSpatialMode {
  * answered `03` while the app had **Custom** — the fourth of EQ1/EQ2/EQ3/Custom — ticked,
  * and preset 3's ten bytes inside `71` are byte-identical to `49`'s curve.
  *
- * ⚠⚠ **READ ONLY, and hearing is the reason — not a missing frame.** The captured Custom
- * curve is `78 78 5a 78 78 78 5a 78 78 78`: two bands cut to `5a` against a `78` baseline.
- * EQ1, EQ2 and EQ3 are flat `78` throughout, so selecting any preset RAISES those two
- * bands. This repo's rule permits exercising a level downward and back, which a preset tap
- * cannot do. The writer is also unproven — `4a` follows from reader+2, which held for all
- * three writers actually captured, but a prediction is not a capture and this is not a
- * protocol to test one on.
+ * ⚠⚠ **WRITABLE AT PIPPIJN'S EXPLICIT REQUEST — 2026-09-01.** It shipped read-only first,
+ * because selecting any of EQ1/EQ2/EQ3 — all flat `78` — RAISES the two bands the live
+ * Custom curve cuts to `5a`. That is still true and the card says so; what changed is that
+ * he asked for the control.
+ *
+ * ```
+ * → c0 ff 00 4a 0b 00 <preset> <10 levels> 01 00 <sum>
+ * ← 00 ff 01 4b 0b 00 …    ⚠ does NOT echo what was written
+ * ```
+ *
+ * ✅ **The frame was CAPTURED, not composed.** The SDK named it `P(B,[B)` — preset plus a
+ * byte array — and a capture then confirmed the layout exactly, taken in the safe
+ * direction by dragging one band DOWN in the vendor app rather than by tapping a preset:
+ * `4a 0b 00 03 78 78 5a 78 78 78 5a 78 78 50 01 00`, with 16k moved from `78` to `50`.
+ * ⚠ `0b` is 11 — preset plus ten levels — and it agrees with the read's own length prefix.
+ *
+ * ⚠ **`4b` answered preset `01` and a flat curve after a write of preset `03`**, so it
+ * reports neither the request nor the state. [Drivers.JLabQcy.writeEq] re-reads `48`.
+ *
+ * ⚠⚠ **ONLY PRESET `03` HAS BEEN WRITTEN, and the card offers all four.** The capture that
+ * fixed this frame's layout was a band drag inside Custom, so the preset byte is observed
+ * at exactly one value. Reading it is settled — `49` says `03` while the app shows Custom,
+ * and slot 3 of `71` matches `49`'s curve — and writing another index is an extension of
+ * that, not a measurement. **The one-tap check that would settle it:** select `eq 1` on
+ * the card and confirm the row re-reads as preset 0. It is bounded rather than open-ended
+ * because the levels sent are the device's OWN stored curves, read back from `71`.
  *
  * ⚠ **The levels are RAW DEVICE UNITS and this deliberately does not convert them.** No
  * capture establishes what `78` and `5a` mean in dB, nor what the endpoints are. Calling
@@ -301,6 +320,24 @@ object JLabEq {
         return JLabCurve(
             preset = f[6].toInt() and 0xff,
             levels = (0 until BANDS).map { f[7 + it].toInt() and 0xff },
+        )
+    }
+
+    const val SET: Byte = 0x4a
+
+    /**
+     * ⚠ **This can RAISE band levels**, which on this device is the whole hazard: the
+     * stored presets are flat and the live Custom curve is cut in two places. Refuses a
+     * curve that is not exactly [BANDS] long rather than padding one — a short array
+     * would write whatever followed it in memory into somebody's treble.
+     */
+    fun set(preset: Int, levels: List<Int>): ByteArray? {
+        if (levels.size != BANDS) return null
+        if (levels.any { it !in 0..0xff }) return null
+        return JLabFrame.checksummed(
+            byteArrayOf(0xc0.toByte(), 0xff.toByte(), 0x00, SET, 0x0b, 0x00, preset.toByte()) +
+                levels.map { it.toByte() }.toByteArray() +
+                byteArrayOf(0x01, 0x00),
         )
     }
 

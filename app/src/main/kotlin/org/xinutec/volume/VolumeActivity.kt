@@ -79,6 +79,7 @@ import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.JBL_IDLE_MINUTES
+import org.xinutec.volume.protocol.JLabCurve
 import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JLabTouch
 import org.xinutec.volume.protocol.ModeOutTime
@@ -326,6 +327,12 @@ interface SettingActions {
      * and PSAP are the same class of control and remain read-only.
      */
     fun setSafeHearing(address: String, level: JLabSafeHearing.Level)
+
+    /**
+     * ⚠⚠ **Can RAISE band levels** — this device's stored presets are flat while its live
+     * Custom curve is cut in two places. Writable at Pippijn's explicit request.
+     */
+    fun setJlabEq(address: String, curve: JLabCurve)
 
     /** Likewise switch and level; see [VoiceAware]. */
     fun setVoiceAware(address: String, v: VoiceAware)
@@ -1280,15 +1287,30 @@ private fun SettingsSection(
                 c.levels.joinToString(" ") { it.toString() },
                 style = MaterialTheme.typography.bodySmall,
             )
-            // ⚠ Same treatment as the volume limit below, and for the same reason: the
-            // device does not refuse this and its own app changes it freely. Every
-            // stored preset here is flat while the live curve has two bands cut, so
-            // choosing one RAISES them.
+            // ⚠ The warning stays now that the control exists, because the hazard did not
+            // go away when the permission arrived: every stored preset is flat while the
+            // live curve has two bands cut, so choosing one RAISES them.
             Text(
-                "changing a preset would raise two cut bands — this app reads it, never writes it",
+                "the stored presets are flat — choosing one raises this curve's two cut bands",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
+            // ⚠ **The curves come from the DEVICE, not from a table here.** `71` returns
+            // what each slot actually holds, so a chip sends the preset's real contents
+            // rather than what this repo believes they should be — the JBL's `curve` row
+            // above carries a hard-coded table and had to grow a note about a device found
+            // holding gains under a table neither chip writes.
+            settings.jlabEqPresets?.let { presets ->
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    presets.forEachIndexed { i, levels ->
+                        FilterChip(
+                            selected = i == c.preset,
+                            onClick = { actions.setJlabEq(address, JLabCurve(i, levels)) },
+                            label = { Text(if (i == 3) "custom" else "eq ${i + 1}") },
+                        )
+                    }
+                }
+            }
         }
 
         settings.jlabSafeHearing?.let { level ->

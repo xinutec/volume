@@ -27,6 +27,7 @@ import org.xinutec.volume.protocol.EqSetting
 import org.xinutec.volume.protocol.Forget
 import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
+import org.xinutec.volume.protocol.JLabCurve
 import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
@@ -413,6 +414,7 @@ class DeviceController(
                     spatial = if (on != null && mode != null) Spatial(on, mode) else null,
                     spatialModes = listOf(SpatialMode.MUSIC, SpatialMode.MOVIE),
                     jlabEq = Drivers.JLabQcy.readEq(s.transport),
+                    jlabEqPresets = Drivers.JLabQcy.readEqPresets(s.transport),
                     jlabTouch = Drivers.JLabQcy.readTouch(s.transport),
                     jlabSafeHearing = Drivers.JLabQcy.readSafeHearing(s.transport),
                     attempted = true,
@@ -853,6 +855,23 @@ class DeviceController(
             when (val after = Drivers.JLabQcy.writeSafeHearing(it.transport, level)) {
                 null -> Confirmation.Unverifiable
                 level -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    /**
+     * ⚠⚠ **Can RAISE band levels** — the JLab's stored presets are flat while its live
+     * Custom curve is cut in two places. Writable at Pippijn's explicit request.
+     */
+    override fun setJlabEq(address: String, curve: JLabCurve) =
+        applied<JLabCurve>(
+            address,
+            "setting the equaliser",
+            { "preset ${it.preset}" },
+        ) {
+            when (val after = Drivers.JLabQcy.writeEq(it.transport, curve.preset, curve.levels)) {
+                null -> Confirmation.Unverifiable
+                curve -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
         }
