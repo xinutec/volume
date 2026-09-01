@@ -319,6 +319,14 @@ interface SettingActions {
     /** ⚠ Switch and mode together — [Spatial] says why they cannot be sent apart. */
     fun setSpatial(address: String, v: Spatial)
 
+    /**
+     * ⚠⚠ **This CAN RAISE an exposure ceiling** — `DEFAULT` is the least protective of the
+     * JLab's three. Writable at Pippijn's explicit request, 2026-09-01; it shipped
+     * read-only first so that adding it had to be a decision. The JBL's Max Volume Limiter
+     * and PSAP are the same class of control and remain read-only.
+     */
+    fun setSafeHearing(address: String, level: JLabSafeHearing.Level)
+
     /** Likewise switch and level; see [VoiceAware]. */
     fun setVoiceAware(address: String, v: VoiceAware)
 
@@ -1284,22 +1292,32 @@ private fun SettingsSection(
         }
 
         settings.jlabSafeHearing?.let { level ->
-            // ⚠ A value with no switch, like the volume limit — and here the label has to
-            // carry the direction too, because "Default" is the LEAST protective of the
-            // three and nothing about the word says so.
-            SettingLabel(
-                "Safe hearing",
-                when (level) {
-                    JLabSafeHearing.Level.DEFAULT -> "default — no limit"
-                    JLabSafeHearing.Level.DB_95 -> "95 dB limit"
-                    JLabSafeHearing.Level.DB_85 -> "85 dB limit"
-                },
-            )
+            // ⚠ The label carries the DIRECTION, because "Default" is the least protective
+            // of the three and nothing about the word says so. The chips are ordered
+            // most-protective first for the same reason — the device's own numbering runs
+            // the other way, and following it here would put "no limit" under the thumb.
+            SettingLabel("Safe hearing", safeHearingLabel(level))
             Text(
-                "hearing protection — this app will read it, never change it",
+                "hearing protection — raising this raises how loud they can get",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (
+                l in
+                listOf(
+                    JLabSafeHearing.Level.DB_85,
+                    JLabSafeHearing.Level.DB_95,
+                    JLabSafeHearing.Level.DEFAULT,
+                )
+                ) {
+                    FilterChip(
+                        selected = l == level,
+                        onClick = { actions.setSafeHearing(address, l) },
+                        label = { Text(safeHearingLabel(l)) },
+                    )
+                }
+            }
         }
 
         settings.jlabTouch?.let { m ->
@@ -1645,6 +1663,14 @@ private fun EqBands(address: String, eq: EqSetting, bands: List<Int>, actions: S
         }
     }
 }
+
+/** ⚠ Names the direction, which the device's own word "Default" hides. */
+private fun safeHearingLabel(l: JLabSafeHearing.Level): String =
+    when (l) {
+        JLabSafeHearing.Level.DEFAULT -> "default — no limit"
+        JLabSafeHearing.Level.DB_95 -> "95 dB limit"
+        JLabSafeHearing.Level.DB_85 -> "85 dB limit"
+    }
 
 @Composable
 private fun SettingLabel(title: String, value: String) {

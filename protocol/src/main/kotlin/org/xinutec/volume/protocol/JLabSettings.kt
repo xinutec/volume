@@ -340,20 +340,27 @@ data class JLabCurve(
  * mistake this control punishes.** `02` is the most protective setting and `00` is the
  * least. Anything that sorts or compares these numbers as "loudness" has them backwards.
  *
- * ⛔ **NO WRITER IS SHIPPED, and that is deliberate rather than unfinished.** The write is
- * `c0 ff 00 68 01 00 <level> 01 00 <sum>`, captured for all three values and answered by
- * `69` with a constant `01` that is an ack and not the state. It is recorded here so
- * nobody has to re-derive it, and it is absent from the code so nothing can call it: this
- * is an exposure ceiling, and moving it toward `Default` RAISES what the wearer can be
- * exposed to. Same standing as the JBL's Max Volume Limiter and PSAP — read, never
- * written. Changing that is Pippijn's call, not a refactor.
+ * ⚠⚠ **THE WRITER EXISTS BECAUSE PIPPIJN ASKED FOR IT — 2026-09-01, explicitly.** It was
+ * shipped read-only first, with a test asserting the absence, precisely so that adding one
+ * had to be a decision rather than a refactor. That decision was taken; this comment is
+ * the record of it, and nothing here should be read as the default for a control of this
+ * kind. The JBL's Max Volume Limiter and PSAP remain read-only.
  *
- * ⚠ The three values were driven **downward from `Default` and back**, so the ceiling was
- * never above where it started at any point in the identification.
+ * ```
+ * → c0 ff 00 68 01 00 <level> 01 00 <sum>     ← 00 ff 01 69 01 00 01 00 00 <sum>
+ * ```
+ *
+ * ⚠ **`69` answers `01` whichever level was written**, so it is a bare acknowledgement
+ * carrying no state. A caller that believes it reports success for a write the device
+ * declined — [Drivers.JLabQcy.writeSafeHearing] re-reads instead.
+ *
+ * ⚠ The three values were identified **downward from `Default` and back**, so the ceiling
+ * was never above where it started at any point in the identification.
  */
 object JLabSafeHearing {
     const val ASK: Byte = 0x66
     const val REPLY: Byte = 0x67
+    const val SET: Byte = 0x68
 
     /** ⚠ Ordered as the device numbers them, which is most-permissive first. */
     enum class Level(
@@ -375,6 +382,28 @@ object JLabSafeHearing {
         val f = JLabFrame.replyTo(r, REPLY, atLeast = 7) ?: return null
         return Level.of(f[6])
     }
+
+    /**
+     * ⚠ **This can RAISE an exposure ceiling** — `DEFAULT` is the least protective of the
+     * three. It is a plain setter because the device offers a plain setting, and the
+     * judgement about when to call it belongs to the caller and to whoever is wearing
+     * them, not to a clamp invented here that would silently refuse what the vendor app
+     * does freely.
+     */
+    fun set(level: Level): ByteArray =
+        JLabFrame.checksummed(
+            byteArrayOf(
+                0xc0.toByte(),
+                0xff.toByte(),
+                0x00,
+                SET,
+                0x01,
+                0x00,
+                level.wire,
+                0x01,
+                0x00,
+            ),
+        )
 }
 
 /**

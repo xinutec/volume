@@ -1287,9 +1287,18 @@ object Drivers {
         // The card shows the LIVE curve; the four presets are what the tests use to prove
         // its preset index means what it says.
 
-        /** ⛔ Read only — [JLabSafeHearing] says why there is no matching writer. */
         fun readSafeHearing(t: Transport): JLabSafeHearing.Level? =
             ask(t, JLabSafeHearing.get(), JLabSafeHearing::state)
+
+        /**
+         * ⚠ **Re-reads, because `69` is an ack and not the state** — it answered `01` for
+         * every level written. Believing it would report success for a write the device
+         * declined, which is the mistake the JLab's `47` already cost this repo once.
+         */
+        fun writeSafeHearing(t: Transport, level: JLabSafeHearing.Level): JLabSafeHearing.Level? {
+            t.exchange(JLabSafeHearing.set(level))
+            return readSafeHearing(t)
+        }
 
         fun readTouch(t: Transport): Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? =
             ask(t, JLabTouch.get(), JLabTouch::state)
