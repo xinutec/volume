@@ -29,6 +29,7 @@ the dated section it points at; treat anything undated as older than everything 
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
 | [CUSTOM] button | `f6 06` / `f8 06 01 <v>` | ✅ **solved** — needs `94 01 00` first, then answer the `99` alert |
 | Adaptive Sound Control | `70 01` → supported | ⛔ app-side — ✅ **confirmed by capture 2026-08-24**: off writes an ordinary `68 02`, on writes nothing |
+| NC Optimizer | `82`–`87` OPT `01`, control `00` CANCEL · `01` START | ⛔ **identified, never driven** — it plays test tones into worn headphones |
 | Volume `a1`, firmware `30`, telemetry `c1` | | ⛔ excluded by rule, not by the device |
 
 ⚠ **THE FRAME TYPE BYTE SELECTS THE COMMAND TABLE.** `0c` = table1, `0e` = table2, and
@@ -38,6 +39,66 @@ has `SONY_TABLE2=1`; default stays `0c`.
 ⚠ **Decoded is not reachable.** Battery was decoded and cross-checked on 2026-08-16 and
 sat unused for a week because no driver method existed. Three separate features have now
 been "known" and invisible. A ✅ above means driven **and** on the card.
+
+⚠⚠ **This table was INCOMPLETE until 2026-09-01, and no reading of it could have shown
+that.** It is built from the wire outwards — every row is something a capture or the SDK
+turned up — so a device feature nobody had asked about simply had no line. The first survey
+of Sound Connect's own screens found `NC Optimizer` sitting in the app's first category,
+and it had been identified on the wire since 2026-08-24 without ever reaching here. **A
+summary assembled from what you looked at cannot report what you did not.** The parity
+table below is built the other way round, off the app's screens, which is why it belongs
+next to this one rather than inside it.
+
+## ⚠ What Sound Connect has, and what we have — 2026-09-01
+
+Every row of the vendor app's own screens, read by walking `All device settings` and each
+of its six categories to the end. ⚠ **Read-only: only category headers and the settings
+entry were tapped, never a control.**
+
+⚠ **Scope, stated because it bounds the claim:** this is the top level of each category.
+Two rows have `Detailed Settings` sub-screens that were NOT separately enumerated —
+`Ambient Sound Control` (which holds Focus on Voice) and `Equalizer` (which holds the band
+sliders). Both are driven and both are in the STATE table above; what is unchecked is
+whether those sub-screens hold anything *else*.
+
+| the app's row | wire | us |
+| --- | --- | --- |
+| battery, on the device card | ✅ `10 00` | ✅ read |
+| codec — "Connected via LDAC" | ✅ `18 00` | ✅ read — ⚠ negotiated, not settable |
+| ⏻ Turn off audio device | ✅ `22 00 01` | ✅ driven |
+| Ambient Sound Control — NC · Ambient · Off | ✅ `66 02` / `68 02` | ✅ r/w |
+| **NC Optimizer** — atmospheric pressure, wearing condition | ✅ `82`–`87` OPT `01` | ⛔ **identified, never driven** — see below |
+| Speak-to-Chat | ✅ `f6 05`, detail `fa 05` | ✅ r/w, both |
+| Equalizer — Custom 2 | ✅ `56 01` / `58 01` | ✅ r/w, preset and bands |
+| **Find Your Equalizer** | ⚪ unestablished | ⚪ not opened — see below |
+| **360 Reality Audio Setup** | ⚪ unestablished | ⚪ not opened — account-gated |
+| DSEE Extreme | ✅ `e6 02` / `e8 02` | ✅ r/w |
+| Sound Quality Mode | ✅ `e6 01` / `e8 01` | ✅ r/w |
+| Connect to 2 devices simultaneously | ✅ `d6 d2` | ⛔ device refuses everyone, its own app too |
+| Touch sensor control panel | ✅ `d6 d1` / `d8 d1` | ✅ r/w |
+| Change function of [CUSTOM] button | ✅ `f6 06` / `f8 06` | ✅ r/w — needs `94 01 00`, then answer the `99` alert |
+| Pause when headphones are removed | ✅ `f6 03` / `f8 03` | ✅ r/w |
+| Automatic Power Off | ✅ `f6 04` / `f8 04` | ✅ r/w, complete |
+| Notification & Voice Guide — On/Language | ✅ `46 01 01` on type `0e` | ✅ r/w |
+| Download software automatically · Version 3.0.1 | ⛔ firmware | ⛔ excluded by rule, not by the device |
+| Adaptive Sound Control (shortcut) | ✅ none — app-side, confirmed by capture | ⚪ correctly absent |
+
+**Every row is placed.** Three carry something other than a plain ✅, and each for a stated
+reason rather than for want of effort:
+
+⛔ **`NC Optimizer` is identified and deliberately not driven.** `82`–`87` OPT with
+`01` NC_OPTIMIZER and control `00` CANCEL / `01` START has been decoded since 2026-08-24.
+It **plays test tones into headphones that must be worn** while it measures wearing
+condition and atmospheric pressure. That is the same class as the JBL's Personi-Fi hearing
+test and it gets the same treatment: the frame is recorded, and nothing here starts it.
+⚠ It is also the row that proves the point above — decoded on the wire, absent from the
+STATE table for a week, and only a survey of the app's screens surfaced it.
+
+⚪ **`Find Your Equalizer` and `360 Reality Audio Setup` were not opened**, so their wire
+status is unestablished rather than absent. `360 Reality Audio Setup` is account-gated and
+a login prompt is a hard stop here. `Find Your Equalizer` is a guided listening test, which
+by the reasoning above is not something to start blind. ⚠ **"Not opened" is not "app-side"**
+— saying which one it is needs the capture nobody has taken.
 
 ---
 
