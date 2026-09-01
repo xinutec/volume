@@ -399,3 +399,19 @@ package before every dump and every tap.
 later bugreport is refused with "Failed to connect to dumpstatez service". It cannot
 be killed from `adb shell` — `setprop ctl.stop dumpstatez` clears it. Worth knowing
 before blaming the host: nothing on the Mac was wrong.
+
+## 2026-09-01 — JLab JBuds Sport ANC 4, the whole command map (`…/2026-09-01-jlab/`)
+
+Eight captures behind every JLab decode of that day, with a `README.md` mapping each log to
+what it establishes. Three are single-variable measurements rather than observations and are
+marked as the ones to keep if disk is ever reclaimed.
+
+⚠⚠ **They were pulled out of `/tmp` at the end of the session, and that is the lesson.**
+`bugreportz` output had been unzipped there all day; `/private/tmp` is swept daily, so the
+evidence for the command map, the `76` ablation and the `4a` EQ frame was one sweep from
+gone while the docs quoting it stayed confident. **Move a capture to
+`~/.cache/volume-captures/` in the same sitting it is taken**, not at the end.
+
+⚠ The 50 MB zips were not kept — only the logs, which is all `btsnoop.py` reads. The frame
+counts were re-verified AFTER copying, because a lazily-flushed log looks complete (rule 6
+above) and a copy is exactly where a truncation would hide.
