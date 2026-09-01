@@ -33,6 +33,22 @@ class JLabTest {
     /** ⚠ The same nine-byte body under `b1 = 03`, which is why `b1` is not a length. */
     private val batteryB1Is3 = "00 ff 01 31 03 00 5a 5a 04 00 02 00 00 ec"
 
+    /**
+     * ✅ **Left is byte 6, and this is the reading that settled it** — 70/60, taken
+     * beside the vendor app's own two icons, whose `L` fill measured 34 px against `R`'s
+     * 30. Kept as a fixture because the evidence for the order is a render this test
+     * cannot hold: if [BudBattery.left] ever swaps, the number here stops matching the
+     * screenshot the decision was made from.
+     */
+    private val battery70x60 = "00 ff 01 31 01 00 46 3c 04 00 02 00 00 b8"
+
+    @Test
+    fun `left is the earlier byte, as the vendor app's own icons showed`() {
+        val b = JLabBattery.state(bytes(battery70x60))!!
+        assertEquals(70, b.left.percent)
+        assertEquals(60, b.right.percent)
+    }
+
     @Test
     fun `battery reads both cells`() {
         val b = JLabBattery.state(bytes(battery90x80))

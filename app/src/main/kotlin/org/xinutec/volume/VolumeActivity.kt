@@ -1258,11 +1258,11 @@ private fun SettingsSection(
         }
 
         // ⚠ **Two cells, and they really do differ** — watched drifting 90/90 → 90/80 →
-        // 80/80. ⚠ The two labels are the vendor app's row order and NOT an established
-        // left/right assignment; [JLabBattery] carries the test that would settle it, so
-        // this says what it read rather than promising which bud.
+        // 80/80, then 70/60. ✅ Left and right are the right way round: at 70/60 the
+        // vendor app's own two icons were measured off the render and the `L` one is the
+        // fuller. [JLabBattery] has the numbers.
         settings.budBattery?.let { b ->
-            SettingLabel("Battery", "${b.left.percent}% / ${b.right.percent}%")
+            SettingLabel("Battery", "L ${b.left.percent}%  ·  R ${b.right.percent}%")
         }
 
         settings.jlabEq?.let { c ->

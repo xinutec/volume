@@ -1353,7 +1353,7 @@ parse and is stated rather than dressed up.
 
 | read | reply | write | what it is | what makes that more than a guess |
 | --- | --- | --- | --- | --- |
-| `30` | `31` | — | battery `<L> <R> 04 00 02 00 00`, also broadcast unasked ~every 10 s | watched L and R drain 90/90 → 90/80 → 80/80 across one capture |
+| `30` | `31` | — | battery `<L> <R> 04 00 02 00 00`, also broadcast unasked ~every 10 s | watched them drain 90/90 → 90/80 → 80/80 across one capture; ✅ **L before R** settled at 70/60 by measuring the vendor app's own icons — 34 px of fill against 30 |
 | `44` | `45` | `46` | ANC — `00` off · `01` Noise Cancelling · `02` Be Aware | already driven; re-driven both ways here and restored |
 | `48` | `49` | ⚠ | current EQ, `<preset idx> <10 band levels>` | reads preset `03` + a curve, and the UI had **Custom** — 4th of EQ1/EQ2/EQ3/Custom — ticked |
 | `4c` | `4d` | ⚠ | touch map, 12 × `<side 01·02> <gesture 01…06> <action>` | the 12 triples are exactly the 2 sides × 6 gestures the Touch Controls screen draws, in its order |
