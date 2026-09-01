@@ -219,17 +219,25 @@ class JLabTest {
     }
 
     /**
-     * ⛔ **No writer exists, and this asserts the absence.** The `68` frame is captured and
-     * written up in [JLabSafeHearing], deliberately not implemented: moving this toward
-     * `Default` RAISES what the wearer can be exposed to. If someone adds a `set` here,
-     * this fails and they have to argue for it rather than land it quietly.
+     * ✅ **The three writes exactly as the vendor app sent them**, 2026-09-01.
+     *
+     * ⚠ This test replaced one asserting that no writer existed. That guard did its job:
+     * shipping read-only first meant adding the writer was a decision Pippijn took
+     * explicitly, rather than something that appeared in a refactor.
      */
     @Test
-    fun `safe hearing has no writer`() {
-        assertTrue(
-            JLabSafeHearing::class.java.declaredMethods.none {
-                it.name.startsWith("set") && it.parameterCount > 0
-            },
+    fun `safe hearing writes the frames the vendor app sent`() {
+        assertEquals(
+            "c0 ff 00 68 01 00 00 01 00 29",
+            JLabSafeHearing.set(JLabSafeHearing.Level.DEFAULT).hex(),
+        )
+        assertEquals(
+            "c0 ff 00 68 01 00 01 01 00 2a",
+            JLabSafeHearing.set(JLabSafeHearing.Level.DB_95).hex(),
+        )
+        assertEquals(
+            "c0 ff 00 68 01 00 02 01 00 2b",
+            JLabSafeHearing.set(JLabSafeHearing.Level.DB_85).hex(),
         )
     }
 

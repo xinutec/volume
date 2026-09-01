@@ -27,6 +27,7 @@ import org.xinutec.volume.protocol.EqSetting
 import org.xinutec.volume.protocol.Forget
 import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
+import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.NoMode
@@ -832,6 +833,26 @@ class DeviceController(
             when (after) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
+                else -> Confirmation.Contradicted(after)
+            }
+        }
+
+    /**
+     * ⚠⚠ **Raising this raises how loud the headphones can get.** Writable at Pippijn's
+     * explicit request, 2026-09-01. It re-reads rather than trusting the reply: `69`
+     * answers `01` for every level, so it is an ack and says nothing about what the device
+     * did — and reporting a hearing control as set when it was not is the worst version of
+     * that mistake.
+     */
+    override fun setSafeHearing(address: String, level: JLabSafeHearing.Level) =
+        applied<JLabSafeHearing.Level>(
+            address,
+            "setting safe hearing",
+            { it.name.lowercase() },
+        ) {
+            when (val after = Drivers.JLabQcy.writeSafeHearing(it.transport, level)) {
+                null -> Confirmation.Unverifiable
+                level -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)
             }
         }
