@@ -1480,14 +1480,60 @@ Realtek's transport is `AA <type> <length: 2 LE> <payload>`, payload
 GET_STATUS, `0x0c` INFO_REQ, `0x105` GET_LE_ADDR) and the `*Req` classes
 (`0xc44`–`0xc46` ANC scenario, `0x2xx` EQ, `0x7xx` key mapping).
 
-⚠ **A sixth SDK, checked 2026-08-23 and also a dead end.** `com.qcymall.qcylibrary`
-is QCY's own layer — the app is a QCY rebrand, so this was the most promising place
-left for the `c0 ff` framing. It is not there: the only thing in it that builds
-frames is `wq/sdk`, whose `DeviceMutualMapper` wraps payloads in **`0x33`** header
-and footer and is the OTA path. `c0 ff` appears nowhere in the APK. ⚠ Written down
-so the next session does not spend the evening finding the same nothing — **the
-JLab stays capture-only**, and it is the one device of the five with no offline
-route.
+⚠ **A sixth SDK, checked 2026-08-23 and a dead end.** `com.qcymall.qcylibrary` is QCY's
+own layer; the only thing in it that builds frames is `wq/sdk`, whose `DeviceMutualMapper`
+wraps payloads in **`0x33`** header and footer and is the OTA path.
+
+## ✅✅ THE APK IS NOT A DEAD END — `c0 ff` IS IN IT, 2026-09-01
+
+⚠⚠ **This page said "`c0 ff` appears nowhere in the APK" and "the JLab stays capture-only,
+the one device of the five with no offline route". Both were WRONG**, and the reason is
+worth more than the correction: **`0xc0` in smali is `-0x40t`, not `c0`.** A search for the
+literal bytes cannot match a signed-byte array, which is the exact trap the `smali_enum.py`
+note two paragraphs down already warns about (`-0x56t` is `0xaa`) — recorded, and then not
+applied to the search that mattered.
+
+Searching for `-0x40t` followed by `-0x1t` finds **exactly one file**:
+
+    smali_classes3/com/realsil/sdk/bbpro/xb/e.smali
+
+It is the complete frame builder — **35 commands**, against the 13 the vendor app was seen
+to send. Every command decoded from captures lands in it at the right arity, which is what
+makes it trustworthy rather than merely suggestive:
+
+| from the SDK | arity | what the captures had said |
+| --- | --- | --- |
+| `48` read / **`4a` write** `P(B,[B)` | preset + byte array | EQ read decoded; the writer was "predicted, uncaptured" |
+| `4c` read / **`4e` write** `N(B,B,B)` | three bytes | touch map decoded as `<side> <gesture> <action>` triples |
+| `50` / `52` `B(B)` · `66` / `68` `J(B)` · `74` `V(B)` / `76` | one byte | spatial mode, Safe Hearing, spatial audio — all as measured |
+
+✅ **So the reader+2 rule is confirmed structurally**, not just on the three writers that
+were captured — and `4e`'s three-byte signature independently corroborates the touch map's
+triple decode, which until now rested only on it matching the app's screen.
+
+### ✅ Three of the four unknown reads, placed by their CALLERS
+
+`com.provista.jlab.platform.bes.BesManager` wraps every one of these, and while its own
+methods are obfuscated, the widgets that call it are not:
+
+- **`58`** — `BesManager.C()`, called by `TouchControlView4BesTWS`,
+  `TouchControlView4BesTWSNoSwipe`, `IntervalModeTouchControlView4Bes` and
+  `ButtonControlView4Bes`. **Touch-control related**, and it has a writer `5a` `X(B)`.
+- **`62`, `7a`, `7e`** — called only from `BesManager$startScan$1`,
+  `BesManager$connectSPP$1` and `BesManager$writeData$1`. **No feature widget reads them**,
+  which is exactly consistent with the wire: they appear in every cold enumeration and
+  their values never moved across a whole session of driving the app.
+
+⚠⚠ **The SDK is SHARED ACROSS JLAB MODELS, so its vocabulary is NOT this device's feature
+list.** `com/provista/jlab/widget/` holds `lighting`, `sleep`, `windnoise`, `boost`, `enc`,
+`leaudio`, `labsync`, `autosensors` and more; the JBuds Sport ANC 4's own screen draws
+seven feature rows and nothing here says the other widgets apply to it. A command existing
+in `xb/e` is evidence about the SDK, not about these earbuds.
+
+⛔⛔ **AND THIS TABLE IS NOT A SWEEP LIST.** Having 35 command numbers makes sweeping
+easier, not safer: the id space is a Realtek SDK's and holds a factory reset. The rule is
+unchanged — **replay only what the vendor app was observed to send**, and treat everything
+here as a map for reading, not a menu for trying.
 
 ⚠ **Every one of those leads was a dead end**, and they cost the most time of
 anything here. `01000100` accepts writes and answers neither the BES `aa` protocol
