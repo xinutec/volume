@@ -40,14 +40,19 @@ has `SONY_TABLE2=1`; default stays `0c`.
 sat unused for a week because no driver method existed. Three separate features have now
 been "known" and invisible. A ✅ above means driven **and** on the card.
 
-⚠⚠ **This table was INCOMPLETE until 2026-09-01, and no reading of it could have shown
-that.** It is built from the wire outwards — every row is something a capture or the SDK
-turned up — so a device feature nobody had asked about simply had no line. The first survey
-of Sound Connect's own screens found `NC Optimizer` sitting in the app's first category,
-and it had been identified on the wire since 2026-08-24 without ever reaching here. **A
-summary assembled from what you looked at cannot report what you did not.** The parity
-table below is built the other way round, off the app's screens, which is why it belongs
-next to this one rather than inside it.
+⚠⚠ **This table was INCOMPLETE until 2026-09-01, and the cause is NOT that anybody missed
+the feature.** `NC Optimizer` was identified AND consciously excluded on 2026-08-24 — it is
+in task #1097's "6 excluded, each for its own reason", with the right reason. What went
+wrong is that **this table only carried rows for things with a driver or a read; the
+exclusions lived in the task and never crossed over.** So the doc and the task disagreed
+for a week, each internally consistent, and only a survey against the app's own screens
+made the disagreement visible.
+
+⚠ **The fix is the row above, not a resolution to be careful.** An excluded feature needs a
+line here saying it is excluded, or the summary silently means "everything we chose to
+implement" while reading as "everything the device has". The parity table below is built
+the other way round — off the app's screens rather than off the wire — which is why both
+exist.
 
 ## ⚠ What Sound Connect has, and what we have — 2026-09-01
 
