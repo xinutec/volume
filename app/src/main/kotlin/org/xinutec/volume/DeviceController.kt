@@ -48,6 +48,7 @@ import org.xinutec.volume.protocol.SonySwitch
 import org.xinutec.volume.protocol.SonyTouchPanel
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
+import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.Wearable
@@ -395,6 +396,23 @@ class DeviceController(
                     leAudio = Drivers.JblBes.readFeature(s.transport, JblFeature.LE_AUDIO),
                     auracast = Drivers.JblBes.readFeature(s.transport, JblFeature.AURACAST),
                     canPowerOff = true,
+                    attempted = true,
+                )
+            }
+
+            is Drivers.JLabQcy -> {
+                // ⚠ **Two reads for one card field.** The JLab keeps the switch and the
+                // mode in separate commands, so [Settings.spatial] is only offered when
+                // both answer — a Spatial carrying a guessed mode would put a choice on
+                // screen that nothing read.
+                val on = Drivers.JLabQcy.readSpatial(s.transport)
+                val mode = Drivers.JLabQcy.readSpatialMode(s.transport)
+                Settings(
+                    budBattery = Drivers.JLabQcy.readBattery(s.transport),
+                    spatial = if (on != null && mode != null) Spatial(on, mode) else null,
+                    spatialModes = listOf(SpatialMode.MUSIC, SpatialMode.MOVIE),
+                    jlabEq = Drivers.JLabQcy.readEq(s.transport),
+                    jlabTouch = Drivers.JLabQcy.readTouch(s.transport),
                     attempted = true,
                 )
             }
@@ -789,10 +807,28 @@ class DeviceController(
             "setting spatial sound",
             { "${if (it.on) "on" else "off"}, ${it.mode.name.lowercase()}" },
         ) {
-            // ⚠ No re-read: `aa 9d` answers with the status frame, not an ack, so the
-            // reply IS the read-back. Contrast [setTimedOff], where it is an ack and a
-            // second round trip is the only way to know.
-            when (val after = Drivers.JblBes.writeSpatial(it.transport, v)) {
+            // ⚠ No re-read for the JBL: `aa 9d` answers with the status frame, not an
+            // ack, so the reply IS the read-back. Contrast [setTimedOff], where it is an
+            // ack and a second round trip is the only way to know.
+            val after =
+                when (it.headphones.driver) {
+                    // ⚠⚠ **TWO writes, and either can land without the other.** The JLab
+                    // has no frame carrying both, so this reports what it can actually
+                    // verify: the switch and the mode are re-read separately and a
+                    // half-applied edit comes back as Contradicted rather than as a
+                    // success. Ordered switch-then-mode so that turning it on and
+                    // choosing a mode in one edit leaves the mode as the last word.
+                    is Drivers.JLabQcy -> {
+                        val on = Drivers.JLabQcy.writeSpatial(it.transport, v.on)
+                        val mode = Drivers.JLabQcy.writeSpatialMode(it.transport, v.mode)
+                        if (on == null || mode == null) null else Spatial(on, mode)
+                    }
+
+                    else -> {
+                        Drivers.JblBes.writeSpatial(it.transport, v)
+                    }
+                }
+            when (after) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)

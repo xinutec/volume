@@ -1288,11 +1288,18 @@ with ANC off, so a decoder keying on them is reading a different field.
 ⚠ **`00` = off is now measured**, not assumed. It could not be checked while there
 was no read; with one it was driven and read back, whole payload `00 00 00`.
 
-✅ **The reply's checksum is the request's rule MINUS 2**, and that is now measured
-across every frame of four captures — bodies from 3 to 44 bytes, ten different
-commands. It held without exception, which promotes it from "consistent enough to be
-a rule" to the thing that **finds where a frame ends**: see the map below, where the
-length byte does not.
+⚠ **The reply's checksum does not follow the request's rule, and it has no rule of its
+own that anyone here has found.** Seven reply commands — `31`, `45`, `51`, `59`, `63`,
+`67`, `7f` — come out **exactly 2 less** than the request rule's sum. Five do not:
+`49`, `4d`, `71`, `76` and `7a` close at *no* offset over *any* prefix of the frame.
+So the driver still does not check it, and — see the map below — **it cannot be used to
+find where a reply ends** either.
+
+⚠⚠ **This paragraph said the opposite for one commit**, on 2026-09-01. The −2 rule was
+verified against a capture in which the battery broadcast `31` repeats sixty times and
+every other reply appears once or twice, so "it held for every frame" was true by
+frame count and false by command — the sample was one command wearing a majority.
+**Count distinct commands, not frames, before generalising over a protocol.**
 
 ⚠ **The `47` reply is not a success signal.** A write with `mode = 03` drew the
 identical `47` and changed nothing. Verify a JLab write by reading the state back,
@@ -1327,15 +1334,20 @@ the app itself sent.
 ### The framing, and why the CHECKSUM is the delimiter
 
     request  c0 ff 00 <cmd> 00 00 01 00 <sum>            sum = Σ preceding bytes, mod 256
-    reply    00 ff 01 <cmd> <b1> 00 <payload…> <sum>     sum = Σ preceding bytes − 2
+    reply    00 ff 01 <cmd> <b1> 00 <payload…> <tail>    ⚠ no rule found for <tail>
     write    c0 ff 00 <cmd+2> …                          each writer is its reader + 2
 
-⚠⚠ **The byte after a reply's cmd is NOT a length**, and parsing it as one desynchronises
-everything after. `31` carries the SAME nine-byte body under `b1 = 01` and under `b1 = 03`,
-so one value of it would have to be wrong; `4d` declares `1b` (27) and carries 36; `71`
-declares `1e` (30) and carries 40. **Find the end with the checksum instead** — walk
-forward until Σ (minus 2 for a reply) matches the candidate last byte. That parsed all
-four captures with no leftovers.
+✅ **The REQUEST checksum is a real delimiter**, and it is needed: the app packs up to
+three requests into one RFCOMM payload. Walking forward until Σ matches the candidate
+last byte splits every such packet in all four captures with nothing left over.
+
+⚠⚠ **Nothing delimits a REPLY, so do not try.** The byte after a reply's cmd is not a
+length — `31` carries the SAME nine-byte body under `b1 = 01` and under `b1 = 03`, so one
+value would have to be wrong; `4d` declares `1b` (27) and carries 36; `71` declares `1e`
+(30) and carries 40 — and the checksum does not close for five of the twelve reply
+commands either. **Every decode below therefore reads fixed offsets from a payload that
+arrived as one whole frame**, which each of them did. That is a weaker guarantee than a
+parse and is stated rather than dressed up.
 
 ### The table
 

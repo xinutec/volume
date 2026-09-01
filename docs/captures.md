@@ -48,10 +48,12 @@ capture** — `aa 40 01 01` drawing nothing is the signal to stop, not to try `a
    frame, so a truncated log looks complete. **Check the last frame's timestamp.**
 7. ⚠ **An empty window is evidence.** 425 frames of `HCI_EVT`/`HCI_CMD` and no ACL
    means nothing was sent — not that the capture missed it.
-8. ⚠ **A reply's checksum need not follow the request's rule.** The JLab's are exactly
-   2 less than its requests' sum-mod-256. ✅ **Then USE it**: on 2026-09-01 that offset
-   held across four captures and ten commands, and it is what delimits a JLab frame —
-   its length byte does not. A checksum you can predict is a parser, not a curiosity.
+8. ⚠ **A reply's checksum need not follow the request's rule**, and need not follow one
+   at all. Seven of the JLab's twelve reply commands are exactly 2 less than its requests'
+   sum-mod-256; five close at no offset over any prefix. ⚠⚠ **The trap that cost a commit
+   on 2026-09-01: a repeated broadcast can carry a vote.** `31` recurs sixty times in a
+   capture where every other reply appears once, so a rule checked frame-by-frame "held
+   without exception" and was wrong for five commands. **Count distinct commands.**
 
 ### Extracting
 

@@ -345,6 +345,25 @@ class ScreenTest {
                 "timedOff" to Settings(timedOff = TimedOff(on = true, minutes = 30)),
                 "volumeLimit" to Settings(volumeLimit = true),
                 "spatial" to Settings(spatial = Spatial(true, SpatialMode.MUSIC)),
+                "budBattery" to
+                    Settings(
+                        budBattery =
+                            BudBattery(
+                                left = Battery(percent = 90, charging = null),
+                                right = Battery(percent = 80, charging = null),
+                            ),
+                    ),
+                // ⚠ A real curve, not an empty one: the levels ARE the row, so a blank
+                // sample would let a renderer that draws only the preset number pass.
+                "jlabEq" to Settings(jlabEq = JLabCurve(preset = 3, levels = List(10) { 120 })),
+                "jlabTouch" to
+                    Settings(
+                        jlabTouch =
+                            mapOf(
+                                (JLabTouch.Side.FIRST to JLabTouch.Tap.ONE_TAP) to
+                                    JLabTouch.Action.PLAY_PAUSE,
+                            ),
+                    ),
                 "voiceAware" to Settings(voiceAware = VoiceAware(true, VoiceLevel.MID)),
                 "smartTalk" to Settings(smartTalk = SmartTalk(true, TalkTimeout.SEC_5)),
                 "lowVolumeEq" to Settings(lowVolumeEq = true),
@@ -563,6 +582,9 @@ class ScreenTest {
                 "canPowerOff",
                 // Same: a capability, saying only whether the control exists.
                 "canRename",
+                // ⚠ Which modes the chips may offer, not a reading — it has a non-null
+                // default and accompanies `spatial`, exactly as `bands` does `eq`.
+                "spatialModes",
                 // ⚠ Accompanies canRename and never stands alone, like `bands` does
                 // `eq` — the row is drawn by the capability, and a device that answered
                 // its name and nothing else has no settings section to put it in.

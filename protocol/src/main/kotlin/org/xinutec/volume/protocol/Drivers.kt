@@ -1163,41 +1163,33 @@ object Drivers {
         /**
          * `c0 ff 00 44 00 00 01 00 04` → `00 ff 01 45 03 00 <mode> <a> <b> 00 <sum> 00`.
          *
-         * ⚠ **The mode is the SEVENTH byte**, and the two after it are not constant:
-         * they read `04 04` in either ANC mode and `00 00` when ANC is off, so a
-         * decoder keying on them would be reading something else's field.
+         * ⚠ **The mode is the SEVENTH byte of the REPLY**, counted from wherever the
+         * reply begins — see below — and the two after it are not constant: they read
+         * `04 04` in either ANC mode and `00 00` when ANC is off, so a decoder keying on
+         * them would be reading something else's field.
          *
-         * ✅ **A reply's checksum is the requests' sum-mod-256 MINUS 2**, measured
-         * 2026-09-01 across four captures and ten commands, with bodies from 3 to 44
-         * bytes and no exception. This read does not verify it — the frame is already
-         * identified by its `45` — but the rule is what lets a parser find where a
-         * JLab frame ENDS, since the byte after the command is not a length: `31`
-         * carries the same nine-byte body under `01` and under `03`.
+         * ⚠⚠ **This used to test `r[3]` and return null otherwise, and that shipped a
+         * bug.** On 2026-09-01 the first read after an idle link answered 20 ms after its
+         * own window closed, so this one got nothing and the read after it got `45` — the
+         * card said "could not read it" while the device had answered perfectly. Going
+         * through [ask] and [JLabFrame.replyTo] is what makes the reply findable wherever
+         * it landed, and what asks a second time when the window closed empty.
+         *
+         * ⚠ The reply's checksum does not follow the requests' sum-mod-256 rule, and has
+         * no rule of its own that anyone here has found: seven reply commands come out
+         * exactly 2 less than that sum and five close at no offset at all. So it stays
+         * unchecked, and it cannot delimit a reply either.
          */
-        override fun read(t: Transport): AncMode? {
-            val r =
-                t.exchange(
-                    checksummed(
-                        byteArrayOf(
-                            0xc0.toByte(),
-                            0xff.toByte(),
-                            0x00,
-                            0x44,
-                            0x00,
-                            0x00,
-                            0x01,
-                            0x00,
-                        ),
-                    ),
-                )
-            if (r.size < 7 || r[3] != 0x45.toByte()) return null
-            return when (r[6]) {
-                0x00.toByte() -> AncMode.OFF
-                0x01.toByte() -> AncMode.ANC
-                0x02.toByte() -> AncMode.AMBIENT
-                else -> null
+        override fun read(t: Transport): AncMode? =
+            ask(t, JLabFrame.read(0x44)) { r ->
+                val f = JLabFrame.replyTo(r, 0x45, atLeast = 7) ?: return@ask null
+                when (f[6]) {
+                    0x00.toByte() -> AncMode.OFF
+                    0x01.toByte() -> AncMode.ANC
+                    0x02.toByte() -> AncMode.AMBIENT
+                    else -> null
+                }
             }
-        }
 
         /**
          * ⚠ **`00` is Off, and that is now measured rather than assumed.** It was
@@ -1233,11 +1225,69 @@ object Drivers {
         }
 
         /**
-         * Append the trailing sum-mod-256. The device accepted a frame with it
-         * omitted, so it does not appear to be verified — but a frame that matches
-         * the app's byte for byte is the one with evidence behind it.
+         * ⚠ **One implementation, in [JLabFrame]**, which is where the framing is
+         * documented. This stayed as a name here because the ANC read and write above
+         * were written against it before the rest of the protocol was decoded.
          */
-        fun checksummed(body: ByteArray): ByteArray =
-            body + body.fold(0) { acc, b -> acc + (b.toInt() and 0xff) }.toByte()
+        fun checksummed(body: ByteArray): ByteArray = JLabFrame.checksummed(body)
+
+        /**
+         * Ask, and read again if the window closed before the answer arrived.
+         *
+         * ⚠⚠ **Both halves are measured, not defensive.** On 2026-09-01 the first read
+         * after an idle link took 420 ms against a window of about 400: `44`'s window
+         * closed empty and `76` was handed `45`, after which every read ran one behind.
+         * [JLabFrame.replyTo] scanning the buffer fixes the second half; this retry fixes
+         * the first, because a window that closed empty has nothing to scan.
+         *
+         * ⚠ **One extra read, not a loop.** [Transport.receive] returning empty is an
+         * ordinary outcome and its own doc says a caller must bound its retries — so this
+         * gives the device exactly one more chance and then reports failure honestly.
+         *
+         * ⚠ It also drains the `31` battery frame the device broadcasts every ten
+         * seconds unasked, which is the other thing that can be sitting in a window.
+         */
+        private fun <T> ask(t: Transport, request: ByteArray, decode: (ByteArray) -> T?): T? =
+            decode(t.exchange(request)) ?: decode(t.receive())
+
+        fun readBattery(t: Transport): BudBattery? = ask(t, JLabBattery.get(), JLabBattery::state)
+
+        fun readSpatial(t: Transport): Boolean? = ask(t, JLabSpatial.get(), JLabSpatial::state)
+
+        fun readSpatialMode(t: Transport): SpatialMode? =
+            ask(t, JLabSpatialMode.get(), JLabSpatialMode::state)
+
+        /**
+         * ⚠ **Re-reads rather than trusting the reply.** `74` is answered by `75`, which
+         * echoes the value that was sent — so it says what was asked for, not what the
+         * device did. The JLab already burned this repo once on exactly that: a mode of
+         * `03` drew an identical `47` and changed nothing.
+         */
+        fun writeSpatial(t: Transport, on: Boolean): Boolean? {
+            t.exchange(JLabSpatial.set(on))
+            return readSpatial(t)
+        }
+
+        /**
+         * ⚠ Re-reads, and here the reply is worse than an echo: `52`'s answer `53` came
+         * back **`01` for both** the Music and the Movie write, so it is a bare
+         * acknowledgement carrying no state at all.
+         */
+        fun writeSpatialMode(t: Transport, mode: SpatialMode): SpatialMode? {
+            val frame = JLabSpatialMode.set(mode) ?: return null
+            t.exchange(frame)
+            return readSpatialMode(t)
+        }
+
+        fun readEq(t: Transport): JLabCurve? = ask(t, JLabEq.get(), JLabEq::state)
+
+        // ⚠ **No `readEqPresets` here on purpose.** `JLabEq.presets`/`allPresets` decode
+        // the stored curves and are covered by fixtures, but nothing displays them, and a
+        // driver method with no caller is a round trip waiting to be added by accident.
+        // The card shows the LIVE curve; the four presets are what the tests use to prove
+        // its preset index means what it says.
+
+        fun readTouch(t: Transport): Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? =
+            ask(t, JLabTouch.get(), JLabTouch::state)
     }
 }
