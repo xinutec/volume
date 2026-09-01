@@ -413,6 +413,7 @@ class DeviceController(
                     spatialModes = listOf(SpatialMode.MUSIC, SpatialMode.MOVIE),
                     jlabEq = Drivers.JLabQcy.readEq(s.transport),
                     jlabTouch = Drivers.JLabQcy.readTouch(s.transport),
+                    jlabSafeHearing = Drivers.JLabQcy.readSafeHearing(s.transport),
                     attempted = true,
                 )
             }

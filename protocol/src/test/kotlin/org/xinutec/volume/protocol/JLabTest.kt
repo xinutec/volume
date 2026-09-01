@@ -182,6 +182,57 @@ class JLabTest {
         assertEquals(0x01.toByte(), SpatialMode.MUSIC.wire)
     }
 
+    // ---- safe hearing ----------------------------------------------------------
+    // ✅ The two cold enumerations that name it: `Default` on 2026-09-01 09:47 and again
+    // at 10:12, then `85 dB Limit` at 11:21. One variable, one byte.
+
+    private val safeHearingDefault = "00 ff 01 67 01 00 00 00 00 66"
+    private val safeHearing85 = "00 ff 01 67 01 00 02 00 00 68"
+
+    @Test
+    fun `safe hearing reads the two levels it was measured at`() {
+        assertEquals(
+            JLabSafeHearing.Level.DEFAULT,
+            JLabSafeHearing.state(bytes(safeHearingDefault)),
+        )
+        assertEquals(JLabSafeHearing.Level.DB_85, JLabSafeHearing.state(bytes(safeHearing85)))
+    }
+
+    /**
+     * ⚠⚠ **The direction, asserted so a refactor cannot quietly invert it.** `02` is the
+     * MOST protective setting and `00` the least, so anything treating these numbers as
+     * loudness has the control backwards — on the one row where backwards is harmful.
+     */
+    @Test
+    fun `a higher safe hearing value is a lower ceiling`() {
+        assertTrue(
+            JLabSafeHearing.Level.DB_85.wire > JLabSafeHearing.Level.DEFAULT.wire,
+        )
+        assertEquals(
+            listOf(
+                JLabSafeHearing.Level.DEFAULT,
+                JLabSafeHearing.Level.DB_95,
+                JLabSafeHearing.Level.DB_85,
+            ),
+            JLabSafeHearing.Level.entries.toList(),
+        )
+    }
+
+    /**
+     * ⛔ **No writer exists, and this asserts the absence.** The `68` frame is captured and
+     * written up in [JLabSafeHearing], deliberately not implemented: moving this toward
+     * `Default` RAISES what the wearer can be exposed to. If someone adds a `set` here,
+     * this fails and they have to argue for it rather than land it quietly.
+     */
+    @Test
+    fun `safe hearing has no writer`() {
+        assertTrue(
+            JLabSafeHearing::class.java.declaredMethods.none {
+                it.name.startsWith("set") && it.parameterCount > 0
+            },
+        )
+    }
+
     // ---- equaliser -------------------------------------------------------------
 
     private val eqCurrent = "00 ff 01 49 0b 00 03 78 78 5a 78 78 78 5a 78 78 78 06 00 d8"

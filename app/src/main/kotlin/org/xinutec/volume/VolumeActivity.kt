@@ -79,6 +79,7 @@ import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.JBL_IDLE_MINUTES
+import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JLabTouch
 import org.xinutec.volume.protocol.ModeOutTime
 import org.xinutec.volume.protocol.NoteKind
@@ -1277,6 +1278,25 @@ private fun SettingsSection(
             // choosing one RAISES them.
             Text(
                 "changing a preset would raise two cut bands — this app reads it, never writes it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        settings.jlabSafeHearing?.let { level ->
+            // ⚠ A value with no switch, like the volume limit — and here the label has to
+            // carry the direction too, because "Default" is the LEAST protective of the
+            // three and nothing about the word says so.
+            SettingLabel(
+                "Safe hearing",
+                when (level) {
+                    JLabSafeHearing.Level.DEFAULT -> "default — no limit"
+                    JLabSafeHearing.Level.DB_95 -> "95 dB limit"
+                    JLabSafeHearing.Level.DB_85 -> "85 dB limit"
+                },
+            )
+            Text(
+                "hearing protection — this app will read it, never change it",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )

@@ -1287,6 +1287,10 @@ object Drivers {
         // The card shows the LIVE curve; the four presets are what the tests use to prove
         // its preset index means what it says.
 
+        /** ⛔ Read only — [JLabSafeHearing] says why there is no matching writer. */
+        fun readSafeHearing(t: Transport): JLabSafeHearing.Level? =
+            ask(t, JLabSafeHearing.get(), JLabSafeHearing::state)
+
         fun readTouch(t: Transport): Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? =
             ask(t, JLabTouch.get(), JLabTouch::state)
     }
