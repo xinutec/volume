@@ -1167,10 +1167,12 @@ object Drivers {
          * they read `04 04` in either ANC mode and `00 00` when ANC is off, so a
          * decoder keying on them would be reading something else's field.
          *
-         * ⚠ The reply's checksum does not follow the requests' sum-mod-256 rule. It
-         * came out **exactly 2 less** than that sum in all three states measured,
-         * which is consistent enough to be a rule and is not one anybody here has
-         * worked out — so it is left unchecked rather than guessed at.
+         * ✅ **A reply's checksum is the requests' sum-mod-256 MINUS 2**, measured
+         * 2026-09-01 across four captures and ten commands, with bodies from 3 to 44
+         * bytes and no exception. This read does not verify it — the frame is already
+         * identified by its `45` — but the rule is what lets a parser find where a
+         * JLab frame ENDS, since the byte after the command is not a length: `31`
+         * carries the same nine-byte body under `01` and under `03`.
          */
         override fun read(t: Transport): AncMode? {
             val r =

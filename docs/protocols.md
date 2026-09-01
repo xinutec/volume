@@ -1288,9 +1288,11 @@ with ANC off, so a decoder keying on them is reading a different field.
 ⚠ **`00` = off is now measured**, not assumed. It could not be checked while there
 was no read; with one it was driven and read back, whole payload `00 00 00`.
 
-⚠ The reply's checksum does **not** follow the request's sum-mod-256 rule. It came
-out **exactly 2 less** than that sum in all three states — consistent enough to be a
-rule, and not one anybody has worked out, so the driver does not check it.
+✅ **The reply's checksum is the request's rule MINUS 2**, and that is now measured
+across every frame of four captures — bodies from 3 to 44 bytes, ten different
+commands. It held without exception, which promotes it from "consistent enough to be
+a rule" to the thing that **finds where a frame ends**: see the map below, where the
+length byte does not.
 
 ⚠ **The `47` reply is not a success signal.** A write with `mode = 03` drew the
 identical `47` and changed nothing. Verify a JLab write by reading the state back,
@@ -1312,17 +1314,123 @@ showed the mode the device was actually in, both ways round — so a read had to
 exist, and the capture of that launch contained it. Reading the app's own behaviour
 beat reading its bundled SDKs, again.
 
-The rest of what the app asks on opening, all `c0 ff 00 <cmd> 00 00 01 00 <sum>`
-and answered by `<cmd>+1` — ⚠ **a map of where to look, not a decode**, since only
-`44`/`45` above has been read:
+## ✅ The JLab's command map, decoded — 2026-09-01
+
+What the app asks on opening, and what the answers mean. **Every command here was
+observed being SENT by `com.jlab.app`**; not one was swept.
+
+⛔ **Never sweep this protocol.** It is a QCY rebrand of a Realtek SDK whose id space
+holds a factory reset, and nothing measured here says which id that is. The JLab has no
+offline oracle, so an unknown id cannot be checked before sending it — only replay what
+the app itself sent.
+
+### The framing, and why the CHECKSUM is the delimiter
+
+    request  c0 ff 00 <cmd> 00 00 01 00 <sum>            sum = Σ preceding bytes, mod 256
+    reply    00 ff 01 <cmd> <b1> 00 <payload…> <sum>     sum = Σ preceding bytes − 2
+    write    c0 ff 00 <cmd+2> …                          each writer is its reader + 2
+
+⚠⚠ **The byte after a reply's cmd is NOT a length**, and parsing it as one desynchronises
+everything after. `31` carries the SAME nine-byte body under `b1 = 01` and under `b1 = 03`,
+so one value of it would have to be wrong; `4d` declares `1b` (27) and carries 36; `71`
+declares `1e` (30) and carries 40. **Find the end with the checksum instead** — walk
+forward until Σ (minus 2 for a reply) matches the candidate last byte. That parsed all
+four captures with no leftovers.
+
+### The table
+
+| read | reply | write | what it is | what makes that more than a guess |
+| --- | --- | --- | --- | --- |
+| `30` | `31` | — | battery `<L> <R> 04 00 02 00 00`, also broadcast unasked ~every 10 s | watched L and R drain 90/90 → 90/80 → 80/80 across one capture |
+| `44` | `45` | `46` | ANC — `00` off · `01` Noise Cancelling · `02` Be Aware | already driven; re-driven both ways here and restored |
+| `48` | `49` | ⚠ | current EQ, `<preset idx> <10 band levels>` | reads preset `03` + a curve, and the UI had **Custom** — 4th of EQ1/EQ2/EQ3/Custom — ticked |
+| `4c` | `4d` | ⚠ | touch map, 12 × `<side 01·02> <gesture 01…06> <action>` | the 12 triples are exactly the 2 sides × 6 gestures the Touch Controls screen draws, in its order |
+| `50` | `51` | `52` | spatial MODE — `00` Music · `01` Movie | driven both ways from the app's own tiles, restored to Music |
+| `70` | `71` | ⚠ | all four preset curves, 4 × 10 bands | preset 3's ten bytes are byte-identical to `49`'s current curve |
+| `76` | `76` | `74` | Spatial Audio ON/OFF | the ablation below |
+| `58` | `59` | | ⚪ unidentified — reads `00` | |
+| `62` | `63` | | ⚪ unidentified — reads `04 04 04 04` | |
+| `66` | `67` | | ⚪ unidentified — reads `00` | |
+| `7a` | `7a` | | ⚪ unidentified — reads `00` | |
+| `7e` | `7f` | | ⚪ unidentified — reads `01 01 01` | |
+
+⚠ **`76` and `7a` answer with their OWN id**; every other read answers `cmd+1`. Measured,
+and left as measured rather than tidied into the pattern.
+
+⚠ **The ⚠ in the write column is a PREDICTION, not a capture.** `4a`, `4e` and `72` follow
+from reader+2, which holds for all three writers that were actually observed (`44`→`46`,
+`50`→`52`, `76`→`74`) — but no EQ or gesture write has been seen on the wire, and this
+protocol is not one to test a guess on.
+
+### ✅ The ablation that named `76`, and why it needed no guessing
+
+Spatial Audio reads `01` while the feature is on — which is **consistent with** `76` being
+its state and is not the same claim, the trap `docs/sony-settings.md` records for the codec
+row. So it was measured instead: set the switch OFF, force-stop the app, relaunch it cold,
+and diff the whole cold enumeration against the one taken with it ON.
 
 ```
-30 → 31  battery, the same frame as the broadcast      44 → 45  ANC mode  ← decoded
-48 → 49  0b 00 03 78 78 5a 78 78 78 5a 78 78 78 06     4c → 4d  1b 00 …
-50 → 51  02 00 …    58 → 59  01 00 …    62 → 63  04 00 04 04 04 04
-66 → 67  01 00 …    70 → 71  1e 00 78 78 … (30 bytes)  76 → 76  echoes its own cmd
-7a → 7a  01 00 …    7e → 7f  01 00 01 01 01 00
+Spatial Audio ON   09:47:34    ← 76   01 00 01 00 00
+Spatial Audio OFF  10:12:41    ← 76   01 00 00 00 00
 ```
+
+**Exactly one frame moved.** Every other reply in the enumeration — `31`, `45`, `49`, `4d`,
+`51`, `59`, `63`, `67`, `71`, `7a`, `7f` — came back byte-identical, which the decoder
+establishes by flagging repeats rather than by anyone eyeballing them. One variable, one
+byte, and the app drew the switch OFF on the cold relaunch, so it read that state from the
+device rather than remembering it.
+
+### ⚠ Three things about driving this app
+
+- **Opening a row sends NOTHING.** The rows are accordions, and the app answers them from
+  what the cold connect already read — the 09:49–09:52 window holds six row-opens and not
+  one frame beyond the battery broadcast. To attribute a command you must CHANGE something.
+- ⚠⚠ **The switch is outside its row's clickable bounds.** `Spatial Audio` is a Button
+  ending at x=848; its toggle sits at x≈917. Two taps on the row centre changed nothing,
+  and the accessibility tree reports `checked=false` for every row either way, so the tree
+  could not show it. **The wire is what proved the taps missed** — no `74` at either
+  timestamp — and a screenshot is what found the real target.
+- **`am force-stop` then relaunch is the only way to re-read state**, since nothing but a
+  change or a cold start makes the app ask again.
+
+### ⚠ What the JLab app has, and what we have — 2026-09-01
+
+Every row of `com.jlab.app`'s device screen, read top to bottom with the list scrolled to
+the end (confirmed: two consecutive dumps with an identical label set), against the
+driver's own surface.
+
+| the app's row | wire | us |
+| --- | --- | --- |
+| L / R battery | ✅ `30`/`31`, and broadcast unasked | ⛔ **ABSENT** — the wire is decoded, nothing reads it |
+| Noise Control Modes — Off · Be Aware · NC On | ✅ `44`/`45`/`46` | ✅ r/w, all three driven |
+| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ⚠ writer predicted, uncaptured | ⛔ **ABSENT** |
+| **Touch Controls** — 6 gestures × 2 sides | ✅ read `4c`/`4d`; ⚠ writer predicted, uncaptured | ⛔ **ABSENT** |
+| **Spatial Audio** on/off | ✅ `76` read, `74` write | ⛔ **ABSENT** |
+| **Spatial mode** — Music · Movie | ✅ `50`/`51`/`52` | ⛔ **ABSENT** |
+| **Safe Hearing** — 85 dB · 95 dB · Default | ⚪ not identified | ⛔ **read-only by rule** — see below |
+| Interval Timer — active/rest/repeat, Start Workout | ⚪ opening it sends nothing | ⚪ app-side timer |
+| Check for Update | ⛔ firmware | ⛔ excluded by rule, not by the device |
+| Settings tab — support, registration, language, legal, theme | ⚪ app content | n/a |
+| My JLab tab — Ambient Sounds, Burn-In Tool, Control Guide, Store | ⚪ app content | n/a |
+
+**Eleven rows: one driven, five absent with the wire in hand, one absent by hearing rule,
+four app-or-firmware.** ⚠ This is the widest gap of the five devices, and it is the first
+time the JLab has had a table to measure that against — before 2026-09-01 "the JLab is
+capture-only" was true and was also doing duty as an excuse not to count.
+
+⚠⚠ **`Safe Hearing` is an EXPOSURE CEILING and stays read-only until Pippijn says
+otherwise**, the same standing as the JBL's Max Volume Limiter and PSAP. Note the
+asymmetry that makes it worse than a normal setting: its three values are 85 dB, 95 dB and
+**Default**, so moving *toward* Default RAISES the ceiling. Identifying it on the wire
+needs a change, and the only safe change is downward — which does not come back without
+raising it again. So it was left unasked rather than guessed at, and the row above says
+"not identified" for that reason and no other.
+
+⚠ **The EQ writer is deliberately unattempted**, and hearing is why. The captured Custom
+curve is `78 78 5a 78 78 78 5a 78 78 78` — two bands cut to `5a` against a `78` baseline —
+so selecting any of EQ1/EQ2/EQ3, which are flat `78` throughout, RAISES those two bands.
+Under the never-raise rule the only permitted exercise is downward-then-back, which a
+preset tap cannot do. The read costs nothing and is where the value is.
 
 ### How the JLab was found — it is a Realtek chip, and none of that mattered
 
