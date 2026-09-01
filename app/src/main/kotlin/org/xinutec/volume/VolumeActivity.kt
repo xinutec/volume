@@ -79,6 +79,7 @@ import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.JBL_IDLE_MINUTES
+import org.xinutec.volume.protocol.JLabTouch
 import org.xinutec.volume.protocol.ModeOutTime
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.RefusalReason
@@ -892,8 +893,10 @@ private fun SettingsSection(
             // should render for is not also a decision to turn it on. The mode is
             // offered while off for the same reason the device keeps it: it is
             // remembered, and `off` is not `no mode`.
+            // ⚠ [Settings.spatialModes], not [SpatialMode.entries]: the JLab has no
+            // Game, and a chip whose write this repo refuses is worse than no chip.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (m in SpatialMode.entries) {
+                for (m in settings.spatialModes) {
                     FilterChip(
                         selected = m == v.mode,
                         onClick = { actions.setSpatial(address, v.copy(mode = m)) },
@@ -1252,6 +1255,46 @@ private fun SettingsSection(
                 // saying nothing is right there — see [Battery.charging].
                 if (b.charging == true) "${b.percent}%, charging" else "${b.percent}%",
             )
+        }
+
+        // ⚠ **Two cells, and they really do differ** — watched drifting 90/90 → 90/80 →
+        // 80/80. ⚠ The two labels are the vendor app's row order and NOT an established
+        // left/right assignment; [JLabBattery] carries the test that would settle it, so
+        // this says what it read rather than promising which bud.
+        settings.budBattery?.let { b ->
+            SettingLabel("Battery", "${b.left.percent}% / ${b.right.percent}%")
+        }
+
+        settings.jlabEq?.let { c ->
+            SettingLabel("Equalizer", "preset ${c.preset}")
+            Text(
+                c.levels.joinToString(" ") { it.toString() },
+                style = MaterialTheme.typography.bodySmall,
+            )
+            // ⚠ Same treatment as the volume limit below, and for the same reason: the
+            // device does not refuse this and its own app changes it freely. Every
+            // stored preset here is flat while the live curve has two bands cut, so
+            // choosing one RAISES them.
+            Text(
+                "changing a preset would raise two cut bands — this app reads it, never writes it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        settings.jlabTouch?.let { m ->
+            SettingLabel("Touch controls", "${m.size} bindings")
+            // ⚠ Grouped by gesture, not by side: both sides carry identical maps in
+            // every capture, so a per-side list would draw a distinction nothing has
+            // measured. See [JLabTouch] for why the sides are not called left and right.
+            for (tap in JLabTouch.Tap.entries) {
+                val action = m[JLabTouch.Side.FIRST to tap] ?: continue
+                Text(
+                    "${tap.name.lowercase().replace('_', ' ')} — " +
+                        action.name.lowercase().replace('_', ' '),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
 
         settings.gestures?.let { map ->

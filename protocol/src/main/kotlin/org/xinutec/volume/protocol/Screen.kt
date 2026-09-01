@@ -161,13 +161,25 @@ data class Settings(
      */
     val volumeLimit: Boolean? = null,
     /**
-     * The JBL's Spatial Sound — the switch and the mode it renders for.
+     * Spatial sound — the switch and the mode it renders for. **Two devices, and they
+     * do NOT agree about the wire.**
      *
-     * ⚠ One field, not two, because the device takes both in one frame: there is no
-     * write that changes the switch without also naming a mode. Splitting them in the
-     * UI would invent a state the headphones cannot be in.
+     * ⚠ One field, not two, because the JBL takes both in one frame: there is no write
+     * that changes its switch without also naming a mode, so splitting them would invent
+     * a state those headphones cannot be in. ⚠⚠ **The JLab is the opposite** — `74` and
+     * `52` are separate writes, either of which can land alone — and it shares this field
+     * anyway because the *card* is the same two questions. What that costs is stated at
+     * `DeviceController.setSpatial`, which must issue two writes for one edit.
      */
     val spatial: Spatial? = null,
+    /**
+     * Which modes the chips may offer, because the two devices disagree.
+     *
+     * ⚠ **The JLab has no Game**, and its app draws two tiles. Iterating
+     * [SpatialMode.entries] would render a chip whose write this repo refuses — an
+     * affordance that cannot work is worse than an absent one.
+     */
+    val spatialModes: List<SpatialMode> = SpatialMode.entries,
     /** VoiceAware — one field for the same reason [spatial] is one. */
     val voiceAware: VoiceAware? = null,
     /** Smart Talk — the switch and how long it holds TalkThru after you stop. */
@@ -193,6 +205,28 @@ data class Settings(
     val gestures: Map<Gesture, GestureAction>? = null,
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
+    /**
+     * Two cells, for earbuds that report them separately.
+     *
+     * ⚠ **Not [battery] with one number.** The JLab's two levels were watched drifting
+     * apart — 90/90 → 90/80 → 80/80 — so a single percentage would be discarding a real
+     * reading rather than collapsing a duplicated one, which is what the JBL's does.
+     */
+    val budBattery: BudBattery? = null,
+    /**
+     * The JLab's equaliser — **shown, never written**, and hearing is the reason.
+     *
+     * ⚠ Not in `refuses`: the device does not refuse it and its own app changes it
+     * freely. Its three stored presets are flat while the live Custom curve has two bands
+     * cut, so selecting any preset RAISES those bands — and the rule here permits moving
+     * a level down and back, which a preset tap cannot do. [JLabEq] has the curve.
+     */
+    val jlabEq: JLabCurve? = null,
+    /**
+     * What each tap on the JLab does — **read only**, and not for a rule's sake: its own
+     * app draws this screen with every row inert, so no writer has ever been captured.
+     */
+    val jlabTouch: Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? = null,
     /** Auto Play & Pause — pauses when you take them off. */
     val autoPlay: Boolean? = null,
     /** Left/right balance; ⚠ the switch is offered, the level only carried. */
@@ -411,6 +445,7 @@ data class Settings(
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
+                budBattery != null || jlabEq != null || jlabTouch != null ||
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
                 voicePrompts != null || standby != null || selfVoice != null ||
