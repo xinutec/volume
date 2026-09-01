@@ -31,7 +31,17 @@ Music has, and what we have". Every function it answers is decoded and driven fr
 | voice prompts, standby, self voice | `01 03`, `01 04`, `01 0b` | driven |
 | multipoint, action button | `01 0a`, `01 09` | driven |
 | battery | `02 02` | read |
-| pairing mode, forget, **disconnect** | `04 08`, `04 03`, `04 02` | driven |
+| pairing mode, forget | `04 08`, `04 03` | driven — forget is offered only for a device that is NOT connected |
+| **disconnect** | `04 02` | ⛔ **frame only — nothing calls it** |
+
+⚠⚠ **`04 02` was listed here as "driven" until 2026-09-01 and it never has been.**
+`BoseDisconnect.frame()` ships with tests and has **no caller anywhere in the app** — the
+frame was sent once, by hand, as the deliberate exception recorded in #1283. This table sat
+under "the QC45 is finished — a CHECKED claim" asserting a capability that does not exist,
+while `docs/protocols.md`'s own QC45 row said "no writer yet" and got it right. ⚠ **Two
+summaries of one device disagreed, and the check that made one of them "checked" did not
+compare them.** It was found by grepping for callers, which is the thing that settles
+"driven" and which neither table's construction requires.
 
 **Decoded and deliberately NOT offered**, because `[41]` reports them immutable on every
 mode — `autoCNCMutable`, `spatialMutable`, `ancToggleMutable` are all `0`, so a control
