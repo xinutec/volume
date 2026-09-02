@@ -214,12 +214,24 @@ data class Settings(
      */
     val budBattery: BudBattery? = null,
     /**
-     * The JLab's equaliser — **shown, never written**, and hearing is the reason.
+     * The JLab's equaliser — **written, at Pippijn's explicit request (2026-09-01)**.
      *
-     * ⚠ Not in `refuses`: the device does not refuse it and its own app changes it
-     * freely. Its three stored presets are flat while the live Custom curve has two bands
-     * cut, so selecting any preset RAISES those bands — and the rule here permits moving
-     * a level down and back, which a preset tap cannot do. [JLabEq] has the curve.
+     * ⚠ It was read-only first, for the hearing reason, and that is why this doc says so
+     * rather than reading as though a preset tap were ever ordinary. Its three stored
+     * presets are flat while the live Custom curve has two bands cut, so selecting one
+     * was expected to RAISE those bands. [JLabEq] has the curve.
+     *
+     * ⚠⚠ **Measured 2026-09-02: `4a` moves the PRESET INDEX and the ten level bytes do
+     * NOT land.** Selecting `eq 1` from our own card sent slot 0's stored curve — flat,
+     * all 120 — and `49` came back preset 0 carrying the *cut* curve unchanged,
+     * `120 120 90 120 120 120 90 120 120 120`. The controller reported
+     * `Contradicted`, which is the whole reason that outcome exists.
+     *
+     * ⚠ **Two readings survive that observation and nothing here picks one**: either the
+     * device ignores the levels on a preset write, or `49` reports the Custom slot
+     * whatever is selected. They differ in whether the two cut bands were audibly raised.
+     * The existing corroboration cannot separate them — it was taken with Custom
+     * selected, where the two coincide by construction.
      */
     val jlabEq: JLabCurve? = null,
     /**
@@ -236,12 +248,16 @@ data class Settings(
      */
     val jlabTouch: Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? = null,
     /**
-     * The JLab's Safe Hearing ceiling — **shown, never written**.
+     * The JLab's Safe Hearing ceiling — **written, at Pippijn's explicit request
+     * (2026-09-01)**.
      *
-     * ⚠ Not in [refuses]: the device takes the write and its own app makes it freely. It
-     * is read-only because it is hearing protection, which is this repo's choice — the
-     * third control to get [volumeLimit]'s treatment, and the one where the direction is
-     * counter-intuitive: [JLabSafeHearing.Level.DEFAULT] is the LEAST protective.
+     * ⚠ It shipped read-only first, with a test asserting the absence, so that adding a
+     * writer had to be a decision rather than a refactor. That decision was taken and
+     * this is the record of it — the JBL's Max Volume Limiter and PSAP keep
+     * [volumeLimit]'s treatment and are still shown-never-written.
+     *
+     * ⚠⚠ The direction is counter-intuitive: [JLabSafeHearing.Level.DEFAULT] is the
+     * LEAST protective, so a caller that sorts these as loudness has them backwards.
      */
     val jlabSafeHearing: JLabSafeHearing.Level? = null,
     /** Auto Play & Pause — pauses when you take them off. */

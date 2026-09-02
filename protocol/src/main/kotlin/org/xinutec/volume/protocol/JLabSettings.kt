@@ -286,13 +286,26 @@ object JLabSpatialMode {
  * ⚠ **`4b` answered preset `01` and a flat curve after a write of preset `03`**, so it
  * reports neither the request nor the state. [Drivers.JLabQcy.writeEq] re-reads `48`.
  *
- * ⚠⚠ **ONLY PRESET `03` HAS BEEN WRITTEN, and the card offers all four.** The capture that
- * fixed this frame's layout was a band drag inside Custom, so the preset byte is observed
- * at exactly one value. Reading it is settled — `49` says `03` while the app shows Custom,
- * and slot 3 of `71` matches `49`'s curve — and writing another index is an extension of
- * that, not a measurement. **The one-tap check that would settle it:** select `eq 1` on
- * the card and confirm the row re-reads as preset 0. It is bounded rather than open-ended
- * because the levels sent are the device's OWN stored curves, read back from `71`.
+ * ✅ **A SECOND PRESET INDEX IS NOW MEASURED — 2026-09-02.** `eq 1` was selected on our
+ * own card and `49` re-read preset `0`, so the preset byte is observed at two values and
+ * writing an index is no longer an extension of a single capture. The original selection
+ * was restored in the same step and the device ended byte-identical to where it started.
+ *
+ * ⚠⚠ **BUT THE TEN LEVEL BYTES DID NOT LAND, and that is the finding.** The card sends a
+ * slot's OWN stored curve, so `eq 1` carried slot 0's flat `78`s — and `49` answered
+ * preset `0` still holding the CUT curve, `78 78 5a 78 78 78 5a 78 78 78`.
+ * [DeviceController] reported `Contradicted`, naming the disagreement instead of
+ * reporting a write it could not see.
+ *
+ * ⚠ **Two readings survive and nothing here picks one**: the device ignores the levels on
+ * a preset write, or `49` reports the Custom slot whatever index is selected. They differ
+ * in whether the two cut bands were audibly RAISED for the seconds the selection stood.
+ * The corroboration above cannot separate them — it was taken with Custom selected, where
+ * `49` and slot 3 of `71` coincide by construction.
+ *
+ * ⚠ **Restoring by tapping `custom` CONFIRMS for free and proves nothing.** It sends slot
+ * 3 its own contents, so the re-read agrees whether or not the levels were applied. The
+ * restore is sound; the `Confirmed` beside it is not evidence.
  *
  * ⚠ **The levels are RAW DEVICE UNITS and this deliberately does not convert them.** No
  * capture establishes what `78` and `5a` mean in dB, nor what the endpoints are. Calling
