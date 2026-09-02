@@ -23,6 +23,7 @@ import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
+import org.xinutec.volume.protocol.EqDriver
 import org.xinutec.volume.protocol.EqSetting
 import org.xinutec.volume.protocol.Forget
 import org.xinutec.volume.protocol.Gesture
@@ -443,6 +444,15 @@ class DeviceController(
     private val Session.bose: BoseSettingsDriver?
         get() = headphones.driver as? BoseSettingsDriver
 
+    /**
+     * Same idiom for the XM4's own settings — the features below have a single
+     * implementor, so a per-feature interface would be ceremony; what matters is that
+     * a wrong-driver dispatch is a typed [Confirmation.Unverifiable], never a
+     * [ClassCastException] on a listener thread.
+     */
+    private val Session.sony: Drivers.SonyXm4?
+        get() = headphones.driver as? Drivers.SonyXm4
+
     /** Every settings write goes through here: drive it, then re-read the truth. */
     private fun <T> applied(
         address: String,
@@ -519,7 +529,8 @@ class DeviceController(
 
     override fun setEqPreset(address: String, preset: Int) =
         applied<EqSetting>(address, "setting the equaliser", { "preset ${it.preset}" }) {
-            (it.headphones.driver as Drivers.SonyXm4).setEq(it.transport, preset)
+            val d = it.headphones.driver as? EqDriver ?: return@applied Confirmation.Unverifiable
+            d.setEq(it.transport, preset)
         }
 
     /**
@@ -532,7 +543,8 @@ class DeviceController(
             "setting the equaliser bands",
             { it.levels.joinToString(", ") },
         ) {
-            (it.headphones.driver as Drivers.SonyXm4).setEqLevels(it.transport, levels)
+            val d = it.sony ?: return@applied Confirmation.Unverifiable
+            d.setEqLevels(it.transport, levels)
         }
 
     override fun setTone(address: String, bands: BoseBands) =
@@ -549,7 +561,10 @@ class DeviceController(
 
     override fun setMultipoint(address: String, on: Boolean) =
         applied<Boolean>(address, "setting multipoint", { if (it) "on" else "off" }) {
-            (it.headphones.driver as MultipointDriver).setMultipoint(it.transport, on)
+            val d =
+                it.headphones.driver as? MultipointDriver
+                    ?: return@applied Confirmation.Unverifiable
+            d.setMultipoint(it.transport, on)
         }
 
     /**
@@ -564,7 +579,7 @@ class DeviceController(
 
     override fun setAutoOff(address: String, mode: AutoOff) =
         applied<AutoOff>(address, "setting power off", { it.name }) {
-            val d = it.headphones.driver as Drivers.SonyXm4
+            val d = it.sony ?: return@applied Confirmation.Unverifiable
             when (val after = d.writeAutoOff(it.transport, mode) ?: d.readAutoOff(it.transport)) {
                 null -> Confirmation.Unverifiable
                 mode -> Confirmation.Confirmed
@@ -958,7 +973,8 @@ class DeviceController(
 
     override fun setVoiceGuidance(address: String, on: Boolean) =
         applied<Boolean>(address, "setting voice guidance", { if (it) "on" else "off" }) {
-            (it.headphones.driver as Drivers.SonyXm4).setVoiceGuidance(it.transport, on)
+            val d = it.sony ?: return@applied Confirmation.Unverifiable
+            d.setVoiceGuidance(it.transport, on)
         }
 
     override fun setTouchPanel(address: String, on: Boolean) =
@@ -1161,7 +1177,7 @@ class DeviceController(
 
     override fun setSoundQuality(address: String, mode: SoundQuality) =
         applied<SoundQuality>(address, "setting sound quality", { it.name }) {
-            val d = it.headphones.driver as Drivers.SonyXm4
+            val d = it.sony ?: return@applied Confirmation.Unverifiable
             val after =
                 d.writeSoundQuality(it.transport, mode) ?: d.readSoundQuality(it.transport)
             when (after) {
