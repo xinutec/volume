@@ -20,8 +20,8 @@ class SweepTest {
     fun `bose sweeps the block-by-function grid`() {
         val p = Sweep.bose(0..1, 0..2)
         assertEquals(6, p.size)
-        assertEquals("00 00 01 00", Hex.format(p.first()))
-        assertEquals("01 02 01 00", Hex.format(p.last()))
+        assertEquals("00 00 01 00", Hex.format(p.first().bytes))
+        assertEquals("01 02 01 00", Hex.format(p.last().bytes))
     }
 
     /**
@@ -32,9 +32,13 @@ class SweepTest {
     @Test
     fun `every bose sweep packet is a zero-length GET`() {
         for (p in Sweep.bose(0..0x12, 0..0x0f)) {
-            assertEquals(4, p.size)
-            assertEquals("operator must be Get in ${Hex.format(p)}", 0x01.toByte(), p[2])
-            assertEquals("length must be zero in ${Hex.format(p)}", 0x00.toByte(), p[3])
+            assertEquals(4, p.bytes.size)
+            assertEquals(
+                "operator must be Get in ${Hex.format(p.bytes)}",
+                0x01.toByte(),
+                p.bytes[2],
+            )
+            assertEquals("length must be zero in ${Hex.format(p.bytes)}", 0x00.toByte(), p.bytes[3])
         }
     }
 
@@ -46,9 +50,17 @@ class SweepTest {
     @Test
     fun `every fast pair sweep packet has a zero length`() {
         for (p in Sweep.fastPair(0..0x0f, 0..0x0f)) {
-            assertEquals(4, p.size)
-            assertEquals("length hi must be zero in ${Hex.format(p)}", 0x00.toByte(), p[2])
-            assertEquals("length lo must be zero in ${Hex.format(p)}", 0x00.toByte(), p[3])
+            assertEquals(4, p.bytes.size)
+            assertEquals(
+                "length hi must be zero in ${Hex.format(p.bytes)}",
+                0x00.toByte(),
+                p.bytes[2],
+            )
+            assertEquals(
+                "length lo must be zero in ${Hex.format(p.bytes)}",
+                0x00.toByte(),
+                p.bytes[3],
+            )
         }
     }
 
@@ -56,10 +68,10 @@ class SweepTest {
     @Test
     fun `the sweep reproduces messages seen on the wire`() {
         val bose = Sweep.bose(0..0, 1..1)
-        assertTrue("00 01 01 00" in bose.map { Hex.format(it) })
+        assertTrue("00 01 01 00" in bose.map { Hex.format(it.bytes) })
         val fastPair = Sweep.fastPair(4..7, 0x10..0x11)
-        assertTrue("07 10 00 00" in fastPair.map { Hex.format(it) })
-        assertTrue("04 11 00 00" in fastPair.map { Hex.format(it) })
+        assertTrue("07 10 00 00" in fastPair.map { Hex.format(it.bytes) })
+        assertTrue("04 11 00 00" in fastPair.map { Hex.format(it.bytes) })
     }
 
     @Test(expected = IllegalArgumentException::class)

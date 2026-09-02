@@ -36,6 +36,18 @@ object SonyFrame {
     const val TYPE_DATA_MDR_NO2: Byte = 0x0e
 
     /**
+     * Which command table [type] selects — the same byte means different things on each.
+     *
+     * ⚠ **This replaces a `table2: Boolean = false` parameter, and the default was the
+     * bug.** [Hazards]'s peripheral-unpair refusal only applies on table 2, so a caller
+     * that forgot the argument silently selected the table where the check does not
+     * fire — fail-open by omission. An enum with no default makes silence a compile
+     * error instead.
+     */
+    fun tableOf(type: Byte): SonyTable =
+        if (type == TYPE_DATA_MDR_NO2) SonyTable.TABLE_2 else SonyTable.TABLE_1
+
+    /**
      * Escape the marker bytes. The transform clears bit 4 (`0x3e`→`0x2e`,
      * `0x3c`→`0x2c`, `0x3d`→`0x2d`) behind an `0x3d` lead byte, so the escaped form
      * can never itself be mistaken for a marker.
@@ -80,7 +92,7 @@ object SonyFrame {
         body.fold(0) { acc, b -> acc + (b.toInt() and 0xff) }.toByte()
 
     /** Build a complete frame around [payload]. */
-    fun encode(type: Byte, seq: Byte, payload: ByteArray): ByteArray {
+    fun encode(type: Byte, seq: Byte, payload: ByteArray): OutFrame {
         val n = payload.size
         val body =
             byteArrayOf(
@@ -92,7 +104,7 @@ object SonyFrame {
                 (n and 0xff).toByte(),
             ) + payload
         val withSum = body + checksum(body)
-        return byteArrayOf(START) + escape(withSum) + byteArrayOf(END)
+        return OutFrame(byteArrayOf(START) + escape(withSum) + byteArrayOf(END))
     }
 
     /** A decoded frame, plus whether its checksum held. */
@@ -157,3 +169,6 @@ object SonyFrame {
         return frames
     }
 }
+
+/** The Sony's two command tables. See [SonyFrame.tableOf] for why there is no default. */
+enum class SonyTable { TABLE_1, TABLE_2 }

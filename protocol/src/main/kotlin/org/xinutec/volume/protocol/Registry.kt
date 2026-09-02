@@ -140,7 +140,7 @@ object Registry {
      * than per model — a device that does not need it pays one cheap read.
      */
     fun wakeBose(t: Transport) {
-        t.exchange(byteArrayOf(0x00, 0x01, 0x01, 0x00))
+        t.exchange(OutFrame(byteArrayOf(0x00, 0x01, 0x01, 0x00)))
     }
 
     /**
@@ -160,7 +160,7 @@ object Registry {
      */
     fun identifyBose(t: Transport): AncDriver? {
         wakeBose(t)
-        val r = t.exchange(byteArrayOf(0x01, 0x06, 0x01, 0x00))
+        val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00)))
         val operator = r.getOrNull(2) ?: return null
         return when (operator) {
             // 04 is the Error operator: the function is not on this model.

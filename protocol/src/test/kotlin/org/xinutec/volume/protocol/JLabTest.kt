@@ -112,8 +112,8 @@ class JLabTest {
 
     @Test
     fun `spatial audio writes the frame the vendor app sent`() {
-        assertEquals("c0 ff 00 74 01 00 01 01 00 36", JLabSpatial.set(true).hex())
-        assertEquals("c0 ff 00 74 01 00 00 01 00 35", JLabSpatial.set(false).hex())
+        assertEquals("c0 ff 00 74 01 00 01 01 00 36", JLabSpatial.set(true).bytes.hex())
+        assertEquals("c0 ff 00 74 01 00 00 01 00 35", JLabSpatial.set(false).bytes.hex())
     }
 
     /**
@@ -156,11 +156,11 @@ class JLabTest {
     fun `spatial mode writes the frames the vendor app sent`() {
         assertEquals(
             "c0 ff 00 52 01 00 00 01 00 13",
-            JLabSpatialMode.set(SpatialMode.MUSIC)!!.hex(),
+            JLabSpatialMode.set(SpatialMode.MUSIC)!!.bytes.hex(),
         )
         assertEquals(
             "c0 ff 00 52 01 00 01 01 00 14",
-            JLabSpatialMode.set(SpatialMode.MOVIE)!!.hex(),
+            JLabSpatialMode.set(SpatialMode.MOVIE)!!.bytes.hex(),
         )
     }
 
@@ -229,15 +229,15 @@ class JLabTest {
     fun `safe hearing writes the frames the vendor app sent`() {
         assertEquals(
             "c0 ff 00 68 01 00 00 01 00 29",
-            JLabSafeHearing.set(JLabSafeHearing.Level.DEFAULT).hex(),
+            JLabSafeHearing.set(JLabSafeHearing.Level.DEFAULT).bytes.hex(),
         )
         assertEquals(
             "c0 ff 00 68 01 00 01 01 00 2a",
-            JLabSafeHearing.set(JLabSafeHearing.Level.DB_95).hex(),
+            JLabSafeHearing.set(JLabSafeHearing.Level.DB_95).bytes.hex(),
         )
         assertEquals(
             "c0 ff 00 68 01 00 02 01 00 2b",
-            JLabSafeHearing.set(JLabSafeHearing.Level.DB_85).hex(),
+            JLabSafeHearing.set(JLabSafeHearing.Level.DB_85).bytes.hex(),
         )
     }
 
@@ -344,12 +344,12 @@ class JLabTest {
 
     @Test
     fun `every read is the frame the vendor app sent`() {
-        assertEquals("c0 ff 00 30 00 00 01 00 f0", JLabBattery.get().hex())
-        assertEquals("c0 ff 00 48 00 00 01 00 08", JLabEq.get().hex())
-        assertEquals("c0 ff 00 4c 00 00 01 00 0c", JLabTouch.get().hex())
-        assertEquals("c0 ff 00 50 00 00 01 00 10", JLabSpatialMode.get().hex())
-        assertEquals("c0 ff 00 70 00 00 01 00 30", JLabEq.presets().hex())
-        assertEquals("c0 ff 00 76 00 00 01 00 36", JLabSpatial.get().hex())
+        assertEquals("c0 ff 00 30 00 00 01 00 f0", JLabBattery.get().bytes.hex())
+        assertEquals("c0 ff 00 48 00 00 01 00 08", JLabEq.get().bytes.hex())
+        assertEquals("c0 ff 00 4c 00 00 01 00 0c", JLabTouch.get().bytes.hex())
+        assertEquals("c0 ff 00 50 00 00 01 00 10", JLabSpatialMode.get().bytes.hex())
+        assertEquals("c0 ff 00 70 00 00 01 00 30", JLabEq.presets().bytes.hex())
+        assertEquals("c0 ff 00 76 00 00 01 00 36", JLabSpatial.get().bytes.hex())
     }
 
     /**

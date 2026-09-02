@@ -665,9 +665,10 @@ class DriversTest {
         assertEquals(
             "c0 ff 00 46 03 00 01 04 04 01 00 12",
             Hex.format(
-                Drivers.JLabQcy.checksummed(
-                    Hex.parse("c0ff004603000104040100"),
-                ),
+                Drivers.JLabQcy
+                    .checksummed(
+                        Hex.parse("c0ff004603000104040100"),
+                    ).bytes,
             ),
         )
     }

@@ -19,22 +19,22 @@ class SonyFrameTest {
     fun `encodes the documented shape`() {
         val f = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 0, Hex.parse("0000"))
         // 3e | 0c 00 | 00 00 00 02 | 00 00 | sum | 3c
-        assertEquals(SonyFrame.START, f.first())
-        assertEquals(SonyFrame.END, f.last())
-        assertEquals("3e 0c 00 00 00 00 02 00 00 0e 3c", Hex.format(f))
+        assertEquals(SonyFrame.START, f.bytes.first())
+        assertEquals(SonyFrame.END, f.bytes.last())
+        assertEquals("3e 0c 00 00 00 00 02 00 00 0e 3c", Hex.format(f.bytes))
     }
 
     @Test
     fun `length is big-endian over four bytes`() {
         val f = SonyFrame.encode(SonyFrame.TYPE_DATA, 0, ByteArray(258))
-        assertEquals("00 00 01 02", Hex.format(f, 3, 7))
+        assertEquals("00 00 01 02", Hex.format(f.bytes, 3, 7))
     }
 
     @Test
     fun `round-trips through decode`() {
         val payload = Hex.parse("6802010f")
         val wire = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 1, payload)
-        val frames = SonyFrame.decodeAll(wire)
+        val frames = SonyFrame.decodeAll(wire.bytes)
         assertEquals(1, frames.size)
         assertEquals(SonyFrame.TYPE_DATA_MDR, frames[0].type)
         assertEquals(1.toByte(), frames[0].seq)
@@ -47,8 +47,8 @@ class SonyFrameTest {
     fun `escapes marker bytes and survives the round trip`() {
         val payload = Hex.parse("3e3c3d")
         val wire = SonyFrame.encode(SonyFrame.TYPE_DATA, 0, payload)
-        assertEquals(1, wire.count { it == SonyFrame.END })
-        val frames = SonyFrame.decodeAll(wire)
+        assertEquals(1, wire.bytes.count { it == SonyFrame.END })
+        val frames = SonyFrame.decodeAll(wire.bytes)
         assertEquals(1, frames.size)
         assertEquals(Hex.format(payload), Hex.format(frames[0].payload))
         assertTrue(frames[0].checksumOk)
@@ -62,7 +62,7 @@ class SonyFrameTest {
 
     @Test
     fun `a corrupted checksum is reported, not thrown`() {
-        val wire = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 0, Hex.parse("0000"))
+        val wire = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 0, Hex.parse("0000")).bytes
         wire[wire.size - 2] = (wire[wire.size - 2] + 1).toByte()
         val frames = SonyFrame.decodeAll(wire)
         assertEquals(1, frames.size)
@@ -73,14 +73,14 @@ class SonyFrameTest {
     fun `several frames in one read are all returned`() {
         val a = SonyFrame.encode(SonyFrame.TYPE_ACK, 0, ByteArray(0))
         val b = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 1, Hex.parse("42"))
-        assertEquals(2, SonyFrame.decodeAll(a + b).size)
+        assertEquals(2, SonyFrame.decodeAll(a.bytes + b.bytes).size)
     }
 
     /** A truncated tail is dropped rather than half-decoded, so the caller can read on. */
     @Test
     fun `a partial trailing frame is ignored`() {
         val whole = SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, 0, Hex.parse("0000"))
-        val truncated = whole + Hex.parse("3e0c00")
+        val truncated = whole.bytes + Hex.parse("3e0c00")
         assertEquals(1, SonyFrame.decodeAll(truncated).size)
     }
 
@@ -122,7 +122,7 @@ class SonyFrameTest {
                 "3e0c00000000155b01061000010101900103e80109c401189c013d2e80543c",
             )
         val f = SonyFrame.decodeAll(wire).single()
-        assertEquals(Hex.format(wire), Hex.format(SonyFrame.encode(f.type, f.seq, f.payload)))
+        assertEquals(Hex.format(wire), Hex.format(SonyFrame.encode(f.type, f.seq, f.payload).bytes))
     }
 
     @Test

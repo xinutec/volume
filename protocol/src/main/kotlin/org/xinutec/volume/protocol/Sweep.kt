@@ -28,9 +28,9 @@ object Sweep {
      * running this against live headphones, and a caller that could vary them would
      * eventually vary them.
      */
-    fun bose(blocks: IntRange, functions: IntRange): List<ByteArray> =
+    fun bose(blocks: IntRange, functions: IntRange): List<OutFrame> =
         blocks.flatMap { b ->
-            functions.map { f -> byteArrayOf(b.toByte(), f.toByte(), 0x01, 0x00) }
+            functions.map { f -> OutFrame(byteArrayOf(b.toByte(), f.toByte(), 0x01, 0x00)) }
         }
 
     /**
@@ -44,12 +44,12 @@ object Sweep {
      * sweep that walks into it will ring whatever is on your head. Range-limit to the
      * group being investigated rather than walking `00`–`12`.
      */
-    fun fastPair(groups: IntRange, codes: IntRange): List<ByteArray> =
+    fun fastPair(groups: IntRange, codes: IntRange): List<OutFrame> =
         groups.flatMap { g ->
-            codes.map { c -> byteArrayOf(g.toByte(), c.toByte(), 0x00, 0x00) }
+            codes.map { c -> OutFrame(byteArrayOf(g.toByte(), c.toByte(), 0x00, 0x00)) }
         }
 
-    fun packets(protocol: String, blocks: IntRange, functions: IntRange): List<ByteArray> =
+    fun packets(protocol: String, blocks: IntRange, functions: IntRange): List<OutFrame> =
         when (protocol.lowercase()) {
             "bose" -> bose(blocks, functions)
             "fastpair" -> fastPair(blocks, functions)

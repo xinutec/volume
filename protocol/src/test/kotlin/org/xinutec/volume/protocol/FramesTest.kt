@@ -27,7 +27,7 @@ class FramesTest {
         val g = Gesture.LEFT_DOUBLE_TAP.wire
         val a = GestureAction.entries.first { !it.volume && it != GestureAction.NONE }
         val hex = "aa 77 03 00 %02x %02x".format(g, a.wire)
-        val said = Frames.describe(null, bytes(hex))
+        val said = Frames.describe(null, bytes(hex), SonyTable.TABLE_1)
         assertTrue(said, said.contains(Gesture.LEFT_DOUBLE_TAP.label))
         assertTrue(said, said.contains(a.label))
         assertTrue(said, said.contains("→"))
@@ -36,13 +36,13 @@ class FramesTest {
     @Test
     fun `a gesture write that clears a binding says so`() {
         val hex = "aa 77 03 00 %02x 00".format(Gesture.LEFT_TAP.wire)
-        val said = Frames.describe(null, bytes(hex))
+        val said = Frames.describe(null, bytes(hex), SonyTable.TABLE_1)
         assertTrue(said, said.contains(GestureAction.NONE.label))
     }
 
     @Test
     fun `a bose frame names its block function and operator`() {
-        val said = Frames.describe(Channels.SPP, bytes("01 06 01 00"))
+        val said = Frames.describe(Channels.SPP, bytes("01 06 01 00"), SonyTable.TABLE_1)
         assertTrue(said, said.contains("01"))
         assertTrue(said, said.contains("06"))
         assertTrue(said, said.lowercase().contains("get"))
@@ -62,7 +62,13 @@ class FramesTest {
                 "07" to "processing",
             )
         for ((op, word) in operators) {
-            val said = Frames.describe(Channels.SPP, bytes("01 06 $op 00")).lowercase()
+            val said =
+                Frames
+                    .describe(
+                        Channels.SPP,
+                        bytes("01 06 $op 00"),
+                        SonyTable.TABLE_1,
+                    ).lowercase()
             assertTrue("operator $op -> $said", said.contains(word))
         }
     }
@@ -74,20 +80,22 @@ class FramesTest {
      */
     @Test
     fun `an unknown BES command is reported as unknown, not guessed`() {
-        val said = Frames.describe(null, bytes("aa 42 01 01")).lowercase()
+        val said = Frames.describe(null, bytes("aa 42 01 01"), SonyTable.TABLE_1).lowercase()
         assertTrue(said, said.contains("42"))
         assertTrue(said, said.contains("unknown") || said.contains("undecoded"))
     }
 
     @Test
     fun `an empty payload says there is nothing to send`() {
-        assertTrue(Frames.describe(null, ByteArray(0)).lowercase().contains("nothing"))
+        assertTrue(
+            Frames.describe(null, ByteArray(0), SonyTable.TABLE_1).lowercase().contains("nothing"),
+        )
     }
 
     @Test
     fun `a BES read and a BES write are told apart`() {
-        val read = Frames.describe(null, bytes("aa 77 01 01")).lowercase()
-        val write = Frames.describe(null, bytes("aa 77 03 00 06 00")).lowercase()
+        val read = Frames.describe(null, bytes("aa 77 01 01"), SonyTable.TABLE_1).lowercase()
+        val write = Frames.describe(null, bytes("aa 77 03 00 06 00"), SonyTable.TABLE_1).lowercase()
         assertEquals(true, read.contains("read"))
         assertEquals(true, write.contains("write") || write.contains("→"))
     }
@@ -105,7 +113,7 @@ class FramesTest {
     @Test
     fun `the commands the guard refuses are named, not printed as unknown`() {
         for (hex in listOf("aa 95 00", "aa 97 00", "aa 77 03 00 06 05")) {
-            val said = Frames.describe(null, bytes(hex), false)
+            val said = Frames.describe(null, bytes(hex), SonyTable.TABLE_1)
             assertEquals("$hex must be named", false, said.contains("unknown command"))
         }
     }
@@ -115,8 +123,8 @@ class FramesTest {
      */
     @Test
     fun `factory reset and power off do not read the same`() {
-        val reset = Frames.describe(null, bytes("aa 95 00"), false)
-        val off = Frames.describe(null, bytes("aa 97 00"), false)
+        val reset = Frames.describe(null, bytes("aa 95 00"), SonyTable.TABLE_1)
+        val off = Frames.describe(null, bytes("aa 97 00"), SonyTable.TABLE_1)
         assertEquals(false, reset == off)
         assertEquals(true, reset.contains("FACTORY RESET"))
     }
@@ -132,9 +140,9 @@ class FramesTest {
      */
     @Test
     fun `a BES write is not called a read`() {
-        val write = Frames.describe(null, JblAutoPlay.set(true), false)
+        val write = Frames.describe(null, JblAutoPlay.set(true).bytes, SonyTable.TABLE_1)
         assertEquals(
-            "`${hexOf(JblAutoPlay.set(true))}` must not claim to be a read: $write",
+            "`${hexOf(JblAutoPlay.set(true).bytes)}` must not claim to be a read: $write",
             false,
             write.contains("read"),
         )
@@ -146,9 +154,9 @@ class FramesTest {
      */
     @Test
     fun `a BES status get is still called a read`() {
-        val read = Frames.describe(null, JblAutoPlay.get(), false)
+        val read = Frames.describe(null, JblAutoPlay.get().bytes, SonyTable.TABLE_1)
         assertEquals(
-            "`${hexOf(JblAutoPlay.get())}` should read as a read: $read",
+            "`${hexOf(JblAutoPlay.get().bytes)}` should read as a read: $read",
             true,
             read.contains("read"),
         )
@@ -164,11 +172,11 @@ class FramesTest {
      */
     @Test
     fun `a frame that cannot be placed is not treated as a read`() {
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("06 01 00")))
-        assertEquals(false, Frames.reads(null, bytes("aa 35 01 01")))
-        assertEquals(false, Frames.reads(null, bytes("aa 42 09 01")))
-        assertEquals(false, Frames.reads(Channels.SONY, bytes("38 01 01")))
-        assertEquals(false, Frames.reads(null, ByteArray(0)))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("06 01 00"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(null, bytes("aa 35 01 01"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(null, bytes("aa 42 09 01"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(Channels.SONY, bytes("38 01 01"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(null, ByteArray(0), SonyTable.TABLE_1))
     }
 
     /**
@@ -178,10 +186,10 @@ class FramesTest {
      */
     @Test
     fun `the ordinary reads are still recognised as reads`() {
-        assertEquals(true, Frames.reads(Channels.SPP, bytes("01 06 01 00")))
-        assertEquals(true, Frames.reads(Channels.SPP, bytes("00 01 01 00")))
-        assertEquals(true, Frames.reads(Channels.SPP, BoseEq.get()))
-        assertEquals(true, Frames.reads(null, JblAutoPlay.get()))
+        assertEquals(true, Frames.reads(Channels.SPP, bytes("01 06 01 00"), SonyTable.TABLE_1))
+        assertEquals(true, Frames.reads(Channels.SPP, bytes("00 01 01 00"), SonyTable.TABLE_1))
+        assertEquals(true, Frames.reads(Channels.SPP, BoseEq.get().bytes, SonyTable.TABLE_1))
+        assertEquals(true, Frames.reads(null, JblAutoPlay.get().bytes, SonyTable.TABLE_1))
     }
 
     /**
@@ -198,7 +206,7 @@ class FramesTest {
      */
     @Test
     fun `a getter whose direction is not generically decidable is not guessed at`() {
-        assertEquals(false, Frames.reads(null, JblGestures.get()))
+        assertEquals(false, Frames.reads(null, JblGestures.get().bytes, SonyTable.TABLE_1))
     }
 
     /**
@@ -207,9 +215,9 @@ class FramesTest {
      */
     @Test
     fun `a BMAP set, set-get or start is not a read`() {
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 00 01 21")))
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 02 01 21")))
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 01 05 00")))
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("04 07 02 00")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 00 01 21"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 02 01 21"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 01 05 00"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("04 07 02 00"), SonyTable.TABLE_1))
     }
 }

@@ -70,13 +70,16 @@ object Frames {
     /**
      * A sentence describing [payload] as sent to [uuid], or to GATT when that is null.
      *
-     * [table2] distinguishes the Sony's two command tables, as in [Hazards.check] — the
-     * same byte means different things on each and the payload cannot say which.
+     * [table] names which of the Sony's two command tables applies, as in
+     * [Hazards.check] — the same byte means different things on each and the payload
+     * cannot say which. ⚠ **No default on purpose**: a defaulted table once meant a
+     * forgotten argument silently classified against the wrong table. For a non-Sony
+     * payload it is threaded but unread.
      */
-    fun describe(uuid: String?, payload: ByteArray, table2: Boolean = false): String =
+    fun describe(uuid: String?, payload: ByteArray, table: SonyTable): String =
         when {
             payload.isEmpty() -> "nothing to send"
-            uuid.equals(Channels.SONY, ignoreCase = true) -> sony(payload, table2)
+            uuid.equals(Channels.SONY, ignoreCase = true) -> sony(payload, table)
             uuid.equals(Channels.SPP, ignoreCase = true) -> bose(payload)
             payload[0] == Bes.HEADER -> bes(payload)
             else -> "${payload.size} bytes, no framing recognised: ${hex(payload)}"
@@ -165,7 +168,7 @@ object Frames {
      * ⚠ Reads are not gated, because dry-running them would make this tool useless for the
      * job it exists to do. The rule is about MUTATION, and a read mutates nothing.
      */
-    fun reads(uuid: String?, payload: ByteArray, table2: Boolean = false): Boolean =
+    fun reads(uuid: String?, payload: ByteArray, table: SonyTable): Boolean =
         when {
             payload.isEmpty() -> false
 
@@ -195,10 +198,10 @@ object Frames {
         return "gestures (aa 77), write: ${g.label} → ${a.label}"
     }
 
-    private fun sony(payload: ByteArray, table2: Boolean): String {
+    private fun sony(payload: ByteArray, table: SonyTable): String {
         val cmd = payload[0].toInt() and 0xff
-        val table = if (table2) "table 2" else "table 1"
-        return "Sony $table command %02x, %d byte%s: %s"
+        val name = if (table == SonyTable.TABLE_2) "table 2" else "table 1"
+        return "Sony $name command %02x, %d byte%s: %s"
             .format(cmd, payload.size, if (payload.size == 1) "" else "s", hex(payload))
     }
 

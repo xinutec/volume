@@ -175,7 +175,7 @@ object Drivers {
             // were refused 04 01 05. The reply is a Status frame whose payload is
             // `0b <level> 03`, so the level is the SIXTH byte, not the fifth —
             // 0b is a constant and reads convincingly like data.
-            val r = t.exchange(byteArrayOf(0x01, 0x05, 0x01, 0x00))
+            val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x05, 0x01, 0x00)))
             //
             // ✅ Which end is which is the device's word, cross-checked against a
             // state this session did not set: `1f 03` reported the active slot as
@@ -191,7 +191,7 @@ object Drivers {
             // ⚠ Operator 05 is Start, and the payload order is <slot> 01, not
             // 01 <slot>. The one captured example had 01 in both bytes, which hid
             // the order until a slot other than 1 was tried.
-            t.exchange(byteArrayOf(0x1f, 0x03, 0x05, 0x02, slot, 0x01))
+            t.exchange(OutFrame(byteArrayOf(0x1f, 0x03, 0x05, 0x02, slot, 0x01)))
         }
 
         override fun name(t: Transport): String? = Bose.name(t)
@@ -252,7 +252,7 @@ object Drivers {
             }
 
         override fun read(t: Transport): AncMode? {
-            val r = t.exchange(byteArrayOf(0x01, 0x06, 0x01, 0x00))
+            val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00)))
             return when (r.getOrNull(4)) {
                 0x00.toByte() -> AncMode.OFF
                 0x01.toByte() -> AncMode.ANC
@@ -262,7 +262,7 @@ object Drivers {
         }
 
         override fun write(t: Transport, mode: AncMode) {
-            t.exchange(byteArrayOf(0x01, 0x06, 0x02, 0x01, value(mode)))
+            t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x02, 0x01, value(mode))))
         }
 
         /**
@@ -358,7 +358,7 @@ object Drivers {
          * `< 9` while the byte it now reads is index 9, which needs 10.
          */
         override fun read(t: Transport): AncMode? {
-            val r = t.exchange(byteArrayOf(0xaa.toByte(), 0x91.toByte(), 0x01, 0x11))
+            val r = t.exchange(OutFrame(byteArrayOf(0xaa.toByte(), 0x91.toByte(), 0x01, 0x11)))
             // ⚠ **The command byte is checked, not just the `aa`.** Every frame this
             // chip sends starts `aa`, including the `aa b1` GetSetFeature poll it
             // runs every four seconds, so `aa` alone admits any of them — and the TLV slots would
@@ -378,7 +378,7 @@ object Drivers {
          * NUL-terminated ASCII, followed by battery and addresses.
          */
         override fun name(t: Transport): String? {
-            val r = t.exchange(byteArrayOf(0xaa.toByte(), 0x11, 0x00))
+            val r = t.exchange(OutFrame(byteArrayOf(0xaa.toByte(), 0x11, 0x00)))
             if (r.size < 4 || r[0] != 0xaa.toByte() || r[1] != 0x12.toByte()) return null
             val end = (3 until r.size).firstOrNull { r[it] == 0x00.toByte() } ?: return null
             return String(r, 3, end - 3, Charsets.UTF_8).trim().ifBlank { null }
@@ -391,17 +391,19 @@ object Drivers {
             // device reports the state and how its app writes it.
             val talk = if (mode == AncMode.TALK_THRU) 1 else 0
             t.exchange(
-                byteArrayOf(
-                    0xaa.toByte(),
-                    0x91.toByte(),
-                    0x07,
-                    0x10,
-                    0x01,
-                    anc.toByte(),
-                    0x02,
-                    amb.toByte(),
-                    0x03,
-                    talk.toByte(),
+                OutFrame(
+                    byteArrayOf(
+                        0xaa.toByte(),
+                        0x91.toByte(),
+                        0x07,
+                        0x10,
+                        0x01,
+                        anc.toByte(),
+                        0x02,
+                        amb.toByte(),
+                        0x03,
+                        talk.toByte(),
+                    ),
                 ),
             )
         }
@@ -418,7 +420,7 @@ object Drivers {
          * ⚠ [decode] is applied to the whole buffer FIRST, so a reply that already starts
          * where it should behaves exactly as it did before this was added.
          */
-        private fun <T> ask(t: Transport, request: ByteArray, decode: (ByteArray) -> T?): T? {
+        private fun <T> ask(t: Transport, request: OutFrame, decode: (ByteArray) -> T?): T? {
             val buffer = t.exchange(request)
             return decode(buffer) ?: Bes.frame(buffer) { decode(it) != null }?.let(decode)
         }
@@ -1115,7 +1117,7 @@ object Drivers {
          * only the tail it has not sent yet, so dropping a frame here would shift every
          * later ack onto the wrong sequence number.
          */
-        private fun acks(got: ByteArray): List<ByteArray> =
+        private fun acks(got: ByteArray): List<OutFrame> =
             SonyFrame.decodeAll(got).mapNotNull(::ackFor)
 
         /**
@@ -1127,7 +1129,7 @@ object Drivers {
          * point on. What table a frame belongs to is the caller's question, not the
          * transport's.
          */
-        private fun ackFor(frame: SonyFrame.Frame): ByteArray? =
+        private fun ackFor(frame: SonyFrame.Frame): OutFrame? =
             if (frame.type != SonyFrame.TYPE_DATA_MDR &&
                 frame.type != SonyFrame.TYPE_DATA_MDR_NO2
             ) {
@@ -1229,7 +1231,7 @@ object Drivers {
          * documented. This stayed as a name here because the ANC read and write above
          * were written against it before the rest of the protocol was decoded.
          */
-        fun checksummed(body: ByteArray): ByteArray = JLabFrame.checksummed(body)
+        fun checksummed(body: ByteArray): OutFrame = JLabFrame.checksummed(body)
 
         /**
          * Ask, and read again if the window closed before the answer arrived.
@@ -1247,7 +1249,7 @@ object Drivers {
          * ⚠ It also drains the `31` battery frame the device broadcasts every ten
          * seconds unasked, which is the other thing that can be sitting in a window.
          */
-        private fun <T> ask(t: Transport, request: ByteArray, decode: (ByteArray) -> T?): T? =
+        private fun <T> ask(t: Transport, request: OutFrame, decode: (ByteArray) -> T?): T? =
             decode(t.exchange(request)) ?: decode(t.receive())
 
         fun readBattery(t: Transport): BudBattery? = ask(t, JLabBattery.get(), JLabBattery::state)

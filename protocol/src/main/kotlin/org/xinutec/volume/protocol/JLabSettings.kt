@@ -36,11 +36,11 @@ object JLabFrame {
      * verified — but a frame matching the vendor app's byte for byte is the one with
      * evidence behind it.
      */
-    fun checksummed(body: ByteArray): ByteArray =
-        body + body.fold(0) { acc, b -> acc + (b.toInt() and 0xff) }.toByte()
+    fun checksummed(body: ByteArray): OutFrame =
+        OutFrame(body + body.fold(0) { acc, b -> acc + (b.toInt() and 0xff) }.toByte())
 
     /** The read every one of the app's getters uses, with only [cmd] varying. */
-    fun read(cmd: Byte): ByteArray =
+    fun read(cmd: Byte): OutFrame =
         checksummed(
             byteArrayOf(0xc0.toByte(), 0xff.toByte(), 0x00, cmd, 0x00, 0x00, 0x01, 0x00),
         )
@@ -116,7 +116,7 @@ object JLabBattery {
     const val ASK: Byte = 0x30
     const val REPLY: Byte = 0x31
 
-    fun get(): ByteArray = JLabFrame.read(ASK)
+    fun get(): OutFrame = JLabFrame.read(ASK)
 
     fun state(r: ByteArray): BudBattery? {
         val f = JLabFrame.replyTo(r, REPLY, atLeast = 8) ?: return null
@@ -164,7 +164,7 @@ object JLabSpatial {
     const val ASK: Byte = 0x76
     const val SET: Byte = 0x74
 
-    fun get(): ByteArray = JLabFrame.read(ASK)
+    fun get(): OutFrame = JLabFrame.read(ASK)
 
     fun state(r: ByteArray): Boolean? {
         val f = JLabFrame.replyTo(r, ASK, atLeast = 7) ?: return null
@@ -175,7 +175,7 @@ object JLabSpatial {
         }
     }
 
-    fun set(on: Boolean): ByteArray =
+    fun set(on: Boolean): OutFrame =
         JLabFrame.checksummed(
             byteArrayOf(
                 0xc0.toByte(),
@@ -214,7 +214,7 @@ object JLabSpatialMode {
     const val REPLY: Byte = 0x51
     const val SET: Byte = 0x52
 
-    fun get(): ByteArray = JLabFrame.read(ASK)
+    fun get(): OutFrame = JLabFrame.read(ASK)
 
     fun of(wire: Byte): SpatialMode? =
         when (wire) {
@@ -228,7 +228,7 @@ object JLabSpatialMode {
         return of(f[6])
     }
 
-    fun set(mode: SpatialMode): ByteArray? {
+    fun set(mode: SpatialMode): OutFrame? {
         val m: Byte =
             when (mode) {
                 SpatialMode.MUSIC -> 0x00
@@ -311,9 +311,9 @@ object JLabEq {
     const val BANDS = 10
     const val PRESETS = 4
 
-    fun get(): ByteArray = JLabFrame.read(ASK)
+    fun get(): OutFrame = JLabFrame.read(ASK)
 
-    fun presets(): ByteArray = JLabFrame.read(ASK_PRESETS)
+    fun presets(): OutFrame = JLabFrame.read(ASK_PRESETS)
 
     fun state(r: ByteArray): JLabCurve? {
         val f = JLabFrame.replyTo(r, REPLY, atLeast = 7 + BANDS) ?: return null
@@ -331,7 +331,7 @@ object JLabEq {
      * curve that is not exactly [BANDS] long rather than padding one — a short array
      * would write whatever followed it in memory into somebody's treble.
      */
-    fun set(preset: Int, levels: List<Int>): ByteArray? {
+    fun set(preset: Int, levels: List<Int>): OutFrame? {
         if (levels.size != BANDS) return null
         if (levels.any { it !in 0..0xff }) return null
         return JLabFrame.checksummed(
@@ -413,7 +413,7 @@ object JLabSafeHearing {
         }
     }
 
-    fun get(): ByteArray = JLabFrame.read(ASK)
+    fun get(): OutFrame = JLabFrame.read(ASK)
 
     fun state(r: ByteArray): Level? {
         val f = JLabFrame.replyTo(r, REPLY, atLeast = 7) ?: return null
@@ -427,7 +427,7 @@ object JLabSafeHearing {
      * them, not to a clamp invented here that would silently refuse what the vendor app
      * does freely.
      */
-    fun set(level: Level): ByteArray =
+    fun set(level: Level): OutFrame =
         JLabFrame.checksummed(
             byteArrayOf(
                 0xc0.toByte(),
@@ -522,7 +522,7 @@ object JLabTouch {
         }
     }
 
-    fun get(): ByteArray = JLabFrame.read(ASK)
+    fun get(): OutFrame = JLabFrame.read(ASK)
 
     /**
      * ⚠ An unrecognised side, gesture or action drops that entry rather than the map:

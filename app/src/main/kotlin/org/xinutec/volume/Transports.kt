@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothSocket
 import android.content.Context
+import org.xinutec.volume.protocol.OutFrame
 import org.xinutec.volume.protocol.Transport
 import java.io.Closeable
 import java.io.InputStream
@@ -78,14 +79,14 @@ class RfcommTransport private constructor(
         }
     }
 
-    override fun exchange(packet: ByteArray): ByteArray {
+    override fun exchange(packet: OutFrame): ByteArray {
         send(packet)
         return drain(
             socket.inputStream,
             perMs,
             quietMs,
             finished?.let { f ->
-                { got -> f(packet, got) }
+                { got -> f(packet.bytes, got) }
             },
         )
     }
@@ -95,7 +96,7 @@ class RfcommTransport private constructor(
      * stop-and-wait device is precisely when more is expected, and treating that
      * moment as silence would close the window on the frame the ack just released.
      */
-    override fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray {
+    override fun exchange(packet: OutFrame, acksFor: (ByteArray) -> List<OutFrame>): ByteArray {
         send(packet)
         val out = java.io.ByteArrayOutputStream()
         val buf = ByteArray(4096)
@@ -135,8 +136,8 @@ class RfcommTransport private constructor(
         finished = f
     }
 
-    override fun send(packet: ByteArray) {
-        socket.outputStream.write(packet)
+    override fun send(packet: OutFrame) {
+        socket.outputStream.write(packet.bytes)
         socket.outputStream.flush()
     }
 
@@ -295,7 +296,7 @@ class GattTransport private constructor(
         }
     }
 
-    override fun exchange(packet: ByteArray): ByteArray {
+    override fun exchange(packet: OutFrame): ByteArray {
         // ⚠ **Drop anything already queued before asking.** Whatever is sitting here
         // arrived before this request, so it CANNOT be its reply — it is an
         // unsolicited status frame the device sent on its own. Without this, the
@@ -320,7 +321,7 @@ class GattTransport private constructor(
      * would make the interface a lie about what a caller may do — and the day a GATT
      * device does want acking, this is where it goes.
      */
-    override fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray {
+    override fun exchange(packet: OutFrame, acksFor: (ByteArray) -> List<OutFrame>): ByteArray {
         notifications.clear()
         send(packet)
         val out = java.io.ByteArrayOutputStream()
@@ -354,10 +355,10 @@ class GattTransport private constructor(
         finished = f
     }
 
-    override fun send(packet: ByteArray) {
+    override fun send(packet: OutFrame) {
         gatt.writeCharacteristic(
             writeChar,
-            packet,
+            packet.bytes,
             BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
         )
     }

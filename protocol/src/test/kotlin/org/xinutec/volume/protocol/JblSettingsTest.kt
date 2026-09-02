@@ -26,8 +26,8 @@ class JblSettingsTest {
     /** 20:37:55 and 20:40:14 — what this code actually sent, and it took. */
     @Test
     fun `auto off is written as the app writes it`() {
-        assertEquals("aa3303011e00", hex(JblAutoOff.set(TimedOff(on = true, minutes = 30))))
-        assertEquals("aa3303001e00", hex(JblAutoOff.set(TimedOff(on = false, minutes = 30))))
+        assertEquals("aa3303011e00", hex(JblAutoOff.set(TimedOff(on = true, minutes = 30)).bytes))
+        assertEquals("aa3303001e00", hex(JblAutoOff.set(TimedOff(on = false, minutes = 30)).bytes))
     }
 
     /**
@@ -43,9 +43,9 @@ class JblSettingsTest {
     @Test
     fun `every offered duration writes the byte and leaves the trailer alone`() {
         assertEquals(listOf(30, 60, 120), JBL_IDLE_MINUTES)
-        assertEquals("aa3303003c00", hex(JblAutoOff.set(TimedOff(on = false, minutes = 60))))
-        assertEquals("aa3303007800", hex(JblAutoOff.set(TimedOff(on = false, minutes = 120))))
-        assertEquals("aa3303013c00", hex(JblAutoOff.set(TimedOff(on = true, minutes = 60))))
+        assertEquals("aa3303003c00", hex(JblAutoOff.set(TimedOff(on = false, minutes = 60)).bytes))
+        assertEquals("aa3303007800", hex(JblAutoOff.set(TimedOff(on = false, minutes = 120)).bytes))
+        assertEquals("aa3303013c00", hex(JblAutoOff.set(TimedOff(on = true, minutes = 60)).bytes))
         assertEquals(TimedOff(on = false, minutes = 120), JblAutoOff.state(bytes("aa220433007800")))
     }
 
@@ -134,7 +134,7 @@ class JblSettingsTest {
     /** 2026-08-16 23:29, sent once by agreement — the whole command, with no payload. */
     @Test
     fun `power off is three bytes`() {
-        assertEquals("aa9700", hex(JblPowerOff.off()))
+        assertEquals("aa9700", hex(JblPowerOff.off().bytes))
     }
 
     // ---- equaliser ---------------------------------------------------------
@@ -174,7 +174,7 @@ class JblSettingsTest {
         val jazz = JBL_CURVES.first { it.first == "Jazz" }.second
         assertEquals(
             JblFrames.JAZZ_SENT,
-            hex(JblEq.set(flat, jazz.table, jazz.bands.map { it.gain })!!),
+            hex(JblEq.set(flat, jazz.table, jazz.bands.map { it.gain })!!.bytes),
         )
     }
 
@@ -185,7 +185,7 @@ class JblSettingsTest {
      */
     @Test
     fun `writing flat back rebuilds the frame the device was found in`() {
-        val built = hex(JblEq.set(bytes(JblFrames.JAZZ_ECHO), 0, List(10) { 0f })!!)
+        val built = hex(JblEq.set(bytes(JblFrames.JAZZ_ECHO), 0, List(10) { 0f })!!.bytes)
         assertEquals(JblFrames.FLAT.drop(10), built.drop(10))
         assertEquals("00", built.substring(8, 10))
     }
@@ -253,7 +253,7 @@ class JblSettingsTest {
         // 5 moves and index 4 does not, which is that offset measured.
         assertEquals(true, JblSafeSound.state(bytes("aaa503020101")))
         assertEquals(false, JblSafeSound.state(bytes("aaa503020100")))
-        assertEquals("aaa50101", hex(JblSafeSound.get()))
+        assertEquals("aaa50101", hex(JblSafeSound.get().bytes))
     }
 
     /** ⚠ There is no writer, and that is the design — see [JblSafeSound]. */
@@ -334,11 +334,11 @@ class JblSettingsTest {
     fun `the feature frames are the ones the vendor app builds`() {
         // Byte-identical to GetSetFeatureCmd.getLeAudioStatus / getAuracastStatus,
         // and getLeAudioStatus is the one confirmed against the device.
-        assertEquals("aab103000100", hex(JblFeature.get(JblFeature.LE_AUDIO)))
-        assertEquals("aab103000200", hex(JblFeature.get(JblFeature.AURACAST)))
+        assertEquals("aab103000100", hex(JblFeature.get(JblFeature.LE_AUDIO).bytes))
+        assertEquals("aab103000200", hex(JblFeature.get(JblFeature.AURACAST).bytes))
         // setLeAudioStatus(true) — built, never sent. See [JblFeature.set].
-        assertEquals("aab10401010101", hex(JblFeature.set(JblFeature.LE_AUDIO, true)))
-        assertEquals("aab10401010100", hex(JblFeature.set(JblFeature.LE_AUDIO, false)))
+        assertEquals("aab10401010101", hex(JblFeature.set(JblFeature.LE_AUDIO, true).bytes))
+        assertEquals("aab10401010100", hex(JblFeature.set(JblFeature.LE_AUDIO, false).bytes))
     }
 
     // ---- spatial sound -----------------------------------------------------
@@ -371,11 +371,11 @@ class JblSettingsTest {
     /** Byte-identical to what the vendor app sent for each tile. */
     @Test
     fun `the spatial frames are the ones the vendor app builds`() {
-        assertEquals("aa9d03000102", hex(JblSpatial.set(Spatial(true, SpatialMode.MOVIE))))
-        assertEquals("aa9d03000103", hex(JblSpatial.set(Spatial(true, SpatialMode.GAME))))
-        assertEquals("aa9d03000101", hex(JblSpatial.set(Spatial(true, SpatialMode.MUSIC))))
-        assertEquals("aa9d03000001", hex(JblSpatial.set(Spatial(false, SpatialMode.MUSIC))))
-        assertEquals("aa9d0101", hex(JblSpatial.get()))
+        assertEquals("aa9d03000102", hex(JblSpatial.set(Spatial(true, SpatialMode.MOVIE)).bytes))
+        assertEquals("aa9d03000103", hex(JblSpatial.set(Spatial(true, SpatialMode.GAME)).bytes))
+        assertEquals("aa9d03000101", hex(JblSpatial.set(Spatial(true, SpatialMode.MUSIC)).bytes))
+        assertEquals("aa9d03000001", hex(JblSpatial.set(Spatial(false, SpatialMode.MUSIC)).bytes))
+        assertEquals("aa9d0101", hex(JblSpatial.get().bytes))
     }
 
     /**
@@ -440,11 +440,17 @@ class JblSettingsTest {
 
     @Test
     fun `the voiceaware frames are the ones the vendor app builds`() {
-        assertEquals("aa9803000101", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.LOW))))
-        assertEquals("aa9803000301", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.HIGH))))
-        assertEquals("aa9803000201", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.MID))))
-        assertEquals("aa9803000200", hex(JblVoiceAware.set(VoiceAware(false, VoiceLevel.MID))))
-        assertEquals("aa980101", hex(JblVoiceAware.get()))
+        assertEquals("aa9803000101", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.LOW)).bytes))
+        assertEquals(
+            "aa9803000301",
+            hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.HIGH)).bytes),
+        )
+        assertEquals("aa9803000201", hex(JblVoiceAware.set(VoiceAware(true, VoiceLevel.MID)).bytes))
+        assertEquals(
+            "aa9803000200",
+            hex(JblVoiceAware.set(VoiceAware(false, VoiceLevel.MID)).bytes),
+        )
+        assertEquals("aa980101", hex(JblVoiceAware.get().bytes))
     }
 
     /**
@@ -487,11 +493,23 @@ class JblSettingsTest {
 
     @Test
     fun `the smart talk frames are the ones the vendor app builds`() {
-        assertEquals("aa9f03000105", hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_5))))
-        assertEquals("aa9f0300010f", hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_15))))
-        assertEquals("aa9f03000114", hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_20))))
-        assertEquals("aa9f03000005", hex(JblSmartTalk.set(SmartTalk(false, TalkTimeout.SEC_5))))
-        assertEquals("aa9f0101", hex(JblSmartTalk.get()))
+        assertEquals(
+            "aa9f03000105",
+            hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_5)).bytes),
+        )
+        assertEquals(
+            "aa9f0300010f",
+            hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_15)).bytes),
+        )
+        assertEquals(
+            "aa9f03000114",
+            hex(JblSmartTalk.set(SmartTalk(true, TalkTimeout.SEC_20)).bytes),
+        )
+        assertEquals(
+            "aa9f03000005",
+            hex(JblSmartTalk.set(SmartTalk(false, TalkTimeout.SEC_5)).bytes),
+        )
+        assertEquals("aa9f0101", hex(JblSmartTalk.get().bytes))
     }
 
     /**
@@ -526,9 +544,9 @@ class JblSettingsTest {
 
     @Test
     fun `the low volume eq frames are the ones the vendor app builds`() {
-        assertEquals("aa9e020001", hex(JblLowVolumeEq.set(on = true)))
-        assertEquals("aa9e020000", hex(JblLowVolumeEq.set(on = false)))
-        assertEquals("aa9e0101", hex(JblLowVolumeEq.get()))
+        assertEquals("aa9e020001", hex(JblLowVolumeEq.set(on = true).bytes))
+        assertEquals("aa9e020000", hex(JblLowVolumeEq.set(on = false).bytes))
+        assertEquals("aa9e0101", hex(JblLowVolumeEq.get().bytes))
     }
 
     /**
@@ -551,10 +569,10 @@ class JblSettingsTest {
     /** The three frames the vendor app sends, and nothing else. */
     @Test
     fun `the smart av frames are the ones the vendor app builds`() {
-        assertEquals("aa8108000135009600ffff", hex(JblSmartAv.set(SmartAv.AUDIO)))
-        assertEquals("aa8108c5002e005000ffff", hex(JblSmartAv.set(SmartAv.VIDEO)))
-        assertEquals("aa810800013500e600ffff", hex(JblSmartAv.set(SmartAv.OFF)))
-        assertEquals("aa8200", hex(JblSmartAv.get()))
+        assertEquals("aa8108000135009600ffff", hex(JblSmartAv.set(SmartAv.AUDIO).bytes))
+        assertEquals("aa8108c5002e005000ffff", hex(JblSmartAv.set(SmartAv.VIDEO).bytes))
+        assertEquals("aa810800013500e600ffff", hex(JblSmartAv.set(SmartAv.OFF).bytes))
+        assertEquals("aa8200", hex(JblSmartAv.get().bytes))
     }
 
     @Test

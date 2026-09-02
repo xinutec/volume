@@ -34,7 +34,7 @@ class BoseSettingsTest {
     fun `bass boost is the three writes the vendor app sent`() {
         assertEquals(
             listOf("010702020002", "010702020001", "010702020800"),
-            BoseEq.setAll(BoseEq.BASS_BOOST).map(::hex),
+            BoseEq.setAll(BoseEq.BASS_BOOST).map { hex(it.bytes) },
         )
     }
 
@@ -43,7 +43,7 @@ class BoseSettingsTest {
     fun `treble boost is plus six, and it is not symmetric with bass boost`() {
         assertEquals(
             listOf("010702020602", "010702020001", "010702020000"),
-            BoseEq.setAll(BoseEq.TREBLE_BOOST).map(::hex),
+            BoseEq.setAll(BoseEq.TREBLE_BOOST).map { hex(it.bytes) },
         )
     }
 
@@ -52,7 +52,7 @@ class BoseSettingsTest {
     fun `reset is flat`() {
         assertEquals(
             listOf("010702020002", "010702020001", "010702020000"),
-            BoseEq.setAll(BoseEq.FLAT).map(::hex),
+            BoseEq.setAll(BoseEq.FLAT).map { hex(it.bytes) },
         )
     }
 
@@ -116,9 +116,9 @@ class BoseSettingsTest {
 
     @Test
     fun `multipoint get and set are the captured frames`() {
-        assertEquals("010a0100", hex(BoseMultipoint.get()))
-        assertEquals("010a020101", hex(BoseMultipoint.set(on = true)))
-        assertEquals("010a020100", hex(BoseMultipoint.set(on = false)))
+        assertEquals("010a0100", hex(BoseMultipoint.get().bytes))
+        assertEquals("010a020101", hex(BoseMultipoint.set(on = true).bytes))
+        assertEquals("010a020100", hex(BoseMultipoint.set(on = false).bytes))
     }
 
     /**
@@ -147,10 +147,10 @@ class BoseSettingsTest {
     /** 11:26:38 and 11:26:47. */
     @Test
     fun `the action button shortcut is set by its code`() {
-        assertEquals("01090203800910", hex(BoseButton.set(BoseButton.Action.SPOTIFY)))
+        assertEquals("01090203800910", hex(BoseButton.set(BoseButton.Action.SPOTIFY).bytes))
         assertEquals(
             "01090203800903",
-            hex(BoseButton.set(BoseButton.Action.HEAR_BATTERY_LEVEL)),
+            hex(BoseButton.set(BoseButton.Action.HEAR_BATTERY_LEVEL).bytes),
         )
     }
 
@@ -231,9 +231,9 @@ class BoseSettingsTest {
     fun `encode writes the length from the payload`() {
         assertArrayEquals(
             bytes("010702020800"),
-            BoseFrame.encode(0x01, 0x07, BoseFrame.SET_GET, bytes("0800")),
+            BoseFrame.encode(0x01, 0x07, BoseFrame.SET_GET, bytes("0800")).bytes,
         )
-        assertArrayEquals(bytes("010a0100"), BoseFrame.encode(0x01, 0x0a, BoseFrame.GET))
+        assertArrayEquals(bytes("010a0100"), BoseFrame.encode(0x01, 0x0a, BoseFrame.GET).bytes)
     }
 
     /** An Error frame is not a Status, and `04 01 05` means the function exists. */
@@ -336,8 +336,8 @@ class BoseAllSettingsTest {
     fun `the standby write names the value in a payload, not in the length`() {
         // ⚠ `01 04 02 14` is operator 02 with a LENGTH of 0x14 and no payload; the
         // device answers 04 01 01 bad argument. Hit for real on 2026-08-25.
-        assertEquals("01 04 02 01 14", Hex.format(BoseStandbyTimer.set(20)))
-        assertEquals("01 04 02 01 00", Hex.format(BoseStandbyTimer.set(0)))
+        assertEquals("01 04 02 01 14", Hex.format(BoseStandbyTimer.set(20).bytes))
+        assertEquals("01 04 02 01 00", Hex.format(BoseStandbyTimer.set(0).bytes))
     }
 }
 
@@ -405,11 +405,11 @@ class BoseWritesTest {
         // 01 0b 02 02 01 03 — exactly what the vendor app sent for Medium -> Low.
         assertEquals(
             "01 0b 02 02 01 03",
-            Hex.format(BoseWrites.sidetone(0x01, SidetoneLevel.LOW)),
+            Hex.format(BoseWrites.sidetone(0x01, SidetoneLevel.LOW).bytes),
         )
         assertEquals(
             "01 0b 02 02 01 02",
-            Hex.format(BoseWrites.sidetone(0x01, SidetoneLevel.MEDIUM)),
+            Hex.format(BoseWrites.sidetone(0x01, SidetoneLevel.MEDIUM).bytes),
         )
     }
 
@@ -418,11 +418,15 @@ class BoseWritesTest {
         // 21 = on, US English. 01 = off, US English. Both captured.
         assertEquals(
             "01 03 02 01 21",
-            Hex.format(BoseWrites.voicePrompts(0x21, true, BoseVoicePromptLanguage.US_ENGLISH)),
+            Hex.format(
+                BoseWrites.voicePrompts(0x21, true, BoseVoicePromptLanguage.US_ENGLISH).bytes,
+            ),
         )
         assertEquals(
             "01 03 02 01 01",
-            Hex.format(BoseWrites.voicePrompts(0x21, false, BoseVoicePromptLanguage.US_ENGLISH)),
+            Hex.format(
+                BoseWrites.voicePrompts(0x21, false, BoseVoicePromptLanguage.US_ENGLISH).bytes,
+            ),
         )
     }
 
@@ -432,8 +436,8 @@ class BoseWritesTest {
         // UK English — one bit from the US English this unit uses, and inaudible to
         // anyone not listening for the accent.
         val french = BoseWrites.voicePrompts(0x00, true, BoseVoicePromptLanguage.FRENCH)
-        assertEquals("01 03 02 01 22", Hex.format(french))
-        assertNotEquals("01 03 02 01 20", Hex.format(french))
+        assertEquals("01 03 02 01 22", Hex.format(french.bytes))
+        assertNotEquals("01 03 02 01 20", Hex.format(french.bytes))
     }
 
     @Test
@@ -451,7 +455,12 @@ class BoseWritesTest {
         assertEquals(
             "01 03 02 01 c1",
             Hex.format(
-                BoseWrites.voicePrompts(0xe1.toByte(), false, BoseVoicePromptLanguage.US_ENGLISH),
+                BoseWrites
+                    .voicePrompts(
+                        0xe1.toByte(),
+                        false,
+                        BoseVoicePromptLanguage.US_ENGLISH,
+                    ).bytes,
             ),
         )
         // ...and writing back the state it already holds is byte-for-byte a no-op, which
@@ -459,7 +468,12 @@ class BoseWritesTest {
         assertEquals(
             "01 03 02 01 e1",
             Hex.format(
-                BoseWrites.voicePrompts(0xe1.toByte(), true, BoseVoicePromptLanguage.US_ENGLISH),
+                BoseWrites
+                    .voicePrompts(
+                        0xe1.toByte(),
+                        true,
+                        BoseVoicePromptLanguage.US_ENGLISH,
+                    ).bytes,
             ),
         )
     }
@@ -529,7 +543,7 @@ class BoseDevicesTest {
     fun `INFO is keyed by the address, which is what the frame carries`() {
         assertEquals(
             "04 05 01 06 aa aa aa aa aa aa",
-            Hex.format(BoseDevices.info(Hex.parse("aa aa aa aa aa aa"))),
+            Hex.format(BoseDevices.info(Hex.parse("aa aa aa aa aa aa")).bytes),
         )
     }
 
@@ -537,7 +551,7 @@ class BoseDevicesTest {
     fun `pairing mode is a START transaction and its reply is a RESULT`() {
         // ⚠ Captured from Bose Connect's CONNECT NEW. The Set-shaped guess would have
         // been 04 08 02 01 01.
-        assertEquals("04 08 05 01 01", Hex.format(BosePairing.enter()))
+        assertEquals("04 08 05 01 01", Hex.format(BosePairing.enter().bytes))
         // A RESULT, not a STATUS — asking for the wrong operator returns nothing.
         assertEquals(true, BosePairing.on(Hex.parse("04 08 06 02 01 01")))
         assertEquals(false, BosePairing.on(Hex.parse("04 08 06 02 00 01")))
@@ -562,7 +576,7 @@ class BoseForgetTest {
     fun `the write is a START carrying the address`() {
         assertEquals(
             "04 03 05 06 dd dd dd dd dd dd",
-            Hex.format(BoseForget.frame(Hex.parse("dd dd dd dd dd dd"))),
+            Hex.format(BoseForget.frame(Hex.parse("dd dd dd dd dd dd")).bytes),
         )
     }
 
@@ -697,7 +711,7 @@ class BoseNameTest {
         // Captured from Bose Connect renaming to "BoseTest1" and back.
         assertEquals(
             "01 02 02 09 42 6f 73 65 54 65 73 74 31",
-            Hex.format(BoseName.set("BoseTest1")!!),
+            Hex.format(BoseName.set("BoseTest1")!!.bytes),
         )
     }
 
@@ -738,7 +752,7 @@ class BoseNameTest {
     @Test
     fun `multi-byte characters are counted in BYTES, not characters`() {
         // The length byte is a byte count; "é" is two bytes in UTF-8.
-        assertEquals("01 02 02 02 c3 a9", Hex.format(BoseName.set("é")!!))
+        assertEquals("01 02 02 02 c3 a9", Hex.format(BoseName.set("é")!!.bytes))
     }
 
     /**
@@ -750,7 +764,7 @@ class BoseNameTest {
         val addr = Hex.parse("aa bb cc dd ee ff")
         assertEquals(
             Hex.parse("04 02 05 06 aa bb cc dd ee ff").toList(),
-            BoseDisconnect.frame(addr).toList(),
+            BoseDisconnect.frame(addr).bytes.toList(),
         )
     }
 
@@ -767,8 +781,14 @@ class BoseNameTest {
      */
     @Test
     fun `cnc persistence writes the byte and reads it straight back`() {
-        assertEquals(Hex.parse("01 0e 02 01 00").toList(), BoseCncPersistence.set(false).toList())
-        assertEquals(Hex.parse("01 0e 02 01 01").toList(), BoseCncPersistence.set(true).toList())
+        assertEquals(
+            Hex.parse("01 0e 02 01 00").toList(),
+            BoseCncPersistence.set(false).bytes.toList(),
+        )
+        assertEquals(
+            Hex.parse("01 0e 02 01 01").toList(),
+            BoseCncPersistence.set(true).bytes.toList(),
+        )
         assertEquals(true, BoseCncPersistence.state(Hex.parse("01 0e 03 01 01")))
         assertEquals(false, BoseCncPersistence.state(Hex.parse("01 0e 03 01 00")))
     }
