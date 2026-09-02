@@ -1355,10 +1355,10 @@ parse and is stated rather than dressed up.
 | --- | --- | --- | --- | --- |
 | `30` | `31` | — | battery `<L> <R> 04 00 02 00 00`, also broadcast unasked ~every 10 s | watched them drain 90/90 → 90/80 → 80/80 across one capture; ✅ **L before R** settled at 70/60 by measuring the vendor app's own icons — 34 px of fill against 30 |
 | `44` | `45` | `46` | ANC — `00` off · `01` Noise Cancelling · `02` Be Aware | already driven; re-driven both ways here and restored |
-| `48` | `49` | `4a` | current EQ, `<preset idx> <10 band levels>` | reads preset `03` + a curve, and the UI had **Custom** — 4th of EQ1/EQ2/EQ3/Custom — ticked. ⚠⚠ **2026-09-02: a write of preset `0` moved the INDEX and left the ten levels unchanged** — so either they are ignored, or `49` reports the Custom slot whatever is selected |
+| `48` | `49` | `4a` | current EQ, `<preset idx> <10 band levels>` | reads preset `03` + a curve, and the UI had **Custom** — 4th of EQ1/EQ2/EQ3/Custom — ticked. ⚠⚠ **2026-09-02: `49`'s ten bytes are the CUSTOM slot's, not the selected preset's.** Driving `0` and `1` each moved the index and left the bytes at slot 3's cut curve, with `71` reading `[flat, flat, flat, cut]` live and unchanged by either write |
 | `4c` | `4d` | ⚠ | touch map, 12 × `<side 01·02> <gesture 01…06> <action>` | the 12 triples are exactly the 2 sides × 6 gestures the Touch Controls screen draws, in its order |
 | `50` | `51` | `52` | spatial MODE — `00` Music · `01` Movie | driven both ways from the app's own tiles, restored to Music |
-| `70` | `71` | ⚠ | all four preset curves, 4 × 10 bands | preset 3's ten bytes are byte-identical to `49`'s current curve |
+| `70` | `71` | ⚠ | all four preset curves, 4 × 10 bands | preset 3's ten bytes are byte-identical to `49`'s current curve. ✅ read live 2026-09-02 as `[flat, flat, flat, cut]`, and **unchanged by a preset write** |
 | `76` | `76` | `74` | Spatial Audio ON/OFF | the ablation below |
 | `58` | `59` | | ⚪ unidentified — reads `00` | |
 | `62` | `63` | | ⚪ unidentified — reads `04 04 04 04` | |
@@ -1417,7 +1417,7 @@ driver's own surface.
 | Noise Control Modes — Off · Be Aware · NC On | ✅ `44`/`45`/`46` | ✅ r/w, all three driven |
 | **Spatial Audio** on/off | ✅ `76` read, `74` write | ✅ r/w |
 | **Spatial mode** — Music · Movie | ✅ `50`/`51`/`52` | ✅ r/w, driven from our own card |
-| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ✅ write `4a` captured | ✅ r/w at Pippijn's explicit request — ⚠ the index lands, the ten levels do NOT |
+| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ✅ write `4a` captured | ✅ r/w at Pippijn's explicit request — ⚠ the index lands; `49`'s levels are the CUSTOM slot's, so read `71` for a chip's curve |
 | **Touch Controls** — 6 gestures × 2 sides | ✅ read `4c`/`4d`; ⚠ writer predicted, uncaptured | ✅ read — ⛔ no writer exists to capture |
 | **Safe Hearing** — 85 dB · 95 dB · Default | ✅ `66` read, `68` write | ✅ r/w at Pippijn's explicit request — ⚠ higher value = LOWER ceiling |
 | Interval Timer — active/rest/repeat, Start Workout | ⚪ opening it sends nothing | ⚪ app-side timer |

@@ -227,11 +227,12 @@ data class Settings(
      * `120 120 90 120 120 120 90 120 120 120`. The controller reported
      * `Contradicted`, which is the whole reason that outcome exists.
      *
-     * ⚠ **Two readings survive that observation and nothing here picks one**: either the
-     * device ignores the levels on a preset write, or `49` reports the Custom slot
-     * whatever is selected. They differ in whether the two cut bands were audibly raised.
-     * The existing corroboration cannot separate them — it was taken with Custom
-     * selected, where the two coincide by construction.
+     * ✅ **Settled the same day by driving a second index with `71` printed beside it**:
+     * the slot table reads `[flat, flat, flat, cut]`, and selecting `0` or `1` each left
+     * the ten bytes at slot 3's cut curve. So `49`'s levels are the CUSTOM slot's, not the
+     * selected preset's, and [jlabEqPresets] is what a caller must read to know what a
+     * chip will send. ⚠⚠ Whether the SOUND changed is still not answerable from any read
+     * here — assume the cut bands were raised while a preset stood.
      */
     val jlabEq: JLabCurve? = null,
     /**

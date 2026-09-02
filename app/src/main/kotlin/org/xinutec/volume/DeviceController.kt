@@ -506,9 +506,16 @@ class DeviceController(
             // in the log from a drag that moved a band. Measured 2026-08-24, and it
             // cost a re-run to notice the screen and the log did not disagree because
             // neither of them named a number.
+            // ⚠ **The JLab needs its SLOTS beside its curve, for the same reason.** `49`
+            // answers a preset index and ten bytes, and 2026-09-02 measured those two
+            // disagreeing — the index moved to a preset whose stored curve is flat while
+            // the bytes stayed cut. Neither the card nor this log could show which slot
+            // the bytes belonged to, so `71` is printed alongside them; the question is
+            // not answerable from the curve alone. See [JLabEq].
             Log.i(
                 LIVE,
                 "$what: wrote=$outcome refresh: eq=${settings.eq?.levels} " +
+                    "jlabEq=${settings.jlabEq} slots=${settings.jlabEqPresets} " +
                     "dsee=${settings.dsee} pause=${settings.pauseOnRemoval} " +
                     "chat=${settings.speakToChat} voice=${settings.focusOnVoice}",
             )

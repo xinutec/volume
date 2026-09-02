@@ -303,11 +303,20 @@ object JLabSpatialMode {
  * came back regardless. Calling those levels "flat `78`s" is the 2026-09-01 capture
  * talking; that they were not what returned is today's measurement.
  *
- * ⚠ **Two readings survive and nothing here picks one**: the device ignores the levels on
- * a preset write, or `49` reports the Custom slot whatever index is selected. They differ
- * in whether the two cut bands were audibly RAISED for the seconds the selection stood.
- * The corroboration above cannot separate them — it was taken with Custom selected, where
- * `49` and slot 3 of `71` coincide by construction.
+ * ✅ **RESOLVED THE SAME DAY: `49`'s ten bytes are the CUSTOM SLOT'S, not the selected
+ * preset's.** A second non-custom index was driven — `eq 2`, slot 1 — with `71` printed
+ * beside it, which made the slot table readable for the first time. It reads
+ * `[flat, flat, flat, cut]` LIVE rather than from the 2026-09-01 capture: slots 0, 1 and 2
+ * are all `78`, and only slot 3 carries the two cuts. Selecting `0` and selecting `1` each
+ * moved the index and each left the ten bytes sitting at slot 3's cut curve, so the bytes
+ * do not follow the index. `71` itself came back unchanged by both writes — a preset write
+ * does not clobber the stored curves.
+ *
+ * ⚠⚠ **What that still does NOT settle is whether the SOUND changed.** The device may be
+ * loading the flat curve and merely misreporting it here, or declining the selection
+ * outright; no read this protocol offers separates those, and only a listener or the
+ * vendor app's own screen could. **Assume the two cut bands WERE raised** for the seconds
+ * each selection stood — that is the safe direction and it is what the card warns.
  *
  * ⚠ **Restoring by tapping `custom` CONFIRMS for free and proves nothing.** It sends slot
  * 3 its own contents, so the re-read agrees whether or not the levels were applied. The

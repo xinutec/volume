@@ -273,7 +273,14 @@ class JLabTest {
         assertEquals(current.levels, all[current.preset])
     }
 
-    /** ⚠ The other three are flat, which is why selecting one RAISES two bands. */
+    /**
+     * ⚠ The other three are flat, which is why selecting one RAISES two bands.
+     *
+     * ✅ **Corroborated against the earbuds on 2026-09-02**, not just this capture: `71`
+     * was read live beside two preset writes and came back `[flat, flat, flat, cut]` both
+     * times — so the fixture still describes the device, and a preset write does not
+     * rewrite the stored curves.
+     */
     @Test
     fun `the three stored presets are flat`() {
         val all = JLabEq.allPresets(bytes(eqPresets))!!
