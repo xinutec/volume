@@ -27,15 +27,15 @@ class JblGesturesTest {
 
     @Test
     fun `the frames are the ones the vendor app builds`() {
-        assertEquals("aa770201ff", hex(JblGestures.get()))
+        assertEquals("aa770201ff", hex(JblGestures.get().bytes))
         // What was actually sent on 2026-08-17, and what restored it.
         assertEquals(
             "aa7703000605",
-            hex(JblGestures.set(Gesture.LEFT_TAP, GestureAction.NEXT_TRACK)),
+            hex(JblGestures.set(Gesture.LEFT_TAP, GestureAction.NEXT_TRACK).bytes),
         )
         assertEquals(
             "aa770300060b",
-            hex(JblGestures.set(Gesture.LEFT_TAP, GestureAction.ANC_AMBIENT)),
+            hex(JblGestures.set(Gesture.LEFT_TAP, GestureAction.ANC_AMBIENT).bytes),
         )
     }
 

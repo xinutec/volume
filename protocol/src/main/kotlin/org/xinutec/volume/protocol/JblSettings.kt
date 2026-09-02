@@ -57,7 +57,7 @@ object JblAutoOff {
      */
     private const val TRAILER: Byte = 0x00
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
 
     /** Decode `aa 22 04 33 <on> <minutes> <?>`, or null if it is not that. */
     fun state(reply: ByteArray): TimedOff? {
@@ -66,14 +66,16 @@ object JblAutoOff {
         return TimedOff(on = p[0] != 0x00.toByte(), minutes = p[1].toInt() and 0xff)
     }
 
-    fun set(v: TimedOff): ByteArray =
-        byteArrayOf(
-            Bes.HEADER,
-            SET,
-            0x03,
-            if (v.on) 0x01 else 0x00,
-            v.minutes.toByte(),
-            TRAILER,
+    fun set(v: TimedOff): OutFrame =
+        OutFrame(
+            byteArrayOf(
+                Bes.HEADER,
+                SET,
+                0x03,
+                if (v.on) 0x01 else 0x00,
+                v.minutes.toByte(),
+                TRAILER,
+            ),
         )
 }
 
@@ -119,7 +121,8 @@ object JblEq {
     private const val RECORDS = 19
     private const val RECORD = 10
 
-    fun get(table: Byte = CURRENT): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x02, 0x01, table)
+    fun get(table: Byte = CURRENT): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x02, 0x01, table))
 
     /**
      * Decode a curve frame, or null.
@@ -155,7 +158,7 @@ object JblEq {
      * Returns null if [read] is not a curve frame or [gains] is not [BANDS] long,
      * rather than emitting a frame of the wrong shape at the headphones.
      */
-    fun set(read: ByteArray, table: Int, gains: List<Float>): ByteArray? {
+    fun set(read: ByteArray, table: Int, gains: List<Float>): OutFrame? {
         if (curve(read) == null || gains.size != BANDS) return null
         val out = read.copyOf()
         out[4] = SET
@@ -163,7 +166,7 @@ object JblEq {
         for (i in 0 until BANDS) {
             putFloat(out, RECORDS + i * RECORD + 2, gains[i])
         }
-        return out
+        return OutFrame(out)
     }
 }
 
@@ -267,7 +270,7 @@ object JblSafeSound {
     /** Where `SafeSoundCmd.setStatus` reads from, counting the `aa`. */
     private const val STATUS_AT = 5
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
     fun state(reply: ByteArray): Boolean? {
         if (reply.size <= STATUS_AT) return null
@@ -337,10 +340,10 @@ object JblSpatial {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
-    fun set(v: Spatial): ByteArray =
-        byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.mode.wire)
+    fun set(v: Spatial): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.mode.wire))
 
     /**
      * The state a status frame reports, or null if this is not one.
@@ -411,10 +414,10 @@ object JblVoiceAware {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
-    fun set(v: VoiceAware): ByteArray =
-        byteArrayOf(Bes.HEADER, CMD, LEN, SET, v.level.wire, if (v.on) 0x01 else 0x00)
+    fun set(v: VoiceAware): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, v.level.wire, if (v.on) 0x01 else 0x00))
 
     /**
      * ⚠ Checks the command byte. `aa 9d 03 02 01 01` — Spatial Sound, on, Music — has
@@ -478,10 +481,10 @@ object JblSmartTalk {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
-    fun set(v: SmartTalk): ByteArray =
-        byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.timeout.wire)
+    fun set(v: SmartTalk): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.timeout.wire))
 
     fun state(reply: ByteArray): SmartTalk? {
         if (reply.size < 6) return null
@@ -511,9 +514,10 @@ object JblLowVolumeEq {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
-    fun set(on: Boolean): ByteArray = byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (on) 0x01 else 0x00)
+    fun set(on: Boolean): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (on) 0x01 else 0x00))
 
     fun state(reply: ByteArray): Boolean? {
         if (reply.size < 5) return null
@@ -578,9 +582,9 @@ object JblSmartAv {
     private const val LEN: Byte = 0x08
     private const val AT = 3
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, GET, 0x00)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, GET, 0x00))
 
-    fun set(v: SmartAv): ByteArray = byteArrayOf(Bes.HEADER, SET, LEN) + v.bytes
+    fun set(v: SmartAv): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, SET, LEN) + v.bytes)
 
     /**
      * ⚠ Returns null for a payload nobody has captured rather than guessing the
@@ -624,15 +628,15 @@ object JblFeature {
     private const val SET: Byte = 0x01
     private const val STATUS: Byte = 0x02
 
-    fun get(key: Byte): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x03, GET, key, 0x00)
+    fun get(key: Byte): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x03, GET, key, 0x00))
 
     /**
      * ⚠ **Built and tested, never sent.** Flipping [LE_AUDIO] renegotiates the link
      * this app is talking over, so it belongs behind a deliberate control rather than
      * in a settings read, and nothing wires it yet.
      */
-    fun set(key: Byte, on: Boolean): ByteArray =
-        byteArrayOf(Bes.HEADER, CMD, 0x04, SET, key, 0x01, if (on) 0x01 else 0x00)
+    fun set(key: Byte, on: Boolean): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x04, SET, key, 0x01, if (on) 0x01 else 0x00))
 
     /**
      * The value [key] carries in a status reply, or null if this frame has no such key.

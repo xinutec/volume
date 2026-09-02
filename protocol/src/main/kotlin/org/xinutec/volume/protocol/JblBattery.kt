@@ -54,7 +54,7 @@ object JblBattery {
      * 2026-08-17, `aa 25 01 01` answers immediately with the same frame. Worth having:
      * waiting for a notification means a card that is blank for up to ten seconds.
      */
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
     /** `parseBatteryInfo` reads the levels only when the sub-command is `01`. */
     private const val LEVELS: Byte = 0x01

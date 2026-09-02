@@ -14,7 +14,7 @@ class JblBatteryTest {
     @Test
     fun `the level is read, and the absent cells are not zeroes`() {
         assertEquals(Battery(percent = 60, charging = false), JblBattery.state(Hex.parse(sixty)))
-        assertEquals("aa250101", Hex.format(JblBattery.get()).replace(" ", ""))
+        assertEquals("aa250101", Hex.format(JblBattery.get().bytes).replace(" ", ""))
     }
 
     /**

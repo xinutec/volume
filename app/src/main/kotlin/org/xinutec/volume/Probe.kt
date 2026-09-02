@@ -3,6 +3,7 @@ package org.xinutec.volume
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
+import org.xinutec.volume.protocol.OutFrame
 import java.io.IOException
 import java.io.InputStream
 import java.util.UUID
@@ -53,7 +54,7 @@ object Probe {
         adapter: BluetoothAdapter,
         device: BluetoothDevice,
         uuid: UUID,
-        payload: ByteArray,
+        payload: OutFrame,
         totalMs: Long,
         quietMs: Long,
     ): Exchange {
@@ -71,23 +72,28 @@ object Probe {
                         device.createInsecureRfcommSocketToServiceRecord(uuid)
                     }
                 socket.connect()
-                if (payload.isNotEmpty()) {
-                    socket.outputStream.write(payload)
+                if (payload.bytes.isNotEmpty()) {
+                    socket.outputStream.write(payload.bytes)
                     socket.outputStream.flush()
                 }
                 val got = readFor(socket.inputStream, totalMs, quietMs)
-                return Exchange(secure, payload, got, null)
+                return Exchange(secure, payload.bytes, got, null)
             } catch (e: IOException) {
                 lastError = "${if (secure) "secure" else "insecure"}: ${e.message}"
             } catch (e: SecurityException) {
                 // Missing BLUETOOTH_CONNECT — a different failure entirely, and one
                 // no retry fixes, so do not burn the insecure attempt on it.
-                return Exchange(secure, payload, ByteArray(0), "SecurityException: ${e.message}")
+                return Exchange(
+                    secure,
+                    payload.bytes,
+                    ByteArray(0),
+                    "SecurityException: ${e.message}",
+                )
             } finally {
                 runCatching { socket?.close() }
             }
         }
-        return Exchange(false, payload, ByteArray(0), lastError)
+        return Exchange(false, payload.bytes, ByteArray(0), lastError)
     }
 
     /**
@@ -117,7 +123,7 @@ object Probe {
         adapter: BluetoothAdapter,
         device: BluetoothDevice,
         uuid: UUID,
-        packets: List<ByteArray>,
+        packets: List<OutFrame>,
         perMs: Long,
         quietMs: Long,
         reconnect: Boolean = false,
@@ -142,7 +148,7 @@ object Probe {
          * it**: the same eight-packet run, re-measured, gave every packet its own answer
          * and exactly one copy of each frame.
          */
-        acksFor: (ByteArray) -> List<ByteArray> = { emptyList() },
+        acksFor: (ByteArray) -> List<OutFrame> = { emptyList() },
         onResult: (sent: ByteArray, got: ByteArray, killedLink: Boolean) -> Unit,
     ): String? {
         runCatching { adapter.cancelDiscovery() }
@@ -153,16 +159,16 @@ object Probe {
             readFor(socket.inputStream, 700, 300)
             for (p in packets) {
                 try {
-                    socket.outputStream.write(p)
+                    socket.outputStream.write(p.bytes)
                     socket.outputStream.flush()
-                    onResult(p, readAcking(socket, perMs, quietMs, acksFor), false)
+                    onResult(p.bytes, readAcking(socket, perMs, quietMs, acksFor), false)
                 } catch (e: IOException) {
                     // ⚠ The Fast Pair devices (JBL, JLab) reject a message they do not
                     // like by DROPPING THE LINK rather than answering. A dead socket is
                     // then a result about the packet, not a failure of the run, and
                     // without reconnecting a sweep stops at its first miss.
                     if (!reconnect) return "${e.message}"
-                    onResult(p, ByteArray(0), true)
+                    onResult(p.bytes, ByteArray(0), true)
                     runCatching { socket.close() }
                     socket = open(device, uuid) ?: return "link died and would not reopen"
                     readFor(socket.inputStream, 700, 300)
@@ -238,7 +244,7 @@ object Probe {
         socket: BluetoothSocket,
         totalMs: Long,
         quietMs: Long,
-        acksFor: (ByteArray) -> List<ByteArray>,
+        acksFor: (ByteArray) -> List<OutFrame>,
     ): ByteArray {
         val out = java.io.ByteArrayOutputStream()
         val buf = ByteArray(4096)
@@ -252,7 +258,7 @@ object Probe {
                 lastData = System.nanoTime()
                 val acks = acksFor(out.toByteArray())
                 acks.drop(sent).forEach { ack ->
-                    socket.outputStream.write(ack)
+                    socket.outputStream.write(ack.bytes)
                     socket.outputStream.flush()
                     lastData = System.nanoTime()
                 }

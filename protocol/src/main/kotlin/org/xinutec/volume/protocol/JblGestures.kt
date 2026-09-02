@@ -140,10 +140,10 @@ object JblGestures {
     /** ⚠ Not a [Gesture]: the wire uses `ff` for ALL, and the table has no such entry. */
     private const val EVERY: Byte = 0xff.toByte()
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x02, GET, EVERY)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x02, GET, EVERY))
 
-    fun set(g: Gesture, a: GestureAction): ByteArray =
-        byteArrayOf(Bes.HEADER, CMD, 0x03, SET, g.wire, a.wire)
+    fun set(g: Gesture, a: GestureAction): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x03, SET, g.wire, a.wire))
 
     /**
      * Every binding in a status frame, or null if this is not one.

@@ -37,6 +37,26 @@ enum class AncMode {
 }
 
 /**
+ * A frame that may be SENT.
+ *
+ * ⚠ **The constructor is internal to `:protocol`, and that is the whole feature.** Until
+ * 2026-09-02 [Transport] took a bare `ByteArray`, so any module could hand any bytes to
+ * hardware someone is wearing; the only gate ([Hazards]) sat on the probe path alone,
+ * called because somebody remembered to. Now bytes become sendable exactly two ways:
+ * a builder in this module — code that exists because the frame was captured from a
+ * vendor app and reviewed — or [Hazards.admit], which is the probe tool's door and
+ * refuses by default. Outside this module, `exchange(myBytes)` does not compile.
+ *
+ * A value class, so the wire pays nothing for the proof.
+ */
+@JvmInline
+value class OutFrame internal constructor(
+    val bytes: ByteArray,
+) {
+    override fun toString(): String = bytes.joinToString(" ") { "%02x".format(it) }
+}
+
+/**
  * A byte channel to one headphone, already open.
  *
  * ⚠ **One instance is one CONNECTION, not one packet**, and that is load-bearing
@@ -49,10 +69,10 @@ enum class AncMode {
  */
 interface Transport {
     /** Write [packet] and return whatever arrived in the reply window. */
-    fun exchange(packet: ByteArray): ByteArray
+    fun exchange(packet: OutFrame): ByteArray
 
     /** Write [packet] and do not wait. For protocol acks, which draw no reply. */
-    fun send(packet: ByteArray)
+    fun send(packet: OutFrame)
 
     /**
      * [exchange], but acknowledging each frame **while the window is still open**.
@@ -69,7 +89,7 @@ interface Transport {
      * out yet. Returning an empty list is how a device with no acks in its protocol
      * — the JBL, both Bose — says so.
      */
-    fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray
+    fun exchange(packet: OutFrame, acksFor: (ByteArray) -> List<OutFrame>): ByteArray
 
     /**
      * Read **without** sending, for what the device volunteered or answered late.

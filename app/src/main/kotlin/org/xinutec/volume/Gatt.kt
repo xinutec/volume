@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import org.xinutec.volume.protocol.OutFrame
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -141,7 +142,7 @@ object Gatt {
         service: UUID,
         write: UUID,
         notify: UUID,
-        packets: List<ByteArray>,
+        packets: List<OutFrame>,
         perMs: Long,
         quietMs: Long,
         autoConnect: Boolean,
@@ -263,16 +264,16 @@ object Gatt {
                 val rc =
                     gatt.writeCharacteristic(
                         writeChar,
-                        p,
+                        p.bytes,
                         BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
                     )
                 if (rc != BluetoothGatt.GATT_SUCCESS) {
-                    onResult(Result(p, ByteArray(0), "write refused, rc=$rc"))
+                    onResult(Result(p.bytes, ByteArray(0), "write refused, rc=$rc"))
                     continue
                 }
                 val acked = step.await(STEP_MS, TimeUnit.MILLISECONDS)
                 if (disconnected) {
-                    onResult(Result(p, ByteArray(0), "link dropped on this packet"))
+                    onResult(Result(p.bytes, ByteArray(0), "link dropped on this packet"))
                     return "link dropped"
                 }
                 val err =
@@ -281,7 +282,7 @@ object Gatt {
                         lastStatus != BluetoothGatt.GATT_SUCCESS -> "write status $lastStatus"
                         else -> null
                     }
-                onResult(Result(p, collect(notifications, perMs, quietMs), err))
+                onResult(Result(p.bytes, collect(notifications, perMs, quietMs), err))
             }
             return null
         } catch (e: SecurityException) {

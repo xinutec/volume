@@ -53,7 +53,7 @@ object BoseFrame {
     const val PROCESSING: Byte = 0x07
 
     fun encode(block: Byte, fn: Byte, operator: Byte, payload: ByteArray = ByteArray(0)) =
-        byteArrayOf(block, fn, operator, payload.size.toByte()) + payload
+        OutFrame(byteArrayOf(block, fn, operator, payload.size.toByte()) + payload)
 
     /**
      * Split a reply window into the frames it actually holds.
@@ -193,7 +193,7 @@ object BoseEq {
     fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
 
     /** `01 07 02 02 <level> <band>` — one band per frame. ⚠ Level first, band second. */
-    fun set(band: Int, level: Int): ByteArray {
+    fun set(band: Int, level: Int): OutFrame {
         require(band in BASS..TREBLE) { "no band $band" }
         require(level in RANGE) { "$level dB is outside $RANGE" }
         val payload = byteArrayOf(level.toByte(), band.toByte())
@@ -207,7 +207,7 @@ object BoseEq {
      * each write draws its own full status — but it is what was captured, and the
      * cost of matching it is nil.
      */
-    fun setAll(bands: BoseBands): List<ByteArray> =
+    fun setAll(bands: BoseBands): List<OutFrame> =
         listOf(set(TREBLE, bands.treble), set(MID, bands.mid), set(BASS, bands.bass))
 
     /** What Bose Music sends for its "Bass Boost" button. */
@@ -682,7 +682,7 @@ object BoseVoicePrompts {
                 language ?: BoseVoicePromptLanguage.of(current) ?: return null,
             )
         // The frame is a one-byte payload, so its last byte IS the byte being asked for.
-        if (frame.last() == byte) return current
+        if (frame.bytes.last() == byte) return current
         t.send(frame)
         var after = current
         repeat(SETTLE_READS) {
@@ -869,7 +869,7 @@ object BoseCncModes {
     }
 
     /** `1f 08` as a WRITE — the other half of both [create] and [delete]. */
-    fun occupancy(slots: Slots): ByteArray =
+    fun occupancy(slots: Slots): OutFrame =
         BoseFrame.encode(
             BLOCK,
             SLOTS,
@@ -888,7 +888,7 @@ object BoseCncModes {
         name: String,
         level: Int,
         windBlock: Boolean = false,
-    ): ByteArray {
+    ): OutFrame {
         val padded = name.toByteArray(Charsets.UTF_8).copyOf(NAME_LEN)
         val tail =
             byteArrayOf(
@@ -917,7 +917,7 @@ object BoseCncModes {
      * a byte the device may use for its icon or its ordering, so pass one that has been
      * seen on this device.
      */
-    fun create(slot: Int, nameId: Int, name: String, level: Int, slots: Slots): List<ByteArray> {
+    fun create(slot: Int, nameId: Int, name: String, level: Int, slots: Slots): List<OutFrame> {
         require(name.isNotEmpty()) { "an empty name is a delete, not a create" }
         return listOf(record(slot, nameId, name, level), occupancy(slots.with(slot, true)))
     }
@@ -933,7 +933,7 @@ object BoseCncModes {
      * (`04 01 04`), which is why the operation is two writes rather than one. Bose Music
      * tries `1f 09` three times, takes the error, and falls back to exactly this pair.
      */
-    fun delete(slot: Int, slots: Slots): List<ByteArray> =
+    fun delete(slot: Int, slots: Slots): List<OutFrame> =
         listOf(record(slot, 0, "", DELETED_LEVEL), occupancy(slots.with(slot, false)))
 
     /** What Bose Music writes into a slot it is emptying. */
@@ -952,7 +952,7 @@ object BoseCncModes {
      * ⚠ **Send this on release, not on change.** Bose Music writes once per slider
      * position — eight frames for one adjustment — and there is no reason to copy that.
      */
-    fun setLevel(mode: Mode, level: Int): ByteArray =
+    fun setLevel(mode: Mode, level: Int): OutFrame =
         record(mode.slot, mode.nameId, mode.name, level, mode.windBlock)
 
     /**
@@ -961,7 +961,7 @@ object BoseCncModes {
      * ⚠ **The level goes with it when this turns ON** — see [Mode.windBlock]. The caller
      * re-reads rather than assuming, which is what makes that visible on the card.
      */
-    fun setWindBlock(mode: Mode, on: Boolean): ByteArray =
+    fun setWindBlock(mode: Mode, on: Boolean): OutFrame =
         record(mode.slot, mode.nameId, mode.name, mode.level, on)
 
     /**
@@ -1110,7 +1110,7 @@ object BoseWrites {
      * the current language across silently resets it to `00` — UK English, one bit from
      * the US English this unit uses.
      */
-    fun voicePrompts(current: Byte, on: Boolean, language: BoseVoicePromptLanguage): ByteArray =
+    fun voicePrompts(current: Byte, on: Boolean, language: BoseVoicePromptLanguage): OutFrame =
         BoseFrame.encode(
             BoseAllSettings.BLOCK,
             BoseVoicePrompts.FN,
@@ -1131,7 +1131,7 @@ object BoseWrites {
      * neighbouring setting suggests, and it is wrong — [persist] is byte 0 of the reply
      * and the vendor app sends it back verbatim. Read it; do not assume `01`.
      */
-    fun sidetone(persist: Byte, level: SidetoneLevel): ByteArray =
+    fun sidetone(persist: Byte, level: SidetoneLevel): OutFrame =
         BoseFrame.encode(
             BoseAllSettings.BLOCK,
             BoseSidetone.FN,
@@ -1369,7 +1369,7 @@ object BoseName {
      * bound enforced is the one the protocol imposes: a length byte. Silently cutting a
      * name to fit would rename the headphones to something the owner did not type.
      */
-    fun set(name: String): ByteArray? {
+    fun set(name: String): OutFrame? {
         val bytes = name.toByteArray(Charsets.UTF_8)
         if (bytes.isEmpty() || bytes.size > 0xff) return null
         return BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, bytes)

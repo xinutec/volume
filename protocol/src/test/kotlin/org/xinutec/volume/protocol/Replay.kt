@@ -69,14 +69,14 @@ class Replay(
      * out mid-window rather than at its end, but nothing observable here distinguishes
      * those, and recording them is what lets a test assert the driver acks at all.
      */
-    override fun exchange(packet: ByteArray, acksFor: (ByteArray) -> List<ByteArray>): ByteArray {
+    override fun exchange(packet: OutFrame, acksFor: (ByteArray) -> List<OutFrame>): ByteArray {
         val reply = exchange(packet)
         acksFor(reply).forEach(::send)
         return reply
     }
 
-    override fun exchange(packet: ByteArray): ByteArray {
-        val hex = Hex.format(packet)
+    override fun exchange(packet: OutFrame): ByteArray {
+        val hex = Hex.format(packet.bytes)
         sent += hex
         check(at < steps.size) { "unexpected extra exchange: $hex" }
         val (expected, reply) = steps[at++]
@@ -85,8 +85,8 @@ class Replay(
         return Hex.parse(reply.replace(" ", ""))
     }
 
-    override fun send(packet: ByteArray) {
-        sent += Hex.format(packet)
+    override fun send(packet: OutFrame) {
+        sent += Hex.format(packet.bytes)
     }
 
     /**

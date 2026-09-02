@@ -17,9 +17,9 @@ class JblMoreTest {
      */
     @Test
     fun `auto play is set on 35 and read on 38`() {
-        assertEquals("aa350100", hex(JblAutoPlay.set(on = false)))
-        assertEquals("aa350101", hex(JblAutoPlay.set(on = true)))
-        assertEquals("aa210138", hex(JblAutoPlay.get()))
+        assertEquals("aa350100", hex(JblAutoPlay.set(on = false).bytes))
+        assertEquals("aa350101", hex(JblAutoPlay.set(on = true).bytes))
+        assertEquals("aa210138", hex(JblAutoPlay.get().bytes))
         assertEquals(true, JblAutoPlay.state(bytes("aa22023801")))
         assertEquals(false, JblAutoPlay.state(bytes("aa22023800")))
     }
@@ -39,8 +39,8 @@ class JblMoreTest {
     fun `balance is read and written as key-value pairs`() {
         assertEquals(Balance(on = false, level = 100), JblBalance.state(bytes("aaa8050201000264")))
         assertEquals(Balance(on = true, level = 100), JblBalance.state(bytes("aaa8050201010264")))
-        assertEquals("aaa8050001010264", hex(JblBalance.set(Balance(on = true, level = 100))))
-        assertEquals("aaa80101", hex(JblBalance.get()))
+        assertEquals("aaa8050001010264", hex(JblBalance.set(Balance(on = true, level = 100)).bytes))
+        assertEquals("aaa80101", hex(JblBalance.get().bytes))
     }
 
     /**
@@ -73,7 +73,7 @@ class JblMoreTest {
     fun `psap reads off, which is what the vendor app shows`() {
         assertEquals(false, JblPsap.state(bytes("aaa00702010002640300")))
         assertEquals(true, JblPsap.state(bytes("aaa00702010102640300")))
-        assertEquals("aaa00101", hex(JblPsap.get()))
+        assertEquals("aaa00101", hex(JblPsap.get().bytes))
     }
 
     /** ⚠ There is no writer, and that is the design — [JblPsap] says why. */

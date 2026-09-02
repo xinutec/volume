@@ -19,9 +19,10 @@ object JblAutoPlay {
     const val FIELD: Byte = 0x38
     const val SET: Byte = 0x35
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
 
-    fun set(on: Boolean): ByteArray = byteArrayOf(Bes.HEADER, SET, 0x01, if (on) 0x01 else 0x00)
+    fun set(on: Boolean): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, if (on) 0x01 else 0x00))
 
     fun state(reply: ByteArray): Boolean? {
         val p = Bes.status(reply, FIELD) ?: return null
@@ -70,18 +71,20 @@ object JblBalance {
     private const val ON_AT = 5
     private const val LEVEL_AT = 7
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
-    fun set(v: Balance): ByteArray =
-        byteArrayOf(
-            Bes.HEADER,
-            CMD,
-            LEN,
-            SET,
-            ON_KEY,
-            if (v.on) 0x01 else 0x00,
-            LEVEL_KEY,
-            v.level.toByte(),
+    fun set(v: Balance): OutFrame =
+        OutFrame(
+            byteArrayOf(
+                Bes.HEADER,
+                CMD,
+                LEN,
+                SET,
+                ON_KEY,
+                if (v.on) 0x01 else 0x00,
+                LEVEL_KEY,
+                v.level.toByte(),
+            ),
         )
 
     fun state(reply: ByteArray): Balance? {
@@ -120,7 +123,7 @@ object JblPsap {
     private const val ON_AT = 5
     private const val LEVEL_AT = 7
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
     fun state(reply: ByteArray): Boolean? {
         if (reply.size <= LEVEL_AT) return null
@@ -150,7 +153,7 @@ object JblPsap {
 object JblPowerOff {
     const val CMD: Byte = 0x97.toByte()
 
-    fun off(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x00)
+    fun off(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x00))
 }
 
 /**
@@ -231,7 +234,7 @@ object JblAdvancedAnc {
     private const val AUTO_COMP: Byte = 0x08
     private const val AMBIENT_LEVEL: Byte = 0xa1.toByte()
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, GET_SUB)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, GET_SUB))
 
     fun state(reply: ByteArray): AdvancedAnc? {
         if (reply.size < 4) return null
@@ -299,7 +302,7 @@ object JblVoicePrompts {
     private const val STATUS_SUB: Byte = 0x05
     private const val LEN: Byte = 0x02
 
-    fun get(): ByteArray = byteArrayOf(Bes.HEADER, CMD, 0x01, GET_SUB)
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, GET_SUB))
 
     fun state(reply: ByteArray): Boolean? {
         if (reply.size < 5) return null

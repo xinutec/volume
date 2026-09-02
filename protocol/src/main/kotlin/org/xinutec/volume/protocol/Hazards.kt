@@ -97,10 +97,38 @@ object Hazards {
     private const val SONY_PLAYBACK_SET: Byte = 0xa8.toByte()
 
     /**
+     * The ONE door raw bytes pass to become an [OutFrame].
+     *
+     * ⚠ [Transport] refuses bare bytes at compile time, so a hand-typed payload — the
+     * probe tool's stock in trade — must come through here, and this runs [check] on the
+     * way. What used to be a call somebody remembered to make is now the only path that
+     * exists. Refusing is the default; [force] is the probe's per-call override, and an
+     * admission it forced still carries the refusal so the caller can print what was
+     * overridden rather than sending in silence.
+     */
+    fun admit(
+        uuid: String?,
+        payload: ByteArray,
+        table: SonyTable,
+        protocol: Channels.Protocol? = null,
+        force: Boolean = false,
+    ): Admission {
+        val r = check(uuid, payload, table, protocol)
+        return when {
+            r == null -> Admission.Admitted(OutFrame(payload), overrode = null)
+            force -> Admission.Admitted(OutFrame(payload), overrode = r)
+            else -> Admission.Refused(r)
+        }
+    }
+
+    /**
      * Inspect a payload bound for [uuid], or for GATT when that is null.
      *
-     * [table2] distinguishes the Sony's two command tables, because `38` means different
-     * things on each and a payload byte cannot say which was meant.
+     * [table] names which of the Sony's two command tables applies, because `38` means
+     * different things on each and a payload byte cannot say which was meant.
+     * ⚠ **No default**: `table2: Boolean = false` let a forgotten argument silently
+     * select the table where the peripheral-unpair refusal does not fire — fail-open
+     * by omission. The caller says, every time.
      *
      * ⚠ The fall-through is BES, where the factory reset lives — GATT and anything
      * unrecognised land there. Guessing WIDE is the safe direction: the cost of a false
@@ -109,17 +137,18 @@ object Hazards {
     fun check(
         uuid: String?,
         payload: ByteArray,
-        table2: Boolean = false,
+        table: SonyTable,
         protocol: Channels.Protocol? = null,
     ): Refusal? =
         when {
             payload.isEmpty() -> null
-            uuid.equals(Channels.SONY, ignoreCase = true) -> sony(payload, table2)
+            uuid.equals(Channels.SONY, ignoreCase = true) -> sony(payload, table)
             uuid.equals(Channels.SPP, ignoreCase = true) -> bose(payload, protocol)
             else -> bes(payload)
         }
 
-    private fun sony(payload: ByteArray, table2: Boolean): Refusal? {
+    private fun sony(payload: ByteArray, table: SonyTable): Refusal? {
+        val table2 = table == SonyTable.TABLE_2
         if (table2 && payload[0] == SONY_PERI_SET && payload.getOrNull(2) == SONY_UNPAIR) {
             return Refusal(
                 "Sony PERI_SET_PARAM with ConnectivityActionType 02",
@@ -274,4 +303,17 @@ object Hazards {
             null
         }
     }
+}
+
+/** What [Hazards.admit] decided. A refusal carries its reason; a forced pass carries it too. */
+sealed interface Admission {
+    data class Admitted(
+        val frame: OutFrame,
+        /** The refusal [Hazards.admit] was told to override, for printing — or null. */
+        val overrode: Refusal?,
+    ) : Admission
+
+    data class Refused(
+        val refusal: Refusal,
+    ) : Admission
 }

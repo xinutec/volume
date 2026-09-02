@@ -100,7 +100,7 @@ class BoseCncModesTest {
                 "00 00 00 00 00 00 00 00 00 00 00 00 00 00 " +
                 "00 00 00 00 00 00 00 00 00 00 00 03 00 00 " +
                 "00",
-            frame.joinToString(" ") { "%02x".format(it) },
+            frame.bytes.joinToString(" ") { "%02x".format(it) },
         )
     }
 
@@ -108,15 +108,15 @@ class BoseCncModesTest {
     @Test
     fun `a level outside the scale is clamped rather than sent`() {
         val commute = BoseCncModes.modes(transaction).single { it.name == "Commute" }
-        assertEquals(10, BoseCncModes.setLevel(commute, 99)[39].toInt() and 0xff)
-        assertEquals(0, BoseCncModes.setLevel(commute, -4)[39].toInt() and 0xff)
+        assertEquals(10, BoseCncModes.setLevel(commute, 99).bytes[39].toInt() and 0xff)
+        assertEquals(0, BoseCncModes.setLevel(commute, -4).bytes[39].toInt() and 0xff)
     }
 
     @Test
     fun `selecting is a Start whose payload is slot then 01`() {
         assertEquals(
             "1f 03 05 02 02 01",
-            BoseCncModes.select(2).joinToString(" ") { "%02x".format(it) },
+            BoseCncModes.select(2).bytes.joinToString(" ") { "%02x".format(it) },
         )
     }
 
@@ -160,13 +160,13 @@ class BoseCncModesTest {
     @Test
     fun `deleting writes the blanked record Bose Music writes`() {
         val frames = BoseCncModes.delete(slot = 2, slots = full)
-        assertEquals(capturedDelete.toList(), frames[0].toList())
+        assertEquals(capturedDelete.toList(), frames[0].bytes.toList())
     }
 
     @Test
     fun `deleting clears only its own occupancy bit`() {
         val frames = BoseCncModes.delete(slot = 2, slots = full)
-        assertEquals(Hex.parse("1f 08 02 02 04 0b").toList(), frames[1].toList())
+        assertEquals(Hex.parse("1f 08 02 02 04 0b").toList(), frames[1].bytes.toList())
     }
 
     @Test
@@ -179,7 +179,7 @@ class BoseCncModesTest {
                 level = 0,
                 slots = full.with(2, false),
             )
-        assertEquals(capturedCreate.toList(), frames[0].toList())
+        assertEquals(capturedCreate.toList(), frames[0].bytes.toList())
     }
 
     @Test
@@ -192,7 +192,7 @@ class BoseCncModesTest {
                 level = 0,
                 slots = full.with(2, false),
             )
-        assertEquals(Hex.parse("1f 08 02 02 04 0f").toList(), frames[1].toList())
+        assertEquals(Hex.parse("1f 08 02 02 04 0f").toList(), frames[1].bytes.toList())
     }
 
     @Test
@@ -302,7 +302,7 @@ class BoseCncModesTest {
                 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 07 00 00 01
                 """,
             )
-        assertEquals(expected.toList(), BoseCncModes.setWindBlock(commute, true).toList())
+        assertEquals(expected.toList(), BoseCncModes.setWindBlock(commute, true).bytes.toList())
     }
 
     @Test
@@ -310,6 +310,13 @@ class BoseCncModesTest {
         val on = BoseCncModes.modes(windBlockOn).single()
         // ⚠ The regression this guards: setLevel used to build a record from scratch, so
         // moving the slider would silently turn wind block off.
-        assertEquals(1, BoseCncModes.setLevel(on, 4).last().toInt())
+        assertEquals(
+            1,
+            BoseCncModes
+                .setLevel(on, 4)
+                .bytes
+                .last()
+                .toInt(),
+        )
     }
 }

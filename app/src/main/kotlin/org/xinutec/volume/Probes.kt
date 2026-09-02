@@ -3,6 +3,7 @@ package org.xinutec.volume
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import org.xinutec.volume.protocol.Admission
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.BoseBands
@@ -15,12 +16,14 @@ import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Frames
 import org.xinutec.volume.protocol.Hazards
 import org.xinutec.volume.protocol.Hex
+import org.xinutec.volume.protocol.OutFrame
 import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyEq
 import org.xinutec.volume.protocol.SonyFrame
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
+import org.xinutec.volume.protocol.SonyTable
 import org.xinutec.volume.protocol.SonyTouchPanel
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Sweep
@@ -184,16 +187,18 @@ class Probes(
         // cannot skip it. Null when nothing is bonded at that address, which keeps the
         // old behaviour instead of guessing.
         val protocol = protocolOf(adapter, mac)
-        val table2 = type == SonyFrame.TYPE_DATA_MDR_NO2
-        if (!refused(uuid, payload, table2, intent, protocol)) return
-        if (dryRun(uuid, listOf(payload), table2, intent)) return
+        val table = SonyFrame.tableOf(type)
+        val admitted = admitted(uuid, payload, table, intent, protocol) ?: return
+        if (dryRun(uuid, listOf(payload), table, intent)) return
 
-        val wire = if (raw) payload else SonyFrame.encode(type, seq, payload)
+        // ⚠ The hazard was judged on the PAYLOAD, and the Sony arm re-frames that same
+        // payload — the envelope cannot smuggle different bytes past the check.
+        val wire = if (raw) admitted else SonyFrame.encode(type, seq, payload)
 
         emit("→ ${if (raw) "raw" else "sony type=%02x seq=%02x".format(type, seq)} to $mac")
         emit("  uuid    $uuid")
         emit("  payload ${Hex.format(payload)}")
-        emit("  wire    ${Hex.format(wire)}")
+        emit("  wire    ${Hex.format(wire.bytes)}")
 
         val device = adapter.getRemoteDevice(mac)
         val r = Probe.exchange(adapter, device, UUID.fromString(uuid), wire, totalMs, quietMs)
@@ -226,7 +231,11 @@ class Probes(
     }
 
     /**
-     * True if this payload may be sent.
+     * The payload as something that CAN be sent, or null — and null means refused.
+     *
+     * ⚠ **This is [Hazards.admit]'s only caller, and [Transport] is why that is enough:**
+     * hand-typed bytes cannot become an [OutFrame] any other way, so the check is no
+     * longer a call somebody remembers to make before the send — it is the send's input.
      *
      * ⚠ **Refusing is the default and `force` is per-call.** The probe's job is to send
      * whatever it is given, so this cannot be a mode that gets left on: a session that
@@ -235,29 +244,44 @@ class Probes(
      * ⚠ Prints the reason and the bytes together. "Refused" without the payload is not
      * checkable against the docs, and the docs are where the consequence is argued.
      */
-    private fun refused(
+    private fun admitted(
         uuid: String?,
         payload: ByteArray,
-        table2: Boolean,
+        table: SonyTable,
         intent: Intent,
         protocol: Channels.Protocol? = null,
-    ): Boolean {
+    ): OutFrame? {
         // ⚠ **Printed for every send, allowed or refused, and BEFORE the verdict.** The
         // hex is not checkable by a person — `aa 77 03 00 06 05` and `…05 06` differ by a
         // transposition and bind different buttons — so the sentence is what makes a
         // wrong frame visible while it can still be stopped. #1038.
-        emit("  means: ${Frames.describe(uuid, payload, table2)}")
-        val r = Hazards.check(uuid, payload, table2, protocol) ?: return true
-        if (intent.getBooleanExtra("force", false)) {
-            emit("⚠ FORCED past a refusal: ${r.what}")
-            emit("  ${r.why}")
-            return true
+        emit("  means: ${Frames.describe(uuid, payload, table)}")
+        return when (
+            val a =
+                Hazards.admit(
+                    uuid,
+                    payload,
+                    table,
+                    protocol,
+                    intent.getBooleanExtra("force", false),
+                )
+        ) {
+            is Admission.Admitted -> {
+                a.overrode?.let {
+                    emit("⚠ FORCED past a refusal: ${it.what}")
+                    emit("  ${it.why}")
+                }
+                a.frame
+            }
+
+            is Admission.Refused -> {
+                emit("⛔ REFUSED ${Hex.format(payload)}")
+                emit("  ${a.refusal.what}")
+                emit("  ${a.refusal.why}")
+                emit("  nothing was sent. --ez force true sends it anyway.")
+                null
+            }
         }
-        emit("⛔ REFUSED ${Hex.format(payload)}")
-        emit("  ${r.what}")
-        emit("  ${r.why}")
-        emit("  nothing was sent. --ez force true sends it anyway.")
-        return false
     }
 
     /**
@@ -272,20 +296,23 @@ class Probes(
      * ⚠ **Judged on the payloads, not the wire bytes**, exactly as [send] does: the
      * Sony framing is applied afterwards, and a refusal has to name what was typed.
      */
-    private fun anyRefused(
+    private fun admittedAll(
         uuid: String?,
         packets: List<ByteArray>,
-        table2: Boolean,
+        table: SonyTable,
         intent: Intent,
         protocol: Channels.Protocol? = null,
-    ): Boolean {
-        var bad = false
-        packets.forEachIndexed { n, p ->
-            emit("  [${n + 1}/${packets.size}]")
-            if (!refused(uuid, p, table2, intent, protocol)) bad = true
+    ): List<OutFrame>? {
+        val frames =
+            packets.mapIndexedNotNull { n, p ->
+                emit("  [${n + 1}/${packets.size}]")
+                admitted(uuid, p, table, intent, protocol)
+            }
+        if (frames.size < packets.size) {
+            emit("⛔ nothing was sent — the whole run is refused, not just the packet.")
+            return null
         }
-        if (bad) emit("⛔ nothing was sent — the whole run is refused, not just the packet.")
-        return bad
+        return frames
     }
 
     /**
@@ -308,16 +335,16 @@ class Probes(
     private fun dryRun(
         uuid: String?,
         packets: List<ByteArray>,
-        table2: Boolean,
+        table: SonyTable,
         intent: Intent,
     ): Boolean {
         if (intent.getBooleanExtra("apply", false)) return false
-        val writes = packets.filterNot { Frames.reads(uuid, it, table2) }
+        val writes = packets.filterNot { Frames.reads(uuid, it, table) }
         if (writes.isEmpty()) return false
         emit("")
         emit("◻ DRY RUN — nothing was sent. ${writes.size} of ${packets.size} packet(s) are")
         emit("  not recognised as reads:")
-        writes.forEach { emit("    ${Hex.format(it)} — ${Frames.describe(uuid, it, table2)}") }
+        writes.forEach { emit("    ${Hex.format(it)} — ${Frames.describe(uuid, it, table)}") }
         emit("  --ez apply true sends them. (probe.sh: --apply)")
         return true
     }
@@ -406,24 +433,16 @@ class Probes(
         // data". `--ez sony true` frames each payload and acks what comes back.
         val sony = intent.getBooleanExtra("sony", false)
         // ⚠ Table 2 — see the note on the frame type below. Read-only ops only, for now.
-        val table2 = intent.getBooleanExtra("table2", false)
-        val sonyType = if (table2) SonyFrame.TYPE_DATA_MDR_NO2 else SonyFrame.TYPE_DATA_MDR
-        val packets =
-            if (sony) {
-                // ⚠ **The frame TYPE selects which command table the bytes mean**, and
-                // the two overlap completely in the ranges that matter. `0c` DATA_MDR is
-                // table1, `0e` DATA_MDR_NO2 is table2. In table1 `40`–`49` is **VPT**;
-                // in table2 the identical bytes are **VOICE_GUIDANCE**. So `48` is a
-                // sound-field write on one and a voice-prompt write on the other, and
-                // nothing in the payload distinguishes them.
-                //
-                // ⚠ Default stays `0c`, because that is what every frame this repo has
-                // driven used and what the XM4 answers device info on.
-                raw.mapIndexed { n, p -> SonyFrame.encode(sonyType, (n % 2).toByte(), p) }
+        // The adb boundary stays a boolean extra; it becomes a [SonyTable] here and
+        // is a type from this line on.
+        val sonyType =
+            if (intent.getBooleanExtra("table2", false)) {
+                SonyFrame.TYPE_DATA_MDR_NO2
             } else {
-                raw
+                SonyFrame.TYPE_DATA_MDR
             }
-        val acksFor: (ByteArray) -> List<ByteArray> =
+        val table = SonyFrame.tableOf(sonyType)
+        val acksFor: (ByteArray) -> List<OutFrame> =
             if (!sony) {
                 { emptyList() }
             } else {
@@ -448,14 +467,33 @@ class Probes(
                 }
             }
         val how = if (sony) " (sony framed, acked)" else ""
-        emit("seq: ${packets.size} packets on one socket to $mac$how")
+        emit("seq: ${raw.size} packets on one socket to $mac$how")
         // ⚠ **`seq` reached the device with NO hazard check until 2026-08-29.** #1038
         // wired the guard into `send` only, so the repo's most dangerous subcommand —
         // the write tool — was the one without it: `04 07 02 00` CLEAR_DEVICE_LIST went
         // straight out. The shell guard that existed then judged frame SHAPE, not
         // hazard, so it allowed all three destructive frames; it has since been deleted.
-        if (anyRefused(uuid, raw, table2, intent, protocolOf(adapter, mac))) return
-        if (dryRun(uuid, raw, table2, intent)) return
+        val admittedRaw = admittedAll(uuid, raw, table, intent, protocolOf(adapter, mac)) ?: return
+        if (dryRun(uuid, raw, table, intent)) return
+        val packets =
+            if (sony) {
+                // ⚠ **The frame TYPE selects which command table the bytes mean**, and
+                // the two overlap completely in the ranges that matter. `0c` DATA_MDR is
+                // table1, `0e` DATA_MDR_NO2 is table2. In table1 `40`–`49` is **VPT**;
+                // in table2 the identical bytes are **VOICE_GUIDANCE**. So `48` is a
+                // sound-field write on one and a voice-prompt write on the other, and
+                // nothing in the payload distinguishes them.
+                //
+                // ⚠ Default stays `0c`, because that is what every frame this repo has
+                // driven used and what the XM4 answers device info on.
+                //
+                // ⚠ The hazard was judged on each PAYLOAD; this arm re-frames those
+                // same payloads, so the envelope cannot smuggle different bytes past
+                // the check. The raw arm sends exactly what was admitted.
+                raw.mapIndexed { n, p -> SonyFrame.encode(sonyType, (n % 2).toByte(), p) }
+            } else {
+                admittedRaw
+            }
         var i = 0
         val err =
             Probe.exchangeAll(
@@ -884,8 +922,9 @@ class Probes(
         // BES factory reset lives there, and this subcommand had no hazard check at all
         // until 2026-08-29 — the one place the repo's loudest standing rule applies.
         // A null uuid falls through to the BES rules, which is what catches it.
-        if (anyRefused(null, packets, table2 = false, intent = intent)) return
-        if (dryRun(null, packets, table2 = false, intent = intent)) return
+        val admittedPackets =
+            admittedAll(null, packets, SonyTable.TABLE_1, intent = intent) ?: return
+        if (dryRun(null, packets, SonyTable.TABLE_1, intent = intent)) return
         var i = 0
         val err =
             Gatt.exchange(
@@ -894,7 +933,7 @@ class Probes(
                 UUID.fromString(service),
                 UUID.fromString(write),
                 UUID.fromString(notify),
-                packets,
+                admittedPackets,
                 intent.getIntExtra("per", 1500).toLong(),
                 intent.getIntExtra("quiet", 500).toLong(),
                 // Direct by default — see Gatt.exchange: an accept-list connect cannot
