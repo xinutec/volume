@@ -285,6 +285,54 @@ class JLabTest {
         assertEquals(JLabEq.BANDS, JLabEq.HZ.size)
     }
 
+    // ---- the writer ------------------------------------------------------------
+    // ⚠ **The write had no test at all until 2026-09-02**, while shipping and being
+    // driven against the earbuds. These pin the bytes; what the DEVICE does with them
+    // is a separate question and [JLabEq] carries the answer.
+
+    /**
+     * ✅ **The captured frame, reproduced byte for byte.** Taken in the safe direction —
+     * one band dragged DOWN in the vendor app, 16k from `78` to `50` — which is the only
+     * `4a` anybody has watched `com.jlab.app` send.
+     */
+    @Test
+    fun `the write reproduces the captured band drag`() {
+        val levels = listOf(0x78, 0x78, 0x5a, 0x78, 0x78, 0x78, 0x5a, 0x78, 0x78, 0x50)
+        val f = JLabEq.set(preset = 3, levels = levels)
+        assertNotNull(f)
+        assertEquals(
+            "c0 ff 00 4a 0b 00 03 78 78 5a 78 78 78 5a 78 78 50 01 00 64",
+            f!!.toString(),
+        )
+    }
+
+    /**
+     * ⚠⚠ **What a `eq 1` tap actually puts on the wire**, and the frame behind the
+     * 2026-09-02 finding: the card sends slot 0's OWN contents, which [eqPresets] shows
+     * are flat, and the device answered with the CUT curve still in place. So this frame
+     * is established and the device's response to it is not — see [JLabEq].
+     */
+    @Test
+    fun `selecting eq 1 sends slot zero's flat curve`() {
+        val f = JLabEq.set(preset = 0, levels = List(JLabEq.BANDS) { 0x78 })
+        assertNotNull(f)
+        assertEquals(
+            "c0 ff 00 4a 0b 00 00 78 78 78 78 78 78 78 78 78 78 01 00 c5",
+            f!!.toString(),
+        )
+    }
+
+    /**
+     * ⚠ A short curve is REFUSED rather than padded — padding would write whatever
+     * followed it into somebody's treble.
+     */
+    @Test
+    fun `a curve that is not ten bands is refused`() {
+        assertNull(JLabEq.set(preset = 0, levels = List(JLabEq.BANDS - 1) { 0x78 }))
+        assertNull(JLabEq.set(preset = 0, levels = List(JLabEq.BANDS + 1) { 0x78 }))
+        assertNull(JLabEq.set(preset = 0, levels = List(JLabEq.BANDS) { 0x100 }))
+    }
+
     // ---- touch map -------------------------------------------------------------
 
     private val touch =
