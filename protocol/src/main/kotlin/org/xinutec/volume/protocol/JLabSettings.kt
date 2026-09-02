@@ -297,6 +297,12 @@ object JLabSpatialMode {
  * [DeviceController] reported `Contradicted`, naming the disagreement instead of
  * reporting a write it could not see.
  *
+ * ✅ **The `Contradicted` alone carries that, without leaning on the `71` capture.** The
+ * outcome fires only when the re-read differs from what was REQUESTED, and the request was
+ * whatever slot 0 held at that moment — so slot 0 was not the cut curve, and the cut curve
+ * came back regardless. Calling those levels "flat `78`s" is the 2026-09-01 capture
+ * talking; that they were not what returned is today's measurement.
+ *
  * ⚠ **Two readings survive and nothing here picks one**: the device ignores the levels on
  * a preset write, or `49` reports the Custom slot whatever index is selected. They differ
  * in whether the two cut bands were audibly RAISED for the seconds the selection stood.
