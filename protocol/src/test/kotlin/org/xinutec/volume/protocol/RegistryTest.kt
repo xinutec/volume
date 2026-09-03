@@ -60,6 +60,28 @@ class RegistryTest {
     }
 
     /**
+     * ⚠⚠ **The same rule as the Bose test below, for the vendor where breaking it is
+     * worst.** Every JLab used to resolve to the JBuds Sport ANC 4 and its driver; the
+     * phone has seen three `JLab JBuds Air Sport` — not bonded on 2026-09-03, so nothing
+     * was ever mis-driven, but the branch would have done it the day one was paired.
+     *
+     * ⛔ The JLab id space is a Realtek SDK's and holds a factory reset, so replaying
+     * these frames at an unverified model is an unknown WRITE, not a wrong read.
+     *
+     * ⚠ An unrecognised JLab is not driven at all: there is no JLab counterpart to
+     * [Registry.identifyBose] to fall back on, and undriven is the failure worth having.
+     */
+    @Test
+    fun `an unrecognised jlab model gets no driver rather than this one's`() {
+        assertSame(
+            Drivers.JLabQcy,
+            Registry.fromAdvertisement("JLab JBuds Sport ANC 4", jlab)!!.driver,
+        )
+        assertNull(Registry.fromAdvertisement("JLab JBuds Air Sport", jlab))
+        assertNull(Registry.fromAdvertisement("JLab Epic Air ANC", jlab))
+    }
+
+    /**
      * ⚠ The QC45 and QC35 share a vendor, a channel and a protocol, and still need
      * different tables: `01 06` is ANC on one and unsupported on the other. A
      * registry keyed on vendor alone would drive one of them with the other's
