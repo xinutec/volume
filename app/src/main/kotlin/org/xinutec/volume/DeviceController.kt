@@ -14,6 +14,7 @@ import org.xinutec.volume.protocol.BosePromptName
 import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
+import org.xinutec.volume.protocol.BoseVoicePrompts
 import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.CncModes
@@ -338,8 +339,16 @@ class DeviceController(
             // economy.
             Drivers.BoseRevolve -> {
                 val battery = BoseBattery.state(s.transport.exchange(BoseBattery.get()))
+                // ⚠ `01 03` read DIRECTLY, not via GET_ALL. The Revolve answers it with
+                // `a1 00 04 cf de` — byte-identical to the QC35's, so the same decoder
+                // applies — while `01 01` GET_ALL has never been driven on this unit.
+                val prompts = BoseVoicePrompts.read(s.transport)
                 Settings(
                     standby = Drivers.BoseRevolve.readStandby(s.transport),
+                    voicePrompts = prompts?.let { BoseVoicePrompts.enabled(it) },
+                    promptLanguage = prompts?.let { BoseVoicePromptLanguage.of(it) },
+                    supportedLanguages =
+                        prompts?.let { BoseVoicePrompts.supported(it) } ?: emptyList(),
                     deviceName = Drivers.BoseRevolve.name(s.transport),
                     canRename = true,
                     // ⚠ The charger bit rides on [Battery.charging], which the QC35 leaves
