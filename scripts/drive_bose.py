@@ -83,6 +83,7 @@ def main() -> int:
         # ⛔ NEVER scroll Bose Connect's landing screen — one swipe leaves it for good.
         landing_scrolls=False,
         ready=r"\d+",
+        forbidden=FORBIDDEN,
         default="prompts",
     )
 
