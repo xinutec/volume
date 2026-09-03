@@ -2092,3 +2092,59 @@ available — and that is the reason to say why it is not done. **It is not a pr
 It reads like the out-of-box flag, and writing `00` would tell the headphones their setup
 is incomplete, with no attested way back and no idea what the device does on the strength
 of it. ⚠ **A byte being writable is not a reason to write it.**
+
+## ✅✅ The SoundLink Revolve, swept and WRITTEN — 2026-09-03
+
+**A third Bose device, and it is the same protocol.** `probe.sh list` detects the Revolve as
+`BOSE / BOSE` on SPP `00001101` — the QC35's channel and framing. ⚠ **The app does not drive
+it and that is correct, not broken**: it carries no `BOSE_MUSIC` marker and no `"qc35"` in
+its name, so `Registry.fromAdvertisement` falls through to `null` rather than guessing.
+
+⚠ **It is a Bose CONNECT device.** `com.bose.monet` ships `soundlink-revolve` and
+`soundlink-revolve-plus` asset packages; `com.bose.bosemusic` knows it only through the
+shared `BoseProductId` enum. That app is `pm disable-user`'d here.
+
+### What it answers — 288 GET packets, blocks `00`–`03` and `05`–`12`
+
+⛔ **Block `04` was NOT swept.** It is device management, and #1098's ban plus `Hazards`'
+refusal of `04 03`/`04 07` by name are the reason. `Sweep.bose` only ever emits operator
+`01`, so the ban is structurally respected — but there was no question worth walking into
+the pairing list for.
+
+| function | Revolve | against the QC35 |
+| --- | --- | --- |
+| `00 03` PRODUCT_ID_VARIANT | `40 10 01` | QC35 is `40 20 01` — the variant is the model |
+| `00 06` BD_ADDR | `04 52 c7 f9 18 1b` | its own address |
+| `00 07` SERIAL | `"075473972070498A2"` | ASCII |
+| `00 05` | `"3.0.4"` | firmware |
+| `01 02` PRODUCT_NAME | `00` + `"Bose Revolve SoundLink"` | same shape |
+| `01 03` VOICE_PROMPTS | `a1 00 04 cf de` | ⚠ **byte-identical to the QC35's** |
+| `01 04` STANDBY_TIMER | `b4` = 180 min | QC35 sits at `3c` = 60 |
+| `01 06` ANR | `04 01 04` | ✅ no ANC, as a speaker should |
+| `01 09` BUTTONS · `01 0a` MULTIPOINT | `04 01 04` | neither exists here |
+| `02 02` BATTERY_LEVEL | `64` = 100% | same |
+| `02 05` CHARGER_DETECT | **`01`** | ⚠ **the Revolve ANSWERS this and the QC35 does not** |
+| `05 01` SOURCE | `00 02 01` + `fc 41 16 e0 9d 2a` | the phone's address |
+| `05 05` **VOLUME** | `64 24` | ⛔ read only — see below |
+| `07 00` CONTROL | `"1.0.0"` | ⚠⚠ **block `07` EXISTS here; it is ABSENT on the QC35** |
+| `08 00` · `09 00` | `"1.0.0"` · `"1.0.2"` | present; `09 02` is the subscription |
+| blocks `11`, `12` | `04 01 03` | block not supported |
+
+### ✅ And it takes WRITES — a full round trip, restored
+
+    → 00 01 01 00        ← 00 01 03 05 31 2e 30 2e 34   wake, 1.0.4
+    → 01 04 02 01 3c     ← 01 04 03 01 3c               standby 180 → 60
+    → 01 04 01 00        ← 01 04 03 01 3c               a separate Get agrees
+    → 01 04 02 01 b4     ← 01 04 03 01 b4               restored
+    → 01 04 01 00        ← 01 04 03 01 b4               and confirmed
+
+**So full support is a Registry branch and a driver, not a protocol project** — the
+transport, framing, wake, sweep tool and hazard guards already exist and all worked
+unmodified on a device none of them was written for.
+
+⚠⚠ **`05 05` VOLUME is READ-ONLY BY RULE, and being a speaker does not change that.** The
+standing instruction is never to raise a volume above where it was found; it was read and
+not written, and nothing here establishes which of `64 24` is the level.
+
+⚠ **A Bose read still needs the wake first** — a bare get answers nothing. Send `00 01 01 00`
+and the get down one socket. Same as the QC35, on a device that had never been driven.
