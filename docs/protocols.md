@@ -1497,8 +1497,10 @@ Searching for `-0x40t` followed by `-0x1t` finds **exactly one file**:
 
     smali_classes3/com/realsil/sdk/bbpro/xb/e.smali
 
-It is the complete frame builder — **35 commands**, against the 13 the vendor app was seen
-to send. Every command decoded from captures lands in it at the right arity, which is what
+It is the complete frame builder — **38 commands**, against the 13 the vendor app was seen
+to send. ⚠ **This said 35 until 2026-09-03**, from a hand count; the joined table below is
+generated and reaches three more, all of them writers that pass their command to a helper
+rather than carrying it in a literal array. Every command decoded from captures lands in it at the right arity, which is what
 makes it trustworthy rather than merely suggestive:
 
 | from the SDK | arity | what the captures had said |
@@ -1511,6 +1513,75 @@ makes it trustworthy rather than merely suggestive:
 were captured — and `4e`'s three-byte signature independently corroborates the touch map's
 triple decode, which until now rested only on it matching the app's screen.
 
+### ✅ The SDK's command map, joined widget → BesManager → frame — 2026-09-03
+
+**38 commands, each with the builder that emits it and the feature family that reaches
+it.** Read mechanically out of the APK, not by hand: `xb/e` gives command and arity,
+`BesManager` maps its own obfuscated method to a builder, and `widget/*` names the feature.
+Every command this repo had already decoded lands in it at the right arity and beside the
+right family — `66`/`68` under `safehearing`, `74`/`76` under `spatialaudio`, `4a` under
+`eq` — which is what makes the rows nobody has captured worth reading.
+
+⚠⚠ **A FAMILY IS EVIDENCE ABOUT THE SDK, NOT ABOUT THESE EARBUDS.** `hearyourself`, `enc`,
+`autosensors`, `sn` and the force-touch half of `control` are widgets this SDK ships for
+other JLab models; the JBuds Sport ANC 4 draws seven feature rows. A row here says what a
+command MEANS, never that this device has it.
+
+⛔⛔ **This is a naming table and nothing more. Do NOT drive from it.** 38 numbers make
+sweeping easier, not safer: the id space is a Realtek SDK's and holds a factory reset that
+nothing measured has located. Replay only what the vendor app was OBSERVED to send.
+
+| cmd | builder | reached from `widget/` |
+| --- | --- | --- |
+| `30` | `P->x, queryDeviceInfo->x` | anc, bluetoothconn, ota, spatialaudio |
+| `40` | `L->u` | hearyourself |
+| `44` | `e0->j` | anc |
+| `48` | `H->n` | eq |
+| `4a` | `s0->P` (B[B) | eq |
+| `4c` | `B->l` | control |
+| `4e` | `n0->N` (BBB) | control |
+| `50` | `O->C` | soundmode |
+| `52` | `A0->B` (B) | soundmode |
+| `54` | `D->f` | control |
+| `56` | `p0->O` (BBB) | control |
+| `58` | `C->e` | control |
+| `5a` | `o0->X` (B) | control |
+| `5c` | `E->g` | control |
+| `5e` | `q0->h` (B) | control |
+| `60` | `i0->F, j0->G, k0->H` | control |
+| `62` | `d0->i` | anc |
+| `64` | `z->t` | eq |
+| `66` | `R->I` | safehearing |
+| `68` | `D0->J` (B) | safehearing |
+| `6c` | `a0->D` (B) | ⚪ not reached from a widget |
+| `70` | `A->s` | eq |
+| `74` | `E0->V` (B) | spatialaudio |
+| `76` | `U->z` | spatialaudio |
+| `77` | `z0->U` (B) | autosensors |
+| `79` | `N->w` | autosensors |
+| `7a` | `M->v` | anc, bluetoothconn, ota, spatialaudio |
+| `7c` | `m0->L` (BBBLjava/lang/Byte;) | anc |
+| `7e` | `f0->k` | anc |
+| `87` | `F->m` ([B) | ⚪ not reached from a widget |
+| `8c` | `Q->y` | sn |
+| `8d` | `X->A` | voiceprompts |
+| `8e` | `H0->W` (B) | voiceprompts |
+| `90` | `I->q` | control |
+| `92` | `u0->R` (BBB) | control |
+| `94` | `J->r` | control |
+| `96` | `v0->S` (B) | control |
+| `99` | `G->o` | enc |
+
+⚠ **`6c` and `87` are reached from no widget at all**, like the on-attach commands below —
+absence from `widget/` is a fact about the app's screens, not about the device.
+
+⚠ **Built by a two-pass read, and the second pass is the one that matters**: 25 builders
+carry a literal `c0 ff 00 <cmd> <len> 00` array, and the rest pass the command as an
+ARGUMENT to a helper. A first version matched only `invoke-static` and silently dropped
+every writer going through the virtual helper `c()` — including `68`, Safe Hearing's. It
+printed a clean 31-row table with no error. **It was caught by checking the output against
+commands already decoded**, which is the only reason it is not in this doc.
+
 ### ✅ Three of the four unknown reads, placed by their CALLERS
 
 `com.provista.jlab.platform.bes.BesManager` wraps every one of these, and while its own
@@ -1519,10 +1590,22 @@ methods are obfuscated, the widgets that call it are not:
 - **`58`** — `BesManager.C()`, called by `TouchControlView4BesTWS`,
   `TouchControlView4BesTWSNoSwipe`, `IntervalModeTouchControlView4Bes` and
   `ButtonControlView4Bes`. **Touch-control related**, and it has a writer `5a` `X(B)`.
-- **`62`, `7a`, `7e`** — called only from `BesManager$startScan$1`,
-  `BesManager$connectSPP$1` and `BesManager$writeData$1`. **No feature widget reads them**,
-  which is exactly consistent with the wire: they appear in every cold enumeration and
-  their values never moved across a whole session of driving the app.
+- **`62`, `7a`, `7e`** — ⚠ **"No feature widget reads them" was WRONG, corrected
+  2026-09-03**, and correcting it explains the wire rather than unsettling it. All three
+  ARE reached from `widget/`, and it is *where* that matters:
+  - **`62`** — `BesManager.d0()`, from `anc/AncView4Bes` and `anc/NoiseControlViewBES`.
+    **ANC-adjacent**, read when those views run.
+  - **`7a`** — `BesManager.M()`, from `onAttachedToWindow` in `NoiseControlViewBES`,
+    `BluetoothConnectionsViewBes`, `SpatialAudioViewV2Bes` and both OTA views. **A
+    lifecycle query every view makes on attach**, not a feature read — which is precisely
+    why it appears in every cold enumeration and never moves.
+  - **`7e`** — `BesManager.f0()`, from
+    `NoiseControlViewBES$mCallback$1$onUpdateLanguage$1`. **Language-related.**
+
+  ⚠ The wire observation stands unchanged — present in every cold enumeration, never moved
+  all session. What was wrong was the *reason* given for it. ⚠⚠ **The first check of this
+  said all three were unreached, and it was a FALSE NEGATIVE**: it grepped only each
+  widget's base `.smali`, and every one of these calls sits in a `$inner` class.
 
 ⚠⚠ **The SDK is SHARED ACROSS JLAB MODELS, so its vocabulary is NOT this device's feature
 list.** `com/provista/jlab/widget/` holds `lighting`, `sleep`, `windnoise`, `boost`, `enc`,
@@ -1530,7 +1613,7 @@ list.** `com/provista/jlab/widget/` holds `lighting`, `sleep`, `windnoise`, `boo
 seven feature rows and nothing here says the other widgets apply to it. A command existing
 in `xb/e` is evidence about the SDK, not about these earbuds.
 
-⛔⛔ **AND THIS TABLE IS NOT A SWEEP LIST.** Having 35 command numbers makes sweeping
+⛔⛔ **AND THIS TABLE IS NOT A SWEEP LIST.** Having 38 command numbers makes sweeping
 easier, not safer: the id space is a Realtek SDK's and holds a factory reset. The rule is
 unchanged — **replay only what the vendor app was observed to send**, and treat everything
 here as a map for reading, not a menu for trying.
