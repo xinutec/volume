@@ -9,7 +9,7 @@ the dated section it points at; treat anything undated as older than everything 
 | | frame | where |
 | --- | --- | --- |
 | ANC / ambient | `66 02` / `68 02 <on> 02 <nc> 01 <AsmId> <amb>` | ✅ driven |
-| Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** |
+| Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** — ⚠⚠ the app now labels it **`Voice passthrough`**, colliding with Speak-to-Chat's own row of that name |
 | EQ preset | `56 01` / `58 01 <preset> 00` | ✅ driven |
 | EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven 2026-08-24, six sliders on the card — ⚠ `ff` UNSPECIFIED, never the slot's id |
 | Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
@@ -60,11 +60,25 @@ Every row of the vendor app's own screens, read by walking `All device settings`
 of its six categories to the end. ⚠ **Read-only: only category headers and the settings
 entry were tapped, never a control.**
 
-⚠ **Scope, stated because it bounds the claim:** this is the top level of each category.
-Two rows have `Detailed Settings` sub-screens that were NOT separately enumerated —
-`Ambient Sound Control` (which holds Focus on Voice) and `Equalizer` (which holds the band
-sliders). Both are driven and both are in the STATE table above; what is unchecked is
-whether those sub-screens hold anything *else*.
+✅ **The three sub-screens are now enumerated too — 2026-09-03, and none holds anything
+undriven.** This was the standing gap in the survey's scope; it is closed.
+
+- **`Ambient Sound Control`** — a master on/off switch, the NC↔Ambient `slider`, the
+  Focus-on-Voice checkbox, and an "Add shortcut to the top screen" switch that is app-side.
+  ⚠ It also carries a `caution_text`, "Set automatically by Adaptive Sound Control", so the
+  mode has an owner other than whoever last wrote it.
+- **`Equalizer`** — a preset carousel (`horizontal_slider`, a custom view drawing no text),
+  `CLEAR BASS`, the five band handles, an `Edit` button onto the same six values, and the
+  same app-side shortcut switch.
+- **`Speak-to-Chat`** — its on/off, `Voice Detect Sensitivity`, `Voice passthrough`, `Time
+  until the mode closes`, the shortcut switch, and an **`Experience it`** trial link. ⛔ That
+  link starts a demo of a worn-headphone feature and is now in `drive_sony.py`'s FORBIDDEN.
+
+✅ **The EQ render corroborates `eqlevels`' argument order from the app's own screen.** The
+graph reads CLEAR BASS `+3` with bands 400 `0`, 1k `0`, 2.5k `+2`, 6.3k `+4`, 16k `+6` —
+which is `probe.sh`'s documented example `eqlevels=3,0,0,2,4,6` exactly, clear bass first.
+⚠ The band values are read off HANDLE POSITIONS against the `+10`/`0`/`-10` axis labels, so
+they are a render measurement, not a frame.
 
 | the app's row | wire | us |
 | --- | --- | --- |

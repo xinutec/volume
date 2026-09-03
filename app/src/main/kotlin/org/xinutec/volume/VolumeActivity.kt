@@ -1478,7 +1478,17 @@ private fun SettingsSection(
             // "Focus on Voice", which is a DIFFERENT setting — `AsmId`, in ambient mode.
             // Two near-identical names for unrelated controls, on one screen. The source
             // read fine; only the render showed it. Sony calls this one "Voice
-            // passthrough", which collides with nothing.
+            // passthrough".
+            //
+            // ⚠⚠ **"Which collides with nothing" WAS the reason for that name and is no
+            // longer true — measured 2026-09-03.** Sony now titles the `AsmId` checkbox
+            // "Voice passthrough" as well, with a byte-identical description, so the two
+            // controls share a label in the vendor app and differ only by which screen
+            // they sit on and by resource id — `voice_focus_*` under Speak-to-Chat,
+            // plain `voice_*` under Ambient Sound Control. **Keeping our two labels
+            // distinct is now MORE important than matching Sony's**, which is why the row
+            // below still says "Focus on Voice"; a reader comparing the card against the
+            // app will not find that title there, and this is why.
             //
             // ⚠ The TITLES are Sony's verbatim; the chip labels deliberately are not.
             // Sony's own options read "Automatic", "H Sensitivity", "L Sensitivity" —
