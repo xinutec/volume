@@ -24,6 +24,20 @@ from vendor_drive import Driver, run, say
 
 VENDOR = "com.sony.songpal.mdr"
 
+# ⚠ **A PROMO DIALOG can be the first thing on screen** — "New ULT TOWER lineup" was, on
+# 2026-09-03 — and `--tap CLOSE` CANNOT dismiss it. `Driver.show` wants its label clear of
+# both screen edges, the button sits against the bottom, and a modal does not scroll: so it
+# nudges its full budget and gives up, which reads as a broken app rather than a dialog.
+# Tap the button's own bounds from a `dump()`; a modal overlays the list, so that one tap
+# cannot reach a control.
+#
+# ⚠⚠ **Rows here are ACCORDIONS, and `--where` says `tile` for two different things.** A
+# category expands IN PLACE rather than navigating, and `tile_for` reports `tile` both for a
+# real segmented tile — where a tap CHANGES A SETTING — and for a plain clickable row, where
+# it merely navigates. The two are told apart in the dump, not by that word: a navigation row
+# carries an `arrow_image_view` in its own y-band. **Check for the arrow before trusting
+# `tile`**, or a survey taps a control believing it is opening a screen.
+
 # ⚠ The app is called **Sound Connect** now, not Headphones Connect. The package is
 # unchanged, so nothing here breaks — but a future session looking for the old name in
 # the launcher will not find it.
