@@ -44,6 +44,20 @@ FORBIDDEN = {
     "Find Your Equalizer": "a guided listening test — same class as the optimizer",
     "360 Reality Audio Setup": "account-gated; a login prompt is a hard stop",
     "Download software automatically": "firmware, out of scope",
+    "Experience it": "starts a Speak-to-Chat demo on headphones that have to be worn",
+}
+
+# ⚠⚠ **NEVER `survey()` THESE SCREENS — the scroll itself is a write.** `nudge` swipes
+# vertically down the middle of the display (x=540), and Sony draws the equaliser as a
+# custom `eq_graph` at [120,770][960,980] whose band handles take a drag. A swipe through
+# it does not scroll the page, it MOVES A BAND — silently, and on the one screen in this
+# app where a wrong pixel is somebody's treble.
+#
+# ⚠ The band handles are NOT `SeekBar` nodes, so nothing in the accessibility tree marks
+# them as draggable and no generic guard can infer this. Measured 2026-09-03, before
+# scrolling rather than after: the screen was read with a single `dump()` instead.
+NO_SCROLL = {
+    "Equalizer": "the band graph takes a drag anywhere a vertical swipe would land",
 }
 
 
