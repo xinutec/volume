@@ -68,10 +68,18 @@ FORBIDDEN = {
 # app where a wrong pixel is somebody's treble.
 #
 # ⚠ The band handles are NOT `SeekBar` nodes, so nothing in the accessibility tree marks
-# them as draggable and no generic guard can infer this. Measured 2026-09-03, before
-# scrolling rather than after: the screen was read with a single `dump()` instead.
+# them as draggable and no generic guard can infer this — which is why the driver script
+# has to name the widget. Measured 2026-09-03, before scrolling rather than after: the
+# screen was read with a single `dump()` instead.
+#
+# ✅ **ENFORCED, not merely stated** — `vendor_drive.refuse_scroll` reads this and raises
+# before any swipe. Verified in both directions: it refuses a screen carrying `eq_graph`
+# and does NOT refuse the settings list, which merely has a row *titled* "Equalizer".
+# ⚠ **Keyed on the WIDGET, not on the screen's name.** "Equalizer" also titles an
+# ordinary row in the settings list, where scrolling is perfectly safe — refusing by
+# title would refuse that too. `eq_graph` is on screen only where the hazard is.
 NO_SCROLL = {
-    "Equalizer": "the band graph takes a drag anywhere a vertical swipe would land",
+    "eq_graph": "the band graph takes a drag anywhere a vertical swipe would land",
 }
 
 
@@ -105,6 +113,8 @@ def main() -> int:
         description=__doc__ or "",
         # The device card draws the battery as `50%`.
         ready=r"\d+%",
+        forbidden=FORBIDDEN,
+        no_scroll=NO_SCROLL,
         # The card scrolls, and can be left scrolled by earlier work.
         landing_scrolls=True,
         default="categories",

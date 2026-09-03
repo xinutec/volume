@@ -181,6 +181,11 @@ class Node:
     # `content-desc="Settings"` with `text=""` — so a driver matching on text scrolls a
     # screen it structurally cannot see. Measured 2026-08-30.
     desc: str = ""
+    # ⚠ **Kept because a HAZARD is identified by widget, not by screen name.** The
+    # scroll guard keys on this: Sony's equaliser is a custom `eq_graph` that takes a
+    # drag, and the word "Equalizer" also names an ordinary row in the settings list
+    # where scrolling is perfectly safe. Matching the title would refuse both.
+    rid: str = ""
 
     @property
     def centre(self) -> tuple[int, int]:
@@ -224,6 +229,7 @@ def _nodes(root: ET.Element) -> Iterator[Node]:
         yield Node(
             text=element.get("text", ""),
             desc=element.get("content-desc", ""),
+            rid=element.get("resource-id", ""),
             x0=numbers[0],
             y0=numbers[1],
             x1=numbers[2],
@@ -257,6 +263,7 @@ def survey() -> list[str]:
     Stops early when a full nudge adds nothing, so it costs no more than the list is
     long. Read-only: it scrolls and never taps.
     """
+    refuse_scroll(dump())
     to_top()
     seen: list[str] = []
     for _ in range(24):
@@ -431,6 +438,9 @@ class Driver:
                     say(f"    an end of the list, and no '{want}' this way")
                     break
                 previous = here
+                # ⚠ Checked with the nodes already in hand, right before the only
+                # swipe in this loop — so a hazardous screen costs no extra dump.
+                refuse_scroll(nodes)
                 # ⚠ If the row IS on screen and merely clipped, scroll by exactly
                 # what it is off by. Only when it is nowhere in the dump is a blind
                 # sweep the right move — and then a whole viewport, not 600 px.
@@ -449,6 +459,7 @@ class Driver:
 
     def flip(self, want: str) -> bool:
         """Flip a switch and PROVE it flipped."""
+        refuse_forbidden(want)
         nodes = self.show(want)
         if nodes is None:
             return False
@@ -524,6 +535,7 @@ class Driver:
         reports whether it *tapped*, never whether it *took*; confirming a pick needs a
         screenshot. See [tile_for] for what taking the label at its word cost.
         """
+        refuse_forbidden(want)
         nodes = self.show(want)
         if nodes is None:
             return False
@@ -663,11 +675,59 @@ def preflight(driver: Driver, ready: str, landing_scrolls: bool) -> None:
 # script sets it once, before anything runs.
 VENDOR = ""
 
+# ⚠⚠ **These two were DOCUMENTATION PRETENDING TO BE GUARDS until 2026-09-03.** Each
+# driver script defined a `FORBIDDEN` dict naming what must never be tapped, and nothing
+# anywhere read it — measured by grepping the repo for a consumer and finding only the
+# definitions. The `groups` are read-only by construction, so a normal run was safe; but
+# `--tap`, `--flip` and `--survey` bypass the groups entirely, and those are how a survey
+# is actually driven by hand. `--tap "NC Optimizer"` would have started test tones into
+# headphones that have to be worn, which is the exact thing the dict claimed to prevent.
+#
+# ⚠ **A guard that does not execute is worse than none**, because the name reads as cover.
+FORBIDDEN: dict[str, str] = {}
+NO_SCROLL: dict[str, str] = {}
 
-def configure(package: str) -> None:
-    """Name the vendor app every check in this module asserts is in front."""
-    global VENDOR
+
+def configure(
+    package: str,
+    forbidden: dict[str, str] | None = None,
+    no_scroll: dict[str, str] | None = None,
+) -> None:
+    """Name the vendor app every check in this module asserts is in front, and its rules.
+
+    `forbidden` maps a LABEL to why it must never be tapped. `no_scroll` maps a
+    RESOURCE-ID FRAGMENT to why a swipe must not happen while it is on screen.
+    """
+    global VENDOR, FORBIDDEN, NO_SCROLL
     VENDOR = package
+    FORBIDDEN = forbidden or {}
+    NO_SCROLL = no_scroll or {}
+
+
+class Refused(RuntimeError):
+    """A rule in the driver script said no. ⚠ Never caught to continue past."""
+
+
+def refuse_forbidden(want: str) -> None:
+    """⛔ Stop before a label the driver script named as never-to-be-tapped."""
+    why = FORBIDDEN.get(want)
+    if why is not None:
+        raise Refused(f"⛔ refusing to tap {want!r} — {why}")
+
+
+def refuse_scroll(nodes: list[Node]) -> None:
+    """⛔ Stop before a swipe that would land on something draggable.
+
+    ⚠ **A scroll is a WRITE on some screens.** [nudge] swipes down the middle of the
+    display, and a custom graph view takes that as a drag on whichever handle is under
+    it — so surveying Sony's equaliser moves a band rather than scrolling the page. The
+    handles are not `SeekBar` nodes, so nothing generic marks them draggable; the driver
+    script has to name the widget.
+    """
+    for node in nodes:
+        for fragment, why in NO_SCROLL.items():
+            if fragment in node.rid:
+                raise Refused(f"⛔ refusing to scroll — {fragment} is on screen: {why}")
 
 
 def run(
@@ -679,8 +739,10 @@ def run(
     default: str,
     ready: str,
     landing_scrolls: bool,
+    forbidden: dict[str, str] | None = None,
+    no_scroll: dict[str, str] | None = None,
 ) -> int:
-    configure(package)
+    configure(package, forbidden, no_scroll)
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("groups", nargs="*", help="which groups to run")
     parser.add_argument("--list", action="store_true", help="print group names")
@@ -718,8 +780,15 @@ def run(
     # sit under which heading is what says whether a level control belongs to
     # VoiceAware or to the row below it.
     if args.survey:
-        for text in survey():
-            print(text)
+        # ⚠ The ad-hoc flags are the UNGUARDED route — the groups are read-only by
+        # construction, these are not — so each one that scrolls or taps catches the
+        # refusal itself rather than dying in a traceback.
+        try:
+            for text in survey():
+                print(text)
+        except Refused as no:
+            print(no, file=sys.stderr)
+            return 3
         return 0
 
     if args.tap:
@@ -727,17 +796,29 @@ def run(
         # had its own copy of scroll-then-tap-the-label, so `--tap Movie` and a run's
         # own `pick("Movie")` did different things — and the debug affordance used to
         # check the driver was the one that was wrong.
-        if not Driver().pick(args.tap):
-            print(f"could not reach '{args.tap}'", file=sys.stderr)
-            return 2
+        try:
+            if not Driver().pick(args.tap):
+                print(f"could not reach '{args.tap}'", file=sys.stderr)
+                return 2
+        except Refused as no:
+            print(no, file=sys.stderr)
+            return 3
         return 0
 
     if args.flip:
-        return 0 if Driver().flip(args.flip) else 2
+        try:
+            return 0 if Driver().flip(args.flip) else 2
+        except Refused as no:
+            print(no, file=sys.stderr)
+            return 3
 
     if args.where:
         driver = Driver()
-        nodes = driver.show(args.where)
+        try:
+            nodes = driver.show(args.where)
+        except Refused as no:
+            print(no, file=sys.stderr)
+            return 3
         node = label(nodes, args.where) if nodes is not None else None
         if nodes is None or node is None:
             print(f"could not reach '{args.where}'", file=sys.stderr)
@@ -754,7 +835,11 @@ def run(
         # the second is the common one. `show` collapses them: after it returns, a
         # missing switch is a fact about the row.
         driver = Driver()
-        nodes = driver.show(args.state)
+        try:
+            nodes = driver.show(args.state)
+        except Refused as no:
+            print(no, file=sys.stderr)
+            return 3
         found = switch_for(nodes, args.state) if nodes else None
         if found is None:
             print(f"no switch on the '{args.state}' row", file=sys.stderr)
