@@ -14,6 +14,13 @@ Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces th
   channel free for an app that is going to be deleted — nothing is waiting for it,
   so the only cost of holding a channel is power and the only cost of dropping it is
   a reconnect its owner feels. See `Leases`.
+- ⚠⚠ **BOSE MUSIC IS NOT UNINSTALLABLE YET, and it is the exception to the line
+  below.** It controls the SoundLink speakers (Revolve, two Flex 2s) as well as the
+  QC45, and **speakers are wanted eventually but are deliberately not in scope now** —
+  Pippijn, 2026-09-03. Uninstalling it today would cost speaker control with nothing to
+  replace it; the other three go as planned. ⚠ Scope is **headphones**: the five in the
+  table below. A speaker absent from that table is a DECISION, not an omission — the
+  distinction `docs/sony-settings.md` had to learn one level down.
 - **Anything they still do exclusively is something Pippijn loses on uninstall
   day.** The "Next" list below is therefore parity work, not exploration.
   ✅ **The screen now shows the settings too** — expand a card and it reads what that
