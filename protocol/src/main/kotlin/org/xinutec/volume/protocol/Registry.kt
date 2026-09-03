@@ -82,7 +82,19 @@ object Registry {
                 )
             }
 
-            d.vendor == Channels.Vendor.JLAB -> {
+            // ⚠⚠ **The MODEL, not just the vendor — and this branch was vendor-only
+            // until 2026-09-03.** It named every JLab "JBuds Sport ANC 4" and handed it
+            // that driver, which is the mistake `the two bose models do not share a
+            // driver` exists to forbid one vendor over. ⛔ It matters more here than
+            // there: this protocol's id space is a Realtek SDK's and **holds a factory
+            // reset**, and nothing measured says which id — so a second JLab model
+            // driven by these frames is not a wrong reading, it is an unknown write.
+            //
+            // ⚠ **The cost is that a RENAMED one stops being driven**, and unlike Bose
+            // there is no recovery: [identifyBose] has no JLab counterpart, so this
+            // returns null and the device simply is not offered. That is the failure
+            // worth having — undriven is visible and fixable, mis-driven is neither.
+            d.vendor == Channels.Vendor.JLAB && "jbuds sport anc 4" in n -> {
                 Headphones(
                     d.vendor,
                     "JLab JBuds Sport ANC 4",
