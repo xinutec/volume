@@ -97,7 +97,7 @@
       "argv": [
         "nix",
         "run",
-        "../dev-lint#gate",
+        "git+file:../dev-lint?ref=HEAD#gate",
         "--",
         "--check-table",
         "gate.dhall",
