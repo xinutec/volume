@@ -40,6 +40,7 @@ A caller supplies the package, its screen map and its groups, then calls [run]. 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -75,9 +76,55 @@ class NotInVendorApp(RuntimeError):
     """The foreground app is not the one we mean to drive."""
 
 
+_SERIAL: str | None = None
+
+
+def adb_target() -> list[str]:
+    """The `-s <serial>` this run drives, resolved once.
+
+    ⚠⚠ **A bare `adb` DRIVES NOTHING when two phones are attached**, and on this Mac the
+    second one is a Pixel 5 that shares no bonded headphones. Every call here then fails
+    with `more than one device/emulator` — which reads as a broken script rather than as a
+    second transport. Measured 2026-09-03, when the Pixel 5 came online mid-session and
+    `drive_bose.py` would have failed on its first call.
+
+    ⚠ **Two attached devices is an ERROR, not a guess.** Picking arbitrarily would drive
+    the wrong phone. `probe.sh` has taken this position since 2026-08-24 and this now
+    matches it, including the environment variable that resolves it.
+    """
+    global _SERIAL
+    if _SERIAL is None:
+        forced = os.environ.get("VOLUME_ADB_DEVICE", "")
+        if forced:
+            _SERIAL = forced
+        else:
+            listing = subprocess.run(
+                ["adb", "devices"], capture_output=True, text=True, check=False
+            ).stdout
+            # ⚠ `parts[1] == "device"` is load-bearing: the header line has no second
+            # field, and a phone can be listed `offline` or `unauthorized` — neither can
+            # be driven, and treating one as usable turns a plug-in problem into a
+            # protocol mystery.
+            ready = [
+                parts[0]
+                for parts in (line.split() for line in listing.splitlines())
+                if len(parts) > 1 and parts[1] == "device"
+            ]
+            if len(ready) == 1:
+                _SERIAL = ready[0]
+            elif not ready:
+                raise RuntimeError("no adb device is attached — plug one in, or adb connect")
+            else:
+                raise RuntimeError(
+                    f"{len(ready)} devices attached ({', '.join(ready)}) — "
+                    "say which with VOLUME_ADB_DEVICE="
+                )
+    return ["-s", _SERIAL]
+
+
 def adb(*args: str, check: bool = True) -> str:
     out = subprocess.run(
-        ["adb", *args], capture_output=True, text=True, check=False
+        ["adb", *adb_target(), *args], capture_output=True, text=True, check=False
     )
     if check and out.returncode != 0:
         raise RuntimeError(f"adb {' '.join(args)}: {out.stderr.strip()}")
@@ -768,6 +815,15 @@ def run(
         for name in groups:
             print(name)
         return 0
+
+    # ⚠ Resolved HERE, before anything touches the phone, so an ambiguous adb is one
+    # clear line rather than a traceback out of whichever call happened to be first.
+    # ⚠ After `--list`, which is the one thing worth answering with no device attached.
+    try:
+        adb_target()
+    except RuntimeError as which:
+        print(which, file=sys.stderr)
+        return 2
 
     # ⚠ Both of these assert the vendor app is in front, via `dump`. An earlier
     # audit read states with no such check and would have believed another app.
