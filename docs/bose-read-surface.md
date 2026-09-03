@@ -2148,3 +2148,35 @@ not written, and nothing here establishes which of `64 24` is the level.
 
 ⚠ **A Bose read still needs the wake first** — a bare get answers nothing. Send `00 01 01 00`
 and the get down one socket. Same as the QC35, on a device that had never been driven.
+
+### ⚠ The parity walk, cut short — and why
+
+**Bose Connect's Revolve screen was opened on 2026-09-03 and closed within a minute**, so
+this is a partial answer and is labelled as one.
+
+⚠⚠ **OPENING THE APP STARTS A FIRMWARE UPDATE.** The screen came up with *"Preparing
+product update…"* and a progress spinner, unprompted — no tap, no confirmation. Firmware is
+out of scope by rule, so the app was force-stopped, `pm disable-user`'d and its location
+permission revoked. ✅ **Checked afterwards: `00 05` still reads `"3.0.4"` and `01 04` still
+`b4`** — it was only *preparing*, and nothing was applied. **Anyone walking these screens
+should expect this and budget for closing fast.**
+
+What the one screen showed, against what the card now has:
+
+| Bose Connect's Revolve screen | us |
+| --- | --- |
+| **Party Mode** — the speaker analogue of Music Share | ⚪ **not supported, not investigated** |
+| Bluetooth connections, badged `2` | ⚪ block `04`, deliberately unswept |
+| battery + charging | ✅ `02 02` and `02 05` |
+| ⚙ Settings — name, standby, prompts presumably | ✅ name, standby, voice prompts |
+| *Preparing product update…* | ⛔ firmware, excluded by rule |
+
+⚠ **Party Mode is very likely `MusicShareUtils`' OTHER allow-list.** `e()` branches on
+`ProductType`: `HEADPHONES` checks list `a`, everything else checks list `c`. Music Share
+and Party Mode look like one mechanism with two product-type gates — which would also mean
+**two Bose speakers could pair with each other** where a speaker and a headphone cannot.
+⚪ Untested; there is only one SoundLink here.
+
+⚠ **The ⚙ Settings screen was never opened**, so the parity claim above is bounded by one
+screen. What we drive was reached from the protocol upward, not from the app's screens
+downward — the reverse of how the QC35's table was built, and the weaker direction.
