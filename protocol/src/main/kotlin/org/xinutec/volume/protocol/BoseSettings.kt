@@ -1029,6 +1029,61 @@ object BoseBattery {
 }
 
 /**
+ * How loud it is, and out of how much — `05 05`, block `05` AUDIO.
+ *
+ * ```
+ * → 05 05 01 00     ← 05 05 03 02 <steps> <level>
+ * ```
+ *
+ * ✅ **The byte order is settled by AGREEING WITH ANDROID ON BOTH BYTES.** The QC35
+ * answers `19 12` while `dumpsys audio` reports `Max: 25` and `bt_a2dp: 18` for
+ * `STREAM_MUSIC` — 25 and 18 exactly, measured 2026-09-03. One matching byte would be a
+ * coincidence; two, on a device whose scale is not 0–100, is the decode.
+ *
+ * ⚠ **The scale is PER DEVICE and is not a percentage.** The QC35 counts to 25, the
+ * SoundLink Revolve to 100 (`64 24` — 100 steps, sitting at 36). A caller that renders
+ * [level] as a percent is right on one of them by accident.
+ *
+ * ⚠ **Read as `<steps> <level>`, and the other order was ruled OUT rather than not
+ * considered**: `19 12` the other way round is a device at 25 with a maximum of 18.
+ *
+ * ⚠⚠ **NO WRITER HERE, AND THE ABSENCE IS DELIBERATE.** This is a loudness control and
+ * this repo's rule is that a volume is never raised above where it was found. It ships
+ * read-only first so that adding a writer has to be a decision rather than a refactor —
+ * exactly how [JLabSafeHearing] was handled before Pippijn asked for it explicitly.
+ * `BoseSettingsTest` asserts the absence so this comment cannot quietly rot.
+ */
+object BoseVolume {
+    const val BLOCK: Byte = 0x05
+    const val FN: Byte = 0x05
+
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+
+    fun state(buffer: ByteArray): BoseLoudness? {
+        val frame =
+            BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == FN } ?: return null
+        val payload = BoseFrame.payload(frame, BLOCK, FN) ?: return null
+        val steps = payload.getOrNull(0)?.toInt()?.and(0xff) ?: return null
+        val level = payload.getOrNull(1)?.toInt()?.and(0xff) ?: return null
+        // ⚠ A level above its own maximum is not a quiet device, it is a misread frame.
+        if (steps == 0 || level > steps) return null
+        return BoseLoudness(steps = steps, level = level)
+    }
+}
+
+/**
+ * A volume and the scale it is on.
+ *
+ * ⚠ **Not an Int.** The number alone is meaningless across models — 18 is loud on a
+ * QC35 counting to 25 and quiet on a Revolve counting to 100 — and the pair is what the
+ * device actually reports.
+ */
+data class BoseLoudness(
+    val steps: Int,
+    val level: Int,
+)
+
+/**
  * The voice-prompt language, from the low five bits of `01 03`'s first byte.
  *
  * ⚠ **The wire value is NOT the enum ordinal.** Bose Connect's `VoicePromptLanguage`

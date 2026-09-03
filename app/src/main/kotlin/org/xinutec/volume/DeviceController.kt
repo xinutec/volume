@@ -190,16 +190,24 @@ class DeviceController(
      * answered neither way" than to hide the pair its owner is holding.
      */
     private fun drivable(d: BluetoothDevice): Boolean {
-        // ⚠ First, because SPP does not distinguish headphones from a laptop or a
-        // speaker — and the speakers are always in the room. `Crowley` and the
-        // SoundLink both listed as drivable, with a Connect that could only fail.
-        if (!Wearable.couldBeHeadphones(d.bluetoothClass?.deviceClass ?: 0)) return false
         val uuids =
             d.uuids
                 ?.map { it.uuid.toString() }
                 ?.toSet()
                 .orEmpty()
+        // ⚠⚠ **A POSITIVE IDENTIFICATION BEATS THE CLASS HEURISTIC, and the order was the
+        // other way round until 2026-09-03.** [Wearable.couldBeHeadphones] exists to keep
+        // UNIDENTIFIED SPP devices off the list — the speakers are always in the room and
+        // a Connect button that can only fail slowly is worse than no row. But it answers
+        // false for `LOUDSPEAKER`, and the SoundLink Revolve is a loudspeaker this app now
+        // drives: BMAP on the QC35's own channel, with a driver and a card. Filtering a
+        // device we can NAME on a guess about its class is the heuristic overruling the
+        // fact.
         if (Registry.fromAdvertisement(d.name.orEmpty(), uuids) != null) return true
+        // ⚠ Still first for everything else, and still for the same reason: SPP does not
+        // distinguish headphones from a laptop or a speaker. `Crowley` and the ACTON II
+        // have no driver here and must not list.
+        if (!Wearable.couldBeHeadphones(d.bluetoothClass?.deviceClass ?: 0)) return false
         return org.xinutec.volume.protocol.Channels.SPP in uuids.map { it.lowercase() }
     }
 
@@ -316,6 +324,29 @@ class DeviceController(
                             // write does not commit until the alert is answered. #965.
                             SettingKind.MULTIPOINT to RefusalReason.DEVICE,
                         ),
+                    attempted = true,
+                )
+            }
+
+            // The SoundLink Revolve — a speaker, so no ANC row and no chips.
+            //
+            // ⚠ **Every field here was MEASURED on the device 2026-09-03**, not inherited
+            // from the QC35's branch: `01 04` standby, `01 02` name, `02 02` battery,
+            // `02 05` charger and `05 05` volume all answered in the sweep. ⚠ `readAll`
+            // is deliberately NOT used — `01 01` was never driven on this unit, and
+            // reusing the QC35's one-exchange trick would be extrapolation dressed as
+            // economy.
+            Drivers.BoseRevolve -> {
+                val battery = BoseBattery.state(s.transport.exchange(BoseBattery.get()))
+                Settings(
+                    standby = Drivers.BoseRevolve.readStandby(s.transport),
+                    deviceName = Drivers.BoseRevolve.name(s.transport),
+                    canRename = true,
+                    // ⚠ The charger bit rides on [Battery.charging], which the QC35 leaves
+                    // null because it does not answer `02 05` at all.
+                    battery =
+                        battery?.copy(charging = Drivers.BoseRevolve.readCharging(s.transport)),
+                    loudness = Drivers.BoseRevolve.readVolume(s.transport),
                     attempted = true,
                 )
             }
@@ -1272,7 +1303,15 @@ class DeviceController(
         // ⚠ PROBLEM rather than CAUTION for the second: it did not work, and unlike an
         // unconfirmable write there is something the owner can do about it.
         val note =
-            when (noMode(session.headphones.driver.reads, mode)) {
+            when (
+                noMode(
+                    session.headphones.driver.reads,
+                    mode,
+                    hasModes =
+                        session.headphones.driver.modes
+                            .isNotEmpty(),
+                )
+            ) {
                 null -> {
                     null
                 }
@@ -1282,6 +1321,13 @@ class DeviceController(
                         "this one has no read command; it can be set but not read",
                         NoteKind.CAUTION,
                     )
+                }
+
+                // ⚠ **No note at all, and that is the point.** A speaker has no ANC, so
+                // there is no absence to explain — saying anything here would invent a
+                // missing feature. The card simply draws no mode row.
+                NoMode.NO_MODES -> {
+                    null
                 }
 
                 NoMode.UNANSWERED -> {

@@ -34,6 +34,9 @@ class WearableTest {
     @Test
     fun `speakers are ruled out`() {
         assertTrue(Wearable.couldBeHeadphones(0x240418)) // control: audio, not a speaker
+        // ⚠ Still false, and still right: this says what the CLASS claims. The
+        // SoundLink Revolve is listed anyway because `DeviceController.drivable`
+        // asks the Registry FIRST and a positive identification beats this.
         assertFalse(Wearable.couldBeHeadphones(0x240414)) // ACTON II, Crowley, SoundLink
     }
 

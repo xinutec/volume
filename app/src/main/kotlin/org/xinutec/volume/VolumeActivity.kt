@@ -1273,6 +1273,17 @@ private fun SettingsSection(
             )
         }
 
+        // ⚠ **Its own scale, spelled out — never a percentage.** 36 of 100 on a Revolve
+        // and 18 of 25 on a QC35 are both "quite loud"; rendering either as a percent is
+        // right on one device by accident. [BoseVolume] has the decode.
+        //
+        // ⚠⚠ **A LABEL, not a control.** A volume is never raised above where it was
+        // found, so this shows and does not set — the same treatment Safe Hearing had
+        // before Pippijn asked for a writer explicitly.
+        settings.loudness?.let { v ->
+            SettingLabel("Volume", "${v.level} of ${v.steps}")
+        }
+
         // ⚠ **Two cells, and they really do differ** — watched drifting 90/90 → 90/80 →
         // 80/80, then 70/60. ✅ Left and right are the right way round: at 70/60 the
         // vendor app's own two icons were measured off the render and the `L` one is the

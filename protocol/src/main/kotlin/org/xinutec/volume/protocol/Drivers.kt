@@ -325,6 +325,82 @@ object Drivers {
     }
 
     /**
+     * SoundLink Revolve — **the first device here that is not headphones**.
+     *
+     * ✅ **It is the QC35's protocol on the QC35's channel**, established by sweep on
+     * 2026-09-03: BMAP over SPP `00001101`, 269 of 288 GETs answered, and a standby-timer
+     * round trip written and restored. Nothing in [BoseSettingsDriver] needed changing for
+     * it — the wake, the framing and the settings reads all worked unmodified on a device
+     * none of them was written for. See `docs/bose-read-surface.md`.
+     *
+     * ⚠⚠ **NO ANC, and that is why [modes] is empty and [reads] is FALSE.** `01 06` ANR
+     * answers `04 01 04`, function not supported — a speaker has nothing to cancel. Saying
+     * so through [reads] is what stops a null mode being read as a device that failed;
+     * [AncDriver.reads] exists for exactly this case and this is its first real user.
+     *
+     * ⚠ Also absent, measured rather than assumed: `01 09` BUTTONS and `01 0a` MULTIPOINT
+     * both answer `04 01 04`. What it does have that the QC35 does not is `02 05`
+     * CHARGER_DETECT and a whole block `07` CONTROL.
+     */
+    object BoseRevolve : BoseSettingsDriver {
+        override val modes: Set<AncMode> = emptySet()
+
+        /** ⚠ There is no mode to read, which is not the same as failing to read one. */
+        override val reads = false
+
+        override fun read(t: Transport): AncMode? = null
+
+        /**
+         * ⚠ **Loud rather than silent.** [modes] is empty so the card offers no chips and
+         * nothing can reach this; a no-op body would make that unreachability invisible if
+         * it ever stopped being true.
+         */
+        override fun write(t: Transport, mode: AncMode): Unit =
+            throw UnsupportedOperationException("the SoundLink Revolve has no ANC to set")
+
+        override fun name(t: Transport): String? = Bose.name(t)
+
+        /**
+         * How loud it is, on its own scale — `05 05`, read-only.
+         *
+         * ⚠ See [BoseVolume]: the absence of a writer is a decision, not a gap.
+         */
+        fun readVolume(t: Transport): BoseLoudness? = BoseVolume.state(t.exchange(BoseVolume.get()))
+
+        /**
+         * The auto-standby, in minutes — `01 04`.
+         *
+         * ⚠ **Read directly rather than through [BoseSettingsDriver.readAll].** `01 01`
+         * GET_ALL was never driven on this unit; the QC35 gets its standby that way and
+         * borrowing that here would be extrapolation. This function WAS driven, both
+         * ways, and restored: 180 → 60 → 180 on 2026-09-03.
+         */
+        fun readStandby(t: Transport): BoseStandby? =
+            BoseStandbyTimer.state(
+                BoseFrame.payload(
+                    t.exchange(BoseStandbyTimer.get()),
+                    0x01,
+                    BoseStandbyTimer.FN,
+                ) ?: return null,
+            )
+
+        /** Whether it is on the charger — `02 05`, which the QC35 does not answer. */
+        fun readCharging(t: Transport): Boolean? =
+            when (
+                BoseFrame
+                    .payload(
+                        t.exchange(BoseFrame.encode(0x02, 0x05, BoseFrame.GET)),
+                        0x02,
+                        0x05,
+                    )?.getOrNull(0)
+            ) {
+                0x00.toByte() -> false
+                0x01.toByte() -> true
+                else -> null
+            }
+    }
+
+    /**
      * JBL Tour One M2, over **GATT** — the one device here whose control is not
      * RFCOMM at all.
      *

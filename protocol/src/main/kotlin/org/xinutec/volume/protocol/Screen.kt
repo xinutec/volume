@@ -206,6 +206,17 @@ data class Settings(
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
     /**
+     * How loud it is, on the device's own scale — the SoundLink Revolve's `05 05`.
+     *
+     * ⚠ **Not an Int and not a percentage**: the QC35 counts to 25 and the Revolve to
+     * 100, so the pair is the reading. See [BoseVolume].
+     *
+     * ⚠⚠ **Shown, never written.** The rule is that a volume is never raised above where
+     * it was found, so this ships read-only and a writer would be a decision — the same
+     * treatment [jlabSafeHearing] had before Pippijn asked for it explicitly.
+     */
+    val loudness: BoseLoudness? = null,
+    /**
      * Two cells, for earbuds that report them separately.
      *
      * ⚠ **Not [battery] with one number.** The JLab's two levels were watched drifting
@@ -479,7 +490,7 @@ data class Settings(
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
-                budBattery != null || jlabEq != null || jlabTouch != null ||
+                budBattery != null || loudness != null || jlabEq != null || jlabTouch != null ||
                 jlabSafeHearing != null ||
                 autoPlay != null || balance != null || psap != null ||
                 advancedAnc != null || leAudio != null || auracast != null ||
@@ -694,6 +705,16 @@ enum class NoMode {
 
     /** There is a read and it did not answer. Transient; retrying is the move. */
     UNANSWERED,
+
+    /**
+     * The device has no modes at all — nothing to read AND nothing to set.
+     *
+     * ⚠⚠ **Added 2026-09-03 with the SoundLink Revolve, and it is not a shade of
+     * [NO_READ].** A speaker has no ANC, so the card's "it can be set but not read"
+     * would be false in its second half — the sentence for a driver whose read was
+     * merely never found, said about a device with nothing to find.
+     */
+    NO_MODES,
 }
 
 /**
@@ -701,10 +722,15 @@ enum class NoMode {
  *
  * [reads] is [AncDriver.reads] — asked of the driver rather than guessed from the null,
  * which is the whole point.
+ *
+ * ⚠ **[hasModes] has NO DEFAULT deliberately.** A default would pick the headphone answer
+ * for a caller that never thought about speakers, which is the same fail-open shape as the
+ * Sony table byte that defaulted to the table where a refusal does not fire.
  */
-fun noMode(reads: Boolean, mode: AncMode?): NoMode? =
+fun noMode(reads: Boolean, mode: AncMode?, hasModes: Boolean): NoMode? =
     when {
         mode != null -> null
+        !hasModes -> NoMode.NO_MODES
         reads -> NoMode.UNANSWERED
         else -> NoMode.NO_READ
     }

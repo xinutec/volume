@@ -27,6 +27,54 @@ class BoseSettingsTest {
 
     private fun hex(b: ByteArray) = Hex.format(b).replace(" ", "")
 
+    // ---- volume, 05 05 ------------------------------------------------------
+
+    /**
+     * ✅ **Both bytes agree with Android on the QC35, which is what settles the order.**
+     * `dumpsys audio` reported `Max: 25` and `bt_a2dp: 18` for `STREAM_MUSIC` at the
+     * moment this frame was read, 2026-09-03. One matching byte would be luck.
+     */
+    @Test
+    fun `volume reads the scale and the level, in that order`() {
+        val v = BoseVolume.state(bytes("0505 03 02 19 12"))
+        assertNotNull(v)
+        assertEquals(25, v!!.steps)
+        assertEquals(18, v.level)
+    }
+
+    /** ⚠ The Revolve counts to 100, so a caller rendering [BoseLoudness.level] as a percent is
+     * right on one device by accident and wrong on the other. */
+    @Test
+    fun `the revolve is on a different scale entirely`() {
+        val v = BoseVolume.state(bytes("0505 03 02 64 24"))
+        assertNotNull(v)
+        assertEquals(100, v!!.steps)
+        assertEquals(36, v.level)
+    }
+
+    /** ⚠ A level above its own maximum is a misread frame, not a quiet device. */
+    @Test
+    fun `a level above the scale is refused`() {
+        assertNull(BoseVolume.state(bytes("0505 03 02 12 19")))
+        assertNull(BoseVolume.state(bytes("0505 03 02 00 00")))
+    }
+
+    /**
+     * ⚠⚠ **THE ABSENCE OF A VOLUME WRITER IS A DECISION AND THIS TEST IS ITS RECORD.**
+     * The rule is that a volume is never raised above where it was found, so it ships
+     * read-only first and adding a writer has to be a deliberate act rather than a
+     * refactor — exactly how `JLabSafeHearing` was handled before Pippijn asked for it.
+     * ⚠ If this test is deleted, say who asked and when, in the commit.
+     */
+    @Test
+    fun `there is no volume writer`() {
+        val writers =
+            BoseVolume::class.java.methods
+                .map { it.name }
+                .filter { it.startsWith("set") || it == "write" }
+        assertTrue("BoseVolume grew a writer: $writers", writers.isEmpty())
+    }
+
     // ---- EQ ----------------------------------------------------------------
 
     /** 11:25:33, the three frames Bose Music sent for its "Bass Boost" button. */
