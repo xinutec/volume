@@ -1,6 +1,8 @@
 package org.xinutec.volume.protocol
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -57,6 +59,25 @@ class RegistryTest {
         )) {
             assertTrue("${h.model} should be RFCOMM", h.route is Route.Rfcomm)
         }
+    }
+
+    /**
+     * ⚠ **A speaker must not inherit a headphone's driver.** The Revolve is BMAP on the
+     * QC35's own channel, so the only thing separating them is the model in the name —
+     * and `identifyBose` cannot help, because it tells the two headphones apart by asking
+     * `01 06`, which a Revolve answers "unsupported" exactly as a QC45 does.
+     */
+    @Test
+    fun `the revolve is a speaker with its own driver and no anc`() {
+        val r = Registry.fromAdvertisement("Bose Revolve SoundLink", qc35)
+        assertNotNull(r)
+        assertSame(Drivers.BoseRevolve, r!!.driver)
+        assertEquals("Bose SoundLink Revolve", r.model)
+        // ⚠ Empty modes AND `reads=false`: no chips to offer, and a null mode from it is
+        // "there is nothing to read" rather than "the read failed".
+        assertTrue(r.driver.modes.isEmpty())
+        assertTrue(r.driver.offeredModes().isEmpty())
+        assertFalse(r.driver.reads)
     }
 
     /**

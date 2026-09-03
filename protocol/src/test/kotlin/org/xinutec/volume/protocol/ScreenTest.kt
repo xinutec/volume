@@ -397,6 +397,10 @@ class ScreenTest {
                 "voiceGuidance" to Settings(voiceGuidance = false),
                 "codec" to Settings(codec = "LDAC"),
                 "focusOnVoice" to Settings(focusOnVoice = false),
+                // ⚠ A volume alone IS worth a card: a SoundLink Revolve that answers
+                // nothing else still has a level worth seeing, and the pair carries its
+                // own scale so there is nothing to guess.
+                "loudness" to Settings(loudness = BoseLoudness(steps = 100, level = 36)),
                 // ⚠ A real slot as the QC45 reports one, not a blank: `editable` is what
                 // decides whether the card offers a level slider at all, so a sample with
                 // it false would let a broken renderer pass.
@@ -496,25 +500,38 @@ class ScreenTest {
      */
     @Test
     fun `a read that did not answer is not a device that cannot be read`() {
-        assertEquals(NoMode.UNANSWERED, noMode(reads = true, mode = null))
-        assertEquals(NoMode.NO_READ, noMode(reads = false, mode = null))
-        assertNull(noMode(reads = true, mode = AncMode.ANC))
+        assertEquals(NoMode.UNANSWERED, noMode(reads = true, mode = null, hasModes = true))
+        assertEquals(NoMode.NO_READ, noMode(reads = false, mode = null, hasModes = true))
+        // ⚠ No modes beats both: nothing to read AND nothing to set.
+        assertEquals(NoMode.NO_MODES, noMode(reads = false, mode = null, hasModes = false))
+        assertNull(noMode(reads = true, mode = AncMode.ANC, hasModes = true))
         // ⚠ Even a driver with no read command says nothing when it HAS a mode —
         // the mode is what matters, not how it was come by.
-        assertNull(noMode(reads = false, mode = AncMode.ANC))
+        assertNull(noMode(reads = false, mode = AncMode.ANC, hasModes = true))
     }
 
     /**
-     * Every shipped driver reads, which is why [NoMode.UNANSWERED] is the reachable
-     * case and why the old single sentence was always wrong when it appeared.
+     * ⚠ **Every driver either HAS a mode read, or has no mode at all — never neither.**
+     *
+     * ⚠⚠ **`NoMode.NO_READ` IS REACHABLE NOW, and this doc said the opposite until
+     * 2026-09-03.** "Every shipped driver reads, which is why `UNANSWERED` is the
+     * reachable case" was true of five headphones and stopped being true the moment a
+     * speaker arrived. That claim was load-bearing for which sentence the card shows.
      *
      * ⚠ Checks the LIST against the declared drivers, not just the values: "no driver
      * is in that state" is exactly the kind of claim that goes stale the day someone
-     * adds one, and it is load-bearing for which sentence the card shows.
+     * adds one.
+     *
+     * ⚠⚠ This was "every driver here has a read command" until 2026-09-03, and the
+     * completeness check at the bottom is what caught the SoundLink Revolve: the first
+     * device here that is not headphones, with no ANC to read. **`reads = false` is only
+     * honest when there is nothing to read**, so it is paired with an empty [modes] rather
+     * than accepted on its own — otherwise a driver whose read was merely never found
+     * could opt out of [NoMode] by declaring itself readless.
      */
     @Test
-    fun `every driver here has a read command`() {
-        val drivers =
+    fun `every driver either reads a mode or has none to read`() {
+        val withModes =
             listOf<AncDriver>(
                 Drivers.BoseQc45,
                 Drivers.BoseQc35,
@@ -522,9 +539,23 @@ class ScreenTest {
                 Drivers.JLabQcy,
                 Drivers.SonyXm4(),
             )
-        for (d in drivers) {
+        for (d in withModes) {
             assertTrue("${d::class.java.simpleName} should report a read", d.reads)
+            assertTrue("${d::class.java.simpleName} should offer modes", d.modes.isNotEmpty())
         }
+
+        val withoutModes = listOf<AncDriver>(Drivers.BoseRevolve)
+        for (d in withoutModes) {
+            assertFalse(
+                "${d::class.java.simpleName} has no mode, so it must not claim a read",
+                d.reads,
+            )
+            assertTrue(
+                "${d::class.java.simpleName} declares no read, so it must have no modes",
+                d.modes.isEmpty(),
+            )
+        }
+
         val declared =
             Drivers::class.java.declaredClasses
                 .filter { AncDriver::class.java.isAssignableFrom(it) }
@@ -533,7 +564,7 @@ class ScreenTest {
         assertEquals(
             "a driver was added — decide whether it has a read before trusting NoMode",
             declared,
-            drivers.map { it::class.java.simpleName }.toSet(),
+            (withModes + withoutModes).map { it::class.java.simpleName }.toSet(),
         )
     }
 

@@ -69,6 +69,21 @@ object Registry {
                 Headphones(d.vendor, "Bose QC35", Route.Rfcomm(Channels.SPP), Drivers.BoseQc35)
             }
 
+            // ⚠ **Before the QC35's own rule would ever see it**, and named by MODEL for
+            // the same reason every other branch here is: `Drivers.BoseRevolve` has no ANC
+            // and reports so, and handing a speaker the QC35's driver would offer chips
+            // for a control it does not have. ⚠ `identifyBose` cannot help — it separates
+            // the two headphones by asking `01 06`, which a Revolve answers "unsupported"
+            // exactly as a QC45 does.
+            d.vendor == Channels.Vendor.BOSE && "revolve" in n -> {
+                Headphones(
+                    d.vendor,
+                    "Bose SoundLink Revolve",
+                    Route.Rfcomm(Channels.SPP),
+                    Drivers.BoseRevolve,
+                )
+            }
+
             d.vendor == Channels.Vendor.JBL -> {
                 Headphones(
                     d.vendor,
