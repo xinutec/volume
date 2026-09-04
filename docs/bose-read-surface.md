@@ -2095,6 +2095,11 @@ of it. ⚠ **A byte being writable is not a reason to write it.**
 
 ## ✅✅ The SoundLink Revolve, swept and WRITTEN — 2026-09-03
 
+⚠ **This section is the PRE-UPDATE baseline and its firmware line is stale.** The speaker
+was updated to `3.1.1` that evening and re-swept the next day — see "Re-swept after
+firmware `3.0.4` → `3.1.1`" at the end of this file for what moved (only the version
+string) and for the full answered set. Everything else here still holds.
+
 **A third Bose device, and it is the same protocol.** `probe.sh list` detects the Revolve as
 `BOSE / BOSE` on SPP `00001101` — the QC35's channel and framing. ⚠ **The app does not drive
 it and that is correct, not broken**: it carries no `BOSE_MUSIC` marker and no `"qc35"` in
@@ -2180,3 +2185,101 @@ and Party Mode look like one mechanism with two product-type gates — which wou
 ⚠ **The ⚙ Settings screen was never opened**, so the parity claim above is bounded by one
 screen. What we drive was reached from the protocol upward, not from the app's screens
 downward — the reverse of how the QC35's table was built, and the weaker direction.
+
+
+## ✅✅ Re-swept after firmware `3.0.4` → `3.1.1` — 2026-09-04
+
+Pippijn applied the update on 2026-09-03; **it landed.** `00 05` now reads
+`33 2e 31 2e 31` = `"3.1.1"`. Same 288 GET packets, same two ranges, block `04` still
+unswept for the same reason. **269 answered, 19 silent, 0 killed the link.**
+
+### The result: the firmware moved the version string and nothing else we had recorded
+
+Byte-identical across the update — `00 03` variant `40 10 01`, `00 06` BD_ADDR,
+`00 07` serial, `01 02` name, **`01 03` voice prompts `a1 00 04 cf de`**, `01 04` standby
+`b4`, `01 06`/`01 09`/`01 0a` still unsupported, `02 02` battery `64`, `05 01` source,
+`07 00` `"1.0.0"`, `08 00` `"1.0.0"`, `09 00` `"1.0.2"`, blocks `11`/`12` still `04 01 03`.
+
+✅ **`01 04` surviving at `b4` is the load-bearing one**: 180 min is a value we WROTE on
+2026-09-03, and a firmware update did not reset it.
+
+Two rows differ, and **neither is the firmware**:
+
+| function | before | after | why |
+| --- | --- | --- | --- |
+| `02 05` CHARGER_DETECT | `01` | `00` | it was on charge then and is not now |
+| `05 05` VOLUME | `64 24` | `64 00` | the LEVEL, which is what a volume knob moves; `64` steps unchanged |
+
+⚠⚠ **"Nothing else moved" is a claim about the rows that were WRITTEN DOWN, and that was
+18 of them.** The pre-update record was a curated *table*, not a transcript, and this sweep
+answers substantively at **41** functions — so for the other 23 there is no before-value and
+no comparison is possible. That is a gap in the method, not in the device. **Fixed below:
+the full answered set is recorded now, so the next firmware bump has something to diff.**
+
+⚠ `05 05` decoding is now corroborated from a second direction: the card drew **"0 of 100"**
+while the wire said `64 00`, which is `<steps=0x64> <level=0x00>`. It stays **read-only by
+rule** — see the standing note above.
+
+### The full answered set at `3.1.1` — the baseline for next time
+
+Everything that was not a plain `04 01 04` / `04 01 03` "not supported". Block `04` is
+absent because it was never sent.
+
+```
+00 00 01 00  ->  00 00 03 05 31 2e 30 2e 31
+00 01 01 00  ->  00 01 03 05 31 2e 30 2e 34
+00 02 01 00  ->  00 02 03 02 03 bf
+00 03 01 00  ->  00 03 03 03 40 10 01
+00 04 01 00  ->  00 04 04 01 05
+00 05 01 00  ->  00 05 03 05 33 2e 31 2e 31
+00 06 01 00  ->  00 06 03 06 04 52 c7 f9 18 1b
+00 07 01 00  ->  00 07 03 11 30 37 35 34 37 33 39 37 32 30 37 30 34 39 38 41 32
+01 00 01 00  ->  01 00 03 05 31 2e 30 2e 34
+01 01 01 00  ->  01 01 04 01 05
+01 02 01 00  ->  01 02 03 17 00 42 6f 73 65 20 52 65 76 6f 6c 76 65 20 53 6f 75 6e 64 4c 69 6e 6b
+01 03 01 00  ->  01 03 03 05 a1 00 04 cf de
+01 04 01 00  ->  01 04 03 01 b4
+02 00 01 00  ->  02 00 03 05 31 2e 30 2e 32
+02 01 01 00  ->  02 01 04 01 05
+02 02 01 00  ->  02 02 03 01 64
+02 05 01 00  ->  02 05 03 01 00
+03 00 01 00  ->  03 00 03 05 31 2e 30 2e 31
+03 01 01 00  ->  03 01 03 01 01
+03 02 01 00  ->  03 02 04 01 05
+03 03 01 00  ->  03 03 04 01 0a
+03 04 01 00  ->  03 04 03 0a ff 00 00 00 00 30 2e 30 2e 30
+03 05 01 00  ->  03 05 04 01 0a
+03 06 01 00  ->  03 06 04 01 0a
+03 07 01 00  ->  03 07 04 01 05
+05 00 01 00  ->  05 00 03 05 31 2e 30 2e 31
+05 01 01 00  ->  05 01 03 09 00 02 01 fc 41 16 e0 9d 2a
+05 02 01 00  ->  05 02 04 01 05
+05 03 01 00  ->  05 03 03 02 01 fe
+05 04 01 00  ->  05 04 03 03 00 00 00
+05 05 01 00  ->  05 05 03 02 64 00
+05 06 01 00  ->  05 06 04 01 05
+07 00 01 00  ->  07 00 03 05 31 2e 30 2e 30
+08 00 01 00  ->  08 00 03 05 31 2e 30 2e 30
+08 02 01 00  ->  08 02 04 01 05
+08 03 01 00  ->  08 03 04 01 05
+08 04 01 00  ->  08 04 04 01 05
+09 00 01 00  ->  09 00 03 05 31 2e 30 2e 32
+09 01 01 00  ->  09 01 06 00
+09 02 01 00  ->  09 02 03 02 00 3e
+09 03 01 00  ->  09 03 04 01 01
+```
+
+Blocks answering only their version function, plus "unsupported" everywhere else: `06`,
+`0a`–`10`. Blocks `11`, `12` answer `04 01 03` (block not supported) at every function.
+
+### ✅ The card was seen with the speaker connected — 2026-09-04
+
+⚪→✅ **The voice-prompts row DRAWS.** It was decoded from `01 03` and wired, but the
+speaker had dropped off the link before anyone looked; "decoded, not observed" is now
+observed. The card shows the switch **on**, `us english`, and all 13 language chips with
+`us english` selected.
+
+Every other row on the card agrees with the sweep taken minutes earlier — name, standby
+`b4` → "3 hr", battery `64` → "100%", volume `64 00` → "0 of 100", and **no ANC row**,
+because `01 06` answers unsupported and the driver says so rather than drawing an empty
+control.
