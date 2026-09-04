@@ -20,12 +20,13 @@ Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces th
   `soundlink-micro` and `soundlink-color-ii`, and drives the QC35; `com.bose.bosemusic`
   (Bose **Music**) drives the QC45 and knows the Revolve only through the shared
   `BoseProductId` enum. ⚠ So **uninstalling Bose Music costs no speaker control**, and the
-  speakers depend on Bose Connect — which is **meant** to sit `pm disable-user`'d and be
-  enabled only for captures. ⚠ **That is a state to CHECK, not to assume**: on 2026-09-04
-  it was found enabled, because the 2026-09-03 Revolve capture turned it on and nothing
-  turned it back off. `pm list packages -d` is the check; `dumpsys package` alone is not,
-  because its `enabled=` field reads 0 for DEFAULT and 1 for ENABLED and neither means
-  disabled.
+  speakers depend on Bose Connect. ⚠ **Whether it is enabled is Pippijn's business, not a
+  state this repo asserts** — it has been `pm disable-user`'d at times and enabled at
+  others, and either is fine. If a capture needs the channel, `./probe.sh free`
+  force-stops the vendor apps for that run; do not disable one standing.
+  ⚠ To READ the state, use `pm list packages -d` — `dumpsys package`'s `enabled=` field is
+  0 for DEFAULT and 1 for ENABLED, so neither value means disabled and it is easy to
+  misread as one.
 - ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — Pippijn,
   2026-09-03. Scope is **headphones**: the five in the table below. A speaker absent from
   that table is a DECISION, not an omission — the distinction `docs/sony-settings.md` had
