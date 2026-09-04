@@ -2107,9 +2107,9 @@ its name, so `Registry.fromAdvertisement` falls through to `null` rather than gu
 
 ⚠ **It is a Bose CONNECT device.** `com.bose.monet` ships `soundlink-revolve` and
 `soundlink-revolve-plus` asset packages; `com.bose.bosemusic` knows it only through the
-shared `BoseProductId` enum. That app is *meant* to sit `pm disable-user`'d here — ⚠ verify
-with `pm list packages -d` rather than believing this line; it was found enabled on
-2026-09-04, left on by the capture below.
+shared `BoseProductId` enum. ⚠ Its enabled/disabled state changes and this file does not
+own it — read it with `pm list packages -d` when it matters, and use `./probe.sh free` to
+clear the channel for a capture rather than disabling anything standing.
 
 ### What it answers — 288 GET packets, blocks `00`–`03` and `05`–`12`
 
@@ -2164,9 +2164,9 @@ this is a partial answer and is labelled as one.
 ⚠⚠ **OPENING THE APP STARTS A FIRMWARE UPDATE.** The screen came up with *"Preparing
 product update…"* and a progress spinner, unprompted — no tap, no confirmation. Firmware is
 out of scope by rule, so the app was force-stopped, `pm disable-user`'d and its location
-permission revoked. ⚠ **The disable did not survive**: on 2026-09-04 Bose Connect was found
-ENABLED again, with location still correctly revoked. Re-disable it after every capture and
-CHECK, because a capture that ends by putting the phone down leaves it on. ✅ **Checked afterwards: `00 05` still reads `"3.0.4"` and `01 04` still
+permission revoked. ⚠ **That disable is not a standing state** — the app has been enabled
+since, and why is not this file's business. Location was still revoked when checked on
+2026-09-04. ✅ **Checked afterwards: `00 05` still reads `"3.0.4"` and `01 04` still
 `b4`** — it was only *preparing*, and nothing was applied. **Anyone walking these screens
 should expect this and budget for closing fast.**
 
