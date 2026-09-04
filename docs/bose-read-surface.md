@@ -2184,6 +2184,61 @@ and Party Mode look like one mechanism with two product-type gates — which wou
 ⚠ **The ⚙ Settings screen was never opened**, so the parity claim above is bounded by one
 screen. What we drive was reached from the protocol upward, not from the app's screens
 downward — the reverse of how the QC35's table was built, and the weaker direction.
+✅ **Both of those gaps are closed below** — see "The parity walk, finished".
+
+## ✅✅ The parity walk, FINISHED — 2026-09-04
+
+The app was opened again at firmware `3.1.1` and **no update prompt appeared**; its own
+settings header reads *"Your product is up-to-date."* So the hazard that cut the first
+walk short is a function of there being an update to offer, not of opening the app.
+
+Read with `uiautomator dump` and `scripts/drive_bose.py --survey` — **nothing was tapped
+except the gear.** The landing screen carries no text, so its controls are listed by
+`resource-id` and `content-desc`.
+
+| Bose Connect, every row it offers for this speaker | us |
+| --- | --- |
+| landing `bluetooth_button` "bluetooth connections", badged `2` | ⛔ block `04`, deliberately unswept |
+| landing `music_share_button` **"Party Mode"** | ⚪ **NOT supported — the only real gap** |
+| landing `battery_text` "100" | ✅ `02 02`, plus charging from `02 05` |
+| landing `open_now_playing` mini player | n/a — phone-side media, not device control |
+| landing `about_menu_icon` | n/a |
+| ⚙ Name — "Bose Revolve SoundLink" | ✅ read and rename |
+| ⚙ Connections | ⛔ the same block `04` |
+| ⚙ Party Mode | ⚪ **NOT supported** |
+| ⚙ Auto-Off Timer — "3 hours" | ✅ `01 04` = `b4`; ⚠ we label it "Standby timer" |
+| ⚙ Voice Prompts | ✅ `01 03` |
+| ⚙ Prompt Language — "English (U.S.)" | ✅ `01 03`, 13 languages |
+| ⚙ User Manual · Product Info | n/a — not device control |
+| ⚙ DISCONNECT | ⛔ excluded by rule |
+
+⚠ `05 05` VOLUME has **no vendor-app row at all** — Bose Connect leaves the level to the
+phone's own volume. So our read-only Volume row shows something the vendor app does not.
+
+### ⚠⚠ Party Mode IS Music Share — the app's own view hierarchy says so
+
+The Party Mode button's resource-id is **`music_share_button`**. That was previously an
+inference from `MusicShareUtils.e()` branching on `ProductType` — a smali reading — and it
+is now corroborated from a second, independent direction: the layout gives the two features
+one id because they are one feature behind a product-type gate.
+
+**So #1283's conclusion holds for the reason it gave**: like pairs with like, and a speaker
+can never partner a headphone. It also means **Party Mode needs a second SoundLink to test**,
+which is why it stays ⚪ rather than becoming work.
+
+### What the Revolve does NOT have that the QC35 does
+
+Absent from its settings list entirely: **Product Tour, Noise Cancellation, Action Button,
+Self Voice**. That agrees with the sweep, where `01 06` ANR, `01 09` buttons and `01 0a`
+multipoint all answer unsupported — two directions, same answer.
+
+### ⚪ One question this raised
+
+`drive_bose.py` marks **Prompt Language** ⛔ FORBIDDEN because on the QC35 it "pushes a
+language file over DFU". Our card writes prompt language through `01 03` and the Revolve
+answered `a1 00 04 cf de`, which looks like an on-device availability mask — 13 languages
+already present, selected rather than downloaded. ⚪ **Not established**: nobody has watched
+the wire while our language write lands. Worth knowing before that control is trusted.
 
 
 ## ✅✅ Re-swept after firmware `3.0.4` → `3.1.1` — 2026-09-04
