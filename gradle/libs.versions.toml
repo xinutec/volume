@@ -10,9 +10,14 @@ activity-compose = "1.11.0"
 compose-bom = "2025.09.00"
 lifecycle = "2.9.4"
 core-ktx = "1.17.0"
+# org.json, for the thoth HTTP contract. NOT a runtime dependency: Android has this
+# package in the boot classpath, so :protocol compiles against the artifact and the
+# platform supplies it on the device. See :protocol's build script.
+json = "20250107"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+json = { group = "org.json", name = "json", version.ref = "json" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }

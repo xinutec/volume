@@ -24,12 +24,30 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
 
+    <!-- The Mac's audio, over HTTP on the LAN — the stereo pair, the microphone pin
+         and the arcade cabinets. This is the app's ONLY network use: nothing here
+         talks to the internet, and the one host it does talk to is named in
+         `THOTH_DEFAULT_HOST` and overridable on the card.
+
+         ⚠ `usesCleartextTraffic` on the application below went from false to TRUE for
+         this, which is a loosening and not a formality. thoth has no TLS and no auth:
+         it is a control panel for the speakers in one room, on the home LAN, where the
+         threat is destruction rather than observation.
+
+         ⚠ A per-domain `networkSecurityConfig` was tried first and is the WRONG answer
+         here, which is worth recording because it looks like the tighter one. It can
+         only name a literal address, and the whole reason the card lets the address be
+         edited is that the Mac's lease moves — so the tighter config would have refused
+         exactly the address somebody had just typed in to recover, and reported it as a
+         cleartext violation rather than as a wrong host. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="false"
         android:label="Volume"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="true">
 
         <!-- The app. Launcher, because this is what #785 is. -->
         <activity
