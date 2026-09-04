@@ -19,9 +19,19 @@ folding it in here the right move rather than a merge for its own sake:
   hook bolted to a web page. Here it is just a key handler.
 
 ⚠ **The web app is untouched and is not being replaced.** thoth still serves its
-Angular UI from memory on the same port, so a browser, a Mac, or somebody else's
-phone reaches it exactly as before. This is a *second client*, and the wrapper is the
-thing that becomes redundant.
+Angular UI from memory on the same port, so a browser or a Mac reaches it exactly as
+before. This is a *second client*.
+
+⚠ **Settled 2026-09-04, and it bounds what this card may cost:**
+
+- **The site has its own audience.** Guests arrive with Macs and laptops and use the
+  browser UI. It is not a fallback for the phone — it is the interface for everyone who
+  is not holding this phone. A change that suits the card at the site's expense is the
+  wrong trade, and the ceiling field added for this card was made *additive* for that
+  reason.
+- **The wrapper is kept, not deleted.** `~/Code/thoth/android/` stays where it is with
+  dev-lint still scanning it. It stops being the phone client; it does not stop being
+  code that must not rot.
 
 ⚠ **This is not the speaker support that `README.md` puts out of scope.** That
 decision is about *Bluetooth* speakers driven over a vendor protocol — a Revolve on
