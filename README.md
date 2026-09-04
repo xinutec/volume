@@ -59,12 +59,9 @@ the LAN, not over any Bluetooth channel. It is first in the list because it is t
 control that is wanted while sitting in the room the speakers are in, and it collapses
 to one line when the Mac is not reachable, so off the home network it costs a row.
 
-thoth's own Android client was a WebView wrapper with the same launcher label, and this
-is what replaces it **on the phone**. ⚠ **Nothing is retired.** Pippijn's call,
-2026-09-04: the wrapper's code stays in its repo with its static analysis running, and
-**thoth's web UI has its own audience** — guests bring Macs and laptops, and the browser
-is what they use. This is a second client, not a replacement for the site, and a change
-that would suit the phone at the site's expense is the wrong trade.
+⚠ **A second client, not a replacement for thoth's site.** thoth serves the same web UI
+on the same port and is reached from browsers as before, so changes to its API stay
+additive — see `docs/thoth.md`.
 
 ⚠ **This is not the Bluetooth-speaker support ruled out above.** That decision is about
 a speaker on this phone's radio, driven over a vendor protocol. These speakers are wired

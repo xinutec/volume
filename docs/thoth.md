@@ -5,33 +5,21 @@ the Mac that owns the room's speakers, the default microphone and the arcade
 cabinets' volume, and answers HTTP on the LAN. Measured against the live service on
 2026-09-04; re-measure if that service changes.
 
-## Why it is in this app
+## Why a native client
 
-thoth already had a phone client: an Android **WebView wrapper** in `~/Code/thoth/android/`
-whose entire job was to load `http://<mac>:8089/` full-screen. Two consequences made
-folding it in here the right move rather than a merge for its own sake:
+thoth is a web app, and it already has an Android **WebView wrapper**
+(`~/Code/thoth/android/`) whose whole job is to load `http://<mac>:8089/` full-screen.
+So the reason to write this one is what a wrapped page cannot do: the wrapper's single
+feature beyond the page — hardware volume keys driving the speakers — worked by
+consuming the key event and calling `window.thothVolumeStep()` through
+`evaluateJavascript`. That is a native hook bolted to a web page. Here it is a key
+handler, next to the headphone controls that are native anyway.
 
-- **Two launcher icons, both labelled "Volume".** The wrapper's label and icon were
-  already the same idea as this app's, because they are the same idea.
-- **A wrapper can do nothing native.** The one feature it had beyond the page —
-  hardware volume keys driving the speakers — worked by consuming the key event and
-  calling `window.thothVolumeStep()` through `evaluateJavascript`. That is a native
-  hook bolted to a web page. Here it is just a key handler.
-
-⚠ **The web app is untouched and is not being replaced.** thoth still serves its
-Angular UI from memory on the same port, so a browser or a Mac reaches it exactly as
-before. This is a *second client*.
-
-⚠ **Settled 2026-09-04, and it bounds what this card may cost:**
-
-- **The site has its own audience.** Guests arrive with Macs and laptops and use the
-  browser UI. It is not a fallback for the phone — it is the interface for everyone who
-  is not holding this phone. A change that suits the card at the site's expense is the
-  wrong trade, and the ceiling field added for this card was made *additive* for that
-  reason.
-- **The wrapper is kept, not deleted.** `~/Code/thoth/android/` stays where it is with
-  dev-lint still scanning it. It stops being the phone client; it does not stop being
-  code that must not rot.
+⚠ **This is a SECOND client, and the web app is not being replaced by it.** thoth
+serves the same Angular UI from memory on the same port; a browser or a Mac reaches it
+exactly as before. So the API is the seam, and changes to it stay ADDITIVE — the
+`ceiling` field this client needs was added as a new key for that reason, and a change
+that would break the web UI to suit this card is the wrong trade.
 
 ⚠ **This is not the speaker support that `README.md` puts out of scope.** That
 decision is about *Bluetooth* speakers driven over a vendor protocol — a Revolve on
