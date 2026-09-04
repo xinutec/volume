@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
@@ -84,6 +85,7 @@ import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JLabTouch
 import org.xinutec.volume.protocol.ModeOutTime
 import org.xinutec.volume.protocol.NoteKind
+import org.xinutec.volume.protocol.PairPatch
 import org.xinutec.volume.protocol.RefusalReason
 import org.xinutec.volume.protocol.Screen
 import org.xinutec.volume.protocol.SettingKind
@@ -99,6 +101,7 @@ import org.xinutec.volume.protocol.TalkTimeout
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.VoiceLevel
+import org.xinutec.volume.protocol.balanceOf
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -119,6 +122,12 @@ class VolumeActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen(emptyList(), Emptiness.LOOKING))
     private lateinit var control: DeviceController
 
+    // The Mac's audio, over the LAN. Its own controller and its own thread: the
+    // headphones' executor can be held for twenty-five seconds by one LE scan, and a
+    // poll queued behind that would freeze the card at the top of the screen.
+    private lateinit var thoth: ThothController
+    private lateinit var thothUi: ThothUi
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
@@ -126,6 +135,8 @@ class VolumeActivity : ComponentActivity() {
             DeviceController(this, adapter) { next ->
                 runOnUiThread { screen = next }
             }
+        thoth = ThothController(this) { next -> runOnUiThread { thothUi.adopt(next) } }
+        thothUi = ThothUi(thoth.host)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 VolumeScreen(
@@ -133,6 +144,8 @@ class VolumeActivity : ComponentActivity() {
                     onConnect = control::connect,
                     onSet = control::set,
                     actions = control,
+                    thoth = thothUi,
+                    thothActions = thothActions,
                 )
             }
         }
@@ -178,6 +191,7 @@ class VolumeActivity : ComponentActivity() {
             }
         registerReceiver(links, filter)
         control.refresh()
+        thoth.start()
     }
 
     /**
@@ -194,7 +208,66 @@ class VolumeActivity : ComponentActivity() {
         super.onStop()
         runCatching { unregisterReceiver(links) }
         control.release()
+        thoth.stop()
     }
+
+    /**
+     * The hardware volume keys drive the Mac's speakers, not the phone's media
+     * volume — the behaviour the WebView wrapper this replaces had, and the reason it
+     * was worth having on a phone at all.
+     *
+     * ⚠ **Only while the Mac is actually answering.** Off the home network the keys
+     * fall through to the system, because an app that swallows them everywhere has
+     * taken the phone's volume keys away for as long as it is in front.
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        val direction =
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> 1
+                KeyEvent.KEYCODE_VOLUME_DOWN -> -1
+                else -> return super.onKeyDown(keyCode, event)
+            }
+        return thothUi.step(direction, thothActions) || super.onKeyDown(keyCode, event)
+    }
+
+    /**
+     * ⚠ The RELEASE has to be consumed too.
+     *
+     * Consuming only the press leaves the system acting on the release, which pops
+     * its own volume panel over the app after every step — the level moves correctly
+     * and the phone looks like it is fighting you.
+     */
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        val ours = keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+        if (ours && thothUi.drivesVolumeKeys) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    /** The Mac card's hands. Everything that blocks is [ThothController]'s. */
+    private val thothActions =
+        object : ThothActions {
+            override fun setLeft(uid: String) = thoth.push(PairPatch(left = uid))
+
+            override fun setRight(uid: String) = thoth.push(PairPatch(right = uid))
+
+            override fun setStereo(on: Boolean) = thoth.push(PairPatch(stereo = on))
+
+            override fun setVolume(percent: Int) = thoth.push(PairPatch(volume = percent / 100.0))
+
+            override fun setBalance(coarse: Int, fine: Int) =
+                thoth.push(PairPatch(balance = balanceOf(coarse, fine)))
+
+            override fun recalibrate() = thoth.recalibrate()
+
+            override fun chooseInput(uid: String) = thoth.chooseInput(uid)
+
+            override fun pinInput(on: Boolean) = thoth.pinInput(on)
+
+            override fun setCabinet(cabinet: String, percent: Int) =
+                thoth.pushCabinet(cabinet, percent / 100.0)
+
+            override fun setHost(host: String) = thoth.setHost(host)
+        }
 
     private val links =
         object : BroadcastReceiver() {
@@ -395,14 +468,20 @@ fun VolumeScreen(
     onConnect: (String) -> Unit,
     onSet: (String, AncMode) -> Unit,
     actions: SettingActions,
+    thoth: ThothUi,
+    thothActions: ThothActions,
 ) {
     // ⚠ **Which sections are open lives HERE — above the Scaffold, above the empty-list
     // branch, and outside the LazyColumn item.** Three enclosures, and all three matter:
     //
     //  - the ITEM is removed when a card leaves `screen.cards`, taking any `remember`
     //    with it however it is keyed;
-    //  - the LIST goes when [Screen.emptiness] takes the early return below — which is
-    //    what happens when the only headphone disconnects;
+    //  - the LIST used to go entirely when [Screen.emptiness] took an early return —
+    //    which is what happens when the only headphone disconnects. ⚠ That early
+    //    return is GONE: the list is now unconditional, because the Mac card at the
+    //    top of it has to draw whether or not a headphone is connected, and "no
+    //    headphones" is exactly when somebody is listening on the speakers instead.
+    //    The emptiness message is an item in the list now, and only that changed;
     //  - so only state outside both survives a device going away and coming back.
     //
     // ⚠ Not hypothetical, and the first fix for it was put inside the list and did NOT
@@ -414,27 +493,6 @@ fun VolumeScreen(
     // the card is gone entirely.
     val openSections = rememberSaveable { mutableStateListOf<String>() }
     Scaffold(topBar = { TopAppBar(title = { Text("Volume") }) }) { pad ->
-        screen.emptiness?.let { why ->
-            Column(
-                modifier = Modifier.fillMaxSize().padding(pad).padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (why == Emptiness.LOOKING) {
-                    CircularProgressIndicator(Modifier.padding(bottom = 16.dp))
-                }
-                // ⚠ `textAlign`, not just the Column's `horizontalAlignment`: the
-                // Text fills the width, so centring the block is a no-op and every
-                // one of these wraps to two lines. Caught by looking — the code read
-                // as centred and rendered hard left.
-                Text(
-                    reason(why),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            return@Scaffold
-        }
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(pad),
             contentPadding =
@@ -442,10 +500,44 @@ fun VolumeScreen(
                     .PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(screen.cards, key = { it.address }) { card ->
-                DeviceRow(card, onConnect, onSet, actions, openSections)
+            item(key = "thoth") { ThothCard(thoth, thothActions) }
+            val why = screen.emptiness
+            if (why != null) {
+                item(key = "no-headphones") { NoHeadphones(why) }
+            } else {
+                items(screen.cards, key = { it.address }) { card ->
+                    DeviceRow(card, onConnect, onSet, actions, openSections)
+                }
             }
         }
+    }
+}
+
+/**
+ * Why there are no headphone cards.
+ *
+ * ⚠ A row rather than the whole screen, and that is a change: it used to be the only
+ * thing drawn, centred in the window. It cannot be any more — the Mac card is above it
+ * and is most useful in exactly this state. The sentence and its spinner are the same.
+ */
+@Composable
+private fun NoHeadphones(why: Emptiness) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (why == Emptiness.LOOKING) {
+            CircularProgressIndicator(Modifier.padding(bottom = 16.dp))
+        }
+        // ⚠ `textAlign`, not just the Column's `horizontalAlignment`: the Text fills
+        // the width, so centring the block is a no-op and every one of these wraps to
+        // two lines. Caught by looking — the code read as centred and rendered hard
+        // left.
+        Text(
+            reason(why),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

@@ -51,10 +51,32 @@ The **probe** (`ProbeService`, `probe.sh`) stays — it is the only tool that ca
 investigate a device the app cannot drive, and both share `:protocol`, so a byte
 fixed in one is fixed in both.
 
+## The Mac's audio is the top card
+
+Above the headphones sits **Audio Home**: the stereo pair in the living room, the
+microphone pin, and the arcade cabinets' volume — driven over HTTP against `thoth` on
+the LAN, not over any Bluetooth channel. It is first in the list because it is the
+control that is wanted while sitting in the room the speakers are in, and it collapses
+to one line when the Mac is not reachable, so off the home network it costs a row.
+
+This is why the app's launcher entry is now the ONLY one called "Volume": thoth's own
+Android client was a WebView wrapper with the same label, and it goes. ⚠ **thoth's web
+UI is untouched** — a browser, a Mac and anybody else's phone still reach it exactly as
+before. What was added is a second client, not a replacement for the site.
+
+⚠ **This is not the Bluetooth-speaker support ruled out above.** That decision is about
+a speaker on this phone's radio, driven over a vendor protocol. These speakers are wired
+to a Mac; nothing here opens a socket to them.
+
+The hardware volume keys drive the pair while the Mac is answering, and fall through to
+the phone's own media volume when it is not. `docs/thoth.md` has the contract, the
+captured bodies, and the three things the volume ceiling made this client do.
+
 ## Two modules
 
 ```
-:protocol   every byte of the five wire formats. NO Android dependency, so
+:protocol   every byte of the vendor wire formats, and the thoth HTTP contract
+            for the Mac's audio. NO Android dependency, so
             `./gradlew :protocol:test` runs on any JVM — no phone, no pairing,
             no headphones switched on. This is where most of the code lives.
 :app        only what genuinely needs a device: RFCOMM sockets, GATT, LE
@@ -348,6 +370,14 @@ level touched. ANC mode is not volume — it cannot raise a level, which is why 
 is the right thing to write first. `Sweep.kt` hard-wires operator/length to
 Get/zero (tested) rather than taking them as parameters.
 
+⚠ **The Mac card is the one place this app moves a real level**, and the bound is not
+its own: thoth publishes its ceiling and refuses louder, so the card reads that number
+rather than carrying a copy of it — a hearing limit written down twice is one that
+drifts. Two fallbacks follow from the same rule and both are tested: a server that
+publishes no ceiling bounds the control at the level it is **already at**, and a level
+already above the ceiling bounds it at that level rather than at the ceiling, so
+volume-UP can never quietly turn the speakers down. See `docs/thoth.md`.
+
 ## Docs / build
 
 `docs/protocols.md` — the wire formats, capture method, channel traps, and which
@@ -359,6 +389,8 @@ measured timings, and the traps in measuring it.
 `docs/bose-settings.md` — Bose EQ, multipoint and Action-button frames.
 `docs/captures.md` — ⚠ WHAT WAS DONE AND WHEN for each capture, and the method
 that works. A capture without its action log is a haystack.
+`docs/thoth.md` — the Mac's audio over HTTP: the surface, the captured bodies, why
+the ceiling is read and never copied, and the two gotchas that cost time.
 
 ## Tools
 

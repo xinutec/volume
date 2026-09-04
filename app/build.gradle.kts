@@ -55,8 +55,8 @@ kotlin {
 // No AppCompat: Material 3 in Compose does not need it, and the one thing it would
 // add here is a second theming system to keep in step.
 dependencies {
-    // The wire formats live in :protocol, which has no Android dependency and is
-    // tested on the JVM. :app is only transports, scanning and screen.
+    // The wire formats and the thoth contract live in :protocol, which has no Android
+    // dependency and is tested on the JVM. :app is only transports, scanning and screen.
     implementation(project(":protocol"))
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
@@ -66,4 +66,8 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.core.ktx)
     testImplementation(libs.junit)
+    // The mockable android.jar's `org.json` throws on every call. A unit test that
+    // reaches thoth parsing through :protocol would fail for that reason and no
+    // other, so the real implementation goes on the test classpath ahead of it.
+    testImplementation(libs.json)
 }

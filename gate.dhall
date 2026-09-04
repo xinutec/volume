@@ -2,9 +2,12 @@
 volume/gate.dhall — this repository's commit gate.
 
 Two modules, and the split is what makes the gate worth having. `:protocol` is
-every byte of the five wire formats with no Android dependency, so its tests are
-plain JVM tests: they run here, in seconds, with no phone, no pairing and no
-headphones switched on. `:app` is transports and screen.
+every byte of the vendor wire formats — and the thoth HTTP contract — with no
+Android dependency, so its tests are plain JVM tests: they run here, in seconds, with
+no phone, no pairing, no network and no headphones switched on. `:app` is transports
+and screen. The organising line is device-independence, not "Bluetooth": the Mac's
+audio arrives over HTTP and its parsing and its decisions are checked the same way,
+against bodies captured from the live service.
 
 The rows worth gating hardest are in `:protocol` — `Channels.kt`, whose tests are
 the real SDP records read off the phone, and `DriversTest`, which replays recorded

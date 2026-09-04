@@ -18,7 +18,17 @@ java {
 }
 
 dependencies {
+    // ⚠ `compileOnly`, and the reason is the whole point of this module.
+    //
+    // The thoth contract is JSON, and Android already ships `org.json` in the BOOT
+    // classpath — so packaging the Maven artifact would put a second copy of those
+    // classes in the APK that the platform then shadows. Compiling against it and
+    // letting the device supply it keeps this module dependency-free where it counts
+    // (nothing is added to :app's runtime) while the parsing still runs on a plain
+    // JVM here, which is what the tests need.
+    compileOnly(libs.json)
     testImplementation(libs.junit)
+    testImplementation(libs.json)
 }
 
 tasks.test {
