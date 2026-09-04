@@ -59,10 +59,12 @@ the LAN, not over any Bluetooth channel. It is first in the list because it is t
 control that is wanted while sitting in the room the speakers are in, and it collapses
 to one line when the Mac is not reachable, so off the home network it costs a row.
 
-This is why the app's launcher entry is now the ONLY one called "Volume": thoth's own
-Android client was a WebView wrapper with the same label, and it goes. ⚠ **thoth's web
-UI is untouched** — a browser, a Mac and anybody else's phone still reach it exactly as
-before. What was added is a second client, not a replacement for the site.
+thoth's own Android client was a WebView wrapper with the same launcher label, and this
+is what replaces it **on the phone**. ⚠ **Nothing is retired.** Pippijn's call,
+2026-09-04: the wrapper's code stays in its repo with its static analysis running, and
+**thoth's web UI has its own audience** — guests bring Macs and laptops, and the browser
+is what they use. This is a second client, not a replacement for the site, and a change
+that would suit the phone at the site's expense is the wrong trade.
 
 ⚠ **This is not the Bluetooth-speaker support ruled out above.** That decision is about
 a speaker on this phone's radio, driven over a vendor protocol. These speakers are wired
