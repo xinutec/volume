@@ -197,6 +197,31 @@ val ThothPair.balancePercent: Int
     get() = (balance * 100).roundToInt()
 
 /**
+ * What [ThothVolume.maxPercent] IS — and there are exactly three answers.
+ *
+ * ⚠ This was a pair of booleans, `over` and `published`, and one of their four
+ * combinations could not happen: nothing can be above a ceiling that was never
+ * published. Naming the cases is what makes that state unrepresentable instead of
+ * merely absent, so no future branch has to decide what an impossible bound means.
+ */
+enum class ThothBoundKind {
+    /** The server named a ceiling and the level is under it: the bound IS the ceiling. */
+    CEILING,
+
+    /**
+     * The server named a ceiling and the level is already above it, so the bound is
+     * where the level already is. Something other than this app put it there.
+     */
+    ALREADY_ABOVE,
+
+    /**
+     * The server named no ceiling, so the only safe bound is where the level already
+     * is — the control can lower it and nothing else.
+     */
+    NO_CEILING,
+}
+
+/**
  * What the volume control is allowed to ask for.
  *
  * ⚠ **The bound is never absent.** A server that publishes a ceiling supplies it; one
@@ -217,14 +242,13 @@ data class ThothVolume(
     val maxPercent: Int,
     /** Why the bound sits there. Shown; not decoration. */
     val why: String,
-    /**
-     * The level is above the server's ceiling right now, so [maxPercent] is where it
-     * already is rather than the ceiling. Something other than this app put it there.
-     */
-    val over: Boolean,
-    /** The server named a ceiling; [maxPercent] is not a fallback. */
-    val published: Boolean,
+    /** Which of the three the number above is. */
+    val kind: ThothBoundKind,
 ) {
+    /** The level is above the server's ceiling right now. */
+    val over: Boolean
+        get() = kind == ThothBoundKind.ALREADY_ABOVE
+
     /**
      * This bound needs its reason said HERE.
      *
@@ -235,7 +259,7 @@ data class ThothVolume(
      * look like more of the same noise.
      */
     val notable: Boolean
-        get() = over || !published
+        get() = kind != ThothBoundKind.CEILING
 }
 
 /**
@@ -252,22 +276,19 @@ fun thothBound(ceiling: Double?, nowPercent: Int): ThothVolume {
             ?: return ThothVolume(
                 maxPercent = nowPercent,
                 why = "this thoth publishes no ceiling, so the level can only come down",
-                over = false,
-                published = false,
+                kind = ThothBoundKind.NO_CEILING,
             )
     if (nowPercent > ceilingPercent) {
         return ThothVolume(
             maxPercent = nowPercent,
             why = "already above the $ceilingPercent% ceiling — this can only come down",
-            over = true,
-            published = true,
+            kind = ThothBoundKind.ALREADY_ABOVE,
         )
     }
     return ThothVolume(
         maxPercent = ceilingPercent,
         why = "ceiling $ceilingPercent% — thoth refuses louder",
-        over = false,
-        published = true,
+        kind = ThothBoundKind.CEILING,
     )
 }
 
