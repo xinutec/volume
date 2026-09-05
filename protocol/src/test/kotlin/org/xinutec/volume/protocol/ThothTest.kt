@@ -173,7 +173,7 @@ class ThothTest {
     fun `the published ceiling is what bounds the control`() {
         val v = ThothWire.pair(pairJson).volumeControl()
         assertEquals(65, v.maxPercent)
-        assertFalse(v.over)
+        assertEquals(ThothBoundKind.CEILING, v.kind)
         assertEquals("ceiling 65% — thoth refuses louder", v.why)
     }
 
@@ -188,7 +188,7 @@ class ThothTest {
         val v = loud.volumeControl()
         assertEquals(80, loud.volumePercent)
         assertEquals(80, v.maxPercent)
-        assertTrue(v.over)
+        assertEquals(ThothBoundKind.ALREADY_ABOVE, v.kind)
         assertEquals("already above the 65% ceiling — this can only come down", v.why)
     }
 
@@ -201,7 +201,10 @@ class ThothTest {
         val p = ThothWire.pair(pairJson.replace(ceilingField, ""))
         val v = p.volumeControl()
         assertEquals(52, v.maxPercent)
-        assertFalse(v.over)
+        // ⚠ NOT `assertFalse(v.over)`: that is also true of the ordinary CEILING case,
+        // so it cannot tell "bounded by the ceiling" from "bounded because there is
+        // none" — which is the whole distinction this test exists for.
+        assertEquals(ThothBoundKind.NO_CEILING, v.kind)
         assertEquals("this thoth publishes no ceiling, so the level can only come down", v.why)
     }
 
@@ -210,10 +213,10 @@ class ThothTest {
         val screen = live()
         // picade1 sits under the ceiling, so the ceiling is what bounds it.
         assertEquals(65, screen.boundFor(screen.cabinets[1]).maxPercent)
-        assertFalse(screen.boundFor(screen.cabinets[1]).over)
+        assertEquals(ThothBoundKind.CEILING, screen.boundFor(screen.cabinets[1]).kind)
         // picade2 is already at 67, above it — that cabinet can only come down.
         assertEquals(67, screen.boundFor(screen.cabinets[2]).maxPercent)
-        assertTrue(screen.boundFor(screen.cabinets[2]).over)
+        assertEquals(ThothBoundKind.ALREADY_ABOVE, screen.boundFor(screen.cabinets[2]).kind)
     }
 
     /**
