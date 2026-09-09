@@ -435,10 +435,36 @@ app with different rows — so it needs its own survey and does not inherit this
 | Standby Timer | ✅ `01 04` | ✅ r/w |
 | Voice Prompts | ✅ `01 03` | ✅ r/w |
 | Prompt Language | ✅ `01 03` language mask | ⛔ excluded — the picker pushes a file over DFU |
-| **DISCONNECT** | ✅ `04 02`, sent and confirmed 2026-08-30 | ⛔ **no writer in the app yet** |
+| **DISCONNECT** | ✅ `04 02`, sent and confirmed 2026-08-30 | ⛔ **deliberately unexposed** — below |
 | User Manual · Product Info | ⚪ app content | n/a |
 
-**Thirteen rows: nine driven, two app-only, two absent from our app.**
+**Thirteen rows: eight driven, one excluded, two app-only, two not offered — one
+impossible here, one by decision.** ⚠ This line read "nine driven" until 2026-09-09,
+which counted Prompt Language among them; it is ⛔ excluded on its own row, because the
+picker pushes a file over DFU. Recount from the table, never from this sentence.
+
+#### ⛔ `04 02` DISCONNECT is deliberately unexposed — decided 2026-09-09
+
+**Not a gap waiting on effort.** `BoseDisconnect.frame()` exists, ships with tests, and was
+sent and confirmed on the QC35 on 2026-08-30: `04 02 05 06 <phone addr>` →
+`04 02 07 07 21 <addr>`, `Removed from HFP` 0.6 s later. What it does not have, and will not
+get, is a caller.
+
+**The reason is that the only link the card can drop is its own.** On a QC45 whose device
+list holds one entry, a Disconnect button strands the connection — no auto-reconnect for
+twelve seconds, and nothing on the card able to undo it. The control would exist to make the
+`us` column above read ✅, and would leave the app worse than the row it fixed. #935 made
+this argument before the frame had ever been sent; sending it changed what we know about the
+wire and nothing about the argument.
+
+⚠ **So ⛔ is the honest reading of that row, not an outstanding item.** A reader who finds a
+tested, attested frame with no callers will otherwise re-derive the question — and
+re-deriving it ends in building the button.
+
+⚠ **The frame builder and its tests stay.** They are an attested measurement of the wire,
+worth keeping whether or not anything calls them: deleting them costs the one capture that
+showed this block answering operator `07` PROCESSING first, which is itself a correction to
+#935's "the silence IS the reply".
 
 #### ⚠ What Bose Music has, and what we have — QC45, 2026-08-30
 
@@ -451,7 +477,7 @@ two consecutive screenshots byte-identical).
 | Product Name | ✅ `01 02` | ✅ r/w |
 | Product Update | ⛔ firmware | ⛔ excluded by rule, not by the device |
 | Product Tips · Common Questions | ⚪ app content | n/a |
-| Bluetooth Connections | ✅ `04 04`/`04 08`/`04 03`, multipoint `01 0a` | ✅ r/w — ⚠ `04 02` confirmed on the QC35, no writer yet |
+| Bluetooth Connections | ✅ `04 04`/`04 08`/`04 03`, multipoint `01 0a` | ✅ r/w — ⚠ `04 02` confirmed on the QC35, deliberately unexposed |
 | Shortcut | ✅ `01 09` | ✅ r/w |
 | Modes | ✅ `01 05`, `1f 03`/`06`/`08` | ✅ r/w, incl. create and delete |
 | Equalizer | ✅ `01 07` | ✅ r/w |
