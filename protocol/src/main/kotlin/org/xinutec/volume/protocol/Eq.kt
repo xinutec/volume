@@ -191,6 +191,54 @@ object SonyEq {
 }
 
 /**
+ * Sony's own names for its preset ids, read out of `EqPresetId` in the vendor APK
+ * (`com.sony.songpal.mdr`) on 2026-09-09.
+ *
+ * ⚠⚠ **A NAME, never a claim that a device HAS the preset.** This enum is the SDK's
+ * and is shared across every MDR product, and an SDK naming a thing is not a device
+ * offering it — `docs/bose-read-surface.md` records the same lesson one vendor over,
+ * where Bose Music's SDK named a mode-preset function the QC45 does not have. Which
+ * ids the XM4 accepts is a question for the XM4.
+ *
+ * ⚠ **The ids are SIGNED bytes in the smali**: `0xa0` is written `-0x60` there, so a
+ * parser reading them as unsigned finds nothing above `0x7f` and the whole user
+ * range — the only range this card actually offers — silently goes missing.
+ *
+ * ⚠ `0xff` UNSPECIFIED is deliberately absent: it is the write-time "leave the
+ * selection alone" byte, not a slot, and naming it would put it on a menu.
+ */
+object SonyEqPresets {
+    private val NAMES =
+        mapOf(
+            0x00 to "Off",
+            0x01 to "Rock",
+            0x02 to "Pop",
+            0x03 to "Jazz",
+            0x04 to "Dance",
+            0x05 to "EDM",
+            0x06 to "R&B / Hip-Hop",
+            0x07 to "Acoustic",
+            0x10 to "Bright",
+            0x11 to "Excited",
+            0x12 to "Mellow",
+            0x13 to "Relaxed",
+            0x14 to "Vocal",
+            0x15 to "Treble",
+            0x16 to "Bass",
+            0x17 to "Speech",
+            0xa0 to "Custom",
+            0xa1 to "User Setting 1",
+            0xa2 to "User Setting 2",
+            0xa3 to "User Setting 3",
+            0xa4 to "User Setting 4",
+            0xa5 to "User Setting 5",
+        )
+
+    /** Sony's name for [id], or null — a caller must fall back, never invent one. */
+    fun name(id: Int): String? = NAMES[id]
+}
+
+/**
  * One headphone family's equaliser.
  *
  * ⚠ **Deliberately not part of [AncDriver].** Every device here has ANC; the EQ is a
@@ -200,10 +248,14 @@ object SonyEq {
  *
  * ⚠ **No shared preset vocabulary, on purpose.** Sony sends an opaque preset id and
  * the device answers with the curve; Bose has no preset on the wire at all, only
- * three signed band values its app happens to name. A common enum would be a
- * fiction, and there is no list-of-presets call here because nothing captured
- * enumerates them — inventing one from the five ids that happened to go past would
- * be a shorter list than the vendor's own menu, presented as if it were complete.
+ * three signed band values its app happens to name. A common enum would be a fiction.
+ *
+ * ⚠ **Naming an id and knowing a device HAS it are different questions, and only the
+ * first is answered.** [SonyEqPresets] gives Sony's own name for an id, so a card need
+ * not show a bare number. It says nothing about which ids the XM4 accepts, and no
+ * list-of-presets call is implemented here because nothing captured enumerates what a
+ * device supports — offering a hardcoded subset as though it were the menu is the
+ * failure this warning has always been about.
  */
 interface EqDriver {
     /** What the device reports, or null when it will not say. */

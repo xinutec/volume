@@ -98,3 +98,41 @@ class SonyEqTest {
         assertEquals(emptyList<Int>(), SonyEq.bands(bytes("5901a1060a0a0a0a0a0a")))
     }
 }
+
+class SonyEqPresetsTest {
+    /**
+     * The three the card offers are the USER slots, not three of Sony's named curves —
+     * which is the whole reason `preset 160` read as a raw number with no meaning.
+     */
+    @Test
+    fun `the ids the card offers are Custom and the two user slots`() {
+        assertEquals("Custom", SonyEqPresets.name(0xa0))
+        assertEquals("User Setting 1", SonyEqPresets.name(0xa1))
+        assertEquals("User Setting 2", SonyEqPresets.name(0xa2))
+    }
+
+    /** Sony's named curves live in their own range, nowhere near the user slots. */
+    @Test
+    fun `the named curves are known too`() {
+        assertEquals("Bright", SonyEqPresets.name(0x10))
+        assertEquals("Speech", SonyEqPresets.name(0x17))
+        assertEquals("Rock", SonyEqPresets.name(0x01))
+    }
+
+    /**
+     * ⚠ An unknown id must come back null so the caller can fall back to the number.
+     * Naming one we do not know would be inventing it, which is what the number was
+     * protecting against in the first place.
+     */
+    @Test
+    fun `an id outside the table has no name`() {
+        assertNull(SonyEqPresets.name(0x42))
+        assertNull(SonyEqPresets.name(0xa9))
+    }
+
+    /** `ff` is the write-time "leave the selection alone" byte, not a slot to offer. */
+    @Test
+    fun `the unspecified byte is not offered as a preset`() {
+        assertNull(SonyEqPresets.name(0xff))
+    }
+}

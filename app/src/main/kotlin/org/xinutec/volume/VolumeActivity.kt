@@ -94,6 +94,7 @@ import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SonyEq
+import org.xinutec.volume.protocol.SonyEqPresets
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.SpatialMode
@@ -887,10 +888,11 @@ private fun SettingsSection(
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         settings.eq?.let { eq ->
-            // ⚠ The preset id is opaque and the vendor's names for it were never
-            // captured, so it is shown as a number rather than given an invented
-            // name. The levels underneath are the part that means something.
-            SettingLabel("Equaliser", "preset ${eq.preset}")
+            // ⚠ **Sony's own name, or the number — never an invented one.**
+            // [SonyEqPresets] is read from the vendor APK's `EqPresetId`, so an id it
+            // does not carry still falls back to the bare number rather than getting a
+            // label somebody guessed. The levels underneath mean something either way.
+            SettingLabel("Equaliser", SonyEqPresets.name(eq.preset) ?: "preset ${eq.preset}")
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -899,7 +901,7 @@ private fun SettingsSection(
                     FilterChip(
                         selected = p == eq.preset,
                         onClick = { actions.setEqPreset(address, p) },
-                        label = { Text("preset $p") },
+                        label = { Text(SonyEqPresets.name(p) ?: "preset $p") },
                     )
                 }
             }
@@ -1891,9 +1893,17 @@ private fun RefusedNote(reason: RefusalReason?) {
 }
 
 /**
- * ⚠ Preset ids only, no invented names. These are the ones seen on the wire
- * (`docs/sony-settings.md`); the XM4's menu holds more and nothing captured
- * enumerates them, so a fuller list would be guesswork rendered as fact.
+ * The XM4 preset chips: `Custom` and the first two `User Setting` slots.
+ *
+ * ⚠ **These are the USER slots, not a selection from Sony's named curves.** Sony also
+ * names Bright, Excited, Mellow, Relaxed, Vocal, Treble, Bass and Speech (`0x10`–`0x17`),
+ * plus further user slots at `0xa3`–`0xa5`; [SonyEqPresets] holds the whole naming table.
+ *
+ * ⚠ **The others stay unoffered, and that decision is unchanged by knowing their
+ * names.** These three are the ids seen on the wire (`docs/sony-settings.md`), the XM4's
+ * own menu holds more, and nothing captured enumerates what the device actually accepts.
+ * A fuller list would be guesswork rendered as fact — an SDK naming a preset is not a
+ * device having it, so adding one needs the device asked, not the enum read.
  */
 private val SONY_PRESETS = listOf(0xa0, 0xa1, 0xa2)
 
