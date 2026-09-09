@@ -978,8 +978,12 @@ class DeviceController(
         }
 
     /**
-     * The three XM4 on/off settings, all through [SonyXm4.setSwitch], which writes and
+     * The XM4's on/off settings, all through [SonyXm4.setSwitch], which writes and
      * then **reads back** — the reply is never the evidence on this device.
+     *
+     * ⚠ [setTouchPanel] is one of these too and sits further down, past
+     * [setVoiceGuidance], out of sight of this block. Count the callers of [sonySwitch],
+     * never this sentence.
      *
      * ⚠ Only reachable for the Sony; [sony] returns Unverifiable for anything else
      * rather than silently doing nothing, because a switch that moves and reports
