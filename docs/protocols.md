@@ -1682,10 +1682,12 @@ drives the QC35 and *will not* see the QC45; `com.harman.ble.jbllink` is JBL's
 **speaker** app, not the headphone one. Both mistakes cost a capture that recorded
 nothing and read as "the device does not answer".
 
-⚠ **These are due to be uninstalled** once this app replaces them (Pippijn,
-2026-08-16), so coexisting with them is explicitly NOT a design goal — see
-`Leases`. Keep the APKs (`~/.cache/volume-apks`) regardless: they are the reference
-for every byte here, and an uninstall does not remove the need to re-read them.
+⚠ **These stay INSTALLED on purpose** (Pippijn, 2026-09-09). He does not use them; they
+are kept as the reference for what each device can do, and walking their screens is how every
+parity table above was built. ⚠ This read "due to be uninstalled once this app replaces them"
+(2026-08-16) until #785 closed. **Coexisting with them is still explicitly NOT a design
+goal** — nobody runs them, so their presence must not justify a trade-off; see `Leases`. Keep
+the APKs (`~/.cache/volume-apks`) too: they are the reference for every byte here.
 
 ## Capturing
 

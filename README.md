@@ -6,27 +6,31 @@ on 2026-08-15, the app's own behaviour and the Sony/Bose settings captures on
 
 ## ⚠ This app is a replacement, not an addition
 
-A **pure Kotlin native app** — Pippijn's call, #785 — and the vendor apps (Bose
-Music, Sony Headphones, JBL, JLab) are to be **uninstalled** once it replaces them
-(2026-08-16). Two consequences, and both change what counts as done:
+A **pure Kotlin native app** — Pippijn's call, #785. He has stopped using the vendor
+apps (Bose Music, Sony Headphones, JBL, JLab), and **they stay installed on purpose: they
+are the reference for what a device can do** (2026-09-09). ⚠ This page said until then that
+they were "to be uninstalled once it replaces them" (2026-08-16); that was retired when #785
+closed. The uninstall was only ever a test of whether they were still needed, and he answered
+that directly. Two consequences, and both change what counts as done:
 
-- **Coexisting with them is not a goal.** Never trade away responsiveness to leave a
-  channel free for an app that is going to be deleted — nothing is waiting for it,
-  so the only cost of holding a channel is power and the only cost of dropping it is
-  a reconnect its owner feels. See `Leases`.
+- **Coexisting with them is still not a goal, and leaving them installed does not make it
+  one** — nobody runs them. Never trade away responsiveness to leave a channel free for an
+  app nobody is using: nothing is waiting for it, so the only cost of holding a channel is
+  power and the only cost of dropping it is a reconnect its owner feels. See `Leases`.
 - ⚠⚠ **THE SPEAKERS HANG OFF BOSE CONNECT, NOT BOSE MUSIC** — corrected 2026-09-03, having
   been written the wrong way round here that morning. `com.bose.monet` (Bose **Connect**)
   ships asset packages for `soundlink-revolve`, `soundlink-revolve-plus`,
   `soundlink-micro` and `soundlink-color-ii`, and drives the QC35; `com.bose.bosemusic`
   (Bose **Music**) drives the QC45 and knows the Revolve only through the shared
-  `BoseProductId` enum. ⚠ So **uninstalling Bose Music costs no speaker control**, and the
-  speakers depend on Bose Connect.
+  `BoseProductId` enum. ⚠ So **Bose Music is not what the speakers depend on** — Bose
+  Connect is, and it is the one to walk for a speaker's rows.
 - ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — Pippijn,
   2026-09-03. Scope is **headphones**: the five in the table below. A speaker absent from
   that table is a DECISION, not an omission — the distinction `docs/sony-settings.md` had
   to learn one level down.
-- **Anything they still do exclusively is something Pippijn loses on uninstall
-  day.** The "Next" list below is therefore parity work, not exploration.
+- **Anything they still do exclusively is a gap in THIS app** — and the vendor app is the
+  instrument that makes it findable, which is why they stay. The "Next" list below is
+  therefore parity work, not exploration.
   ✅ **The screen now shows the settings too** — expand a card and it reads what that
   pair has: EQ or tone, multipoint, power off, sound quality, the button. Driven from
   the UI and verified on the QC45 (tone → Bass boost → back to Flat, each read back
