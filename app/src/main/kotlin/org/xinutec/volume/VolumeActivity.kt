@@ -500,7 +500,7 @@ fun VolumeScreen(
                     .PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(key = "thoth") { ThothCard(thoth, thothActions) }
+            item(key = "thoth") { ThothCard(thoth, thothActions, openSections) }
             val why = screen.emptiness
             if (why != null) {
                 item(key = "no-headphones") { NoHeadphones(why) }

@@ -3,6 +3,7 @@ package org.xinutec.volume
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -163,6 +164,14 @@ class ThothUi(
 }
 
 /**
+ * This card's entry in the screen's open-section list. ⚠ A literal rather than an
+ * address, because this card has no device behind it — it shares the list so that the
+ * Mac card and the headphone cards remember their open state the same way and through
+ * the same `rememberSaveable`.
+ */
+private const val THOTH_SECTION = "thoth"
+
+/**
  * The Mac's audio: the stereo pair, the microphone pin, and the arcade cabinets.
  *
  * ⚠ **First in the list, above the headphones.** It is the control that is wanted
@@ -170,11 +179,17 @@ class ThothUi(
  * below it are the ones that travel. When the Mac is not reachable this collapses to
  * a single line, so off the home network it costs a row rather than a screenful.
  *
+ * ⚠ **Collapsed by default**, to the title and [VolumeLevel] — being first in the list
+ * meant its full height was the price of reaching anything below it. Speakers, balance,
+ * the mic pin and the cabinets are behind the same `Settings` button the headphone cards
+ * use, sharing their `openSections`, so the gesture is one gesture on this screen.
+ *
  * Everything it decides is decided in `:protocol` — see [ThothScreen].
  */
 @Composable
-fun ThothCard(ui: ThothUi, actions: ThothActions) {
+fun ThothCard(ui: ThothUi, actions: ThothActions, openSections: MutableList<String>) {
     val screen = ui.screen
+    val expanded = THOTH_SECTION in openSections
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
@@ -197,9 +212,27 @@ fun ThothCard(ui: ThothUi, actions: ThothActions) {
                 Trouble(screen, trouble, actions)
                 return@Column
             }
-            PairControls(ui, actions)
-            MicControls(ui, actions)
-            Cabinets(ui, actions)
+            VolumeLevel(ui, actions)
+            // ⚠ Same mechanism and the same words as a headphone card's section, because
+            // it is the same gesture — the card was the one thing on this screen that
+            // could not be put away, and it is the tallest.
+            TextButton(
+                onClick = {
+                    if (expanded) {
+                        openSections -= THOTH_SECTION
+                    } else {
+                        openSections += THOTH_SECTION
+                    }
+                },
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text(if (expanded) "Hide settings" else "Settings")
+            }
+            if (expanded) {
+                PairControls(ui, actions)
+                MicControls(ui, actions)
+                Cabinets(ui, actions)
+            }
             screen.refusal?.let {
                 Text(
                     it,
@@ -235,6 +268,25 @@ private fun Trouble(screen: ThothScreen, trouble: String, actions: ThothActions)
     }
 }
 
+/**
+ * The Mac's own volume — the one control this card exists for, which is why it is the
+ * only one that survives collapsing. Everything else here is a choice made once and
+ * left alone; this is the one touched while sitting in the room.
+ */
+@Composable
+private fun VolumeLevel(ui: ThothUi, actions: ThothActions) {
+    val pair = ui.screen.pair ?: return
+    val bound = pair.volumeControl()
+    Level(
+        label = "Volume",
+        percent = ui.shownVolume,
+        max = bound.maxPercent,
+        unit = "%",
+        note = bound.why,
+        emphasis = bound.over,
+    ) { ui.onVolume(it, actions) }
+}
+
 @Composable
 private fun PairControls(ui: ThothUi, actions: ThothActions) {
     val screen = ui.screen
@@ -250,16 +302,6 @@ private fun PairControls(ui: ThothUi, actions: ThothActions) {
         checked = pair.stereo,
         onChange = actions::setStereo,
     )
-
-    val bound = pair.volumeControl()
-    Level(
-        label = "Volume",
-        percent = ui.shownVolume,
-        max = bound.maxPercent,
-        unit = "%",
-        note = bound.why,
-        emphasis = bound.over,
-    ) { ui.onVolume(it, actions) }
 
     Text(
         "Balance",
