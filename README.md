@@ -6,17 +6,15 @@ on 2026-08-15, the app's own behaviour and the Sony/Bose settings captures on
 
 ## ⚠ This app is a replacement, not an addition
 
-A **pure Kotlin native app** — Pippijn's call, #785. He has stopped using the vendor
-apps (Bose Music, Sony Headphones, JBL, JLab), and **they stay installed on purpose: they
-are the reference for what a device can do** (2026-09-09). ⚠ This page said until then that
-they were "to be uninstalled once it replaces them" (2026-08-16); that was retired when #785
-closed. The uninstall was only ever a test of whether they were still needed, and he answered
-that directly. Two consequences, and both change what counts as done:
+A **pure Kotlin native app** — Pippijn's call, #785. The vendor apps (Bose Music, Sony
+Headphones, JBL, JLab) stay installed and go unused: **they are the reference for what a
+device can do**, and walking their screens is how every parity table here was built. Two
+consequences, and both change what counts as done:
 
-- **Coexisting with them is still not a goal, and leaving them installed does not make it
-  one** — nobody runs them. Never trade away responsiveness to leave a channel free for an
-  app nobody is using: nothing is waiting for it, so the only cost of holding a channel is
-  power and the only cost of dropping it is a reconnect its owner feels. See `Leases`.
+- **Coexisting with them is not a goal.** Nobody runs them, so never trade away
+  responsiveness to leave a channel free: nothing is waiting for it, so the only cost of
+  holding a channel is power and the only cost of dropping it is a reconnect its owner
+  feels. See `Leases`.
 - ⚠⚠ **THE SPEAKERS HANG OFF BOSE CONNECT, NOT BOSE MUSIC** — corrected 2026-09-03, having
   been written the wrong way round here that morning. `com.bose.monet` (Bose **Connect**)
   ships asset packages for `soundlink-revolve`, `soundlink-revolve-plus`,

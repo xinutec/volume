@@ -439,9 +439,7 @@ app with different rows — so it needs its own survey and does not inherit this
 | User Manual · Product Info | ⚪ app content | n/a |
 
 **Thirteen rows: eight driven, one excluded, two app-only, two not offered — one
-impossible here, one by decision.** ⚠ This line read "nine driven" until 2026-09-09,
-which counted Prompt Language among them; it is ⛔ excluded on its own row, because the
-picker pushes a file over DFU. Recount from the table, never from this sentence.
+impossible here, one by decision.** ⚠ Recount from the table, never from this sentence.
 
 #### ⛔ `04 02` DISCONNECT is deliberately unexposed — decided 2026-09-09
 
@@ -1682,12 +1680,11 @@ drives the QC35 and *will not* see the QC45; `com.harman.ble.jbllink` is JBL's
 **speaker** app, not the headphone one. Both mistakes cost a capture that recorded
 nothing and read as "the device does not answer".
 
-⚠ **These stay INSTALLED on purpose** (Pippijn, 2026-09-09). He does not use them; they
-are kept as the reference for what each device can do, and walking their screens is how every
-parity table above was built. ⚠ This read "due to be uninstalled once this app replaces them"
-(2026-08-16) until #785 closed. **Coexisting with them is still explicitly NOT a design
-goal** — nobody runs them, so their presence must not justify a trade-off; see `Leases`. Keep
-the APKs (`~/.cache/volume-apks`) too: they are the reference for every byte here.
+⚠ **These stay INSTALLED and go unused** — they are the reference for what each device
+can do, and walking their screens is how every parity table above was built. **Coexisting
+with them is NOT a design goal**: nobody runs them, so their presence must not justify a
+trade-off; see `Leases`. Keep the APKs (`~/.cache/volume-apks`) too — they are the reference
+for every byte here.
 
 ## Capturing
 
