@@ -209,6 +209,60 @@ Length counts the unescaped payload; the sum is taken before escaping.
 its band table returns `[400, 1000, 2500, 6300, 16000]`. A wrong unescape would put
 15662 at the end, so the reading is what the escape rules predict.
 
+## ✅ THE DEVICE LISTS ITS OWN PRESETS — `50 01`, measured 2026-09-10
+
+`EQEBB_GET_CAPABILITY`. The card used to offer three hardcoded ids; this asks the pair
+which it has, and the XM4 answers **twelve**.
+
+    → 50 01 01
+    ← 51 01 06 15 0c  00 00  10 00  11 00  12 00  13 00  14 00
+                      15 00  16 00  17 00  a0 00  a1 00  a2 00
+
+    50 01 01   GET_CAPABILITY · EqEbbInquiredType.PRESET_EQ · DisplayLanguage.ENGLISH
+    51 01      RET_CAPABILITY, same type
+    06         levels per curve — five drawn bands plus CLEAR BASS
+    15         21, the whole-dB stops in a −10…+10 band
+    0c         12 presets, then that many <id> <name-length> pairs
+
+⚠ **Three bytes in the request, not two.** The vendor's request class takes
+`(EqEbbInquiredType, DisplayLanguage)`, so the device MAY answer with name text. **This
+one does not** — every name length is `00`, which is why names come from `EqPresetId` in
+the APK and not from the wire.
+
+Against those names the twelve are `00` Off, `10` Bright, `11` Excited, `12` Mellow,
+`13` Relaxed, `14` Vocal, `15` Treble, `16` Bass, `17` Speech, `a0` Custom, `a1`/`a2`
+User Setting 1 and 2. **So the three that were hardcoded were the user slots**, and the
+eight named curves plus Off were missing from the card, not from the device.
+
+⚠⚠ **The first read of this was a ONE-SHOT and it did not repeat.** `probe.sh send` got
+the frame above; the identical call a minute later drew `nothing in 3000ms`, and a
+one-shot `56 01` the same hour drew `a9 01 00` — `PLAY_NTFY_PARAM`, an unsolicited
+playback notification that looks exactly like a reply if you do not check the command
+byte. Confirmed only after `Drivers.SonyXm4.readEqPresets` went through `exchangeFramed`:
+three consecutive session reads, identical. **Do not conclude anything about Sony from a
+single one-shot exchange** — this page already said so about reads and it was still the
+trap that nearly landed.
+
+⚠ **Command bytes here are the v2 table's.** v1 numbers the same names differently —
+`EQEBB_GET_PARAM` is `0x2d` there against `0x56` here — and `0x56` is what this repo has
+on the wire, so v2 is the table that describes these headphones. Read enums with
+`scripts/smali_enum.py`, never by counting: the ordinal is not the wire byte.
+
+## ✅ Selecting a preset does NOT destroy a user slot — measured 2026-09-10
+
+Asked before offering the named curves, because the answer decides whether a tap is
+reversible. Drove `a2 → 00 → a2` and read back each time:
+
+| step | preset | levels |
+| --- | --- | --- |
+| before | `a2` User Setting 2 | `3, 0, 0, 2, 4, 6` |
+| after `eq=00` | `00` Off | `0, 0, 0, 0, 0, 0` |
+| after `eq=a2` | `a2` User Setting 2 | `3, 0, 0, 2, 4, 6` |
+
+The stored curve came back byte-identical, so a named preset is one tap away from being
+undone. ⚠ **`00` Off was chosen deliberately as the away-step**: it is flat, so every
+band moved DOWN from the curve in place, and the check could not raise anything.
+
 ## Automatic power off — block `f0` (SYSTEM), type `04`
 
     → f6 04              GET_PARAM

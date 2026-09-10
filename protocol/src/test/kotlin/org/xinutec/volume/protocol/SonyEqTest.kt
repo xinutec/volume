@@ -136,3 +136,42 @@ class SonyEqPresetsTest {
         assertNull(SonyEqPresets.name(0xff))
     }
 }
+
+/**
+ * `50 01 01` → `51 01 …`, captured off the WH-1000XM4 on 2026-09-10.
+ *
+ * ⚠ **The frame is real and the read that produced it is NOT reliable.** It came from a
+ * one-shot `probe.sh send`; the identical call a minute later drew "nothing in 3000ms",
+ * and an earlier one-shot `56 01` drew `a9 01 00` — an unsolicited playback
+ * notification, not an answer. Sony needs a session that acks. That is why the decoder
+ * is tested against the bytes and the DRIVER is what asks.
+ */
+class SonyEqCapabilityTest {
+    private val xm4 = "5101 0615 0c 0000 1000 1100 1200 1300 1400 1500 1600 1700 a000 a100 a200"
+
+    /**
+     * The twelve the XM4 reports. ⚠ `0xa0`–`0xa2` are the three the card offered before
+     * this existed, so the eight named curves and Off were the missing rows.
+     */
+    @Test
+    fun `the capability names every preset the device supports`() {
+        assertEquals(
+            listOf(0x00, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0xa0, 0xa1, 0xa2),
+            SonyEqCapability.presets(Hex.parse(xm4)),
+        )
+    }
+
+    /** ⚠ A truncated or foreign frame yields nothing, never a short list read as complete. */
+    @Test
+    fun `a frame that is not a capability reply decodes to nothing`() {
+        assertNull(SonyEqCapability.presets(Hex.parse("5701 a2 06 0d0a0a0c0e10")))
+        assertNull(SonyEqCapability.presets(Hex.parse("5101 0615 0c 0000 1000")))
+        assertNull(SonyEqCapability.presets(Hex.parse("5101")))
+    }
+
+    /** The request carries the display language, so it is three bytes, not two. */
+    @Test
+    fun `the request asks in a language`() {
+        assertEquals("50 01 01", Hex.format(SonyEqCapability.get()))
+    }
+}

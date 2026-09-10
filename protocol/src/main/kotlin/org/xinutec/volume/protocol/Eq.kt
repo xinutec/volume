@@ -191,6 +191,71 @@ object SonyEq {
 }
 
 /**
+ * `50 01 <language>` — ask the device WHICH presets it has, instead of guessing.
+ *
+ * ⚠⚠ **The device is the authority, and the SDK is not.** Sony's `EqPresetId` names
+ * twenty-three ids across every MDR product; this frame is the subset one pair actually
+ * accepts. Reading the enum and offering all of it would repeat the mistake
+ * `docs/bose-read-surface.md` records one vendor over, where Bose Music's SDK named a
+ * mode-preset function the QC45 does not have.
+ *
+ * ⚠ **Three bytes, not two.** The vendor's request class takes `(EqEbbInquiredType,
+ * DisplayLanguage)`, so a language byte follows the type — the device may answer with
+ * name text in it. The XM4 does not: it returns a zero length for every name, which is
+ * why [SonyEqPresets] and not this is where names come from.
+ *
+ * ⚠ **Bytes 2 and 3 are read past, not decoded.** They are the level count and the
+ * per-band step count — `06` and `15` on the XM4, agreeing with the six levels
+ * [EqSetting] carries and the 21 stops in [SonyEq.RANGE], which is the reason to trust
+ * the rest of the frame. Nothing draws from them: the card sizes itself from the levels
+ * it already has, so accessors for them would exist only to be asserted in a test.
+ * `docs/sony-settings.md` records the agreement.
+ *
+ * ⚠ Command bytes are the **v2** table's. v1 numbers the same names differently —
+ * `EQEBB_GET_PARAM` is `0x2d` there and `0x56` here — and `0x56` is the one this repo
+ * has on the wire, so v2 is the table that describes these headphones.
+ */
+object SonyEqCapability {
+    private const val GET: Byte = 0x50
+
+    /** ⚠ Public because the DRIVER matches on it — see the `a9` incident in the tests. */
+    const val RET: Byte = 0x51
+
+    /** `EqEbbInquiredType.PRESET_EQ`. The same `01` [SonyEq] uses. */
+    private const val PRESET_EQ: Byte = 0x01
+
+    /** `DisplayLanguage.ENGLISH`. */
+    private const val ENGLISH: Byte = 0x01
+
+    /** Where the count sits, and therefore where the id pairs start. */
+    private const val COUNT = 4
+    private const val FIRST = 5
+
+    fun get(): ByteArray = byteArrayOf(GET, PRESET_EQ, ENGLISH)
+
+    /**
+     * The preset ids this device supports, in the order it lists them, or null.
+     *
+     * ⚠ **Null on anything short**, never a truncated list: a short list reads as a
+     * complete answer and would silently narrow the card's menu, which is the failure
+     * this whole call exists to end.
+     */
+    fun presets(payload: ByteArray): List<Int>? {
+        header(payload) ?: return null
+        val count = payload[COUNT].toInt() and 0xff
+        // Each entry is <id> <name length>, and the XM4 sends every length as zero.
+        if (payload.size < FIRST + count * 2) return null
+        return (0 until count).map { payload[FIRST + it * 2].toInt() and 0xff }
+    }
+
+    private fun header(payload: ByteArray): Unit? {
+        if (payload.size <= COUNT) return null
+        if (payload[0] != RET || payload[1] != PRESET_EQ) return null
+        return Unit
+    }
+}
+
+/**
  * Sony's own names for its preset ids, read out of `EqPresetId` in the vendor APK
  * (`com.sony.songpal.mdr`) on 2026-09-09.
  *

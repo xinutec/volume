@@ -20,6 +20,7 @@ import org.xinutec.volume.protocol.OutFrame
 import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyEq
+import org.xinutec.volume.protocol.SonyEqPresets
 import org.xinutec.volume.protocol.SonyFrame
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
@@ -662,6 +663,14 @@ class Probes(
     private fun sonySettings(d: Drivers.SonyXm4, t: Transport, intent: Intent) {
         emit("  eq:         ${d.readEq(t) ?: "(no answer)"}")
         emit("  bands:      ${d.bands(t).ifEmpty { "(no answer)" }}")
+        emit(
+            "  presets:    " +
+                d
+                    .readEqPresets(t)
+                    .joinToString { id ->
+                        "%02x=%s".format(id, SonyEqPresets.name(id) ?: "?")
+                    }.ifEmpty { "(no answer)" },
+        )
         emit("  auto-off:   ${d.readAutoOff(t) ?: "(no answer)"}")
         emit("  multipoint: ${d.readMultipoint(t) ?: "(no answer)"}")
         emit("  quality:    ${d.readSoundQuality(t) ?: "(no answer)"}")

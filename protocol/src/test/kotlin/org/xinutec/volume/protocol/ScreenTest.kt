@@ -347,6 +347,26 @@ class ScreenTest {
                 "spatial" to Settings(spatial = Spatial(true, SpatialMode.MUSIC)),
                 // ⚠ TRUE, not false: false is the ordinary case and a renderer that
                 // drew nothing for it would pass while the row that matters went missing.
+                // ⚠ The XM4's real twelve, not a token pair: the row IS the menu, so a
+                // sample of one would pass a renderer that drew only the first.
+                "eqPresets" to
+                    Settings(
+                        eqPresets =
+                            listOf(
+                                0x00,
+                                0x10,
+                                0x11,
+                                0x12,
+                                0x13,
+                                0x14,
+                                0x15,
+                                0x16,
+                                0x17,
+                                0xa0,
+                                0xa1,
+                                0xa2,
+                            ),
+                    ),
                 "jblCupsDiffer" to Settings(jblCupsDiffer = true),
                 "budBattery" to
                     Settings(

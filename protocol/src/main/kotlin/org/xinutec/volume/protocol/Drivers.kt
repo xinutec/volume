@@ -922,6 +922,22 @@ object Drivers {
             exchangeFramed(t, SonyEq.getBands())?.let(SonyEq::bands) ?: emptyList()
 
         /**
+         * Which presets THIS pair has, asked rather than assumed.
+         *
+         * ⚠ **Empty means "it would not say", not "it has none"** — a caller must fall
+         * back to what it already offers rather than emptying its menu.
+         *
+         * ⚠ Goes through [exchangeFramed] like every other read here, and that is the
+         * point: the frame this decodes was first seen from a ONE-SHOT socket that then
+         * refused to repeat it, and a one-shot `56 01` on the same evening drew an
+         * unsolicited `a9` playback notification instead of an answer.
+         */
+        fun readEqPresets(t: Transport): List<Int> =
+            exchangeFramed(t, SonyEqCapability.get(), SonyEqCapability.RET)
+                ?.let(SonyEqCapability::presets)
+                ?: emptyList()
+
+        /**
          * Switch the pair off. ⚠ **Ends the session**; see [SonyPowerOff].
          *
          * Returns nothing because there is nothing to return: the link drops as the

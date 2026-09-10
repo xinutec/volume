@@ -203,6 +203,17 @@ data class Settings(
      * said no. `Drivers.JblBes.writeGesture` does it; [GestureWrite] names the outcomes.
      */
     val gestures: Map<Gesture, GestureAction>? = null,
+    /**
+     * The preset ids the device says it has, in the order it listed them.
+     *
+     * ⚠ **EMPTY means it would not say, not that it has none** — a card must fall back
+     * to whatever it already offers rather than drawing an empty menu. Sony is the only
+     * device that answers this today; see [SonyEqCapability].
+     *
+     * ⚠ Ids, not names. [SonyEqPresets] names them, and the device sends no name text
+     * of its own even when asked in a language.
+     */
+    val eqPresets: List<Int> = emptyList(),
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
     /**
@@ -502,6 +513,7 @@ data class Settings(
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
+                eqPresets.isNotEmpty() ||
                 jblCupsDiffer != null ||
                 budBattery != null || loudness != null || jlabEq != null || jlabTouch != null ||
                 jlabSafeHearing != null ||

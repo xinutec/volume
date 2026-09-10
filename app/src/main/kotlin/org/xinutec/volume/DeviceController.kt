@@ -313,6 +313,7 @@ class DeviceController(
                     codec = d.readCodec(s.transport),
                     canPowerOff = true,
                     chatDetail = d.readChatDetail(s.transport),
+                    eqPresets = d.readEqPresets(s.transport),
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.
                     focusOnVoice = focus.on,

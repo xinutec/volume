@@ -897,7 +897,11 @@ private fun SettingsSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                for (p in SONY_PRESETS) {
+                // ⚠ **What the DEVICE said it has**, falling back to the three known
+                // ids when it would not say. Never an empty menu: [Settings.eqPresets]
+                // is empty for "no answer", and drawing that literally would take the
+                // equaliser away on a read that merely timed out.
+                for (p in settings.eqPresets.ifEmpty { SONY_PRESETS }) {
                     FilterChip(
                         selected = p == eq.preset,
                         onClick = { actions.setEqPreset(address, p) },
