@@ -533,6 +533,23 @@ data class Settings(
 }
 
 sealed interface DeviceState {
+    /**
+     * Whether a link is OPEN — [Ready], or [Busy] doing something to it.
+     *
+     * ⚠⚠ **A property here rather than a disjunction at the call site, and #973 is
+     * exactly why.** The card's settings section was gated on `is Ready` alone. A write
+     * runs [Ready] → [Busy] → [Ready], so mid-write the section vanished, the card
+     * shrank from a screenful to one spinner line, `LazyColumn` clamped the scroll
+     * offset to 0 because there was no longer that much to scroll, and growing back did
+     * not restore it. Stable keys were not the cause; the content height was.
+     *
+     * ⚠ Written out by hand, [Busy] is the arm a reader forgets — it is the transient
+     * one, and everything looks right until a write is in flight. So it is written once,
+     * here, beside the states themselves, and a caller cannot omit it.
+     */
+    val linkOpen: Boolean
+        get() = this is Ready || this is Busy
+
     /** Bonded and known to be drivable, but nothing has been opened yet. */
     data object Idle : DeviceState
 

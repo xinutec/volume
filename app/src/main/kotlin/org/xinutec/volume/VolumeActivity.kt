@@ -699,21 +699,16 @@ private fun DeviceRow(
                 )
             }
 
-            // Settings hang off an OPEN link — Ready, or Busy doing something to it.
+            // Settings hang off an OPEN link. ⚠ [DeviceState.linkOpen] carries the
+            // condition and the reason it includes Busy — do not spell it out here
+            // again; #973 was this line written by hand with the Busy arm missing.
             //
-            // ⚠ **Excluding Busy is what made the list jump to the top after every
-            // write (#973).** A write goes `Ready → Busy → Ready`, and while Busy this
-            // dropped the whole section: the card collapsed from a screenful to a
-            // single spinner line, `LazyColumn` clamped the scroll offset to 0 because
-            // there was no longer that much to scroll, and growing back did not restore
-            // it. Keys were not the cause and stable ones did not help — the content
-            // height was. Keeping the section rendered keeps the card the same size
-            // across the transition, so there is nothing to clamp.
-            //
-            // ⚠ It renders from [DeviceCard.settings], which already survives Busy for
-            // exactly this reason. The values shown mid-write are the pre-write ones,
-            // which is honest: the new value is not known until the refresh lands.
-            val open = card.state is DeviceState.Ready || card.state is DeviceState.Busy
+            // ⚠ What belongs HERE is the other half: the section renders from
+            // [DeviceCard.settings], which survives Busy for the same reason, so the
+            // values shown mid-write are the pre-write ones. That is honest — the new
+            // value is not known until the refresh lands — and it is what keeps the
+            // card the same height across the transition, so there is nothing to clamp.
+            val open = card.state.linkOpen
             if (open) {
                 TextButton(
                     onClick = {

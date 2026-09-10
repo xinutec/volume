@@ -333,6 +333,16 @@ class ScreenTest {
      * what cannot be written rather than what was read.
      */
     @Test
+    fun `a link is open while Ready or Busy, and shut otherwise`() {
+        assertTrue(DeviceState.Ready(model = "XM4", modes = emptyList(), mode = null).linkOpen)
+        assertTrue(DeviceState.Busy("reading settings…").linkOpen)
+        // ⚠ **Every state, not only the open ones.** #973 was an omitted arm, and a test
+        // that lists what should be true cannot notice the next thing left out.
+        assertFalse(DeviceState.Idle.linkOpen)
+        assertFalse(DeviceState.Unavailable("switched off").linkOpen)
+    }
+
+    @Test
     fun `every settings field is something to show`() {
         val each =
             mapOf(
