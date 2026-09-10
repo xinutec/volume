@@ -1365,6 +1365,13 @@ private fun SettingsSection(
                 // saying nothing is right there — see [Battery.charging].
                 if (b.charging == true) "${b.percent}%, charging" else "${b.percent}%",
             )
+            // ⚠ **Only when it is TRUE.** False is the ordinary case and null means the
+            // device has no second slot to disagree with, so neither is worth a line —
+            // but the number above stops describing the pair the moment this fires, and
+            // saying nothing then would be printing one cup as though it were both.
+            if (settings.jblCupsDiffer == true) {
+                Caveat("the two cup slots disagree — this is one of them, and which is unknown")
+            }
         }
 
         // ⚠ **Its own scale, spelled out — never a percentage.** 36 of 100 on a Revolve
@@ -1864,6 +1871,21 @@ private fun SettingRow(
             Switch(checked = checked, onCheckedChange = onChange)
         }
     }
+}
+
+/**
+ * A sentence under a reading that says what the reading does NOT cover.
+ *
+ * ⚠ Same weight and colour as [RefusedNote] on purpose: both are the app admitting a
+ * limit, and a caveat that shouted would read as an error the owner has to act on.
+ */
+@Composable
+private fun Caveat(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.tertiary,
+    )
 }
 
 /** ⚠ The one sentence that keeps a missing control from reading as a missing feature. */

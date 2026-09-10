@@ -1,4 +1,2 @@
 # dev-lint baseline — known violations grandfathered in. Counts may only
 # decrease. Regenerate: dev-lint --write-baseline <file> <paths>
-1	DL-KOTLIN-TEST-ONLY	protocol/src/main/kotlin/org/xinutec/volume/protocol/BoseSettings.kt
-1	DL-KOTLIN-TEST-ONLY	protocol/src/main/kotlin/org/xinutec/volume/protocol/JblBattery.kt

@@ -206,6 +206,18 @@ data class Settings(
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
     /**
+     * True when the JBL's two cup slots disagreed in the frame [battery] came from.
+     *
+     * ⚠ **Then [battery] is ONE cup and nothing can say which.** The M2's two bytes have
+     * been equal in every frame this repo has seen, and that equality is the only reason
+     * one of them may be shown as the pair's charge — see [JblBattery]. The day it stops
+     * holding, a card that just prints the number is inventing the other cup.
+     *
+     * ⚠ Null on every other device, and null is not `false`: nothing else reports two
+     * slots, so they have no agreement to have.
+     */
+    val jblCupsDiffer: Boolean? = null,
+    /**
      * How loud it is, on the device's own scale — the SoundLink Revolve's `05 05`.
      *
      * ⚠ **Not an Int and not a percentage**: the QC35 counts to 25 and the Revolve to
@@ -490,6 +502,7 @@ data class Settings(
                 button != null || volumeLimit != null || spatial != null ||
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
+                jblCupsDiffer != null ||
                 budBattery != null || loudness != null || jlabEq != null || jlabTouch != null ||
                 jlabSafeHearing != null ||
                 autoPlay != null || balance != null || psap != null ||

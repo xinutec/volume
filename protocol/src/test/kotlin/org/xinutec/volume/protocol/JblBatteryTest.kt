@@ -62,6 +62,29 @@ class JblBatteryTest {
     }
 
     /**
+     * ⚠ **The reading and the assumption behind it, from ONE frame.** Asking twice would
+     * be two exchanges of a value that moves, so the agreement reported would be about a
+     * different frame than the percentage — which is the whole failure this guards.
+     */
+    @Test
+    fun `the charge carries whether the cups agreed`() {
+        val ok = JblBattery.charge(Hex.parse(sixty))
+        assertEquals(Battery(percent = 60, charging = false), ok?.battery)
+        assertFalse(ok!!.cupsDiffer)
+
+        val split = JblBattery.charge(Hex.parse("aa250d0100003c50ffffffffffffffff"))
+        assertEquals(80, split?.battery?.percent)
+        assertTrue(split!!.cupsDiffer)
+    }
+
+    /** Not a battery frame at all means no charge, not a charge with a false flag. */
+    @Test
+    fun `a frame that is not a battery frame has no charge`() {
+        assertNull(JblBattery.charge(Hex.parse("aa220d0100003c3cffffffffffffffff")))
+        assertNull(JblBattery.charge(Hex.parse("aa250d010000ffffffffffffffffffff")))
+    }
+
+    /**
      * ⚠ This frame arrives unsolicited and glued to other replies, so the command byte
      * is the only thing separating it from an answer to something else. It was once
      * read as the reply to a question about status field `3b`.

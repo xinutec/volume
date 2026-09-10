@@ -345,6 +345,9 @@ class ScreenTest {
                 "timedOff" to Settings(timedOff = TimedOff(on = true, minutes = 30)),
                 "volumeLimit" to Settings(volumeLimit = true),
                 "spatial" to Settings(spatial = Spatial(true, SpatialMode.MUSIC)),
+                // ⚠ TRUE, not false: false is the ordinary case and a renderer that
+                // drew nothing for it would pass while the row that matters went missing.
+                "jblCupsDiffer" to Settings(jblCupsDiffer = true),
                 "budBattery" to
                     Settings(
                         budBattery =

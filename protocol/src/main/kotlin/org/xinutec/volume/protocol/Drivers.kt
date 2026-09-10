@@ -564,7 +564,12 @@ object Drivers {
         fun readGestures(t: Transport): Map<Gesture, GestureAction>? =
             ask(t, JblGestures.get(), JblGestures::state)
 
-        fun readBattery(t: Transport): Battery? = ask(t, JblBattery.get(), JblBattery::state)
+        /**
+         * ⚠ **Returns the charge AND whether the cups agreed**, because both come off the
+         * same frame. [JblBattery.cupsDiffer] is the warrant for reading one byte as the
+         * pair's charge, and a caller that never sees it prints an unattributable number.
+         */
+        fun readCharge(t: Transport): JblCharge? = ask(t, JblBattery.get(), JblBattery::charge)
 
         fun readAutoPlay(t: Transport): Boolean? = ask(t, JblAutoPlay.get(), JblAutoPlay::state)
 

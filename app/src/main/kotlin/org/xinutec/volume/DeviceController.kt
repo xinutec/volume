@@ -420,6 +420,10 @@ class DeviceController(
             }
 
             Drivers.JblBes -> {
+                // ⚠ Hoisted out of the constructor call because ONE exchange carries both
+                // the charge and whether the cups agreed; reading them as two calls would
+                // attach an agreement to a percentage taken from a different frame.
+                val charge = Drivers.JblBes.readCharge(s.transport)
                 Settings(
                     curve = Drivers.JblBes.readCurve(s.transport),
                     timedOff = Drivers.JblBes.readAutoOff(s.transport),
@@ -430,7 +434,8 @@ class DeviceController(
                     lowVolumeEq = Drivers.JblBes.readLowVolumeEq(s.transport),
                     smartAv = Drivers.JblBes.readSmartAv(s.transport),
                     gestures = Drivers.JblBes.readGestures(s.transport),
-                    battery = Drivers.JblBes.readBattery(s.transport),
+                    battery = charge?.battery,
+                    jblCupsDiffer = charge?.cupsDiffer,
                     autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
                     balance = Drivers.JblBes.readBalance(s.transport),
                     psap = Drivers.JblBes.readPsap(s.transport),

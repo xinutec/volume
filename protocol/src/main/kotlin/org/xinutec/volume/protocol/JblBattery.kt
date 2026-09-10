@@ -86,6 +86,20 @@ object JblBattery {
         return level(frame[MASTER])
     }
 
+    /**
+     * The charge together with whether the frame's two cup slots agreed.
+     *
+     * ⚠ **Both facts out of ONE frame, and that is the point.** The level moves, so
+     * asking twice would report an agreement about a different frame than the
+     * percentage it is attached to — and the agreement is the entire warrant for
+     * collapsing two bytes into [Battery.percent].
+     */
+    fun charge(frame: ByteArray): JblCharge? {
+        val differ = cupsDiffer(frame) ?: return null
+        val battery = state(frame) ?: return null
+        return JblCharge(battery, differ)
+    }
+
     /** Whether the two cup slots disagree — see the warning on this object. */
     fun cupsDiffer(frame: ByteArray): Boolean? {
         if (frame.size <= MASTER) return null
@@ -93,3 +107,17 @@ object JblBattery {
         return frame[SLAVE] != frame[MASTER]
     }
 }
+
+/**
+ * A battery reading and the assumption it rests on.
+ *
+ * ⚠ **[cupsDiffer] true means [battery] is ONE of the two cups and nothing here can
+ * say which.** [JblBattery]'s note explains why: the offsets are the SDK's, both bytes
+ * have been equal in every frame this repo has seen, and the single calibration point
+ * cannot separate them either. So a card must say so rather than print the number as
+ * though it described the pair.
+ */
+data class JblCharge(
+    val battery: Battery,
+    val cupsDiffer: Boolean,
+)

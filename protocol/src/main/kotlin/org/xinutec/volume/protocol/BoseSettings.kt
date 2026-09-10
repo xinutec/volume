@@ -1361,7 +1361,7 @@ sealed interface Forget {
  * here. `04 03` REMOVE_DEVICE and `04 07` CLEAR_DEVICE_LIST are neighbours and a writer
  * that took either as a parameter must not exist.
  */
-object BoseDisconnect {
+object BoseDisconnect { // dev-lint: allow-test-only unwired by decision, see the KDoc
     const val FN: Byte = 0x02
 
     /** ⚠ START, and the payload is the address to drop — the same shape as [BoseForget]. */
