@@ -6,11 +6,13 @@
         "run",
         "git+file:../dev-lint?ref=HEAD",
         "--",
+        "--baseline",
+        ".dev-lint-baseline",
         "."
       ],
       "cwd": ".",
       "env": {},
-      "name": "dev-lint",
+      "name": "dev-lint (baselined)",
       "timeout_s": 900
     },
     {

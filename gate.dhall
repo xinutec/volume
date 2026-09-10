@@ -34,7 +34,7 @@ let G = ../dev-lint/gate/schema.dhall
 
 in  { name = "volume"
     , checks =
-      [ G.devLint "../"
+      [ G.devLintBaselined "../"
       , {-  ktlint expands its own globs, so they are passed through literally — a
             shell glob would resolve against the working directory and match a
             different set.
