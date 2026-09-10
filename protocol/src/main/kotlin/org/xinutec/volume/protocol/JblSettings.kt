@@ -131,6 +131,14 @@ object JblEq {
      * answers `c9` and `ca` with two other tables, 196 and 86 bytes of records in the
      * same shape. The 196-byte one is *longer* than a curve, so a size-only guard
      * passes it and decodes ten of someone else's records as the user's equaliser.
+     *
+     * ⚠ **`c9` is PERSONIFY_EQ — the hearing profile — and `ca` is DESIGN_EQ**, named
+     * from `EQSettings2` in the vendor APK on 2026-09-10. Both arrive at connect, so
+     * this guard is what keeps somebody's audiogram off the equaliser row.
+     *
+     * ⚠⚠ **`EQSettings`, the same package's other class, maps the same bytes
+     * differently** — `PERSONIFY_EQ` is `0x66` there and `c9`/`ca` are absent. This
+     * device answers `c9` and `ca`, so `EQSettings2` is the one that describes it.
      */
     fun curve(frame: ByteArray): EqCurve? {
         if (frame.size < RECORDS + BANDS * RECORD) return null

@@ -350,6 +350,20 @@ established — nothing captured varies one without the other.
 at connect. `c9` is *longer* than a user curve, so a decoder that only checks the
 array is big enough will read ten of its records as the equaliser.
 
+✅ **They are named, 2026-09-10: `c9` is PERSONIFY_EQ and `ca` is DESIGN_EQ.** So the
+Personi-Fi hearing profile is an ordinary EQ table, and the device has been handing it
+over at connect all along — #981 asked "where does the profile live" while the answer
+was already arriving unasked and unnamed.
+
+⚠⚠ **The names come from `EQSettings2`, and `EQSettings` — same package — gives the
+SAME BYTES DIFFERENT MEANINGS.** There, `0x66` is `PERSONIFY_EQ` and `c9`/`ca` are not
+declared at all. **The wire decides which applies and it says `EQSettings2`**: this
+device answers `c9` and `ca`, which only `EQSettings2` declares. Reading the first class
+found would have pointed Personi-Fi at `0x66`, a table this device never mentioned —
+and in `EQSettings2` that byte is `DJ_SUNNERY_JAMES`.
+
+⚠ Values stay out of this repo; the table id is command shape, the curve is not.
+
 ⚠ **The named curves are the APP's**, as on the Bose and unlike Sony: selecting JAZZ
 sends ten numbers, not a name.
 
