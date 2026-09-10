@@ -211,9 +211,18 @@ object SonyEq {
  * it already has, so accessors for them would exist only to be asserted in a test.
  * `docs/sony-settings.md` records the agreement.
  *
- * ⚠ Command bytes are the **v2** table's. v1 numbers the same names differently —
- * `EQEBB_GET_PARAM` is `0x2d` there and `0x56` here — and `0x56` is the one this repo
- * has on the wire, so v2 is the table that describes these headphones.
+ * ⚠⚠ **The COMMAND byte follows v2 and the TYPE byte does NOT. Do not "correct"
+ * either.** Commands are v2's: `EQEBB_GET_PARAM` is `0x2d` in v1 and `0x56` here, and
+ * `0x56` is what this repo has on the wire. But v2's `EqEbbInquiredType` numbers
+ * `PRESET_EQ` as `00` and calls `01` `EBB`, while `01` is demonstrably what returns
+ * preset ids on this device — which is **v1's** numbering. Measured on 2026-09-10, not
+ * reconciled: the two tables are mixed here, so neither may be applied wholesale.
+ *
+ * ⚠ **`00`, `02` and `03` drew no answer** from a one-shot socket on 2026-09-10, and
+ * that is NOT evidence they are unsupported: the same socket answered `01` once and
+ * then fell silent to a repeat of it. Type `02` appeared to reply and did not — the
+ * frame was `17 00 02 00`, v1's `COMMON_NTFY_UPSCALING_EFFECT`, volunteered. Settling
+ * the type space needs a session, not another one-shot.
  */
 object SonyEqCapability {
     private const val GET: Byte = 0x50
