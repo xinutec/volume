@@ -313,56 +313,105 @@ The app now offers the three as chips beside the switch.
 its high byte would land on the trailing `00` that is already there. Every value either
 this app or the vendor's can send fits in one byte, so the trailer stays echoed.
 
-### ✅ Equalizer — `aa a2`, a CURVE **and** a table id
+### ✅ Equalizer — `aa a2`, and the layout is the vendor's own
 
 ```
-→ aa a2 02 01 <id>   read a table; ff = whichever is in use, and the reply names it
-← aa a2 74 00 02 <id> <13 bytes> <10 records> 01
-→ aa a2 74 00 00 <id> <13 bytes> <10 records> 01      write — operator 00, not 02
+→ aa a2 02 01 <id>          read a table; ff = whichever is in use, and the reply names it
+← aa a2 <len16> 02 <id> …   the table
+→ aa a2 <len16> 00 <id> …   write — operator 00, not 02
 ```
-Each record is 10 bytes, `<a> 01 <gain float32 LE> <frequency float32 LE>`, and the
-ten frequencies are **exactly the app's axis** — 32, 64, 125, 250, 500, 1k, 2k, 4k,
-8k, 16k. JAZZ is `+4 +2 +1 +2.5 −1.5 −1.5 0 +1 +2 +4`; flat is all zeroes.
 
-⚠ **`0x74` = 116 does not count the trailing `01`** — 117 bytes follow the length.
-⚠ The first record's leading byte is `0a` where every other record's is `01`.
-Unexplained; the vendor app sends it too, so a write copies the read frame and
-substitutes only the gains. Doing that reproduces the app's JAZZ frame **byte for
-byte**, which is what `JblSettingsTest` asserts.
+✅ **Read out of `com.harman.commands.EQCmd.parse` on 2026-09-11**, which replaced a
+model built by eye. The old one decoded the right gains from the wrong story, and the
+arithmetic hid that for three weeks:
 
-✅ **The table id is `EnumEqPresetIdx`**, an SDK enum, and it names the app's whole
-preset menu:
 ```
-00 OFF   01 JAZZ   02 VOCAL   03 BASS   04 USER   05 ROCK   06 PIANO   07 CLUB   08 STUDIO
+[0]      aa
+[1]      a2
+[2..3]   payload length, 16-bit LITTLE-ENDIAN, counted from [4]
+[4]      operator: 01 request, 02 reply, 00 write
+[5]      table id
+[6..9]   calibration, float32 LE
+[10]     sample rate            48 on every table this device has sent but ca
+[11..14] left gain, float32 LE
+[15..18] right gain, float32 LE
+[19]     band count
+[20…]    band count × 10 bytes: <type> <gain f32> <frequency f32> <Q>
 ```
-Which matches what was captured without knowing it: the flat curve read back as `00`
-and the app's JAZZ write used `01`. ⚠ Only those two curves' gains have been seen, and
-a write carries the gains as well as the id, so the other seven cannot be synthesised
-from this list — the names are known, the numbers are not.
 
-⚠ **A write carries both a curve and an id, so "nothing sends a preset id" was
-wrong.** Payload byte 2 is a table selector: `aa a2 02 01 c9` and `…ca` are echoed
-back in it, `ff` comes back as the id actually in use, the flat curve read as `00`,
-and the app's JAZZ write used `01`. Which of the two the device honours is NOT
-established — nothing captured varies one without the other.
+⚠ **Three things the old model had wrong.** There is no "trailing byte the length
+denies" — the length is two bytes. The `0a` that read as a first record's odd leading
+byte is the band count, which sits outside the records. And a record's second byte is
+its filter **Q**, not a constant `01`; every band of a ten-band curve happens to use Q
+1, so only a table whose Q varies could have exposed it, and `c9` does.
 
-⚠ **`c9` (196 bytes) and `ca` (86) are other tables in the same record shape**, read
-at connect. `c9` is *longer* than a user curve, so a decoder that only checks the
-array is big enough will read ten of its records as the equaliser.
+⚠ **The request's length is one byte, the reply's is two.** Every request on the wire
+is the five-byte `aa a2 02 01 <id>`. Every reply's `[3]` has been `00`, which is why
+both readings fit everything captured; `EQCmd.parse` is what settles it.
 
-✅ **They are named, 2026-09-10: `c9` is PERSONIFY_EQ and `ca` is DESIGN_EQ.** So the
-Personi-Fi hearing profile is an ordinary EQ table, and the device has been handing it
-over at connect all along — #981 asked "where does the profile live" while the answer
-was already arriving unasked and unnamed.
+`type` is `IIR_BIQUARD_TYPE`: `00` low shelf, `01` peaking, `02` high shelf, then LPF,
+HPF and the rest. A user curve is ten peaking bands on **exactly the app's axis** — 32,
+64, 125, 250, 500, 1k, 2k, 4k, 8k, 16k. JAZZ is `+4 +2 +1 +2.5 −1.5 −1.5 0 +1 +2 +4`;
+flat is all zeroes.
 
-⚠⚠ **The names come from `EQSettings2`, and `EQSettings` — same package — gives the
-SAME BYTES DIFFERENT MEANINGS.** There, `0x66` is `PERSONIFY_EQ` and `c9`/`ca` are not
-declared at all. **The wire decides which applies and it says `EQSettings2`**: this
-device answers `c9` and `ca`, which only `EQSettings2` declares. Reading the first class
-found would have pointed Personi-Fi at `0x66`, a table this device never mentioned —
-and in `EQSettings2` that byte is `DJ_SUNNERY_JAMES`.
+✅ **The table ids are `EQSettings2`'s**, which is the class whose ids this device
+answers with and whose sibling `EQCmd` parses the frame:
 
-⚠ Values stay out of this repo; the table id is command shape, the curve is not.
+```
+00 OFF  01 JAZZ  02 VOCAL  03 BASS  04 ROCK  05 PIANO  06 CLUB  07 STUDIO
+08 EXTREME_BASS  09 EXTREME_BASS_2  0a DIABLO  0b ROCK_2  0c FUNK
+c8 MAX_PRESET_EQ_1   c9 PERSONIFY_EQ   ca DESIGN_EQ   e6 CUSTOMIZED_EQ
+```
+
+⚠⚠ **This page said `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO` until 2026-09-11**,
+from `EnumEqPresetIdx` — a different SDK in the same APK, whose `USER` entry pushes
+everything from `04` up one place. Both `EQSettings` and `EQSettings2` disagree with it
+and agree with each other. ⚠ **Only `00` and `01` have been seen on the wire and the
+two enums agree there**, so nothing measured separates them; the ground is which SDK
+owns the frame. Third instance of one APK carrying two tables for one byte.
+
+⚠ **A write carries both a curve and an id**, so which of the two the device honours is
+NOT established — nothing captured varies one without the other.
+
+#### ✅ `c9` is the Personi-Fi hearing profile, and it is nine bands per ear
+
+**Decoded 2026-09-11** from `~/.cache/volume-captures/2026-08-29-981-personifi`, which
+holds three `c9` reads, all byte-identical, beside fifteen user-curve reads for
+comparison. `c9` carries **18 bands: nine for the left ear, then nine for the right**,
+at 250, 500, 1k, 2k, 4k, 6k, 8k, 10k and 12k Hz — low shelf at the bottom, peaking in
+the middle, high shelf at the top.
+
+Three independent sources say nine-per-ear, left first:
+
+  * the frame — 18 records, the same nine frequencies twice;
+  * `personifi3/newui/utils/c.a()`, which sets `bandCount = left_eq_bands +
+    right_eq_bands` and appends `leftBands` before `rightBands`;
+  * the vendor test UI in that capture's own timeline — "Hearing Test 2/18, Left Ear",
+    and a report radar spanning 250 Hz to 12 kHz.
+
+⚠ The two halves are not a template applied twice: the filter type and Q at one
+frequency differ between the ears. So the per-band types and Qs are part of the fit,
+not fixed furniture, and they stay out of this repo along with the gains.
+
+⚠⚠ **The gains, the types and the Qs of a real `c9` are health data and this repo is
+public.** A captured `c9` frame was committed as a test fixture on 2026-08-16, before
+anyone knew what `c9` was, and was removed from the history on 2026-09-11. The fixture
+that replaced it is synthesised: same 196 bytes, same 18 bands, same grid, every gain
+zero. **Command shape goes in, values do not** — and "shape" here stops at the band
+count and the frequency axis.
+
+⚠ **`ca` (DESIGN_EQ) is seven bands** with a sample rate of `00` and both master gains
+at `−1.0`, where every other table reads `48` and `0.0`. Unexplained, and it is not on
+the serving path.
+
+⚠ **`ff` reported `00` throughout that capture** — the EQ actually in use was Off, not
+the Personi-Fi profile. So `c9` being present says the profile is STORED, not that it
+is applied.
+
+⚠ **What this app does when a non-curve table is in use is still nothing.** `curve()`
+returns null for anything that is not ten bands, so if `ff` ever answers `c9` the
+equaliser row goes blank rather than saying "Personi-Fi". Needs the JBL to confirm
+`ff` can answer `c9` at all.
 
 ⚠ **The named curves are the APP's**, as on the Bose and unlike Sony: selecting JAZZ
 sends ten numbers, not a name.

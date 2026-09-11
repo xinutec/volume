@@ -80,24 +80,36 @@ object JblAutoOff {
 }
 
 /**
- * The JBL's ten-band equaliser — `aa a2`, decoded from the 2026-08-16 capture.
+ * The JBL's equaliser — `aa a2`, in the vendor's own field layout.
  *
  * ```
- * → aa a2 02 01 ff           read whichever table is in use
- * ← aa a2 74 00 02 <id> …    the curve, and the id of the table it came from
- * → aa a2 74 00 00 <id> …    write — the same frame with operator 00
+ * → aa a2 02 01 ff              read whichever table is in use
+ * ← aa a2 <len16> 02 <id> …     the table, and the id it came from
+ * → aa a2 <len16> 00 <id> …     write — the same frame with operator 00
  * ```
  *
- * The payload is `00 <operator> <table>`, thirteen bytes that never varied, ten
- * ten-byte records `<a> 01 <gain float32 LE> <frequency float32 LE>`, and a trailing
- * `01`. ⚠ **The length byte does not count that trailing `01`** — it reads `0x74` =
- * 116 while 117 bytes follow it, so a reader that trusts the length drops a byte and
- * one that trusts the frame keeps a byte the length denies. Both are correct here
- * because the records are found by offset.
+ * ✅ **Read off `com.harman.commands.EQCmd.parse`, 2026-09-11**, which ended a model
+ * that fit every byte and still said the wrong thing about three of them:
  *
- * ⚠ The first record's leading byte is `0a` where every other record's is `01`.
- * Unexplained. The vendor app sends `0a` too, so [set] preserves it rather than
- * normalising it to something tidier.
+ * ```
+ * [2..3]   payload length, 16-bit LITTLE-ENDIAN, counted from [4]
+ * [4]      operator: 01 request, 02 reply, 00 write
+ * [5]      table id
+ * [6..9]   calibration float   [10] sample rate   [11..14] left gain float
+ * [15..18] right gain float    [19] band count
+ * [20…]    band count × 10 bytes: <type> <gain f32> <frequency f32> <Q>
+ * ```
+ *
+ * ⚠ **Three corrections the arithmetic had hidden**, each of which decoded the right
+ * numbers from the wrong story. The length is two bytes, so there is no "trailing
+ * byte the length denies". The `0a` that read as a first record's odd leading byte is
+ * the band count, outside the records. And a record's second byte is its filter Q,
+ * not a constant `01` — every band of a ten-band curve just happens to use Q 1, so
+ * only a table with varying Q could have shown it, and `c9` did.
+ *
+ * ⚠ **The request's length is ONE byte and the reply's is two.** Every request on the
+ * wire is `aa a2 02 01 <id>`, five bytes; every reply's `[3]` has been `00`, which is
+ * what makes the two readings agree on everything captured so far.
  *
  * ⚠ **`aa 21 01 34` is EQ_PRESET and does NOT reach this.** It read `00` before
  * selecting JAZZ in the app and `00` after — it is the legacy one-byte preset field,
@@ -109,58 +121,86 @@ object JblEq {
     /** `ff` asks for whichever table is in use; the reply says which that was. */
     const val CURRENT: Byte = 0xff.toByte()
 
+    /** A user curve has ten bands. The other tables on this command do not. */
     const val BANDS = 10
 
-    /** The payload length of a curve frame — and the check that this IS one. */
-    private const val LEN: Byte = 0x74
+    private const val REQUEST: Byte = 0x01
+    private const val REPLY: Byte = 0x02
+    private const val WRITE: Byte = 0x00
 
-    private const val SET: Byte = 0x00
-    private const val STATUS: Byte = 0x02
-
-    /** Where the ten records start, counting from the `aa`. */
-    private const val RECORDS = 19
+    private const val LENGTH = 2
+    private const val OPERATOR = 4
+    private const val TABLE = 5
+    private const val BAND_COUNT = 19
+    private const val RECORDS = 20
     private const val RECORD = 10
 
+    /** The header bytes the 16-bit length does not count: `aa`, the command, itself. */
+    private const val FRAMING = 4
+
+    /** Offsets inside a record. */
+    private const val GAIN = 1
+    private const val FREQUENCY = 5
+
     fun get(table: Byte = CURRENT): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x02, 0x01, table))
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x02, REQUEST, table))
 
     /**
-     * Decode a curve frame, or null.
+     * Decode a ten-band user curve, or null.
      *
-     * ⚠ **The length byte is checked, not just the size.** The same `aa a2` command
-     * answers `c9` and `ca` with two other tables, 196 and 86 bytes of records in the
-     * same shape. The 196-byte one is *longer* than a curve, so a size-only guard
-     * passes it and decodes ten of someone else's records as the user's equaliser.
+     * ⚠ **The band count and the declared length are BOTH checked**, and neither is
+     * the size. The same `aa a2` answers `c9` with 18 bands and `ca` with 7 in this
+     * exact record shape, and `c9` is PERSONIFY_EQ: a hearing profile, nine bands per
+     * ear. It is LONGER than a curve, so a size-only guard reads ten bands of somebody
+     * else's audiogram as the equaliser. The length matters separately because this
+     * device glues an unsolicited frame onto a reply — a curve with a battery frame
+     * appended has the right low length byte and more than enough size.
      *
-     * ⚠ **`c9` is PERSONIFY_EQ — the hearing profile — and `ca` is DESIGN_EQ**, named
-     * from `EQSettings2` in the vendor APK on 2026-09-10. Both arrive at connect, so
-     * this guard is what keeps somebody's audiogram off the equaliser row.
-     *
-     * ⚠⚠ **`EQSettings`, the same package's other class, maps the same bytes
+     * ⚠⚠ **`EQSettings`, the same package's other class, maps the same ids
      * differently** — `PERSONIFY_EQ` is `0x66` there and `c9`/`ca` are absent. This
-     * device answers `c9` and `ca`, so `EQSettings2` is the one that describes it.
+     * device answers `c9` and `ca`, so `EQSettings2` is the class that describes it.
      */
     fun curve(frame: ByteArray): EqCurve? {
-        if (frame.size < RECORDS + BANDS * RECORD) return null
-        if (frame[0] != Bes.HEADER || frame[1] != CMD || frame[2] != LEN) return null
-        if (frame[4] != STATUS) return null
+        if (!isTable(frame) || bandCount(frame) != BANDS) return null
         return EqCurve(
-            table = frame[5].toInt() and 0xff,
+            table = frame[TABLE].toInt() and 0xff,
             bands =
                 (0 until BANDS).map {
                     val at = RECORDS + it * RECORD
-                    EqBand(hz = float(frame, at + 6).toInt(), gain = float(frame, at + 2))
+                    EqBand(
+                        hz = float(frame, at + FREQUENCY).toInt(),
+                        gain = float(frame, at + GAIN),
+                    )
                 },
         )
+    }
+
+    private fun bandCount(frame: ByteArray): Int = frame[BAND_COUNT].toInt() and 0xff
+
+    /**
+     * Whether [frame] is a table reply whose declared length AND band count both
+     * account for its size.
+     *
+     * ⚠ **Two independent counts, because either alone can agree by accident.** The
+     * length catches a glued or truncated read; the band count catches a frame of the
+     * right size that is not this record shape at all.
+     */
+    private fun isTable(frame: ByteArray): Boolean {
+        if (frame.size <= BAND_COUNT) return false
+        if (frame[0] != Bes.HEADER || frame[1] != CMD || frame[OPERATOR] != REPLY) return false
+        val declared =
+            (frame[LENGTH].toInt() and 0xff) or ((frame[LENGTH + 1].toInt() and 0xff) shl 8)
+        if (declared != frame.size - FRAMING) return false
+        return frame.size == RECORDS + bandCount(frame) * RECORD
     }
 
     /**
      * Build a write from the frame that was just read, changing only the gains.
      *
-     * ⚠ **A template rather than a constant, because thirteen of these bytes are not
-     * understood.** Composing a frame from scratch would mean writing down what they
-     * are, and the only evidence is that they were the same in every frame one unit
-     * emitted on one evening. Echoing them back is the same discipline as Sony's
+     * ⚠ **A template rather than a constant, even now that the header is named.**
+     * Knowing that `[6..9]` is a calibration float is not knowing what this unit does
+     * with a different one, and the only evidence for the values is that one unit sent
+     * the same ones all evening. Echoing them back is the same discipline as Sony's
      * `02 01 00`: carry what you cannot explain, and it cannot be carried wrong.
      *
      * Returns null if [read] is not a curve frame or [gains] is not [BANDS] long,
@@ -169,10 +209,10 @@ object JblEq {
     fun set(read: ByteArray, table: Int, gains: List<Float>): OutFrame? {
         if (curve(read) == null || gains.size != BANDS) return null
         val out = read.copyOf()
-        out[4] = SET
-        out[5] = table.toByte()
+        out[OPERATOR] = WRITE
+        out[TABLE] = table.toByte()
         for (i in 0 until BANDS) {
-            putFloat(out, RECORDS + i * RECORD + 2, gains[i])
+            putFloat(out, RECORDS + i * RECORD + GAIN, gains[i])
         }
         return OutFrame(out)
     }
@@ -188,29 +228,42 @@ object JblEq {
 val JBL_HZ = listOf(32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 
 /**
- * `EnumEqPresetIdx`, the SDK's name for the table id an `aa a2` frame carries.
+ * The table ids `EQSettings2` declares — the byte space this device answers in.
  *
- * ⚠ **Names only — the CURVES for seven of these have never been seen.** A write sends
- * the ten gains as well as the id, so this list cannot be turned into nine buttons:
- * [JBL_CURVES] still offers the two whose bytes were captured. The value of having it
- * is that a curve the owner set from the vendor app now renders as "Vocal" rather than
- * as "table 2", which is the difference between a number and a fact.
+ * ⚠⚠ **`EnumEqPresetIdx`, a different SDK in the same APK, numbers these differently
+ * from `04` up**, because it carries a `USER` entry that `EQSettings2` does not: it
+ * reads `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO`. This table said exactly that
+ * until 2026-09-11, so a Rock curve would have rendered as "User". `EQSettings2` wins
+ * for the reason it won over `EQSettings` on `c9`: it declares the ids this device has
+ * answered with, and `EQCmd`, which parses the frame, is its sibling.
  *
- * Trustworthy for the same reason the gesture tables are: the ordinal is the wire
- * value, and the two ids observed — `00` for the flat curve and `01` for the app's
- * JAZZ write — land exactly on OFF and JAZZ.
+ * ⚠ **Only `00` and `01` have been seen on the wire, and the two enums agree there**,
+ * so nothing measured separates them. The ground is which SDK owns the frame.
+ *
+ * ⚠ **Names only — no curve but `00` and `01` has been captured.** A write carries the
+ * ten gains as well as the id, so this cannot become a row of buttons; [JBL_CURVES]
+ * still offers the two whose bytes exist. What it buys is that a curve set from the
+ * vendor app renders as "Vocal" rather than "table 2".
  */
-val JBL_EQ_PRESETS =
-    listOf(
-        "Off",
-        "Jazz",
-        "Vocal",
-        "Bass",
-        "User",
-        "Rock",
-        "Piano",
-        "Club",
-        "Studio",
+val JBL_EQ_PRESETS: Map<Int, String> =
+    mapOf(
+        0x00 to "Off",
+        0x01 to "Jazz",
+        0x02 to "Vocal",
+        0x03 to "Bass",
+        0x04 to "Rock",
+        0x05 to "Piano",
+        0x06 to "Club",
+        0x07 to "Studio",
+        0x08 to "Extreme bass",
+        0x09 to "Extreme bass 2",
+        0x0a to "Diablo",
+        0x0b to "Rock 2",
+        0x0c to "Funk",
+        0xc8 to "Max preset",
+        0xc9 to "Personi-Fi",
+        0xca to "Design EQ",
+        0xe6 to "Customised",
     )
 
 /**
@@ -545,7 +598,7 @@ object JblLowVolumeEq {
  * never expresses.
  *
  * ⚠ The payload numbers are undecoded and look like DSP tuning. They are carried
- * whole, exactly as [JblEq.set] carries its thirteen unexplained bytes: what is
+ * whole, exactly as [JblEq.set] echoes a header it cannot re-derive: what is
  * settled is which frame means which state, which is all that driving needs.
  *
  * ⚠ **A tidy prediction was refuted here.** Audio's third value moves `96` → `e6` when

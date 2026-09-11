@@ -938,7 +938,7 @@ private fun SettingsSection(
             SettingLabel(
                 "Equaliser",
                 JBL_CURVES.firstOrNull { it.second == c }?.first
-                    ?: "custom · ${JBL_EQ_PRESETS.getOrNull(c.table) ?: "table ${c.table}"}",
+                    ?: "custom · ${JBL_EQ_PRESETS[c.table] ?: "table ${c.table}"}",
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

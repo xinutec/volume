@@ -219,6 +219,49 @@ class JblSettingsTest {
         assertNull(JblEq.curve(bytes(JblFrames.TABLE_C9)))
     }
 
+    /**
+     * A curve with an unsolicited battery frame glued on is rejected.
+     *
+     * ⚠ **This device really does glue frames** — [JblFrames.FEATURE_03_OFF_THEN_BATTERY]
+     * is one off the wire. The old guard checked the low length byte and the size
+     * floor, so a glued curve passed both and decoded as if nothing were appended. The
+     * declared length now has to account for the whole buffer.
+     */
+    @Test
+    fun `a curve with another frame glued on is not a curve`() {
+        val glued = flat + bytes("aa250d0100004646ffffffffffffffff")
+        assertEquals(0x74, glued[2].toInt() and 0xff)
+        assertNotNull(JblEq.curve(flat))
+        assertNull(JblEq.curve(glued))
+    }
+
+    /**
+     * A truncated read is rejected rather than half-decoded.
+     *
+     * The declared length still says 116 while 96 bytes remain, which is exactly what
+     * a short GATT read looks like before reassembly.
+     */
+    @Test
+    fun `a truncated curve is not a curve`() {
+        assertNull(JblEq.curve(flat.copyOf(100)))
+    }
+
+    /**
+     * `04` is Rock, and no id is "User".
+     *
+     * ⚠ **This pins an off-by-one that shipped.** `EnumEqPresetIdx`, a different SDK
+     * in the same APK, puts a `USER` at `04` and pushes Rock, Piano, Club and Studio
+     * one place up. `EQSettings2` — whose ids this device answers with, and whose
+     * sibling parses the frame — does not have it.
+     */
+    @Test
+    fun `the preset ids follow the enum this device answers in`() {
+        assertEquals("Rock", JBL_EQ_PRESETS[0x04])
+        assertEquals("Studio", JBL_EQ_PRESETS[0x07])
+        assertEquals("Personi-Fi", JBL_EQ_PRESETS[0xc9])
+        assertNull(JBL_EQ_PRESETS.entries.firstOrNull { it.value == "User" })
+    }
+
     @Test
     fun `a curve is not built from the wrong number of gains`() {
         assertNull(JblEq.set(flat, 0, List(5) { 0f }))
