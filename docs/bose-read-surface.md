@@ -1924,7 +1924,7 @@ REMOVE_DEVICE, which this repo already sends as `04 03 05 06 <address>`. So the 
 
     04 02 05 06 <6-byte address>
 
-✅ **Attested on 2026-08-28** (#935, `dea5222`) — `BoseDisconnect.frame()` ships with tests.
+✅ **Attested on 2026-08-28** (#935, `b04c3aa`) — `BoseDisconnect.frame()` ships with tests.
 ⚠ It is a frame builder only; no driver method and no button reach it.
 
 ✅ **First send on the QC35, 2026-08-30 21:49:58, and it CHANGES the reply story:**
