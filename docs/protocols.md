@@ -404,14 +404,21 @@ count and the frequency axis.
 at `−1.0`, where every other table reads `48` and `0.0`. Unexplained, and it is not on
 the serving path.
 
-⚠ **`ff` reported `00` throughout that capture** — the EQ actually in use was Off, not
-the Personi-Fi profile. So `c9` being present says the profile is STORED, not that it
-is applied.
+✅ **`ff` never answers `c9` — Personi-Fi is a separate stage, not a table selection.**
+Settled 2026-09-11 out of the same capture, after a first pass had filed this as needing
+the headphones. `aa a1 01 01` read back `aa a1 05 02 01 01 02 …` — key `01`, the enable,
+**on** — at 10:10, 10:12, 10:16, 10:20 and 10:30, and every `ff` inside that window
+answered `aa a2 74 00 02 00`: a ten-band curve, table Off. The 2026-08-17 capture agrees.
+So the equaliser row cannot go blank on a `c9`. The compensation is applied underneath
+whatever curve is selected, and the two are read with separate commands — which is what
+the vendor app does, asking `ff`, `c9` and `ca` one after another.
 
-⚠ **What this app does when a non-curve table is in use is still nothing.** `curve()`
-returns null for anything that is not ten bands, so if `ff` ever answers `c9` the
-equaliser row goes blank rather than saying "Personi-Fi". Needs the JBL to confirm
-`ff` can answer `c9` at all.
+⚠ **That is an observation on one unit, not a proof about the firmware.** What is
+measured is that enabled-with-a-stored-profile still reports a curve. A state where `ff`
+answers `c9` has not been shown impossible, only never seen in two captures.
+
+⚠ **So `c9` being present says the profile is STORED**, and `aa a1` key `01` says
+whether it is applied. Two different questions, two different commands.
 
 ⚠ **The named curves are the APP's**, as on the Bose and unlike Sony: selecting JAZZ
 sends ten numbers, not a name.
