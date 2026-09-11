@@ -32,9 +32,17 @@ object JblFrames {
             "0000fa4501010000804000007a4601"
 
     /**
-     * 20:35:50 — `aa a2 02 01 c9`, a longer table in the very same record shape.
+     * A `c9` table in the shape the device sends — **synthesised, not captured**.
      *
-     * ⚠ Kept because it is the frame a size-only guard decodes as an equaliser.
+     * ⚠ Kept because it is the frame a size-only guard decodes as an equaliser: 196
+     * bytes of records against a curve's 116, so "big enough" passes it.
+     *
+     * ⚠⚠ **The captured frame was here until 2026-09-11 and must not come back.**
+     * `c9` is PERSONIFY_EQ, so its gains are one person's hearing compensation, and
+     * this repo is public. Every byte below is fixed by the protocol — the 18 bands
+     * are 9 per ear on the test's own 250 Hz–12 kHz grid — and every gain is zero,
+     * which is what makes it safe to commit and still exactly what the guard must
+     * reject.
      */
     const val TABLE_C9 =
         "aaa2c40002c90000000030000000000000000012010000000000007a430101000000" +
