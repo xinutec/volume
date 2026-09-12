@@ -10,6 +10,7 @@
         ".dev-lint-baseline",
         "."
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "dev-lint (baselined)",
@@ -26,6 +27,7 @@
         "app/src/**/*.kt",
         "protocol/src/**/*.kt"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "ktlint",
@@ -42,6 +44,7 @@
         "--console=plain",
         ":protocol:test"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "protocol tests (no device)",
@@ -58,6 +61,7 @@
         "--console=plain",
         ":app:testDebugUnitTest"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "unit tests",
@@ -74,6 +78,7 @@
         "--console=plain",
         ":app:assembleDebug"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "assembleDebug",
@@ -90,6 +95,7 @@
         "--strict",
         "scripts/"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "scripts type-check",
@@ -105,6 +111,7 @@
         "gate.dhall",
         "gate.json"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "the table matches its Dhall",
