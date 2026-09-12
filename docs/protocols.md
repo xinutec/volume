@@ -1851,16 +1851,35 @@ that has already cost three wrong conclusions on this repo (Bose writes, the Fas
 greeting, Sony reads), and the Sony in particular returns a bare ACK one-packet-per-
 socket while the real data only arrives inside a session that acks the device's frames.
 
-What is actually established: the frame was admitted, went out on the wire verbatim, and
-no reply arrived **in that shape of exchange**. Candidates, none tested:
+Three exchanges were then run, and all three were silent:
 
-  * a session, not a one-shot — the Sony's shape, and the likeliest;
-  * a handshake first — the SDK's own connect flow is in
-    `com/jieli/bluetooth/impl/BluetoothSpp` and `BluetoothOperationImpl`, and
-    `d1 SETTINGS_COMMUNICATION_MTU` / `02 GET_TARGET_FEATURE_MAP` are both candidates
-    for what it opens with;
-  * the flags or the sequence number — `c0` wants a response, and `sn` may have to be
-    tracked rather than invented.
+```
+fe dc ba c0 03 00 01 01 ef                          sn only          ← nothing (3 s)
+fe dc ba c0 03 00 06 01 ff ff ff ff 00 ef           SDK params       ← nothing (3 s)
+…the same, sn 1 then sn 2, on ONE held socket       seq              ← nothing, twice
+```
+
+⚠ **The second frame is the SDK's own.** `GetTargetInfoParam.getParamData` is a 4-byte
+big-endian mask then a platform byte, and `buildGetTargetInfoCmdForAll` passes mask
+`-1` with platform `0` (Android) — so `ff ff ff ff 00` is what the vendor SDK would have
+sent, not a shape invented here. The first frame, carrying only a sequence number, was
+under-parameterised and its silence says little.
+
+⚠ **The third tests the one-shot hypothesis and weakens it.** Two reads on one socket
+that stayed open drew nothing either, so the Sony's shape — where data only arrives
+inside a held session — is not the explanation on its own. It is not eliminated: the
+Sony's session also requires acking the device's own frames, and this device sends none
+to ack.
+
+⚪ **The reading that now fits best, and is still not proven: nothing is listening.**
+`JL_SPP` in the SDP record is the Jieli SDK's default service name and says the stack is
+Jieli's; it does not say the RCSP service is running. A socket that accepts is the
+RFCOMM layer answering, and an application that never reads looks exactly like this.
+
+Untested, in rough order of cost: another read opcode (`02`, `07`, `d9`) to tell "this
+command is unsupported" from "nothing answers"; `d1 SETTINGS_COMMUNICATION_MTU` first,
+in case the SDK opens with it; and the SDK's own connect flow in
+`com/jieli/bluetooth/impl/BluetoothSpp` read properly rather than skimmed.
 
 ✅ **The deny-list was proven live on the device path first.** A truncated
 `fe dc ba c0 22 00 01` came back `⛔ REFUSED / RCSP 22 / FORMAT_DEVICE — erases the
