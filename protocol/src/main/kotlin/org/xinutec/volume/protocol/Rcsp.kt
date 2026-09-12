@@ -72,9 +72,17 @@ object Rcsp {
         return out
     }
 
-    /** The opcode a frame carries, or null if it is not one of these frames. */
+    /**
+     * The opcode a frame carries, or null if it is not one of these frames.
+     *
+     * ⚠ **Recognition is the head and the opcode byte, NOT a whole valid frame.**
+     * Requiring [OVERHEAD] here made a truncated RCSP frame fall through [Hazards]'
+     * RCSP arm into the Bose one — caught 2026-09-12 by a control that sent a short
+     * `fe dc ba … 22` and watched it be described as "Bose block fe". A deny-list that
+     * a malformed frame walks past is not one.
+     */
     fun opcode(frame: ByteArray): Int? {
-        if (frame.size < OVERHEAD) return null
+        if (frame.size <= OPCODE) return null
         if (!(frame[0] == HEAD[0] && frame[1] == HEAD[1] && frame[2] == HEAD[2])) return null
         return frame[OPCODE].toInt() and 0xff
     }

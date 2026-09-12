@@ -62,6 +62,21 @@ class RcspTest {
         assertNull(Rcsp.opcode(bytes("fedc")))
     }
 
+    /**
+     * ⚠ **A TRUNCATED destructive frame is still refused.**
+     *
+     * The first version required a whole valid frame to recognise one, so seven bytes
+     * of `fe dc ba … 22` fell through to the Bose arm and was described as "Bose block
+     * fe". It would not have driven the device, but a guard that a malformed frame
+     * walks past is not a guard.
+     */
+    @Test
+    fun `a truncated destructive frame is still refused`() {
+        val short = Rcsp.command(RcspCommand.FORMAT_DEVICE, 0).copyOf(7)
+        assertEquals(RcspCommand.FORMAT_DEVICE, Rcsp.opcode(short))
+        assertNotNull(Hazards.check(Channels.SPP, short, SonyTable.TABLE_1))
+    }
+
     // ---- the deny-list, which exists before anything has been sent ----------
 
     /**
