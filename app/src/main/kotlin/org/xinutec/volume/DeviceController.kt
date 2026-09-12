@@ -163,7 +163,14 @@ class DeviceController(
             // connects or disconnects, and a rebuild would blink every card back to
             // "connecting" and re-read what it already knew.
             emit(
-                screen.reconciled(listed.map { it.address to (it.name ?: "(unnamed)") }, whenEmpty),
+                screen.reconciled(
+                    listed.map { it.address to (it.name ?: "(unnamed)") },
+                    whenEmpty,
+                    // ⚠ Recomputed every refresh rather than cached: the active output
+                    // moves when anything connects, and a card offering a volume that
+                    // belongs to another device is worse than offering none.
+                    Active.address(context),
+                ),
             )
             // Anything that went away keeps no socket open.
             Sessions.held().filterNot { a -> listed.any { it.address == a } }.forEach(::drop)

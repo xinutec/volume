@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -649,6 +651,12 @@ private fun DeviceRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
+                    // ⚠ The bound is on the CARD, not on this state — a device with no
+                    // control channel that is NOT the audio output has no volume of its
+                    // own to move. See `DeviceCard.ownsMediaVolume`.
+                    if (card.ownsMediaVolume) {
+                        MediaVolumeRow()
+                    }
                 }
 
                 is DeviceState.Ready -> {
@@ -1869,6 +1877,47 @@ private fun SettingRow(
         if (writable) {
             Switch(checked = checked, onCheckedChange = onChange)
         }
+    }
+}
+
+/**
+ * A volume slider for a device the app cannot talk to.
+ *
+ * ⚠ **This moves the PHONE's media volume, which for an absolute-volume sink is the
+ * device's own.** The headset's buttons move the same number, so the row is re-read on
+ * every recomposition rather than held — a level cached here would drift the moment
+ * somebody touched the hardware, and this is precisely the kind of device whose owner
+ * reaches for the hardware.
+ *
+ * ⚠ The slider steps in whole stream steps (25 on a Pixel 9), so the number shown is
+ * one the device can actually sit at rather than a percentage it will round away.
+ */
+@Composable
+private fun MediaVolumeRow() {
+    val context = LocalContext.current
+    val steps = remember { MediaVolume.steps(context) }
+    var percent by remember { mutableIntStateOf(MediaVolume.percent(context) ?: 0) }
+    if (steps <= 0) return
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "Volume",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.weight(0.3f),
+        )
+        Slider(
+            value = percent.toFloat(),
+            onValueChange = {
+                MediaVolume.set(context, it.roundToInt())
+                percent = MediaVolume.percent(context) ?: it.roundToInt()
+            },
+            // ⚠ **Continuous, though the stream is stepped.** `steps` here would draw a
+            // tick per stream step — 25 dots across the track on a Pixel 9, beside the
+            // clean slider the pair card uses. The value is re-read from the stream
+            // after each write, so it still settles on a level the device can hold.
+            valueRange = 0f..100f,
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+        )
+        Text("$percent%", style = MaterialTheme.typography.bodyMedium)
     }
 }
 

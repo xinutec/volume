@@ -37,7 +37,31 @@ data class DeviceCard(
      * had subscribed to hear it.
      */
     val asking: String? = null,
+    /**
+     * This device is where the phone's audio is actually going.
+     *
+     * ⚠ Kept per card rather than as one address on the screen, because what it
+     * changes is what a card can OFFER — see [ownsMediaVolume].
+     */
+    val activeOutput: Boolean = false,
 ) {
+    /**
+     * The phone's media volume IS this device's volume, so a slider here is real.
+     *
+     * ⚠ **The condition is "no control channel AND the audio is going here", and both
+     * halves matter.** A device with a driver has its own volume commands and should
+     * use them. A device that is not the active output would have its slider move a
+     * level belonging to something else, which is the same class of bug as a one-tap
+     * tile changing the ANC of the pair that is not in your ears.
+     *
+     * ✅ Measured on a NewPie 32, 2026-09-12: `dumpsys audio` reports
+     * `mAvrcpAbsVolSupported: true`, and its own volume buttons walk the phone's
+     * AVRCP volume `2 → 25` and back. Absolute volume means the two numbers are one
+     * number, in both directions — which is why this is a control and not a guess.
+     */
+    val ownsMediaVolume: Boolean
+        get() = activeOutput && state is DeviceState.Unavailable
+
     /** Modes to offer, empty until we know what it is. */
     val offer: List<AncMode>
         get() = (state as? DeviceState.Ready)?.modes.orEmpty()
@@ -695,11 +719,16 @@ data class Screen(
      *   that the caller, which is the only thing that knows whether the radio is
      *   off or the room is simply quiet, cannot decline to answer.
      */
-    fun reconciled(present: List<Pair<String, String>>, whenEmpty: Emptiness): Screen {
+    fun reconciled(
+        present: List<Pair<String, String>>,
+        whenEmpty: Emptiness,
+        active: String? = null,
+    ): Screen {
         val known = cards.associateBy { it.address }
         return Screen(
             present.map { (address, name) ->
-                known[address] ?: DeviceCard(name, address, DeviceState.Idle)
+                (known[address] ?: DeviceCard(name, address, DeviceState.Idle))
+                    .copy(activeOutput = address == active)
             },
             emptiness = whenEmpty.takeIf { present.isEmpty() },
         )

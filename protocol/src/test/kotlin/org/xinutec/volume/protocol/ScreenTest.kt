@@ -9,6 +9,47 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ScreenTest {
+    /**
+     * A device with no control channel offers the media volume — but only when the
+     * audio is going to it.
+     *
+     * ⚠ **Both halves, because either alone is a bug.** Without the active check the
+     * slider moves a level belonging to whatever IS playing, which the owner cannot see
+     * from this card. Without the state check a driveable pair would get a second,
+     * competing volume beside its own.
+     */
+    @Test
+    fun `only an undriveable active device owns the media volume`() {
+        val here = DeviceCard("NewPie 32", "aa", DeviceState.Unavailable("no control channel"))
+        assertFalse(here.ownsMediaVolume)
+        assertTrue(here.copy(activeOutput = true).ownsMediaVolume)
+
+        val driveable = DeviceCard("XM4", "bb", DeviceState.Ready("XM4", emptyList(), null))
+        assertFalse(driveable.copy(activeOutput = true).ownsMediaVolume)
+
+        val idle = DeviceCard("QC45", "cc", DeviceState.Idle)
+        assertFalse(idle.copy(activeOutput = true).ownsMediaVolume)
+    }
+
+    /** Reconciling marks exactly the active address, and unmarks the rest. */
+    @Test
+    fun `reconciling moves the active flag`() {
+        val s =
+            Screen(emptyList(), emptiness = Emptiness.LOOKING)
+                .reconciled(listOf("aa" to "One", "bb" to "Two"), Emptiness.NONE_CONNECTED, "bb")
+        assertFalse(s.cards.first { it.address == "aa" }.activeOutput)
+        assertTrue(s.cards.first { it.address == "bb" }.activeOutput)
+
+        val moved =
+            s.reconciled(
+                listOf("aa" to "One", "bb" to "Two"),
+                Emptiness.NONE_CONNECTED,
+                "aa",
+            )
+        assertTrue(moved.cards.first { it.address == "aa" }.activeOutput)
+        assertFalse(moved.cards.first { it.address == "bb" }.activeOutput)
+    }
+
     private val screen =
         Screen(
             listOf(
