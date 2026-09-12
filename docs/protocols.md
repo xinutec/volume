@@ -1871,15 +1871,32 @@ inside a held session — is not the explanation on its own. It is not eliminate
 Sony's session also requires acking the device's own frames, and this device sends none
 to ack.
 
+⚠⚠ **The second frame is not merely well-formed — it is the SDK's OPENING command.**
+`RcspOpImpl` issues exactly one builder, `buildGetDeviceInfoCmdForAll()`, and that is
+`GetTargetInfoCmd` with mask `-1` and the platform left at its default `0`. So
+`fe dc ba c0 03 00 06 <sn> ff ff ff ff 00 ef` is the first thing Jieli's own app puts on
+a connection, byte for byte, and this device answered it with silence. There is no
+handshake in front of it to have missed.
+
 ⚪ **The reading that now fits best, and is still not proven: nothing is listening.**
 `JL_SPP` in the SDP record is the Jieli SDK's default service name and says the stack is
 Jieli's; it does not say the RCSP service is running. A socket that accepts is the
 RFCOMM layer answering, and an application that never reads looks exactly like this.
 
-Untested, in rough order of cost: another read opcode (`02`, `07`, `d9`) to tell "this
-command is unsupported" from "nothing answers"; `d1 SETTINGS_COMMUNICATION_MTU` first,
-in case the SDK opens with it; and the SDK's own connect flow in
-`com/jieli/bluetooth/impl/BluetoothSpp` read properly rather than skimmed.
+⛔ **Stopped here deliberately.** The next reads — `07 GET_SYS_INFO` wants a function
+byte then a 4-byte mask, `02` and `d9` similar — all need a parameter value nothing
+names, and picking one is inventing bytes for an undocumented device, which is the line
+this repo does not cross. The SDK's opening command answering nothing is a better test
+than three half-guessed ones.
+
+**So, for the original question — can this app support a NewPie 32?** Not through RCSP,
+on this evidence. What is left is what Android already exposes: it is A2DP, AVRCP and
+HFP, it is already the phone's active device, and its volume is AVRCP's. There is no
+vendor feature surface to drive, which is a different answer from the other five here
+and an honest one.
+
+⚪ **What would reopen it:** a firmware or model with RCSP enabled, a Jieli tool that
+talks to *this* unit, or a capture of anything else successfully driving it.
 
 ✅ **The deny-list was proven live on the device path first.** A truncated
 `fe dc ba c0 22 00 01` came back `⛔ REFUSED / RCSP 22 / FORMAT_DEVICE — erases the
