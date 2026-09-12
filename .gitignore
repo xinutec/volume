@@ -8,3 +8,6 @@ local.properties
 *.keystore
 captures/
 .cxx/
+
+# scripts/ is importable now, so running its self-test leaves bytecode
+__pycache__/
