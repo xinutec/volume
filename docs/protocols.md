@@ -1942,9 +1942,9 @@ closes the connection. The RFCOMM server accepts and holds; nothing above it spe
 device's own buttons. Nothing arrived.** This is the one probe that does not ask the
 device a question — a running RCSP stack NOTIFIES key and mode changes, so a device
 demonstrably doing something while its control channel stays silent is about as close
-to settled as this gets without a working app to capture. ⚠ Its force rests on the
-device having actually been operated inside the window; that part is Pippijn's report,
-not something the log can show.
+to settled as this gets without a working app to capture. ✅ **Pippijn confirms he pressed device buttons inside the window** — which is the
+precondition the log cannot show, and it holds. The device was being operated and its
+control channel said nothing.
 
 ⚠ **It reports no battery either.** Nothing in `bluetooth_manager` carries a battery
 level for it — no HFP `AT+IPHONEACCEV`, no metadata — so even the one vendor-independent
