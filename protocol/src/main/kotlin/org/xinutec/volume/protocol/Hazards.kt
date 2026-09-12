@@ -142,10 +142,65 @@ object Hazards {
     ): Refusal? =
         when {
             payload.isEmpty() -> null
+
+            // ⚠ **Keyed on the PAYLOAD, and ahead of the channel arms on purpose.**
+            // RCSP rides SPP, which is also Bose's, and the NewPie 32 is detected as
+            // `UNKNOWN / NONE` — so an arm keyed on the detected protocol would never
+            // run for the one device this exists to protect. `fe dc ba` is its own
+            // marker and no other protocol here opens with it.
+            Rcsp.opcode(payload) != null -> rcsp(payload)
+
             uuid.equals(Channels.SONY, ignoreCase = true) -> sony(payload, table)
+
             uuid.equals(Channels.SPP, ignoreCase = true) -> bose(payload, protocol)
+
             else -> bes(payload)
         }
+
+    /**
+     * Jieli RCSP — the destructive opcodes, refused by name.
+     *
+     * ⚠ **Written before anything was ever sent to an RCSP device**, which is the only
+     * order in which a deny-list is worth anything. `com/jieli/bluetooth/constant/
+     * Command.smali` names all of these; the table has ~60 entries and the rest are
+     * unread, so this is a floor and not a licence to sweep the remainder.
+     *
+     * ⚠ **`22` FORMAT_DEVICE is this protocol's `aa 95`.** The OTA block is worse than
+     * a reset: `e3` enters update mode, and a part left in it with no firmware to
+     * follow is not something a read-back recovers.
+     */
+    private fun rcsp(payload: ByteArray): Refusal? {
+        val opcode = Rcsp.opcode(payload) ?: return null
+        val what = "RCSP %02x".format(opcode)
+        if (opcode in RcspCommand.OTA_FIRST..RcspCommand.OTA_LAST) {
+            return Refusal(what, "firmware update — enters or drives OTA, and `e3` leaves it there")
+        }
+        return when (opcode) {
+            RcspCommand.FORMAT_DEVICE -> {
+                Refusal(what, "FORMAT_DEVICE — erases the device's storage")
+            }
+
+            RcspCommand.REBOOT_DEVICE -> {
+                Refusal(what, "REBOOT_DEVICE — drops the link and every unsaved setting")
+            }
+
+            RcspCommand.EXTERNAL_FLASH_IO_CTRL -> {
+                Refusal(what, "raw flash IO — writes past anything this repo can read back")
+            }
+
+            RcspCommand.FILE_BROWSE_DELETE, RcspCommand.DELETE_FILE_BY_NAME -> {
+                Refusal(what, "deletes a file on the device")
+            }
+
+            RcspCommand.DISCONNECT_CLASSIC_BLUETOOTH -> {
+                Refusal(what, "disconnects the classic link — ends the session mid-exchange")
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
 
     private fun sony(payload: ByteArray, table: SonyTable): Refusal? {
         val table2 = table == SonyTable.TABLE_2

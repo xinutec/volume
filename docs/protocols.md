@@ -1799,6 +1799,48 @@ protocol with no name it denies nothing. ⚠ Jieli parts carry **OTA firmware up
 SPP**, so the unknown byte here is not merely a setting; it is the `aa 95` of this
 device and it has not been located.
 
+### ✅ RCSP, read out of the JLab APK — 2026-09-12
+
+**The instrument was already on disk.** `~/.cache/volume-apks/jlab-smali` carries
+`com/jieli/bluetooth` (RCSP), `com/jieli/jl_bt_ota` and `com/jieli/filebrowse` — 1338
+smali files. The JLab app is a rebranded QCY one bundling six chip SDKs, and Jieli's is
+one of the six, so the chip's own SDK was here before the device was.
+
+```
+fe dc ba <flags> <opcode> <len: 2 BE> <param…> ef
+         flags: 80 = command, |40 = a response is wanted
+         param[0] = the sequence number, on a command
+```
+
+From `ParseHelper.packSendBasePacket`, which sizes the whole frame at `paramLen + 8` —
+three head bytes, flags, opcode, two length bytes, the param and the tail. **There is no
+checksum**; nothing is left over. `CHexConver.int2byte2` writes the length high byte
+first.
+
+⚠ **The four framing constants are SIGNED**, the same trap as the Sony tables:
+`PREFIX_FLAG_FIRST` reads `-0x2t` and is `fe`, `SECOND` is `-0x24t` = `dc`, `THIRD` is
+`-0x46t` = `ba`, `END_FLAG` is `-0x11t` = `ef`. Read unsigned, none of them is findable.
+
+⚠ **The sequence number is inside the PARAM block, not the header** — `param[0]`, and
+the length counts it. A frame sized as though it were a header field puts every later
+byte one place out.
+
+⛔ **The deny-list went in BEFORE anything was sent**, which is the only order in which
+one is worth having. `Hazards` refuses `22` FORMAT_DEVICE, `e7` REBOOT_DEVICE, `1a`
+EXTERNAL_FLASH_IO_CTRL, `1f`/`23` the deletes, `06` DISCONNECT_CLASSIC_BLUETOOTH and the
+whole `e1`–`e8` OTA block, each by name. ⚠ **`22` is this protocol's `aa 95`**, and the
+OTA block is worse than a reset: `e3` enters update mode and a part left there with no
+firmware to follow is not recovered by reading anything back.
+
+⚠ **The check is keyed on the payload's own `fe dc ba`, not on a detected protocol.**
+RCSP rides SPP, which is also Bose's, and this device detects as `UNKNOWN / NONE` — an
+arm that waited for detection would never run for the one device it exists to protect.
+
+⚠ **Still unanswered: whether this unit speaks RCSP at all.** The SDP names prove a
+Jieli stack; the silent SPP is consistent with RCSP, which waits to be asked. The next
+step is one bounded read — `03` GET_TARGET_INFO — with a read-back. Until that answers,
+everything above describes the SDK rather than the device.
+
 ⚠ Identification as a Newpie NP-S2201 is **Pippijn's recollection and unconfirmed** —
 the name searches poorly, the class byte says wearable headset rather than hands-free,
 and cheap devices misreport class routinely. Nothing above depends on the model name.
