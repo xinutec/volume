@@ -1883,11 +1883,26 @@ handshake in front of it to have missed.
 Jieli's; it does not say the RCSP service is running. A socket that accepts is the
 RFCOMM layer answering, and an application that never reads looks exactly like this.
 
-⛔ **Stopped here deliberately.** The next reads — `07 GET_SYS_INFO` wants a function
-byte then a 4-byte mask, `02` and `d9` similar — all need a parameter value nothing
-names, and picking one is inventing bytes for an undocumented device, which is the line
-this repo does not cross. The SDK's opening command answering nothing is a better test
-than three half-guessed ones.
+✅ **A second read, fully determined, is silent too.** `GetTargetFeatureMapCmd`'s
+constructor takes NO arguments — `02` with nothing but a sequence number — so
+`fe dc ba c0 02 00 01 03 ef` invents nothing at all. It drew nothing in 3 s.
+
+⚠ **This page briefly said that read could not be constructed** — that the remaining
+opcodes "need a parameter value nothing names". That was an absence asserted without
+looking: `com/jieli/bluetooth/constant/AttrAndFunCode` names the attribute and function
+codes, and `02` needs no parameter whatsoever. ⚠ The reasoning was wrong in a second way
+too: "do not invent bytes for an undocumented device" is the rule for an UNKNOWN opcode
+space, and the opcode space stopped being unknown when the table was read. A read
+opcode with an uncertain parameter is not the hazard a destructive opcode is, and the
+destructive ones are denied by name.
+
+⚠ **The insecure-socket axis is closed without a test.** `Probe` tries secure first and
+falls back; the secure socket CONNECTED, so the RFCOMM server accepted on that channel.
+A device serving only the insecure variant would have refused, not accepted and gone
+quiet.
+
+So: four well-formed exchanges, two of them byte-for-byte what the SDK sends, one of
+them needing no parameters at all, and a held socket. All silent.
 
 **So, for the original question — can this app support a NewPie 32?** Not through RCSP,
 on this evidence. What is left is what Android already exposes: it is A2DP, AVRCP and
