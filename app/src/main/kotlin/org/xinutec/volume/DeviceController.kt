@@ -1415,11 +1415,20 @@ class DeviceController(
     }
 
     /**
-     * ⚠ **The active output is re-stamped on every state change, not just on
-     * [refresh].** Reconciling happens on the connect broadcast, which is before the
-     * audio framework has the A2DP output — see `Screen.marking`. A state change lands
-     * a second or two later, which is exactly when the answer has become available.
+     * Re-stamp which card owns the media volume, from the audio framework's own event.
+     *
+     * ⚠⚠ **Hanging this off state changes was wrong, and the two fixes of 2026-09-12
+     * collided to prove it.** The first re-stamped on every [update]; the second
+     * stopped re-probing a [DeviceState.NoControl] device, which removed its state
+     * changes entirely. So when the other pair disconnected, the card that HAD become
+     * the output never learned it, and showed no volume row until the app restarted.
+     *
+     * ⚠ "Which device owns the media volume" is an audio-framework question, and
+     * `AudioDeviceCallback` is its event — it fires when outputs appear and disappear,
+     * which is the fact itself rather than a proxy for it arriving late.
      */
+    fun outputsChanged() = work.execute { emit(screen.marking(Active.address(context))) }
+
     private fun update(address: String, state: DeviceState) =
         emit(screen.with(address, state).marking(Active.address(context)))
 

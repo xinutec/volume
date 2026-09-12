@@ -8,6 +8,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
@@ -193,6 +196,10 @@ class VolumeActivity : ComponentActivity() {
                 addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
             }
         registerReceiver(links, filter)
+        // ⚠ **The audio framework's own event, not a Bluetooth one.** A2DP connect
+        // fires before the output list has moved, so the card that becomes the output
+        // learns it here — see `DeviceController.outputsChanged`.
+        getSystemService(AudioManager::class.java)?.registerAudioDeviceCallback(outputs, null)
         control.refresh()
         thoth.start()
     }
@@ -210,6 +217,9 @@ class VolumeActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         runCatching { unregisterReceiver(links) }
+        runCatching {
+            getSystemService(AudioManager::class.java)?.unregisterAudioDeviceCallback(outputs)
+        }
         control.release()
         thoth.stop()
     }
@@ -270,6 +280,23 @@ class VolumeActivity : ComponentActivity() {
                 thoth.pushCabinet(cabinet, percent / 100.0)
 
             override fun setHost(host: String) = thoth.setHost(host)
+        }
+
+    /**
+     * The audio framework's outputs changed, so which card owns the media volume may
+     * have changed with them.
+     *
+     * ⚠ **Both halves fire.** A pair disconnecting removes an output and promotes
+     * another; the promoted one gets no Bluetooth broadcast of its own, which is how a
+     * NewPie 32 sat there with no volume row after a JBL dropped on 2026-09-12.
+     */
+    private val outputs =
+        object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>?) =
+                control.outputsChanged()
+
+            override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>?) =
+                control.outputsChanged()
         }
 
     private val links =
