@@ -1938,6 +1938,18 @@ silence in answer to a good one.
 ⚠ **The 40-second hold adds a second fact**: the device neither volunteers anything nor
 closes the connection. The RFCOMM server accepts and holds; nothing above it speaks.
 
+⚪ **The passive test, 2026-09-12 23:04: socket held 60 s while Pippijn pressed the
+device's own buttons. Nothing arrived.** This is the one probe that does not ask the
+device a question — a running RCSP stack NOTIFIES key and mode changes, so a device
+demonstrably doing something while its control channel stays silent is about as close
+to settled as this gets without a working app to capture. ⚠ Its force rests on the
+device having actually been operated inside the window; that part is Pippijn's report,
+not something the log can show.
+
+⚠ **It reports no battery either.** Nothing in `bluetooth_manager` carries a battery
+level for it — no HFP `AT+IPHONEACCEV`, no metadata — so even the one vendor-independent
+extra that A2DP/HFP devices commonly give is absent here.
+
 ⚠ **One carve-out kept despite the relaxed bar: the OTA block `e1`–`e8`.** "Repaired
 easily" covers a reset or a lost setting; a part sitting in firmware-update mode with
 nothing to follow is a different category, and it was not asked for by name.
