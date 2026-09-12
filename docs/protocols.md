@@ -1744,6 +1744,7 @@ entirely**, so here they are in one place:
 | Sony WH-1000XM4 | `com.sony.songpal.mdr` | Sony \| **Sound Connect** (was Headphones Connect) |
 | JBL Tour One M2 | `jbl.stc.com` | JBL Headphones |
 | JLab JBuds Sport ANC 4 | `com.jlab.app` | JLab |
+| NewPie 32 | **none exists** | — see below |
 
 ⚠ **Two packages per vendor, and the wrong one looks plausible.** `com.bose.monet`
 drives the QC35 and *will not* see the QC45; `com.harman.ble.jbllink` is JBL's
@@ -1755,6 +1756,52 @@ can do, and walking their screens is how every parity table above was built. **C
 with them is NOT a design goal**: nobody runs them, so their presence must not justify a
 trade-off; see `Leases`. Keep the APKs (`~/.cache/volume-apks`) too — they are the reference
 for every byte here.
+
+## ⚪ NewPie 32 — a Jieli device, and the first here with no vendor app
+
+**Identified 2026-09-12** from its own SDP record, which names the stack: `JL_SPP`,
+`JL_HFP`, `JL_A2DP`. **JL is Jieli** (JieLi Technology), the SoC vendor whose AC69xx /
+AC70xx / AC80xx parts are in a large share of inexpensive Bluetooth audio. The names are
+the Jieli SDK's defaults, not a brand's choice.
+
+✅ **The record is this device's and not a neighbour's.** In the 15 kB of snoop log
+around the SDP exchange carrying `JL_SPP`, `C1:43:68:08:F7:3D` appears 16 times and the
+XM4, the Revolve and both Khonsus appear **zero** times. Capture:
+`~/.cache/volume-captures/2026-09-12-newpie`.
+
+```
+C1:43:68:08:F7:3D   NewPie 32   class 0x240404 (A/V, minor 01 = wearable headset)
+  00001101  SPP        ← accepts a connection, and says NOTHING on connect
+  0000110b  A2DP sink
+  0000110e  AVRCP
+  0000111e  handsfree
+```
+
+✅ **SPP is a real channel, and it does not greet.** `probe.sh raw <mac> 00001101` with
+no payload connects (`✓ connected (secure socket)`) and draws nothing in 3 s. Worth
+stating because the opposite cost three wrong conclusions here: a device that talks on
+connect answers a question nobody asked. This one does not, so everything it says will
+be a reply.
+
+⚠ **Its address is not an assigned one.** `C1` = `1100 0001`, and the low bit is the
+I/G flag, which no IEEE device address sets. There is no OUI to look up; the chipset had
+to come from SDP.
+
+⚠⚠ **There is NO vendor app, which removes the instrument every other device here was
+decoded with.** ⚠ **What replaces it is the JLab's route, not guesswork**: that one was
+a rebranded QCY app bundling six chip SDKs, and the answer came from the CHIP's SDK
+rather than the brand's. So the next step is a generic Jieli tool or SDK to read a
+command table out of — never bytes invented against the device.
+
+⛔ **Nothing has been sent to it and nothing should be until that table exists.**
+`Hazards` denies by name, per protocol — `aa 95` on BES, `04 07` on Sony — and for a
+protocol with no name it denies nothing. ⚠ Jieli parts carry **OTA firmware update over
+SPP**, so the unknown byte here is not merely a setting; it is the `aa 95` of this
+device and it has not been located.
+
+⚠ Identification as a Newpie NP-S2201 is **Pippijn's recollection and unconfirmed** —
+the name searches poorly, the class byte says wearable headset rather than hands-free,
+and cheap devices misreport class routinely. Nothing above depends on the model name.
 
 ## Capturing
 
