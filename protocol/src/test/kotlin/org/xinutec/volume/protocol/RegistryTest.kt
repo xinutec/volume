@@ -136,12 +136,12 @@ class RegistryTest {
     fun `a renamed bose is identified by a read`() {
         // The QC35 answers 01 06 with a Status frame carrying its ANC value.
         val q35 = Replay(wake, "01 06 01 00" to "01 06 03 02 00 0b")
-        assertSame(Drivers.BoseQc35, Registry.identifyBose(q35))
+        assertSame(Drivers.BoseQc35, (Registry.identifyBose(q35) as BoseIdentity.Known).driver)
         q35.assertDrained()
 
         // The QC45 refuses it: operator 04, "function not supported".
         val q45 = Replay(wake, "01 06 01 00" to "01 06 04 01 04")
-        assertSame(Drivers.BoseQc45, Registry.identifyBose(q45))
+        assertSame(Drivers.BoseQc45, (Registry.identifyBose(q45) as BoseIdentity.Known).driver)
         q45.assertDrained()
     }
 
@@ -154,10 +154,25 @@ class RegistryTest {
         assertEquals(listOf("00 01 01 00", "01 06 01 00"), t.sent)
     }
 
+    /**
+     * ⚠⚠ **This test used to assert both of these were the same outcome**, and the
+     * screen printed "it answered 01 06 in neither shape" for both. One of them
+     * answered nothing. See [BoseIdentity].
+     */
     @Test
-    fun `an answer that settles nothing is reported as such`() {
-        assertNull(Registry.identifyBose(Replay(wake, "01 06 01 00" to "")))
-        assertNull(Registry.identifyBose(Replay(wake, "01 06 01 00" to "01 06 07 00")))
+    fun `silence is not an answer of the wrong shape`() {
+        val quiet = Registry.identifyBose(Replay(wake, "01 06 01 00" to ""))
+        assertEquals(BoseIdentity.Silent(0), quiet)
+
+        val odd = Registry.identifyBose(Replay(wake, "01 06 01 00" to "01 06 07 00"))
+        assertTrue(odd is BoseIdentity.Unexpected)
+    }
+
+    /** A reply too short to carry an operator byte is silence, not a shape. */
+    @Test
+    fun `a reply with no operator byte is silence`() {
+        val stub = Registry.identifyBose(Replay(wake, "01 06 01 00" to "01 06"))
+        assertEquals(BoseIdentity.Silent(2), stub)
     }
 
     @Test

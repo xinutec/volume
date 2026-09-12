@@ -185,18 +185,46 @@ object Registry {
      * rather than pick one, because the two tables disagree about what `01 06`
      * even means.
      */
-    fun identifyBose(t: Transport): AncDriver? {
+    fun identifyBose(t: Transport): BoseIdentity {
         wakeBose(t)
         val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00)))
-        val operator = r.getOrNull(2) ?: return null
+        val operator = r.getOrNull(2) ?: return BoseIdentity.Silent(r.size)
         return when (operator) {
             // 04 is the Error operator: the function is not on this model.
-            0x04.toByte() -> Drivers.BoseQc45
+            0x04.toByte() -> BoseIdentity.Known(Drivers.BoseQc45, "QC45")
 
             // 03 is Status: it answered with a value, so the function exists.
-            0x03.toByte() -> Drivers.BoseQc35
+            0x03.toByte() -> BoseIdentity.Known(Drivers.BoseQc35, "QC35")
 
-            else -> null
+            else -> BoseIdentity.Unexpected(r)
         }
     }
+}
+
+/**
+ * What `01 06` produced, which is THREE outcomes and was two.
+ *
+ * ⚠⚠ **"It answered in neither shape" was printed for SILENCE.** `identifyBose`
+ * returned null both when the operator byte was unrecognised and when there was no
+ * reply to take one from, and the screen's one sentence claimed an answer either way.
+ * On 2026-09-12 that sentence sat under a device which — measured eight different ways
+ * — never answers anything at all, and it was convincing enough to briefly overturn the
+ * evening's conclusion. A device that says nothing and a device that says something
+ * unexpected are different facts about it, and only one of them is worth probing again.
+ */
+sealed interface BoseIdentity {
+    data class Known(
+        val driver: AncDriver,
+        val model: String,
+    ) : BoseIdentity
+
+    /** It replied, and the operator byte was neither Status nor Error. */
+    data class Unexpected(
+        val reply: ByteArray,
+    ) : BoseIdentity
+
+    /** Nothing came back — [bytes] is what arrived, 0 when the read timed out empty. */
+    data class Silent(
+        val bytes: Int,
+    ) : BoseIdentity
 }

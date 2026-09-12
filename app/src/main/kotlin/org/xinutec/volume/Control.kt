@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import org.xinutec.volume.protocol.BoseFrame
+import org.xinutec.volume.protocol.BoseIdentity
 import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.Drivers
@@ -61,16 +62,35 @@ object Control {
                     onNote("SPP would not open")
                     return null
                 }
-        val driver = Registry.identifyBose(t)
-        if (driver == null) {
-            onNote("it answered 01 06 in neither shape — leaving it unidentified")
+        val identity = Registry.identifyBose(t)
+        if (identity !is BoseIdentity.Known) {
+            // ⚠ **Silence and a wrong answer are different facts**, and one sentence
+            // used to cover both — see [BoseIdentity]. The device that provoked the
+            // split answers nothing ever, and reading "it answered" under it was
+            // enough to briefly reopen a settled question.
+            onNote(
+                when (identity) {
+                    is BoseIdentity.Silent -> {
+                        "SPP opened and it said nothing — no control channel"
+                    }
+
+                    is BoseIdentity.Unexpected -> {
+                        "it answered 01 06 in neither shape — leaving it unidentified"
+                    }
+
+                    else -> {
+                        "unidentified"
+                    }
+                },
+            )
             t.close()
             return null
         }
+        val driver = identity.driver
         // ⚠ Only now is it known to be a Bose, so only now can its terminator be
         // adopted — see RfcommTransport.endsWith.
         t.endsWith(BoseFrame::terminates)
-        val model = if (driver === Drivers.BoseQc45) "QC45" else "QC35"
+        val model = identity.model
         onNote("identified by read: Bose $model")
         runCatching { driver.prepare(t) }
         return Session(
