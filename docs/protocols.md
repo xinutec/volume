@@ -1938,13 +1938,26 @@ silence in answer to a good one.
 ⚠ **The 40-second hold adds a second fact**: the device neither volunteers anything nor
 closes the connection. The RFCOMM server accepts and holds; nothing above it speaks.
 
-⚪ **The passive test, 2026-09-12 23:04: socket held 60 s while Pippijn pressed the
-device's own buttons. Nothing arrived.** This is the one probe that does not ask the
-device a question — a running RCSP stack NOTIFIES key and mode changes, so a device
-demonstrably doing something while its control channel stays silent is about as close
-to settled as this gets without a working app to capture. ✅ **Pippijn confirms he pressed device buttons inside the window** — which is the
-precondition the log cannot show, and it holds. The device was being operated and its
-control channel said nothing.
+⚠⚠ **The passive test is INCONCLUSIVE, and this page called it the evening's strongest
+result. It was not.** The plan was to hold the socket open 60 s while Pippijn pressed
+the device's buttons. He pressed them, nothing arrived, he said so, and it was written
+down as confirmed. **The timestamps refute it**: his presses land at `23:04:09`–
+`23:04:33` in the AVRCP log and the socket did not connect until `23:04:53`. He was
+pressing in the gap between the command starting and the socket opening, and stopped
+twenty seconds before the listening window began. **The window contained no presses at
+all.**
+
+⚠ The lesson is not "brief the human better". The evidence that settles it was on the
+same phone, in `dumpsys`, and was never read — a participant's report was taken as
+confirmation of a precondition a log could decide. To re-run it: press DURING the hold,
+then check the AVRCP timestamps fall inside it.
+
+✅ **What checking it found: THE DEVICE IS NOT SILENT.** Every volume press is reported
+to the phone over AVRCP — the log walks `2 → 25`, back to `9`, up again — and
+`dumpsys audio` says `mAvrcpAbsVolSupported: true`. It is mute on the vendor channel
+and perfectly talkative on the standard one. ⚠⚠ **So the phone's media volume IS this
+headset's volume, in both directions**, which is the surface an app called `volume`
+most wants and the one this page spent the evening not looking at.
 
 ⚠ **It reports no battery either.** Nothing in `bluetooth_manager` carries a battery
 level for it — no HFP `AT+IPHONEACCEV`, no metadata — so even the one vendor-independent
@@ -1959,11 +1972,23 @@ search for `1200` PnPInformation — and both answers were an empty `36 00 00`. 
 is no VID, no PID and no manufacturer to look up, which matches an address that is not
 an assigned one. Two independent identity surfaces, both blank.
 
-**So, for the original question — can this app support a NewPie 32?** Not through RCSP,
-on this evidence. What is left is what Android already exposes: it is A2DP, AVRCP and
-HFP, it is already the phone's active device, and its volume is AVRCP's. There is no
-vendor feature surface to drive, which is a different answer from the other five here
-and an honest one.
+**So, for the original question — can this app support a NewPie 32?** ⚠⚠ **Not through
+RCSP, and that is NOT the same as "no". This page said the second for an hour.** The
+mistake was answering "is there a vendor protocol" to a question that asked "can we
+support it" — a repo built entirely around vendor protocols makes that substitution
+feel like the same sentence.
+
+What is actually there, with no vendor channel at all: **absolute volume**, which means
+setting the phone's media volume sets the headset and the headset pushes its own button
+presses back, so a slider stays true in both directions; **connected and active-output
+state**, which `Active.kt` already knows how to answer; and the **negotiated codec**,
+which `dumpsys` reports as AAC and `BluetoothA2dp` exposes.
+
+⚠ **And today this device gets NO CARD AT ALL.** `Registry.fromAdvertisement` returns
+null for anything it cannot name, so the pair Pippijn is actually listening on is
+invisible to the app. A generic card — any A2DP/AVRCP device, volume and state, no
+vendor protocol required — is the feature this points at, and it would cover every
+future device with no control channel rather than this one alone.
 
 ⚪ **What would reopen it:** a firmware or model with RCSP enabled, a Jieli tool that
 talks to *this* unit, or a capture of anything else successfully driving it.
