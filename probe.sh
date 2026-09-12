@@ -407,6 +407,11 @@ case "${1:-list}" in
     # then consumes the NEXT flag as the value and dies. Omit the extra instead —
     # the activity defaults it to empty, which is what a connect-only probe wants.
     args=(--es op send --es mac "$mac" --es uuid "$uuid")
+    # ⚠ **The read window, not the log window.** `SEND_WAIT` below governs how long
+    # this script watches logcat; `PROBE_WAIT` governs how long the socket is held
+    # open and read. They are different numbers and confusing them makes a device that
+    # answers slowly — or only when a button is pressed — look silent.
+    [ -n "${PROBE_WAIT:-}" ] && args+=(--ei wait "$PROBE_WAIT" --ei quiet "$PROBE_WAIT")
     [ -n "$payload" ] && args+=(--es payload "$payload")
     [ "$1" = raw ] && args+=(--ez raw true)
     [ -n "${5:-}" ] && args+=(--es type "$5")

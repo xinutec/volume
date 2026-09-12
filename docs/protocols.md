@@ -1919,6 +1919,29 @@ the record out of the capture:
 sits on channel 4 (`19 11 1e 19 12 03`, `08 04`) and A2DP on L2CAP. Nothing was
 connecting to the wrong place.
 
+✅ **With the risk bar lowered by Pippijn on 2026-09-12** ("you shouldn't worry about
+accidental errors, this device can be repaired easily"), three more probes and a long
+hold. All silent:
+
+```
+41 54 0d 0a                     AT, the oldest SPP convention   ← nothing
+fe dc ba c0 7f 00 01 05 ef      an opcode the table does NOT define  ← nothing
+0d 0a                           a bare newline                  ← nothing
+(nothing written, 40 s)         socket held open                ← nothing, and NOT dropped
+```
+
+⚠⚠ **The undefined opcode is the strongest of the lot.** A listening RCSP stack
+REJECTS an unknown command and says so — the SDK carries `buildErrCmd` for exactly
+that. Silence in answer to a deliberately bad frame is much better evidence than
+silence in answer to a good one.
+
+⚠ **The 40-second hold adds a second fact**: the device neither volunteers anything nor
+closes the connection. The RFCOMM server accepts and holds; nothing above it speaks.
+
+⚠ **One carve-out kept despite the relaxed bar: the OTA block `e1`–`e8`.** "Repaired
+easily" covers a reset or a lost setting; a part sitting in firmware-update mode with
+nothing to follow is a different category, and it was not asked for by name.
+
 ⚠ **It publishes NO Device ID record.** The phone asked twice — `35 03 19 12 00` is a
 search for `1200` PnPInformation — and both answers were an empty `36 00 00`. So there
 is no VID, no PID and no manufacturer to look up, which matches an address that is not
