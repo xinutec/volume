@@ -1901,8 +1901,28 @@ falls back; the secure socket CONNECTED, so the RFCOMM server accepted on that c
 A device serving only the insecure variant would have refused, not accepted and gone
 quiet.
 
-So: four well-formed exchanges, two of them byte-for-byte what the SDK sends, one of
+So: five well-formed exchanges, two of them byte-for-byte what the SDK sends, one of
 them needing no parameters at all, and a held socket. All silent.
+
+✅ **The wrong-channel hypothesis is closed, from the SDP response itself.** Decoding
+the record out of the capture:
+
+```
+09 00 01  36 00 03 19 11 01                       ServiceClassIDList = 1101 SerialPort
+09 00 04  36 00 0e 36 00 03 19 01 00              L2CAP
+                    36 00 05 19 00 03 08 02       RFCOMM, channel 2
+09 00 09 … 25 06 "JL_SPP"                         ServiceName
+```
+
+**`JL_SPP` is RFCOMM channel 2, and it is the only `1101` record**, so
+`createRfcommSocketToServiceRecord` resolved to the channel the device published. HFP
+sits on channel 4 (`19 11 1e 19 12 03`, `08 04`) and A2DP on L2CAP. Nothing was
+connecting to the wrong place.
+
+⚠ **It publishes NO Device ID record.** The phone asked twice — `35 03 19 12 00` is a
+search for `1200` PnPInformation — and both answers were an empty `36 00 00`. So there
+is no VID, no PID and no manufacturer to look up, which matches an address that is not
+an assigned one. Two independent identity surfaces, both blank.
 
 **So, for the original question — can this app support a NewPie 32?** Not through RCSP,
 on this evidence. What is left is what Android already exposes: it is A2DP, AVRCP and
