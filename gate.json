@@ -20,7 +20,7 @@
       "argv": [
         "nix",
         "develop",
-        "../recall#android",
+        "git+file:../recall?ref=HEAD#android",
         "--no-warn-dirty",
         "--command",
         "ktlint",
@@ -37,7 +37,7 @@
       "argv": [
         "nix",
         "develop",
-        "../recall#android",
+        "git+file:../recall?ref=HEAD#android",
         "--no-warn-dirty",
         "--command",
         "./gradlew",
@@ -54,7 +54,7 @@
       "argv": [
         "nix",
         "develop",
-        "../recall#android",
+        "git+file:../recall?ref=HEAD#android",
         "--no-warn-dirty",
         "--command",
         "./gradlew",
@@ -71,7 +71,7 @@
       "argv": [
         "nix",
         "develop",
-        "../recall#android",
+        "git+file:../recall?ref=HEAD#android",
         "--no-warn-dirty",
         "--command",
         "./gradlew",
@@ -88,7 +88,7 @@
       "argv": [
         "nix",
         "shell",
-        "../recall#dev-python",
+        "git+file:../recall?ref=HEAD#dev-python",
         "--no-warn-dirty",
         "-c",
         "mypy",
@@ -105,7 +105,7 @@
       "argv": [
         "nix",
         "shell",
-        "../recall#dev-python",
+        "git+file:../recall?ref=HEAD#dev-python",
         "--no-warn-dirty",
         "-c",
         "python3",

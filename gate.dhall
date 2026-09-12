@@ -43,7 +43,7 @@ in  { name = "volume"
         , name = "ktlint"
         , argv =
             G.inShell
-              "../recall#android"
+              "git+file:../recall?ref=HEAD#android"
               [ "ktlint", "app/src/**/*.kt", "protocol/src/**/*.kt" ]
         , timeout_s = 900
         }
@@ -55,7 +55,7 @@ in  { name = "volume"
         , name = "protocol tests (no device)"
         , argv =
             G.inShell
-              "../recall#android"
+              "git+file:../recall?ref=HEAD#android"
               [ "./gradlew", "--console=plain", ":protocol:test" ]
         , timeout_s = 1800
         }
@@ -67,7 +67,7 @@ in  { name = "volume"
         , name = "unit tests"
         , argv =
             G.inShell
-              "../recall#android"
+              "git+file:../recall?ref=HEAD#android"
               [ "./gradlew", "--console=plain", ":app:testDebugUnitTest" ]
         , timeout_s = 1800
         }
@@ -79,7 +79,7 @@ in  { name = "volume"
         , name = "assembleDebug"
         , argv =
             G.inShell
-              "../recall#android"
+              "git+file:../recall?ref=HEAD#android"
               [ "./gradlew", "--console=plain", ":app:assembleDebug" ]
         , timeout_s = 1800
         }
@@ -111,7 +111,7 @@ in  { name = "volume"
         , argv =
           [ "nix"
           , "shell"
-          , "../recall#dev-python"
+          , "git+file:../recall?ref=HEAD#dev-python"
           , "--no-warn-dirty"
           , "-c"
           , "mypy"
@@ -133,7 +133,7 @@ in  { name = "volume"
         , argv =
           [ "nix"
           , "shell"
-          , "../recall#dev-python"
+          , "git+file:../recall?ref=HEAD#dev-python"
           , "--no-warn-dirty"
           , "-c"
           , "python3"
