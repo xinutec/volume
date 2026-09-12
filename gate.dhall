@@ -120,6 +120,27 @@ in  { name = "volume"
           ]
         , timeout_s = 900
         }
+      , {- `scripts/insert_kotlin.py` is the tool that puts a new Kotlin
+           declaration above the right block, and on 2026-09-12 it twice put one
+           between an existing `@Test` and its function: its walk knew about
+           comments and not about annotations. ⚠ **ktlint cannot catch that** —
+           the result is a well-formed file in which one test lost its `@Test`
+           and its neighbour grew a second one, so the only guard is the tool's
+           own cases. Type-checking it, which is the row above, said nothing.
+        -}
+        G.Check::{
+        , name = "the Kotlin inserter knows what a declaration carries"
+        , argv =
+          [ "nix"
+          , "shell"
+          , "../recall#dev-python"
+          , "--no-warn-dirty"
+          , "-c"
+          , "python3"
+          , "scripts/insert_kotlin_test.py"
+          ]
+        , timeout_s = 300
+        }
       , G.checkTable "../dev-lint"
       ]
     }

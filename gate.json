@@ -104,6 +104,22 @@
     {
       "argv": [
         "nix",
+        "shell",
+        "../recall#dev-python",
+        "--no-warn-dirty",
+        "-c",
+        "python3",
+        "scripts/insert_kotlin_test.py"
+      ],
+      "artifacts": [],
+      "cwd": ".",
+      "env": {},
+      "name": "the Kotlin inserter knows what a declaration carries",
+      "timeout_s": 300
+    },
+    {
+      "argv": [
+        "nix",
         "run",
         "git+file:../dev-lint?ref=HEAD#gate",
         "--",
