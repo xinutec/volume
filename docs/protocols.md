@@ -1836,6 +1836,38 @@ firmware to follow is not recovered by reading anything back.
 RCSP rides SPP, which is also Bose's, and this device detects as `UNKNOWN / NONE` — an
 arm that waited for detection would never run for the one device it exists to protect.
 
+### ⚪ The first read went out and drew nothing — 2026-09-12 22:34
+
+```
+→ fe dc ba c0 03 00 01 01 ef      GET_TARGET_INFO, sn 1, response wanted
+✓ connected (secure socket)
+← nothing in 3000 ms
+```
+
+⚠⚠ **This is NOT "the device does not speak RCSP", and reading it that way would be
+the FOURTH time that mistake is made here.** The probe opens a socket, writes, reads for
+three seconds and closes. **A one-shot exchange cannot hold a protocol with state** —
+that has already cost three wrong conclusions on this repo (Bose writes, the Fast Pair
+greeting, Sony reads), and the Sony in particular returns a bare ACK one-packet-per-
+socket while the real data only arrives inside a session that acks the device's frames.
+
+What is actually established: the frame was admitted, went out on the wire verbatim, and
+no reply arrived **in that shape of exchange**. Candidates, none tested:
+
+  * a session, not a one-shot — the Sony's shape, and the likeliest;
+  * a handshake first — the SDK's own connect flow is in
+    `com/jieli/bluetooth/impl/BluetoothSpp` and `BluetoothOperationImpl`, and
+    `d1 SETTINGS_COMMUNICATION_MTU` / `02 GET_TARGET_FEATURE_MAP` are both candidates
+    for what it opens with;
+  * the flags or the sequence number — `c0` wants a response, and `sn` may have to be
+    tracked rather than invented.
+
+✅ **The deny-list was proven live on the device path first.** A truncated
+`fe dc ba c0 22 00 01` came back `⛔ REFUSED / RCSP 22 / FORMAT_DEVICE — erases the
+device's storage`, nothing sent. ⚠ That control also found a real hole: `opcode()` had
+required a whole valid frame, so the short one fell through to the Bose arm — fixed
+before the read was sent.
+
 ⚠ **Still unanswered: whether this unit speaks RCSP at all.** The SDP names prove a
 Jieli stack; the silent SPP is consistent with RCSP, which waits to be asked. The next
 step is one bounded read — `03` GET_TARGET_INFO — with a read-back. Until that answers,
