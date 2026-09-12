@@ -219,6 +219,16 @@ enum class ThothBoundKind {
      * is — the control can lower it and nothing else.
      */
     NO_CEILING,
+
+    /**
+     * The server's ceiling IS the whole scale, so the bound is the end of the slider
+     * and not a limit at all.
+     *
+     * ⚠ thoth stopped refusing loud levels on 2026-09-12 and publishes `1.0`. The
+     * field stays because a client reads its slider's range from it; what changed is
+     * that the number no longer means anything was withheld.
+     */
+    FULL_SCALE,
 }
 
 /**
@@ -259,7 +269,16 @@ data class ThothVolume(
      * look like more of the same noise.
      */
     val notable: Boolean
-        get() = kind != ThothBoundKind.CEILING
+        get() = kind != ThothBoundKind.CEILING && kind != ThothBoundKind.FULL_SCALE
+
+    /**
+     * The reason, when there is one to give.
+     *
+     * ⚠ Null at [ThothBoundKind.FULL_SCALE]. A control that stops at the end of its
+     * own scale has not stopped early, and printing a bound there would invent one.
+     */
+    val shown: String?
+        get() = why.takeIf { kind != ThothBoundKind.FULL_SCALE }
 }
 
 /**
@@ -278,6 +297,13 @@ fun thothBound(ceiling: Double?, nowPercent: Int): ThothVolume {
                 why = "this thoth publishes no ceiling, so the level can only come down",
                 kind = ThothBoundKind.NO_CEILING,
             )
+    if (ceilingPercent >= 100) {
+        return ThothVolume(
+            maxPercent = 100,
+            why = "the full range",
+            kind = ThothBoundKind.FULL_SCALE,
+        )
+    }
     if (nowPercent > ceilingPercent) {
         return ThothVolume(
             maxPercent = nowPercent,

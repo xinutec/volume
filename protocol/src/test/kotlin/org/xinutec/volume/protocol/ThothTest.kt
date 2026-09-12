@@ -11,7 +11,10 @@ import java.io.IOException
  * The thoth contract, against what the server actually said.
  *
  * Every JSON body below was read off the live service on 2026-09-04 with `curl`, and
- * the refusal text is the one it returned to an over-ceiling request. ⚠ **The
+ * the refusal text is the one it returned to an over-ceiling request. ⚠ **That
+ * particular refusal can no longer happen** — thoth dropped its volume ceiling on
+ * 2026-09-12 — but the body is kept because what it tests is that ANY 400 reaches the
+ * caller in the server's own words, and a real one beats an invented one. ⚠ **The
  * substitution is confined to device identifiers** — the two speakers' Bluetooth
  * addresses, the microphone's serial, and the two opaque UUIDs — because this
  * repository is public and those name hardware that is not its subject. Field names,
@@ -175,6 +178,23 @@ class ThothTest {
         assertEquals(65, v.maxPercent)
         assertEquals(ThothBoundKind.CEILING, v.kind)
         assertEquals("ceiling 65% — thoth refuses louder", v.why)
+    }
+
+    /**
+     * A ceiling that is the whole scale bounds the slider and explains nothing.
+     *
+     * ⚠ **thoth stopped refusing on 2026-09-12** and now publishes `1.0`. Drawing
+     * "ceiling 100% — thoth refuses louder" under the control would describe a
+     * refusal that can no longer happen, which is worse than saying nothing.
+     */
+    @Test
+    fun `a full-scale ceiling bounds the control without explaining itself`() {
+        val p = ThothWire.pair(pairJson.replace("\"ceiling\":0.65", "\"ceiling\":1.0"))
+        val v = p.volumeControl()
+        assertEquals(100, v.maxPercent)
+        assertEquals(ThothBoundKind.FULL_SCALE, v.kind)
+        assertNull(v.shown)
+        assertFalse(v.notable)
     }
 
     /**

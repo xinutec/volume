@@ -282,7 +282,7 @@ private fun VolumeLevel(ui: ThothUi, actions: ThothActions) {
         percent = ui.shownVolume,
         max = bound.maxPercent,
         unit = "%",
-        note = bound.why,
+        note = bound.shown,
         emphasis = bound.over,
     ) { ui.onVolume(it, actions) }
 }
