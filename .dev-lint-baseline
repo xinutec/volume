@@ -1,2 +1,4 @@
 # dev-lint baseline — known violations grandfathered in. Counts may only
 # decrease. Regenerate: dev-lint --write-baseline <file> <paths>
+# count / rule / file / declaration — the fourth column is what stops a
+# fixed finding's slot being reused by a new one in the same file.
