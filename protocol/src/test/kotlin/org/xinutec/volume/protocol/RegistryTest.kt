@@ -81,6 +81,28 @@ class RegistryTest {
     }
 
     /**
+     * An unrecognised JBL is not driven as a Tour One M2.
+     *
+     * ⚠⚠ **This is the JLab bug above, nine days later and one vendor over.** The JBL
+     * branch stayed vendor-only when that one was fixed, so on 2026-09-12 a LIVE PRO 2
+     * TWS was named "JBL Tour One M2" on the screen and the app went looking for the
+     * wrong model over LE. The name is the only thing separating them: both answer to
+     * the same Fast Pair UUID and neither publishes a model anywhere else.
+     *
+     * ⛔ BES is where `aa 95` factory reset lives, so driving a second JBL model with
+     * these frames is an unknown write rather than a wrong read.
+     */
+    @Test
+    fun `an unrecognised jbl model gets no driver rather than this one's`() {
+        assertSame(
+            Drivers.JblBes,
+            Registry.fromAdvertisement("JBL TOUR ONE M2", jbl)!!.driver,
+        )
+        assertNull(Registry.fromAdvertisement("JBL LIVE PRO 2 TWS", jbl))
+        assertNull(Registry.fromAdvertisement("JBL Bar 2.1", jbl))
+    }
+
+    /**
      * ⚠⚠ **The same rule as the Bose test below, for the vendor where breaking it is
      * worst.** Every JLab used to resolve to the JBuds Sport ANC 4 and its driver; the
      * phone has seen three `JLab JBuds Air Sport` — not bonded on 2026-09-03, so nothing

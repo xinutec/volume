@@ -1279,8 +1279,15 @@ class DeviceController(
                 ?.map { it.uuid.toString() }
                 ?.toSet()
                 .orEmpty()
+        // ⚠ **A device known to have no control channel is not probed again.** The
+        // probe WRITES two Bose frames, and `refresh()` runs it for everything listed
+        // on every connect broadcast — so without this the app sends unsolicited
+        // vendor bytes at a device it has already established says nothing, forever.
+        (screen.cards.firstOrNull { it.address == address }?.state as? DeviceState.NoControl)
+            ?.let { return null }
         update(address, DeviceState.Busy("connecting…"))
         var why = "would not connect"
+        var durable = false
         val session =
             Control.connect(
                 context,
@@ -1293,9 +1300,13 @@ class DeviceController(
                     Scan.find(adapter, LE_MATCH[model] ?: model, 25_000)?.device
                 },
                 onNote = { why = it },
+                onNoControl = { durable = true },
             )
         if (session == null) {
-            update(address, DeviceState.Unavailable(why))
+            update(
+                address,
+                if (durable) DeviceState.NoControl(why) else DeviceState.Unavailable(why),
+            )
             return null
         }
         Sessions.remember(address, session)
@@ -1403,7 +1414,14 @@ class DeviceController(
         Sessions.releaseAll()
     }
 
-    private fun update(address: String, state: DeviceState) = emit(screen.with(address, state))
+    /**
+     * ⚠ **The active output is re-stamped on every state change, not just on
+     * [refresh].** Reconciling happens on the connect broadcast, which is before the
+     * audio framework has the A2DP output — see `Screen.marking`. A state change lands
+     * a second or two later, which is exactly when the answer has become available.
+     */
+    private fun update(address: String, state: DeviceState) =
+        emit(screen.with(address, state).marking(Active.address(context)))
 
     private fun rename(address: String, name: String) = emit(screen.renamed(address, name))
 

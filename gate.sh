@@ -11,6 +11,11 @@
 # So this is the one definition, it cds to itself first, and the pre-commit hook
 # calls it rather than repeating the invocation. Arguments are passed through, so
 # `./gate.sh --only ktlint` and friends still work.
+#
+# `?ref=HEAD`, matching the other repositories' hooks: a plain path builds the
+# NEIGHBOUR'S WORKING TREE, so a session mid-edit in dev-lint fails this gate for
+# a reason no commit here explains, and the failure names this repository. The
+# reasoning is written out at `withTestDb` in dev-lint/gate/schema.dhall.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-exec nix run ../dev-lint#gate -- . gate.json "$@"
+exec nix run "git+file:../dev-lint?ref=HEAD#gate" -- . gate.json "$@"

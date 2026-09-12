@@ -651,6 +651,17 @@ private fun DeviceRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
+                }
+
+                is DeviceState.NoControl -> {
+                    // ⚠ Not an error colour: this is a fact about the device, not a
+                    // failure of this attempt, and nothing the owner does will change
+                    // it. The retry it used to offer wrote two Bose frames per press.
+                    Text(
+                        s.why,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     // ⚠ The bound is on the CARD, not on this state — a device with no
                     // control channel that is NOT the audio output has no volume of its
                     // own to move. See `DeviceCard.ownsMediaVolume`.
@@ -699,6 +710,8 @@ private fun DeviceRow(
                         )
                     }
                 }
+                // ⚠ **No Connect for [DeviceState.NoControl]** — the button re-ran a
+                // probe that cannot succeed and wrote two Bose frames doing it.
             } else if (card.state is DeviceState.Idle || card.state is DeviceState.Unavailable) {
                 FilterChip(
                     selected = false,

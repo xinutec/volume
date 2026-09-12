@@ -45,6 +45,13 @@ object Control {
         uuids: Set<String>,
         resolveLe: (String) -> BluetoothDevice?,
         onNote: (String) -> Unit = {},
+        /**
+         * Called when the failure is a property of the DEVICE rather than of this
+         * attempt — see `DeviceState.NoControl`. Separate from [onNote] because the
+         * note channel also carries progress, so the caller would otherwise have to
+         * match on a sentence to learn whether retrying is worth offering.
+         */
+        onNoControl: () -> Unit = {},
     ): Session? {
         val known = Registry.fromAdvertisement(name, uuids)
         if (known != null) return open(context, adapter, bonded, known, resolveLe, onNote)
@@ -68,10 +75,11 @@ object Control {
             // used to cover both — see [BoseIdentity]. The device that provoked the
             // split answers nothing ever, and reading "it answered" under it was
             // enough to briefly reopen a settled question.
+            if (identity is BoseIdentity.Silent) onNoControl()
             onNote(
                 when (identity) {
                     is BoseIdentity.Silent -> {
-                        "SPP opened and it said nothing — no control channel"
+                        "SPP opened and it said nothing — nothing to drive over SPP"
                     }
 
                     is BoseIdentity.Unexpected -> {

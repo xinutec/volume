@@ -20,9 +20,15 @@ class ScreenTest {
      */
     @Test
     fun `only an undriveable active device owns the media volume`() {
-        val here = DeviceCard("NewPie 32", "aa", DeviceState.Unavailable("no control channel"))
+        val here = DeviceCard("NewPie 32", "aa", DeviceState.NoControl("it said nothing"))
         assertFalse(here.ownsMediaVolume)
         assertTrue(here.copy(activeOutput = true).ownsMediaVolume)
+
+        // ⚠ **A failed ATTEMPT is not a device without a channel.** It may well have
+        // its own volume commands, so offering the phone's is the wrong control on a
+        // guess — and the retry it gets instead is the one that can actually help.
+        val flaky = DeviceCard("QC45", "dd", DeviceState.Unavailable("would not connect"))
+        assertFalse(flaky.copy(activeOutput = true).ownsMediaVolume)
 
         val driveable = DeviceCard("XM4", "bb", DeviceState.Ready("XM4", emptyList(), null))
         assertFalse(driveable.copy(activeOutput = true).ownsMediaVolume)

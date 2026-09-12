@@ -48,8 +48,10 @@ data class DeviceCard(
     /**
      * The phone's media volume IS this device's volume, so a slider here is real.
      *
-     * ⚠ **The condition is "no control channel AND the audio is going here", and both
-     * halves matter.** A device with a driver has its own volume commands and should
+     * ⚠ **The condition is [DeviceState.NoControl] AND the audio is going here, and
+     * both halves matter.** A merely-[DeviceState.Unavailable] device is one that
+     * failed an attempt; it may well have its own volume commands, and a media slider
+     * on it would be the wrong control offered on a guess.** A device with a driver has its own volume commands and should
      * use them. A device that is not the active output would have its slider move a
      * level belonging to something else, which is the same class of bug as a one-tap
      * tile changing the ANC of the pair that is not in your ears.
@@ -60,7 +62,7 @@ data class DeviceCard(
      * number, in both directions — which is why this is a control and not a guess.
      */
     val ownsMediaVolume: Boolean
-        get() = activeOutput && state is DeviceState.Unavailable
+        get() = activeOutput && state is DeviceState.NoControl
 
     /** Modes to offer, empty until we know what it is. */
     val offer: List<AncMode>
@@ -600,6 +602,32 @@ sealed interface DeviceState {
     data class Unavailable(
         val why: String,
     ) : DeviceState
+
+    /**
+     * Nothing answered on the transport that was tried, and asking again will not
+     * change that.
+     *
+     * ⚠ **This is a verdict on ONE transport, not on the device.** The probe behind it
+     * only ever opens SPP, and a JBL LIVE PRO 2 in this state was found to be carrying
+     * `BES_GATT_SERVICE` on LE the whole time — the same control service the Tour One
+     * M2 is driven through. The wording says "over SPP" for that reason; widening it
+     * to "no control channel" claims a property of the device that was never measured.
+     *
+     * ⚠⚠ **The distinction from [Unavailable] is RETRY, and one label carried both
+     * until 2026-09-12.** "Would not connect" is a fact about this attempt — the pair
+     * was asleep, the radio was busy, another app held the channel — and the right
+     * offer is a Connect button. "SPP opened and it said nothing" is a fact about the
+     * DEVICE, and the same button re-runs a probe that cannot succeed.
+     *
+     * ⚠ It is not merely a wasted tap: the probe WRITES. Identifying a Bose sends
+     * `00 01 01 00` then `01 06 01 00`, and `refresh()` calls it for every listed
+     * device on every connect broadcast — so a device in this state was being sent
+     * unsolicited vendor frames on a timer, which is exactly the class of action this
+     * repo refuses to take deliberately.
+     */
+    data class NoControl(
+        val why: String,
+    ) : DeviceState
 }
 
 /**
@@ -703,6 +731,19 @@ data class Screen(
      */
     fun renamed(address: String, name: String): Screen =
         copy(cards = cards.map { if (it.address == address) it.copy(name = name) else it })
+
+    /**
+     * Re-stamp which card is the audio output.
+     *
+     * ⚠⚠ **Because [reconciled] alone is too early.** It runs on the connect
+     * broadcast, and this repo already knows the profile proxies populate ~1.2 s after
+     * ACL — so the audio framework has no A2DP output yet and every card is marked
+     * inactive. Nothing re-stamped it afterwards, so a device that had just become the
+     * output showed no volume row until the app was restarted. Measured 2026-09-12 on
+     * a NewPie 32: restart and the row appears.
+     */
+    fun marking(active: String?): Screen =
+        copy(cards = cards.map { it.copy(activeOutput = it.address == active) })
 
     /**
      * Bring the list in line with what is [present] now, **keeping what is known**.

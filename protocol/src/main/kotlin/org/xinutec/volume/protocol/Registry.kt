@@ -84,7 +84,16 @@ object Registry {
                 )
             }
 
-            d.vendor == Channels.Vendor.JBL -> {
+            // ⚠⚠ **The MODEL, not just the vendor — and this branch was vendor-only
+            // until 2026-09-12**, which is nine days after the identical fix went in
+            // for JLab immediately below and did not get carried across. A LIVE PRO 2
+            // TWS was named "JBL Tour One M2" on screen and sent the app hunting for
+            // the wrong model over LE; Pippijn watched it do that.
+            //
+            // ⛔ The stake is the one the JLab comment names: BES is where `aa 95`
+            // factory reset lives, so a second JBL model driven by the Tour One M2's
+            // frames is not a wrong reading, it is an unknown write.
+            d.vendor == Channels.Vendor.JBL && "tour one m2" in n -> {
                 Headphones(
                     d.vendor,
                     "JBL Tour One M2",

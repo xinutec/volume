@@ -602,10 +602,21 @@ class Probes(
         emit("${bonded.name} ${bonded.address}")
 
         val session =
-            Control.connect(context, adapter, bonded, bonded.name.orEmpty(), uuids, { model ->
-                emit("  scanning for $model over LE…")
-                Scan.find(adapter, LE_NAMES[model] ?: model, 25000)?.device
-            }) { emit("  $it") } ?: return
+            // ⚠ **Named, not trailing.** `onNote` stopped being the last parameter when
+            // `onNoControl` was added, and a trailing lambda silently rebound to the new
+            // one — the compiler caught it here only because the body used `it`.
+            Control.connect(
+                context,
+                adapter,
+                bonded,
+                bonded.name.orEmpty(),
+                uuids,
+                resolveLe = { model ->
+                    emit("  scanning for $model over LE…")
+                    Scan.find(adapter, LE_NAMES[model] ?: model, 25000)?.device
+                },
+                onNote = { emit("  $it") },
+            ) ?: return
         session.use {
             emit("  ${it.headphones.model} via ${it.headphones.route}")
             body(it)
