@@ -28,10 +28,10 @@ interface ThothTransport {
 /**
  * The Mac answered, and the answer was no.
  *
- * ⚠ [reason] is the server's own words and is meant to be SHOWN. The refusal that
- * matters is the volume ceiling, whose whole design is that the caller finds out what
- * refused them and why — swallowing this would restore exactly the silence it exists
- * to prevent.
+ * ⚠ [reason] is the server's own words and is meant to be SHOWN — swallowing it turns
+ * an explained refusal into a control that silently did nothing. ⚠ The volume ceiling
+ * was the refusal this was written for and it was removed on 2026-09-12; what reaches
+ * here now is a malformed body or an unknown cabinet.
  */
 class ThothRefused(
     val status: Int,
@@ -76,7 +76,8 @@ data class PairPatch(
  * first touch. The controller turns the throw into [ThothReach.AWAY], which is the
  * true statement.
  *
- * The one deliberately absent field is [ThothPair.ceiling] — see there.
+ * `ceiling` is read past: the server published it until 2026-09-12 and this app
+ * bounded its slider by it, and both halves are gone.
  */
 object ThothWire {
     fun pair(json: String): ThothPair {
@@ -88,7 +89,6 @@ object ThothWire {
             balance = o.getDouble("balance"),
             volume = o.getDouble("volume"),
             active = o.getBoolean("active"),
-            ceiling = o.optDouble("ceiling").takeIf { !it.isNaN() },
         )
     }
 

@@ -35,7 +35,6 @@ import org.xinutec.volume.protocol.balancePercent
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.percent
 import org.xinutec.volume.protocol.reachable
-import org.xinutec.volume.protocol.volumeControl
 import org.xinutec.volume.protocol.volumePercent
 import kotlin.math.roundToInt
 
@@ -154,8 +153,7 @@ class ThothUi(
      */
     fun step(direction: Int, actions: ThothActions): Boolean {
         if (!drivesVolumeKeys) return false
-        val bound = screen.pair!!.volumeControl()
-        val next = (shownVolume + 2 * direction).coerceIn(0, bound.maxPercent)
+        val next = (shownVolume + 2 * direction).coerceIn(0, 100)
         if (next != shownVolume) onVolume(next, actions)
         // Consumed either way: at the bound the press must not fall through and move
         // the phone's media volume instead, which looks like the bound not working.
@@ -275,15 +273,12 @@ private fun Trouble(screen: ThothScreen, trouble: String, actions: ThothActions)
  */
 @Composable
 private fun VolumeLevel(ui: ThothUi, actions: ThothActions) {
-    val pair = ui.screen.pair ?: return
-    val bound = pair.volumeControl()
+    ui.screen.pair ?: return
     Level(
         label = "Volume",
         percent = ui.shownVolume,
-        max = bound.maxPercent,
+        max = 100,
         unit = "%",
-        note = bound.shown,
-        emphasis = bound.over,
     ) { ui.onVolume(it, actions) }
 }
 
@@ -379,14 +374,13 @@ private fun Cabinets(ui: ThothUi, actions: ThothActions) {
     )
     for (cabinet in cabinets) {
         if (cabinet.reachable) {
-            val bound = ui.screen.boundFor(cabinet)
             Level(
                 label = cabinet.host,
                 percent = ui.shown(cabinet),
-                max = bound.maxPercent,
+                max = 100,
                 unit = "%",
-                note = ui.screen.noteFor(cabinet),
-                emphasis = bound.notable,
+                note = cabinet.note,
+                emphasis = cabinet.note != null,
             ) { ui.onCabinet(cabinet, it, actions) }
         } else {
             // ⚠ Listed, not omitted. The row is the fleet; a cabinet that is off is a
@@ -448,9 +442,9 @@ private fun Toggle(title: String, value: String, checked: Boolean, onChange: (Bo
 /**
  * One slider, with the number beside it and the reason it stops where it stops.
  *
- * ⚠ [note] is drawn, always. On the volume control it is the sentence naming the
- * hearing ceiling, and a bound whose reason is not on the screen is a control that
- * looks broken.
+ * ⚠ [note] is for a fact about the thing, not about the slider — a cabinet that is
+ * off, or silent since boot. The volume control has none: it spans its whole scale,
+ * and a control that stops nowhere has nothing to explain.
  */
 @Composable
 private fun Level(

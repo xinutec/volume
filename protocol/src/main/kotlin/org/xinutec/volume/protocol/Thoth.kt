@@ -83,16 +83,6 @@ data class ThothPair(
     val volume: Double,
     /** The Multi-Output group exists and is the thing being driven. */
     val active: Boolean,
-    /**
-     * The loudest level the server will accept, 0…1 — or null from a server that
-     * does not publish one.
-     *
-     * ⚠ **Read, never copied.** This is a hearing limit; a second written-down copy
-     * is one that drifts out of step with the one actually enforced. A server that
-     * does not send it gets the fallback in [volumeControl], which is strictly
-     * safer than guessing the number.
-     */
-    val ceiling: Double?,
 )
 
 /** An arcade cabinet's volume. */
@@ -106,8 +96,8 @@ data class ThothCabinet(
     /**
      * The step count [raw] is measured against.
      *
-     * ⚠ Nothing to do with [ThothPair.ceiling]: this one is a scale, that one is a
-     * safety bound. Same word, two servers' worth of distance apart.
+     * ⚠ A SCALE, not a limit — how many steps the cabinet's own mixer offers, so
+     * that a raw value can be read as a percentage.
      */
     val steps: Int?,
 )
@@ -197,130 +187,6 @@ val ThothPair.balancePercent: Int
     get() = (balance * 100).roundToInt()
 
 /**
- * What [ThothVolume.maxPercent] IS — and there are exactly three answers.
- *
- * ⚠ This was a pair of booleans, `over` and `published`, and one of their four
- * combinations could not happen: nothing can be above a ceiling that was never
- * published. Naming the cases is what makes that state unrepresentable instead of
- * merely absent, so no future branch has to decide what an impossible bound means.
- */
-enum class ThothBoundKind {
-    /** The server named a ceiling and the level is under it: the bound IS the ceiling. */
-    CEILING,
-
-    /**
-     * The server named a ceiling and the level is already above it, so the bound is
-     * where the level already is. Something other than this app put it there.
-     */
-    ALREADY_ABOVE,
-
-    /**
-     * The server named no ceiling, so the only safe bound is where the level already
-     * is — the control can lower it and nothing else.
-     */
-    NO_CEILING,
-
-    /**
-     * The server's ceiling IS the whole scale, so the bound is the end of the slider
-     * and not a limit at all.
-     *
-     * ⚠ thoth stopped refusing loud levels on 2026-09-12 and publishes `1.0`. The
-     * field stays because a client reads its slider's range from it; what changed is
-     * that the number no longer means anything was withheld.
-     */
-    FULL_SCALE,
-}
-
-/**
- * What the volume control is allowed to ask for.
- *
- * ⚠ **The bound is never absent.** A server that publishes a ceiling supplies it; one
- * that does not gets the level the pair is already at, so the control can lower it and
- * nothing else. Both cases are a real number, so no caller has to decide what to do
- * about a missing one — which is the branch that would eventually be got wrong, on a
- * control whose worst case is somebody's hearing.
- */
-data class ThothVolume(
-    /**
-     * The highest percentage this control may send.
-     *
-     * ⚠ **Never above where the level already is.** When something else has left it
-     * louder than the ceiling this is that level, not the ceiling — putting back a
-     * level that was already there is not raising anything, and clamping to the
-     * ceiling would make a press of volume-UP quietly turn the speakers DOWN.
-     */
-    val maxPercent: Int,
-    /** Why the bound sits there. Shown; not decoration. */
-    val why: String,
-    /** Which of the three the number above is. */
-    val kind: ThothBoundKind,
-) {
-    /** The level is above the server's ceiling right now. */
-    val over: Boolean
-        get() = kind == ThothBoundKind.ALREADY_ABOVE
-
-    /**
-     * This bound needs its reason said HERE.
-     *
-     * ⚠ The ordinary case does not: the ceiling is one number for the whole server, it
-     * is stated once under the pair's volume, and repeating it under every cabinet
-     * would make the two cases that DO need explaining — a control that stops where it
-     * already is, for want of a published ceiling or because it is already over one —
-     * look like more of the same noise.
-     */
-    val notable: Boolean
-        get() = kind != ThothBoundKind.CEILING && kind != ThothBoundKind.FULL_SCALE
-
-    /**
-     * The reason, when there is one to give.
-     *
-     * ⚠ Null at [ThothBoundKind.FULL_SCALE]. A control that stops at the end of its
-     * own scale has not stopped early, and printing a bound there would invent one.
-     */
-    val shown: String?
-        get() = why.takeIf { kind != ThothBoundKind.FULL_SCALE }
-}
-
-/**
- * The bound for one control, from the server's ceiling and where the control is now.
- *
- * ⚠ **The cabinets go through here too, and that is the point.** They are a different
- * amplifier on the far side of an SSH hop, but they are the same pair of ears and the
- * same server refuses for them — a bound derived only for the speakers would have left
- * the louder appliance unbounded.
- */
-fun thothBound(ceiling: Double?, nowPercent: Int): ThothVolume {
-    val ceilingPercent =
-        ceiling?.let { (it * 100).roundToInt() }
-            ?: return ThothVolume(
-                maxPercent = nowPercent,
-                why = "this thoth publishes no ceiling, so the level can only come down",
-                kind = ThothBoundKind.NO_CEILING,
-            )
-    if (ceilingPercent >= 100) {
-        return ThothVolume(
-            maxPercent = 100,
-            why = "the full range",
-            kind = ThothBoundKind.FULL_SCALE,
-        )
-    }
-    if (nowPercent > ceilingPercent) {
-        return ThothVolume(
-            maxPercent = nowPercent,
-            why = "already above the $ceilingPercent% ceiling — this can only come down",
-            kind = ThothBoundKind.ALREADY_ABOVE,
-        )
-    }
-    return ThothVolume(
-        maxPercent = ceilingPercent,
-        why = "ceiling $ceilingPercent% — thoth refuses louder",
-        kind = ThothBoundKind.CEILING,
-    )
-}
-
-fun ThothPair.volumeControl(): ThothVolume = thothBound(ceiling, volumePercent)
-
-/**
  * Balance from a coarse and a fine control, as −1…+1.
  *
  * Two controls because one is unusable at both jobs: the interesting range is a few
@@ -352,10 +218,11 @@ data class ThothScreen(
     /**
      * The last thing the server refused, in its own words, or null.
      *
-     * ⚠ On the screen rather than in a log. The one refusal that happens in normal
-     * use is the volume ceiling, and its entire design is that whoever asked finds
-     * out what stopped them — a client that swallows it puts back the silence the
-     * bound exists to break.
+     * ⚠ On the screen rather than in a log. thoth refuses a request by saying why,
+     * so a client that swallows the sentence turns an explained refusal into a
+     * control that silently did nothing. ⚠ The volume ceiling was the one refusal
+     * that happened in ordinary use and it was removed on 2026-09-12; what is left
+     * is malformed bodies and unknown cabinets.
      */
     val refusal: String? = null,
 ) {
@@ -378,30 +245,6 @@ data class ThothScreen(
     /** Nothing came back, so nothing about the Mac is known yet. */
     val blank: Boolean
         get() = trouble != null
-
-    /**
-     * How far one cabinet's control may travel.
-     *
-     * The ceiling arrives on the pair state because that is where volume lives, but
-     * it is the SERVER's, not the speakers' — so it bounds this too. A cabinet read
-     * while the pair read failed has no ceiling to work from and can only come down,
-     * which is the same fallback the speakers get.
-     */
-    fun boundFor(cabinet: ThothCabinet): ThothVolume = thothBound(pair?.ceiling, cabinet.percent)
-
-    /**
-     * The sentence under one cabinet's row, or null when it needs none.
-     *
-     * Its status first — "off", "silent since boot" — because that is a fact about the
-     * cabinet. Otherwise the bound's reason, and only when [ThothVolume.notable]: a
-     * cabinet stuck at the level it is already at with nothing saying why reads as a
-     * slider that does not work.
-     */
-    fun noteFor(cabinet: ThothCabinet): String? {
-        cabinet.note?.let { return it }
-        val bound = boundFor(cabinet)
-        return bound.why.takeIf { bound.notable }
-    }
 
     companion object {
         fun looking(host: String) =

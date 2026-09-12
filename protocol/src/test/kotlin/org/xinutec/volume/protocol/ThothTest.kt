@@ -72,15 +72,19 @@ class ThothTest {
         assertTrue(p.active)
         assertEquals(0.0, p.balance, 1e-9)
         assertEquals(0.52, p.volume, 1e-6)
-        assertEquals(0.65, p.ceiling!!, 1e-9)
         assertEquals(52, p.volumePercent)
         assertEquals(0, p.balancePercent)
     }
 
+    /**
+     * ⚠ **The captured body still carries `ceiling` and this app no longer reads it.**
+     * thoth published one until 2026-09-12; a field that outlives its reader must be
+     * read past rather than trip the parse, which is what this asserts.
+     */
     @Test
-    fun `a server that publishes no ceiling parses, with none`() {
-        val p = ThothWire.pair(pairJson.replace(ceilingField, ""))
-        assertNull(p.ceiling)
+    fun `a field this app stopped reading does not break the parse`() {
+        assertEquals(0.52, ThothWire.pair(pairJson).volume, 1e-6)
+        assertEquals(0.52, ThothWire.pair(pairJson.replace(ceilingField, "")).volume, 1e-6)
     }
 
     @Test
@@ -169,110 +173,6 @@ class ThothTest {
     }
 
     private fun one(json: String) = ThothWire.cabinet(json)
-
-    // ---- the volume bound --------------------------------------------------
-
-    @Test
-    fun `the published ceiling is what bounds the control`() {
-        val v = ThothWire.pair(pairJson).volumeControl()
-        assertEquals(65, v.maxPercent)
-        assertEquals(ThothBoundKind.CEILING, v.kind)
-        assertEquals("ceiling 65% — thoth refuses louder", v.why)
-    }
-
-    /**
-     * A ceiling that is the whole scale bounds the slider and explains nothing.
-     *
-     * ⚠ **thoth stopped refusing on 2026-09-12** and now publishes `1.0`. Drawing
-     * "ceiling 100% — thoth refuses louder" under the control would describe a
-     * refusal that can no longer happen, which is worse than saying nothing.
-     */
-    @Test
-    fun `a full-scale ceiling bounds the control without explaining itself`() {
-        val p = ThothWire.pair(pairJson.replace("\"ceiling\":0.65", "\"ceiling\":1.0"))
-        val v = p.volumeControl()
-        assertEquals(100, v.maxPercent)
-        assertEquals(ThothBoundKind.FULL_SCALE, v.kind)
-        assertNull(v.shown)
-        assertFalse(v.notable)
-    }
-
-    /**
-     * ⚠ The bound is 80, not 65. Clamping to the ceiling would make volume-UP turn
-     * the speakers DOWN by fifteen points — and putting a level back where it
-     * already was is not raising it.
-     */
-    @Test
-    fun `a level already above the ceiling can only come down`() {
-        val loud = ThothWire.pair(pairJson.replace("0.5199999809265137", "0.8"))
-        val v = loud.volumeControl()
-        assertEquals(80, loud.volumePercent)
-        assertEquals(80, v.maxPercent)
-        assertEquals(ThothBoundKind.ALREADY_ABOVE, v.kind)
-        assertEquals("already above the 65% ceiling — this can only come down", v.why)
-    }
-
-    /**
-     * ⚠ The fallback is not "no bound" and not a copy of 0.65: it is the level the
-     * pair is at, so an unknown server can be turned down and never up.
-     */
-    @Test
-    fun `no published ceiling bounds the control at where it already is`() {
-        val p = ThothWire.pair(pairJson.replace(ceilingField, ""))
-        val v = p.volumeControl()
-        assertEquals(52, v.maxPercent)
-        // ⚠ NOT `assertFalse(v.over)`: that is also true of the ordinary CEILING case,
-        // so it cannot tell "bounded by the ceiling" from "bounded because there is
-        // none" — which is the whole distinction this test exists for.
-        assertEquals(ThothBoundKind.NO_CEILING, v.kind)
-        assertEquals("this thoth publishes no ceiling, so the level can only come down", v.why)
-    }
-
-    @Test
-    fun `the cabinets are bounded by the same ceiling as the speakers`() {
-        val screen = live()
-        // picade1 sits under the ceiling, so the ceiling is what bounds it.
-        assertEquals(65, screen.boundFor(screen.cabinets[1]).maxPercent)
-        assertEquals(ThothBoundKind.CEILING, screen.boundFor(screen.cabinets[1]).kind)
-        // picade2 is already at 67, above it — that cabinet can only come down.
-        assertEquals(67, screen.boundFor(screen.cabinets[2]).maxPercent)
-        assertEquals(ThothBoundKind.ALREADY_ABOVE, screen.boundFor(screen.cabinets[2]).kind)
-    }
-
-    /**
-     * ⚠ The ordinary bound is NOT repeated per cabinet. It is one number for the whole
-     * server, stated once under the pair's volume; saying it again on every row would
-     * bury the two rows whose bound is genuinely different.
-     */
-    @Test
-    fun `only an unusual bound puts a sentence under a cabinet`() {
-        val screen = live()
-        // picade1 is under the ceiling: the ceiling is already stated elsewhere.
-        assertNull(screen.noteFor(screen.cabinets[1]))
-        // picade2 is over it, and a control that will not go up has to say why.
-        assertEquals(
-            "already above the 65% ceiling — this can only come down",
-            screen.noteFor(screen.cabinets[2]),
-        )
-        // A status is a fact about the cabinet and outranks the bound.
-        assertEquals("off", screen.noteFor(screen.cabinets[3]))
-    }
-
-    @Test
-    fun `with no ceiling published every cabinet says why it cannot go up`() {
-        val screen = live().copy(pair = ThothWire.pair(pairJson.replace(ceilingField, "")))
-        assertEquals(
-            "this thoth publishes no ceiling, so the level can only come down",
-            screen.noteFor(screen.cabinets[1]),
-        )
-    }
-
-    @Test
-    fun `a cabinet read without a pair to bound it can only come down`() {
-        val c = ThothWire.cabinets(picadesJson)
-        val screen = ThothScreen("h", ThothReach.LIVE, null, emptyList(), null, c)
-        assertEquals(67, screen.boundFor(c[2]).maxPercent)
-    }
 
     // ---- what a pick has to do ---------------------------------------------
 
