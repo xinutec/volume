@@ -1417,16 +1417,62 @@ Three instruments, none of them our own read. ✅ Writes confirmed on slot `08` 
 three times, the one slot left unassigned): `00 → 06 → 00`, each read back from the
 full map.
 
-⚠ **Four reads ANSWER and are deliberately not shown** — `aa 98` VoiceAware, `aa 91 01
-21` advanced ANC (seven TLV pairs against the M2's four, two tags undecoded), `aa a0`
-PSAP, and `aa 82` audio/video mode, whose payload `00 01 2e 00 18 01 ff ff` matches
-none of the three `SmartAv` knows, so the decoder correctly yields null. Answering is
-not meaning the same thing. #1587.
+✅ **Advanced ANC `aa 91 01 21` ships too**, checked tag by tag against the vendor's own
+Customize ANC screen — which only renders when the buds are WORN, per the section above:
+
+```
+01 01  adaptive        → "Adaptive ANC" switch on
+05 01  leakage         → "Leakage Compensation" switch on
+06 01  ear-canal       → "Ear Canal Compensation" switch on
+a1 04  ambient level   → its ambient slider at 4 of 6
+```
+⚠ `02 ff` and `07 00` remain undecoded and the M2 does not send them at all. The decoder
+skips unknown tags, so they cost nothing — and prove nothing.
+
+⚠ **`aa 82` audio/video is MEASURED and blocked on design, not on a value.** Video here
+is byte-identical to the M2's, and only Audio differs:
+
+```
+both  VIDEO  c5 00 2e 00 50 00 ff ff
+M2    AUDIO  00 01 35 00 96 00 ff ff
+LP2   audio  00 01 2e 00 18 01 ff ff
+```
+`SmartAv` holds one payload per entry and `JblSmartAv.set` writes it, so the enum cannot
+express "same VIDEO, different AUDIO" — it needs a per-model table. ✅ The write path
+works: `aa 81 08` with the measured payload was acked and read back. The app offers only
+two options on this model; there is no third.
+
+⚠ **Still not shown** — `aa 98` VoiceAware (answers `aa 98 03 02 02 00`, no vendor row
+for this model) and `aa a0` PSAP (silent). Answering is not meaning the same thing.
+#1587.
 
 ⚠ **The EQ contradicts itself and nothing here depends on it.** `aa 21 01 34` reads
 `04` while the vendor app shows the equaliser as JAZZ; this repo's preset table calls
 `04` Rock. Either the numbering is wrong or `34` is not the preset index. The `aa a2`
 ten-band read is silent on this model, so no EQ row ships either way.
+
+### ⚠⚠ Ambient Sound Control switches ITSELF on when worn — one fact, four symptoms
+
+Measured 2026-09-13, nobody writing anything:
+
+```
+out of ears   aa 21 01 41 → 41 00 00      aa 21 01 31 → 31 00 · 32 00   (off)
+in ears       aa 21 01 41 → 41 01 01      aa 21 01 31 → 31 01           (ANC, by itself)
+```
+
+**This is the explanation for four separate things that each looked like a fault**, and
+it was Pippijn's hypothesis, not a reading off the wire:
+
+  * every setter refused with `aa 00 02 <cmd> 04` when not worn — there is no active
+    mode to set;
+  * the vendor app renders its whole dashboard greyed and ignores taps;
+  * a mode "reverting" moments after a write — it had not reverted, the buds had left
+    an ear;
+  * ⚠ and picking a bud up to put it back TOUCHES ITS STEM, which is the control
+    surface, so the mode cycles. A test perturbed that way reads as a refused write.
+
+So: **check `41` at both ends of any run that writes.** A run whose in-ear state moved
+in the middle proves nothing, and nothing else in the protocol reveals it.
 
 ### ⚠ Both buds must be in ears, or every setter is refused
 

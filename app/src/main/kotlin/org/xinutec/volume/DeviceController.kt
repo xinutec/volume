@@ -494,13 +494,27 @@ class DeviceController(
                 //
                 // ✅ Writes confirmed on the one slot that was unassigned: `08` left
                 // three times, `00` → `06` → `00`, each read back from the full map.
+                // ✅ `aa 91 01 21` advanced ANC IS read — checked tag by tag against the
+                // vendor's own "Customize ANC" screen, 2026-09-13, **with the device worn
+                // so that screen would render at all**:
+                //
+                //   `01 01` adaptive · `05 01` leakage · `06 01` ear-canal — three
+                //   switches, all ON there; and `a1 04` against its ambient slider
+                //   sitting at 4 of 6.
+                //
+                // ⚠ Two tags stay undecoded — `02 ff` and `07 00`, which the M2 does not
+                // send at all. [JblAdvancedAnc] skips tags it does not know, so they cost
+                // nothing here; they are not evidence of anything either.
+                //
                 // ⛔ `aa 98` VoiceAware — answers `aa 98 03 02 02 00`; no vendor row.
-                // ⛔ `aa 91 01 21` advanced ANC — seven TLV pairs against the M2's four,
-                // two tags never decoded. [JblAdvancedAnc] parses it happily.
-                // ⛔ `aa 82` smart audio/video — answers, but its payload
-                // `00 01 2e 00 18 01 ff ff` matches none of [SmartAv]'s three, so the
-                // decoder correctly yields null. This model's Audio Mode is a different
-                // encoding and needs its own.
+                // ⛔ `aa 82` smart audio/video — **measured, and blocked on a design
+                // question rather than a value.** This model's Video is byte-identical to
+                // [SmartAv.VIDEO]; its Audio is `00 01 2e 00 18 01 ff ff` where the M2's
+                // is `00 01 35 00 96 00 ff ff`. An enum holding ONE payload per entry
+                // cannot say "same VIDEO, different AUDIO", and [JblSmartAv.set] writes
+                // those bytes — so the row needs a per-model table, not a paste.
+                // ✅ The write itself works: `aa 81 08` with the measured payload was
+                // acked and read back. #1587.
                 //
                 // ⚠ **`canPowerOff` is not claimed.** `aa 97` has never been sent to
                 // this device; the M2's flag would offer a button nothing has tried.
@@ -510,6 +524,7 @@ class DeviceController(
                     balance = Drivers.JblBes.readBalance(s.transport),
                     voicePrompts = Drivers.JblBes.readVoicePrompts(s.transport),
                     gestures = Drivers.JblBes.readGestures(s.transport),
+                    advancedAnc = Drivers.JblBes.readAdvancedAnc(s.transport),
                     attempted = true,
                 )
             }
