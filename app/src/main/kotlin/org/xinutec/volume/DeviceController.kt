@@ -549,6 +549,10 @@ class DeviceController(
                     eq = Drivers.JblLivePro2.readEq(s.transport),
                     eqPresets = JblEqPreset.NAMES.keys.sorted(),
                     eqPresetNames = JblEqPreset.NAMES,
+                    // ⚠ Read every time the section opens, never cached: it is the guard
+                    // on the locating tone, and a bud that went into an ear since the
+                    // last read would otherwise still be offered a button.
+                    inEar = Drivers.JblLivePro2.readInEar(s.transport),
                     attempted = true,
                 )
             }
@@ -1290,6 +1294,18 @@ class DeviceController(
                     ?: return@applied Confirmation.Unverifiable
             d.setFocusOnVoice(it.transport, on)
         }
+
+    /**
+     * ⚠ The in-ear guard is in the UI, not here: a driver that silently refused would
+     * leave a button on screen that does nothing, which is worse than no button.
+     */
+    override fun findBud(address: String, left: Boolean, on: Boolean) {
+        val side = if (left) "left" else "right"
+        val what = if (on) "sounding the $side bud" else "stopping the $side bud"
+        driven<Unit>(address, what, { null }) {
+            Drivers.JblLivePro2.findBud(it.transport, left, on)
+        }
+    }
 
     override fun setSmartAv(address: String, v: SmartAv) =
         applied<SmartAv>(address, "setting smart audio & video", { it.name.lowercase() }) {

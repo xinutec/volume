@@ -723,6 +723,90 @@ object JblFeature {
 }
 
 /**
+ * Find My Buds — `aa 36` starts and stops a locating tone, one bud at a time.
+ *
+ * ⚠⚠ **The wire values are NOT the enum's ordinals.** `BesBeepingType` runs
+ * `00 STOP_RIGHT · 01 STOP_LEFT · 02 START_RIGHT · 03 START_LEFT`, and
+ * `generateSetEarBeepingCmd` maps those through `CmdBase.values_ear_beeping`
+ * (`00 01 10 11`) rather than the identity table every other generator uses. An
+ * ordinal sent raw comes back `aa 00 02 36 00` — a SUCCESS ack — and does nothing at
+ * all. That cost an evening; the values below are the ones seen on the wire while the
+ * vendor app drove each bud, matched against four known taps.
+ *
+ * ⛔ **[status] does not track the tone and must never confirm a write.** It answered
+ * `00` while a bud was audibly beeping. The only confirmation is a person in the room.
+ *
+ * ⚠ **A hearing hazard with a measured guard.** `jbl.stc.com` will not start until its
+ * owner dismisses a *"Take Off Your Earbuds"* modal. This app can do better: the device
+ * reports each bud's in-ear state, so a bud that says it is worn is simply not offered
+ * — see [JblInEar]. A guard the hardware answers beats a checkbox somebody clicks past.
+ */
+object JblBeeping {
+    const val SET: Byte = 0x36
+    const val GET: Byte = 0x23
+
+    /** `aa 24 01 <n>` comes back; the reply command is `GET + 1`, as BES always does. */
+    private const val RET: Byte = 0x24
+
+    private const val STOP_RIGHT: Byte = 0x00
+    private const val STOP_LEFT: Byte = 0x01
+    private const val START_RIGHT: Byte = 0x10
+    private const val START_LEFT: Byte = 0x11
+
+    fun set(left: Boolean, on: Boolean): OutFrame {
+        val v =
+            when {
+                left && on -> START_LEFT
+                left -> STOP_LEFT
+                on -> START_RIGHT
+                else -> STOP_RIGHT
+            }
+        return OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, v))
+    }
+
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, GET, 0x00))
+
+    /** Whatever the device claims, for the record — ⛔ NOT a confirmation. See above. */
+    fun status(reply: ByteArray): Int? {
+        if (reply.size < 4 || reply[0] != Bes.HEADER || reply[1] != RET) return null
+        return reply[3].toInt() and 0xff
+    }
+}
+
+/**
+ * Which buds are in an ear — `aa 21 01 41`, one byte each, `01` = in.
+ *
+ * ⚠⚠ **`41`, not the `3b` that `EnumDeviceStatusType`'s ordinal arithmetic suggests.**
+ * `CmdGen.generateGetInEarStatusCmd` builds `0x41`, and `aa 21 01 3b` answers nothing on
+ * either JBL here. The enum names the STATUS a device reports; it does not enumerate the
+ * bytes you may ask for.
+ *
+ * ⚠ This is the most load-bearing read on the model. Ambient Sound Control switches
+ * itself on when both buds are in and off when they are not, every setter is refused
+ * `aa 00 02 <cmd> 04` while they are out, and the vendor app greys out AND lists fewer
+ * rows. A run that writes should read this at both ends.
+ */
+object JblInEar {
+    private const val FIELD: Byte = 0x41
+    private const val IN: Byte = 0x01
+
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
+
+    /** Left to right, as the frame carries them, or null if this is not that reply. */
+    fun state(reply: ByteArray): InEar? {
+        val p = Bes.status(reply, FIELD) ?: return null
+        if (p.size < 2) return null
+        return InEar(left = p[0] == IN, right = p[1] == IN)
+    }
+}
+
+/** Each bud's own answer about whether it is being worn. */
+data class InEar(
+    val left: Boolean,
+    val right: Boolean,
+)
+
+/**
  * The `EnumEqPresetIdx` namespace — `aa 40` writes it, status field `34` reports it.
  *
  * ⚠⚠ **NOT [JBL_EQ_PRESETS], which is a different field with colliding digits.** That

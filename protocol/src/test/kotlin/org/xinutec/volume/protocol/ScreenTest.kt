@@ -453,6 +453,9 @@ class ScreenTest {
                 "lowVolumeEq" to Settings(lowVolumeEq = true),
                 "smartAv" to Settings(smartAv = SmartAv.AUDIO),
                 "battery" to Settings(battery = Battery(percent = 60, charging = false)),
+                // ⚠ Shows on its own: it is what the Find My Buds row is drawn
+                // FROM, and a bud that reports itself worn is offered no button.
+                "inEar" to Settings(inEar = InEar(left = false, right = false)),
                 "autoPlay" to Settings(autoPlay = true),
                 "balance" to Settings(balance = Balance(on = false, level = 100)),
                 "psap" to Settings(psap = false),

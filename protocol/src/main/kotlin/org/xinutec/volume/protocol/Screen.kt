@@ -224,6 +224,17 @@ data class Settings(
      * somebody else's names.
      */
     val eqPresetNames: Map<Int, String> = emptyMap(),
+    /**
+     * Which buds report themselves in an ear, when the device will say.
+     *
+     * ⚠ **Here so the card can REFUSE rather than warn.** Find My Buds plays a
+     * deliberately piercing tone; the vendor app guards it with a modal asking its owner
+     * to confirm the buds are out. This device answers the question directly, so a bud
+     * that says it is worn simply gets no button — a guard the hardware answers beats a
+     * checkbox somebody clicks past. Null means it would not say, and then nothing is
+     * offered at all.
+     */
+    val inEar: InEar? = null,
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
     /**
@@ -524,6 +535,7 @@ data class Settings(
                 voiceAware != null || smartTalk != null || lowVolumeEq != null ||
                 smartAv != null || gestures != null || battery != null ||
                 eqPresets.isNotEmpty() ||
+                inEar != null ||
                 jblCupsDiffer != null ||
                 budBattery != null || loudness != null || jlabEq != null || jlabTouch != null ||
                 jlabSafeHearing != null ||

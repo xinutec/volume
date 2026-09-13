@@ -481,6 +481,15 @@ interface SettingActions {
     /** ⚠ Three states and no switch; [SmartAv] says why off is one of them. */
     fun setSmartAv(address: String, v: SmartAv)
 
+    /**
+     * Start or stop the locating tone on one bud.
+     *
+     * ⛔ **Nothing confirms this** — the device's own beeping status reads `00` while a
+     * bud is audibly sounding. The screen shows what was asked for and the owner hears
+     * the truth; see [JblBeeping].
+     */
+    fun findBud(address: String, left: Boolean, on: Boolean)
+
     fun setAutoPlay(address: String, on: Boolean)
 
     /** ⚠ Only the switch moves; the level is sent back as it was read. */
@@ -1148,6 +1157,43 @@ private fun SettingsSection(
                         selected = m == v,
                         onClick = { actions.setSmartAv(address, m) },
                         label = { Text(m.name.lowercase()) },
+                    )
+                }
+            }
+        }
+
+        settings.inEar?.let { worn ->
+            // ⚠ **An ACTION, not a setting — the only one on this card.** There is no
+            // state to show and nothing to confirm: [JblBeeping.status] reads `00` while
+            // a bud is audibly sounding, so a "beeping" indicator would be a guess. The
+            // buttons say what they will do and the owner hears whether it happened.
+            //
+            // ⚠⚠ **A bud that reports itself IN AN EAR gets no button.** The vendor app
+            // guards the same tone with a modal asking its owner to confirm the buds are
+            // out; this device answers that question directly, so it is asked rather
+            // than delegated. If both are worn the row says so and offers nothing —
+            // never a disabled control with no explanation.
+            val out =
+                listOfNotNull(
+                    if (!worn.left) "left" else null,
+                    if (!worn.right) "right" else null,
+                )
+            SettingLabel(
+                "Find my buds",
+                if (out.isEmpty()) "take them out of your ears first" else "sounds a loud tone",
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (side in out) {
+                    val left = side == "left"
+                    FilterChip(
+                        selected = false,
+                        onClick = { actions.findBud(address, left, true) },
+                        label = { Text("sound $side") },
+                    )
+                    FilterChip(
+                        selected = false,
+                        onClick = { actions.findBud(address, left, false) },
+                        label = { Text("stop $side") },
                     )
                 }
             }

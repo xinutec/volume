@@ -757,6 +757,24 @@ object Drivers {
         /** `aa 11` asks; [Bes.name] decodes. Identical on this model and the M2. */
         override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
 
+        /** Which buds are being worn — the guard [findBud] needs, and much else. */
+        fun readInEar(t: Transport): InEar? = JblInEar.state(t.exchange(JblInEar.get()))
+
+        /**
+         * Start or stop the locating tone on one bud.
+         *
+         * ⛔ **Returns nothing, deliberately.** `aa 23` reported `00` while a bud was
+         * audibly beeping, so there is no read that can confirm this and a
+         * [Confirmation] built from one would be a lie. The caller shows what it asked
+         * for; the person in the room knows what happened.
+         *
+         * ⚠ The in-ear guard is the CALLER's, not this function's — a driver that
+         * silently refused would leave the UI showing a control that does nothing.
+         */
+        fun findBud(t: Transport, left: Boolean, on: Boolean) {
+            t.exchange(JblBeeping.set(left, on))
+        }
+
         /**
          * Charge, from the frame the vendor app asks with — see [JblBattery.getSdk].
          *
