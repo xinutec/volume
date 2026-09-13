@@ -477,11 +477,23 @@ class DeviceController(
                 // vendor counterpart — Power Saving, Auto Play & Pause, Left / Right
                 // Sound Balance, Voice Prompts — and reads the same value it shows.
                 //
-                // ⛔ `aa 77` gestures — the device returns a full sixteen-slot map and
-                // **the vendor app has no controls screen for this model at all**. So
-                // the labels ("left button, twice") come from the M2's vocabulary,
-                // nothing can check them, and the section offers writes. It rendered
-                // plausibly, which is the problem. #1587.
+                // ✅ `aa 77` gestures are here despite **the vendor app having no
+                // controls screen for this model at all** — so the usual oracle was
+                // missing and three slots were driven by hand instead, 2026-09-13, each
+                // read by a different instrument:
+                //
+                //   * `06` left once  → `0b` cycle ANC/ambient — the buds ANNOUNCED
+                //     "Noise cancelling", and `aa 21 01 31` agreed;
+                //   * `07` left twice → `04` TalkThru — announced, and `32 01`;
+                //   * `0a` right twice → `05` next track — Android's media session went
+                //     Hytta → Segla, which is neither his report nor ours.
+                //
+                // ⚠ **The device's own voice prompt is the oracle this repo was
+                // missing.** It says the mode out loud, from the firmware, owing nothing
+                // to our decode — see `docs/protocols.md`.
+                //
+                // ✅ Writes confirmed on the one slot that was unassigned: `08` left
+                // three times, `00` → `06` → `00`, each read back from the full map.
                 // ⛔ `aa 98` VoiceAware — answers `aa 98 03 02 02 00`; no vendor row.
                 // ⛔ `aa 91 01 21` advanced ANC — seven TLV pairs against the M2's four,
                 // two tags never decoded. [JblAdvancedAnc] parses it happily.
@@ -497,6 +509,7 @@ class DeviceController(
                     autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
                     balance = Drivers.JblBes.readBalance(s.transport),
                     voicePrompts = Drivers.JblBes.readVoicePrompts(s.transport),
+                    gestures = Drivers.JblBes.readGestures(s.transport),
                     attempted = true,
                 )
             }

@@ -1389,6 +1389,45 @@ stayed in Ambient across four reads over three seconds. And **`aa 32 01 <mode>`,
 02 32 04`, while `aa 32 01 00` (off) is accepted. So neither the SDK's generator nor
 the sibling model's frame is the whole answer; the split above is.
 
+### ✅ The device's own voice prompt is an oracle — use it
+
+The buds ANNOUNCE the mode they enter: "Noise cancelling", "TalkThru". That sentence
+comes from the firmware and owes nothing to this repo's decode, to the vendor app, or
+to the wire — which makes it the independent check that was missing all day while a
+lying read-back was believed six times over. **Ask the person wearing them what the
+headphones just said.** It costs one message and it is not a proxy for the state; it is
+the device reporting it.
+
+### ✅ Settings — what this model answers, and what was driven
+
+Of the M2's sixteen settings reads, eight answer. Four are shipped, each with a
+matching row in `jbl.stc.com` for this model — auto-off `aa 21 01 33` (its "Power
+Saving"), auto play `38`, L/R balance `aa a8`, voice prompts `aa 93` — and writes were
+driven and read back for auto-off (`30 → 60 → 30 min`) and auto play (`on → off → on`).
+
+✅ **Gestures `aa 77` are shipped too, and the vendor app has NO controls screen for
+this model** — so the map was checked by driving it:
+
+```
+06 left once   → 0b cycle ANC/ambient    announced "Noise cancelling"; 31 01
+07 left twice  → 04 TalkThru             announced "TalkThru";         32 01
+0a right twice → 05 next track           media session: Hytta → Segla
+```
+Three instruments, none of them our own read. ✅ Writes confirmed on slot `08` (left
+three times, the one slot left unassigned): `00 → 06 → 00`, each read back from the
+full map.
+
+⚠ **Four reads ANSWER and are deliberately not shown** — `aa 98` VoiceAware, `aa 91 01
+21` advanced ANC (seven TLV pairs against the M2's four, two tags undecoded), `aa a0`
+PSAP, and `aa 82` audio/video mode, whose payload `00 01 2e 00 18 01 ff ff` matches
+none of the three `SmartAv` knows, so the decoder correctly yields null. Answering is
+not meaning the same thing. #1587.
+
+⚠ **The EQ contradicts itself and nothing here depends on it.** `aa 21 01 34` reads
+`04` while the vendor app shows the equaliser as JAZZ; this repo's preset table calls
+`04` Rock. Either the numbering is wrong or `34` is not the preset index. The `aa a2`
+ten-band read is silent on this model, so no EQ row ships either way.
+
 ### ⚠ Both buds must be in ears, or every setter is refused
 
 ```
