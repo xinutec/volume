@@ -703,6 +703,10 @@ class ScreenTest {
                 "focusOnVoiceSettable",
                 "buttonOptions",
                 "supportedLanguages",
+                // ⚠ A capability, not a reading, like canPowerOff: it says whether
+                // `voicePrompts` may be WRITTEN, and a card holding only that holds
+                // nothing to show.
+                "canWriteVoicePrompts",
                 // ⚠ A capability, not a reading — see Settings.canPowerOff.
                 "canPowerOff",
                 // Same: a capability, saying only whether the control exists.

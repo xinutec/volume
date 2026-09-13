@@ -492,6 +492,21 @@ data class Settings(
      */
     val canPowerOff: Boolean = false,
     /**
+     * Whether [voicePrompts] can be WRITTEN, as against merely read.
+     *
+     * ⚠⚠ **Because for months it could not, on two devices, behind a switch that looked
+     * exactly like a working one.** `setVoicePrompts` dispatches on the Bose driver and
+     * returns [Confirmation.Unverifiable] for anything else — so both JBLs read the value
+     * correctly, drew a switch, and did nothing when it was moved. Found 2026-09-13 while
+     * checking whether the LIVE PRO 2's write had ever been tested; it had not, and
+     * neither had the M2's.
+     *
+     * ⚠ **A capability, not a reading**, so it is not part of [any] — and it defaults
+     * FALSE, which is the direction that fails safe: a driver that gains a writer says so
+     * here, where one that loses one goes read-only rather than silently inert.
+     */
+    val canWriteVoicePrompts: Boolean = false,
+    /**
      * Focus on Voice — **readable always, settable only in ambient mode.**
      *
      * ⚠ A fourth kind of "no control", and it is none of the other three: not refused,

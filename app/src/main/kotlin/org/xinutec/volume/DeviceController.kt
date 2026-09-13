@@ -381,6 +381,9 @@ class DeviceController(
                     standby = all?.standby,
                     selfVoice = all?.sidetone,
                     voicePrompts = all?.voicePrompts,
+                    // ✅ Bose is the only driver with a writer — see
+                    // [Settings.canWriteVoicePrompts].
+                    canWriteVoicePrompts = true,
                     promptLanguage = all?.promptLanguage,
                     supportedLanguages = all?.supportedLanguages ?: emptyList(),
                     devices = Drivers.BoseQc35.readDevices(s.transport),
@@ -421,6 +424,9 @@ class DeviceController(
                     standby = all?.standby,
                     selfVoice = all?.sidetone,
                     voicePrompts = all?.voicePrompts,
+                    // ✅ Bose is the only driver with a writer — see
+                    // [Settings.canWriteVoicePrompts].
+                    canWriteVoicePrompts = true,
                     promptLanguage = all?.promptLanguage,
                     supportedLanguages = all?.supportedLanguages ?: emptyList(),
                     canRename = true,

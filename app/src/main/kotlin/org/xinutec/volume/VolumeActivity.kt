@@ -1257,7 +1257,10 @@ private fun SettingsSection(
                     ?.name
                     ?.lowercase()
                     ?.replace('_', ' ') ?: "",
-                writable = true,
+                // ⚠ **Not hardcoded true.** Only the Bose driver has a writer; the JBLs
+                // read this and drew an operable switch that did nothing. See
+                // [Settings.canWriteVoicePrompts].
+                writable = settings.canWriteVoicePrompts,
                 checked = on,
                 onChange = { actions.setVoicePrompts(address, it) },
             )
