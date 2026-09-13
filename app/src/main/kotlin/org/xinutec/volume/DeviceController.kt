@@ -456,6 +456,51 @@ class DeviceController(
                 )
             }
 
+            Drivers.JblLivePro2 -> {
+                // ⚠⚠ **Exactly the reads this device was measured to ANSWER, 2026-09-13,
+                // and no others.** All sixteen of the M2's settings reads were sent to
+                // it; eight came back silent — the `aa a2` EQ curve, `aa a0` PSAP,
+                // `aa a5` volume limiter, `aa 9d` spatial, `aa 9f` smart talk, `aa 9e`
+                // low-volume EQ, `aa b1` LE-audio/Auracast, and `aa 25` battery. Calling
+                // them anyway would be honest in its result — null renders no row — and
+                // costs ~1.6 s each in timeout, which is thirteen seconds of spinner on
+                // a card whose owner is waiting.
+                //
+                // ⚠ The decoders are [Drivers.JblBes]'s because the frames ARE the M2's,
+                // byte for byte. Only ANC differs between these two models, which is
+                // what [Drivers.JblLivePro2] is for.
+                //
+                // ⚠⚠ **Four of the eight that ANSWER are dropped, and the test is
+                // whether `jbl.stc.com` offers the same row for THIS model.** Its screen
+                // is the only oracle available: a reply that decodes is not evidence the
+                // field means here what it means on an over-ear. Every row below has a
+                // vendor counterpart — Power Saving, Auto Play & Pause, Left / Right
+                // Sound Balance, Voice Prompts — and reads the same value it shows.
+                //
+                // ⛔ `aa 77` gestures — the device returns a full sixteen-slot map and
+                // **the vendor app has no controls screen for this model at all**. So
+                // the labels ("left button, twice") come from the M2's vocabulary,
+                // nothing can check them, and the section offers writes. It rendered
+                // plausibly, which is the problem. #1587.
+                // ⛔ `aa 98` VoiceAware — answers `aa 98 03 02 02 00`; no vendor row.
+                // ⛔ `aa 91 01 21` advanced ANC — seven TLV pairs against the M2's four,
+                // two tags never decoded. [JblAdvancedAnc] parses it happily.
+                // ⛔ `aa 82` smart audio/video — answers, but its payload
+                // `00 01 2e 00 18 01 ff ff` matches none of [SmartAv]'s three, so the
+                // decoder correctly yields null. This model's Audio Mode is a different
+                // encoding and needs its own.
+                //
+                // ⚠ **`canPowerOff` is not claimed.** `aa 97` has never been sent to
+                // this device; the M2's flag would offer a button nothing has tried.
+                Settings(
+                    timedOff = Drivers.JblBes.readAutoOff(s.transport),
+                    autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
+                    balance = Drivers.JblBes.readBalance(s.transport),
+                    voicePrompts = Drivers.JblBes.readVoicePrompts(s.transport),
+                    attempted = true,
+                )
+            }
+
             is Drivers.JLabQcy -> {
                 // ⚠ **Two reads for one card field.** The JLab keeps the switch and the
                 // mode in separate commands, so [Settings.spatial] is only offered when
