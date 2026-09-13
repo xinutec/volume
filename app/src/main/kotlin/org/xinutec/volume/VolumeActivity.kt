@@ -536,7 +536,17 @@ fun VolumeScreen(
                 item(key = "no-headphones") { NoHeadphones(why) }
             } else {
                 items(screen.cards, key = { it.address }) { card ->
-                    DeviceRow(card, onConnect, onSet, actions, openSections)
+                    // ⚠ The screen decides, not the card: whether a slider belongs
+                    // here is the card's state AND where the audio is going, and only
+                    // the screen holds both. See [Screen.ownsMediaVolume].
+                    DeviceRow(
+                        card,
+                        screen.ownsMediaVolume(card),
+                        onConnect,
+                        onSet,
+                        actions,
+                        openSections,
+                    )
                 }
             }
         }
@@ -574,6 +584,7 @@ private fun NoHeadphones(why: Emptiness) {
 @Composable
 private fun DeviceRow(
     card: DeviceCard,
+    ownsMediaVolume: Boolean,
     onConnect: (String) -> Unit,
     onSet: (String, AncMode) -> Unit,
     actions: SettingActions,
@@ -689,10 +700,10 @@ private fun DeviceRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    // ⚠ The bound is on the CARD, not on this state — a device with no
-                    // control channel that is NOT the audio output has no volume of its
-                    // own to move. See `DeviceCard.ownsMediaVolume`.
-                    if (card.ownsMediaVolume) {
+                    // ⚠ The bound is not on this state — a device with no control
+                    // channel that is NOT the audio output has no volume of its own to
+                    // move. See `Screen.ownsMediaVolume`.
+                    if (ownsMediaVolume) {
                         MediaVolumeRow()
                     }
                 }

@@ -21,30 +21,32 @@ class ScreenTest {
     @Test
     fun `only an undriveable active device owns the media volume`() {
         val here = DeviceCard("NewPie 32", "aa", DeviceState.NoControl("it said nothing"))
-        assertFalse(here.ownsMediaVolume)
-        assertTrue(here.copy(activeOutput = true).ownsMediaVolume)
-
         // ⚠ **A failed ATTEMPT is not a device without a channel.** It may well have
         // its own volume commands, so offering the phone's is the wrong control on a
         // guess — and the retry it gets instead is the one that can actually help.
         val flaky = DeviceCard("QC45", "dd", DeviceState.Unavailable("would not connect"))
-        assertFalse(flaky.copy(activeOutput = true).ownsMediaVolume)
-
         val driveable = DeviceCard("XM4", "bb", DeviceState.Ready("XM4", emptyList(), null))
-        assertFalse(driveable.copy(activeOutput = true).ownsMediaVolume)
-
         val idle = DeviceCard("QC45", "cc", DeviceState.Idle)
-        assertFalse(idle.copy(activeOutput = true).ownsMediaVolume)
+        val cards = listOf(here, flaky, driveable, idle)
+
+        assertTrue(Screen(cards, activeAddress = "aa").ownsMediaVolume(here))
+
+        assertFalse(Screen(cards).ownsMediaVolume(here))
+        assertFalse(Screen(cards, activeAddress = "dd").ownsMediaVolume(flaky))
+        assertFalse(Screen(cards, activeAddress = "bb").ownsMediaVolume(driveable))
+        assertFalse(Screen(cards, activeAddress = "cc").ownsMediaVolume(idle))
+        // The audio is going to another card, so this one's slider would move a level
+        // belonging to something the owner cannot see from here.
+        assertFalse(Screen(cards, activeAddress = "cc").ownsMediaVolume(here))
     }
 
-    /** Reconciling marks exactly the active address, and unmarks the rest. */
+    /** Reconciling carries the address across, and a later one replaces it. */
     @Test
-    fun `reconciling moves the active flag`() {
+    fun `reconciling takes the active address`() {
         val s =
             Screen(emptyList(), emptiness = Emptiness.LOOKING)
                 .reconciled(listOf("aa" to "One", "bb" to "Two"), Emptiness.NONE_CONNECTED, "bb")
-        assertFalse(s.cards.first { it.address == "aa" }.activeOutput)
-        assertTrue(s.cards.first { it.address == "bb" }.activeOutput)
+        assertEquals("bb", s.activeAddress)
 
         val moved =
             s.reconciled(
@@ -52,8 +54,7 @@ class ScreenTest {
                 Emptiness.NONE_CONNECTED,
                 "aa",
             )
-        assertTrue(moved.cards.first { it.address == "aa" }.activeOutput)
-        assertFalse(moved.cards.first { it.address == "bb" }.activeOutput)
+        assertEquals("aa", moved.activeAddress)
     }
 
     private val screen =

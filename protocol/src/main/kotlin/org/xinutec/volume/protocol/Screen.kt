@@ -37,33 +37,7 @@ data class DeviceCard(
      * had subscribed to hear it.
      */
     val asking: String? = null,
-    /**
-     * This device is where the phone's audio is actually going.
-     *
-     * ⚠ Kept per card rather than as one address on the screen, because what it
-     * changes is what a card can OFFER — see [ownsMediaVolume].
-     */
-    val activeOutput: Boolean = false,
 ) {
-    /**
-     * The phone's media volume IS this device's volume, so a slider here is real.
-     *
-     * ⚠ **The condition is [DeviceState.NoControl] AND the audio is going here, and
-     * both halves matter.** A merely-[DeviceState.Unavailable] device is one that
-     * failed an attempt; it may well have its own volume commands, and a media slider
-     * on it would be the wrong control offered on a guess.** A device with a driver has its own volume commands and should
-     * use them. A device that is not the active output would have its slider move a
-     * level belonging to something else, which is the same class of bug as a one-tap
-     * tile changing the ANC of the pair that is not in your ears.
-     *
-     * ✅ Measured on a NewPie 32, 2026-09-12: `dumpsys audio` reports
-     * `mAvrcpAbsVolSupported: true`, and its own volume buttons walk the phone's
-     * AVRCP volume `2 → 25` and back. Absolute volume means the two numbers are one
-     * number, in both directions — which is why this is a control and not a guess.
-     */
-    val ownsMediaVolume: Boolean
-        get() = activeOutput && state is DeviceState.NoControl
-
     /** Modes to offer, empty until we know what it is. */
     val offer: List<AncMode>
         get() = (state as? DeviceState.Ready)?.modes.orEmpty()
@@ -687,12 +661,48 @@ data class Screen(
      * becomes a lie about the other five.
      */
     val emptiness: Emptiness? = null,
+    /**
+     * Which card the phone's audio is actually going to, or null when it is going
+     * somewhere that is not on this screen.
+     *
+     * ⚠ **One address here, not a boolean on every card.** It was a boolean per card
+     * first, and both of 2026-09-12's staleness bugs were copies of this single fact
+     * disagreeing: [reconciled] stamped them on the connect broadcast, before the audio
+     * framework had the A2DP output, and the re-stamp that fixed that rode on state
+     * changes which a later fix removed. One value written in one place cannot go stale
+     * somewhere else.
+     */
+    val activeAddress: String? = null,
 ) {
     init {
         require(cards.isEmpty() == (emptiness != null)) {
             "an empty screen must say why it is empty, and a populated one must not"
         }
     }
+
+    /**
+     * The phone's media volume IS this card's volume, so a slider on it is real.
+     *
+     * ⚠ **Asked of the screen, because it is a question about both.** Which device
+     * the audio framework is routing to is one global fact, and whether a card may
+     * offer a slider is that fact AND the card's own state. Only the screen holds
+     * both, so no caller can pair a card with the wrong routing.
+     *
+     * ⚠ **The condition is [DeviceState.NoControl] AND the audio is going here, and
+     * both halves matter.** A merely-[DeviceState.Unavailable] device is one that
+     * failed an attempt; it may well have its own volume commands, so a media slider on
+     * it is the wrong control offered on a guess. A device with a driver has its own
+     * volume commands and should use them. A device that is not the active output would
+     * have its slider move a level belonging to something else, which is the same class
+     * of bug as a one-tap tile changing the ANC of the pair that is not in your ears.
+     *
+     * ✅ Measured on a NewPie 32, 2026-09-12: `dumpsys audio` reports
+     * `mAvrcpAbsVolSupported: true`, and its own volume buttons walk the phone's
+     * AVRCP volume `2 → 25` and back. Absolute volume means the two numbers are one
+     * number, in both directions — which is why this is a control and not a guess.
+     */
+    fun ownsMediaVolume(card: DeviceCard): Boolean =
+        card.address == activeAddress && card.state is DeviceState.NoControl
 
     /** Replace one card by address, leaving the rest and the order alone. */
     fun with(address: String, state: DeviceState): Screen =
@@ -733,19 +743,6 @@ data class Screen(
         copy(cards = cards.map { if (it.address == address) it.copy(name = name) else it })
 
     /**
-     * Re-stamp which card is the audio output.
-     *
-     * ⚠⚠ **Because [reconciled] alone is too early.** It runs on the connect
-     * broadcast, and this repo already knows the profile proxies populate ~1.2 s after
-     * ACL — so the audio framework has no A2DP output yet and every card is marked
-     * inactive. Nothing re-stamped it afterwards, so a device that had just become the
-     * output showed no volume row until the app was restarted. Measured 2026-09-12 on
-     * a NewPie 32: restart and the row appears.
-     */
-    fun marking(active: String?): Screen =
-        copy(cards = cards.map { it.copy(activeOutput = it.address == active) })
-
-    /**
      * Bring the list in line with what is [present] now, **keeping what is known**.
      *
      * ⚠ Not a rebuild. Headphones come and go while the app is open, and rebuilding
@@ -759,6 +756,8 @@ data class Screen(
      * @param whenEmpty what to say if [present] is empty — asked for up front so
      *   that the caller, which is the only thing that knows whether the radio is
      *   off or the room is simply quiet, cannot decline to answer.
+     * @param active where the audio is going now — see [activeAddress]. Passed in
+     *   rather than kept, because a refresh runs precisely when it can have moved.
      */
     fun reconciled(
         present: List<Pair<String, String>>,
@@ -768,10 +767,10 @@ data class Screen(
         val known = cards.associateBy { it.address }
         return Screen(
             present.map { (address, name) ->
-                (known[address] ?: DeviceCard(name, address, DeviceState.Idle))
-                    .copy(activeOutput = address == active)
+                known[address] ?: DeviceCard(name, address, DeviceState.Idle)
             },
             emptiness = whenEmpty.takeIf { present.isEmpty() },
+            activeAddress = active,
         )
     }
 }

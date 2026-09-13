@@ -1427,10 +1427,10 @@ class DeviceController(
      * `AudioDeviceCallback` is its event — it fires when outputs appear and disappear,
      * which is the fact itself rather than a proxy for it arriving late.
      */
-    fun outputsChanged() = work.execute { emit(screen.marking(Active.address(context))) }
+    fun outputsChanged() =
+        work.execute { emit(screen.copy(activeAddress = Active.address(context))) }
 
-    private fun update(address: String, state: DeviceState) =
-        emit(screen.with(address, state).marking(Active.address(context)))
+    private fun update(address: String, state: DeviceState) = emit(screen.with(address, state))
 
     private fun rename(address: String, name: String) = emit(screen.renamed(address, name))
 
