@@ -264,7 +264,16 @@ reads are unambiguous and cheaper, so nothing depends on decoding the bundle.
 3b IN_EAR_STATUS   3c SEAL_CHECK_STATUS  3d PERSONIFI_TEST_MODE_STATUS
 ```
 Eight of those were already measured and agree, which is what makes the other six
-trustworthy. ⚠ **Six names here were abbreviated when this was written** — `IN_EAR`,
+trustworthy.
+
+⚠⚠ **The `ordinal + 0x30` rule does NOT give the request byte for in-ear — measured
+2026-09-13 on a LIVE PRO 2.** The enum says `3b IN_EAR_STATUS`, and `aa 21 01 3b`
+answers nothing on either JBL here. The SDK asks with `41`:
+`CmdGen.generateGetInEarStatusCmd` builds a one-byte payload `0x41`, and
+`aa 21 01 41` answers `aa 22 03 41 <left> <right>` — one byte per bud, `01` = in an
+ear. `generateGetTwsConnectStatus` does send `0x39`, which is why `39` worked and this
+was not noticed. So the enum names the STATUS this device reports; it does not
+enumerate the bytes you may ask for. Ask the generator, not the ordinal. ⚠ **Six names here were abbreviated when this was written** — `IN_EAR`,
 `SEAL_CHECK`, `BT_CONNECTION`, `OTA_UPGRADE`, `TWS_CONNECTION`, `ANC_TUNING`. The SDK
 spells all six with a `_STATUS` suffix, and they are written out above now: a future
 session grepping the APK for the name in this table would not have found it.
@@ -1350,6 +1359,58 @@ carries writes too.
 
 ⚠ **Never sweep this protocol.** It has no Get operator; `aa 31`, `aa 33`, `aa 40`
 and `aa 95` are writes, and `Sweep` deliberately cannot emit them.
+
+## ✅ JBL LIVE PRO 2 TWS — same chip, same service, different ANC protocol
+
+Driven 2026-09-13. It answers on `65786365-…0000` exactly as the Tour One M2 does,
+and `aa 11 00` returns its own name and BD address — so identification is free and
+certain. Everything about ANC then differs, which is why `Drivers.JblLivePro2` is a
+second driver rather than a branch.
+
+```
+OFF        → aa 31 01 00                      ← aa 00 02 31 00     an ACK, not an echo
+ANC        → aa 31 01 01                      ← aa 00 02 31 00
+AMBIENT    → aa 91 07 10 01 00 02 01 03 00    ← echoed verbatim    the M2's own frame
+TALK_THRU  → aa 91 07 10 01 00 02 00 03 01    ← echoed verbatim
+read       → aa 21 01 31   ← aa 22 02 31 <anc>  aa 22 02 32 <aa-mode>
+```
+
+⚠⚠ **`aa 91 01 11` — the M2's read — is WRONG here, and wrong in two different
+directions.** In a TalkThru confirmed by its owner's ears it answered `01 01 02 00 03
+00` ("ANC") at 11:12 and `01 00 02 01 03 00` ("Ambient") at 11:14. The status fields
+were right both times. **The device answers a single `aa 21 01 31` with `31` AND `32`,
+concatenated**, and `32` is `EnumAAStatus` — `00` off, `01` TalkThru, `02` Ambient
+Aware. `32` **outranks** `31`: a confirmed TalkThru reads `31 01` and `32 01` together,
+so testing ANC first names it wrong.
+
+⚠ **`aa 91 07 10` cannot select ANC on this model** — sent from Ambient, the device
+stayed in Ambient across four reads over three seconds. And **`aa 32 01 <mode>`, which
+`CmdGen.generateSetAmbientAwareCmd` builds for precisely this, is refused** with `aa 00
+02 32 04`, while `aa 32 01 00` (off) is accepted. So neither the SDK's generator nor
+the sibling model's frame is the whole answer; the split above is.
+
+### ⚠ Both buds must be in ears, or every setter is refused
+
+```
+→ aa 21 01 41   ← aa 22 03 41 <left> <right>     01 = in an ear
+```
+With `00 00` or `00 01`, every setter answered `aa 00 02 <cmd> 04` and nothing moved;
+with `01 01` the identical bytes took. `04` is the device's refusal code — it appeared
+for `31`, `32` and `91` alike, so it is not command-specific. **This is a guard, not a
+fault**, and an app should say "put them in" rather than report a failed write.
+
+⚠ **Two traps in testing this, both hit on the day:**
+
+- **Handling a bud cycles the mode.** The touch surface is the whole stem, so picking
+  one up to put it back in changes ANC. A test perturbed that way looks exactly like a
+  device rejecting a write. Pippijn reported it happening; it is not hypothetical.
+- **A read-back can be the liar.** Six runs said this device refused TalkThru — the
+  write echoed and the next read said ANC. The writes had worked every time. What
+  settled it was asking the person wearing them, after the wire could say no more: the
+  app's capture showed it sending byte-for-byte the same frame to the same handle
+  (`0x003b`, notifications on `0x0037`) with no handshake, no follow-up, and nothing
+  else in the exchange. When two actors send identical bytes and only one is believed
+  to work, the belief is what needs testing.
 
 ## ✅ JLab ANC
 

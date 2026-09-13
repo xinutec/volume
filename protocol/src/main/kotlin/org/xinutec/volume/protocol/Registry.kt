@@ -84,6 +84,27 @@ object Registry {
                 )
             }
 
+            // ⚠⚠ **Its own driver, and the reason is the whole of 2026-09-13.** This
+            // pair answers on the same service as the M2, to the same name frame, and
+            // then disagrees about ANC in both directions: `aa 91 01 11` reports a
+            // confirmed TalkThru as ANC or as Ambient depending on when you ask, and
+            // `aa 91`'s setter cannot select ANC at all. Handing it [Drivers.JblBes]
+            // would have produced a card that reads the wrong mode and has a chip that
+            // does nothing — which is exactly what a vendor-only branch did here for
+            // nine days. See [Drivers.JblLivePro2] for the measurements.
+            d.vendor == Channels.Vendor.JBL && "live pro 2" in n -> {
+                Headphones(
+                    d.vendor,
+                    "JBL LIVE PRO 2",
+                    Route.Gatt(
+                        Channels.BES_GATT_SERVICE,
+                        Channels.BES_GATT_WRITE,
+                        Channels.BES_GATT_NOTIFY,
+                    ),
+                    Drivers.JblLivePro2,
+                )
+            }
+
             // ⚠⚠ **The MODEL, not just the vendor — and this branch was vendor-only
             // until 2026-09-12**, which is nine days after the identical fix went in
             // for JLab immediately below and did not get carried across. A LIVE PRO 2

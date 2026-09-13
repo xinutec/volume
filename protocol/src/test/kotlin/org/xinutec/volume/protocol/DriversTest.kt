@@ -581,6 +581,106 @@ class DriversTest {
         )
     }
 
+    // ---- JBL LIVE PRO 2 ----------------------------------------------------------
+
+    /**
+     * Every mode this pair reports, from the bytes it sent on 2026-09-13.
+     *
+     * ⚠⚠ **The TalkThru case is the reason this driver exists.** The device was
+     * genuinely in TalkThru — confirmed by its owner's ears, after the wire had stopped
+     * being able to tell us — and it answered `31 01` *and* `32 01` together. The M2's
+     * read would have called that ANC.
+     */
+    @Test
+    fun `live pro 2 reads the status fields, not the aa 91 aggregate`() {
+        val anc = Replay("aa 21 01 31" to "aa 22 02 31 01")
+        assertEquals(AncMode.ANC, Drivers.JblLivePro2.read(anc))
+
+        val talk = Replay("aa 21 01 31" to "aa 22 02 31 01 aa 22 02 32 01")
+        assertEquals(AncMode.TALK_THRU, Drivers.JblLivePro2.read(talk))
+
+        val ambient = Replay("aa 21 01 31" to "aa 22 02 31 00 aa 22 02 32 02")
+        assertEquals(AncMode.AMBIENT, Drivers.JblLivePro2.read(ambient))
+
+        val off = Replay("aa 21 01 31" to "aa 22 02 31 00 aa 22 02 32 00")
+        assertEquals(AncMode.OFF, Drivers.JblLivePro2.read(off))
+    }
+
+    /**
+     * ⚠ The buffer can begin with somebody else's frame — the battery notification
+     * that arrives unasked. [Bes.frame] walks to the one wanted, and a reply with no
+     * `31` at all is not an answer to this question.
+     */
+    @Test
+    fun `live pro 2 finds its field behind an unsolicited frame, and refuses without it`() {
+        val behind =
+            Replay(
+                "aa 21 01 31" to
+                    "aa 25 0d 01 00 00 64 64 00 64 dc 10 c2 10 a4 01 aa 22 02 31 01",
+            )
+        assertEquals(AncMode.ANC, Drivers.JblLivePro2.read(behind))
+
+        val unrelated = Replay("aa 21 01 31" to "aa 25 0d 01 00 00 64 64 00 64 dc 10 c2 10 a4 01")
+        assertNull(Drivers.JblLivePro2.read(unrelated))
+    }
+
+    /**
+     * Two setters, and which one is used per mode is measured rather than tidy.
+     *
+     * ⚠ `aa 91` cannot select ANC here and `aa 31` cannot select the ambient modes, so
+     * a driver that picked one route for all four would half-work — which is exactly
+     * what the M2's driver does on this device.
+     */
+    @Test
+    fun `live pro 2 writes each mode with the route that moved it`() {
+        val off = Replay("aa 31 01 00" to "aa 00 02 31 00")
+        Drivers.JblLivePro2.write(off, AncMode.OFF)
+        off.assertDrained()
+
+        val anc = Replay("aa 31 01 01" to "aa 00 02 31 00")
+        Drivers.JblLivePro2.write(anc, AncMode.ANC)
+        anc.assertDrained()
+
+        val ambient =
+            Replay("aa 91 07 10 01 00 02 01 03 00" to "aa 91 07 12 01 00 02 01 03 00")
+        Drivers.JblLivePro2.write(ambient, AncMode.AMBIENT)
+        ambient.assertDrained()
+
+        val talk =
+            Replay("aa 91 07 10 01 00 02 00 03 01" to "aa 91 07 12 01 00 02 00 03 01")
+        Drivers.JblLivePro2.write(talk, AncMode.TALK_THRU)
+        talk.assertDrained()
+    }
+
+    /**
+     * ⚠ **The device's echo is not the confirmation, and on this model it is actively
+     * misleading.** A TalkThru write is echoed back verbatim; asking `aa 91 01 11`
+     * afterwards returned "Ambient" for a state the owner could hear was TalkThru. The
+     * read that [set] confirms with has to be the status-field one.
+     */
+    @Test
+    fun `live pro 2 confirms talk thru from the status fields`() {
+        val t =
+            Replay(
+                "aa 91 07 10 01 00 02 00 03 01" to "aa 91 07 12 01 00 02 00 03 01",
+                "aa 21 01 31" to "aa 22 02 31 01 aa 22 02 32 01",
+            )
+        assertEquals(Confirmation.Confirmed, Drivers.JblLivePro2.set(t, AncMode.TALK_THRU))
+        t.assertDrained()
+    }
+
+    /** The name frame is the one thing the two JBLs agree on. */
+    @Test
+    fun `live pro 2 reports its own name`() {
+        val t =
+            Replay(
+                "aa 11 00" to
+                    "aa 12 25 4a 42 4c 20 4c 49 56 45 20 50 52 4f 20 32 20 00 58 20 00 ff " +
+                    "aa bb cc dd ee ff 05 08 00 ff ff ff ff ff ff 01 00",
+            )
+        assertEquals("JBL LIVE PRO 2", Drivers.JblLivePro2.name(t))
+    }
+
     // ---- Bose ------------------------------------------------------------------
 
     @Test

@@ -737,6 +737,26 @@ object Bes {
     const val STATUS_RET: Byte = 0x22
 
     /**
+     * `aa 11` asks the device what it is; `aa 12 <len> <name…>` answers.
+     *
+     * ⚠ Here rather than in a driver because **two JBL models share it and nothing
+     * else** — the LIVE PRO 2 answers this identically to the Tour One M2 while
+     * disagreeing with it about how ANC is read and written. The name is the one part
+     * of the protocol that has been the same on every BES device measured, which is
+     * exactly why it is worth having one copy of.
+     */
+    val NAME_GET = byteArrayOf(HEADER, 0x11, 0x00)
+
+    private const val NAME_RET: Byte = 0x12
+
+    /** The NUL-terminated ASCII at the front of an `aa 12` reply; battery follows. */
+    fun name(reply: ByteArray): String? {
+        if (reply.size < 4 || reply[0] != HEADER || reply[1] != NAME_RET) return null
+        val end = (3 until reply.size).firstOrNull { reply[it] == 0x00.toByte() } ?: return null
+        return String(reply, 3, end - 3, Charsets.UTF_8).trim().ifBlank { null }
+    }
+
+    /**
      * The frame inside [buffer] that [wanted] accepts, or null.
      *
      * ⚠ **A reply is NOT the only thing in the buffer.** `Gatt.collect` concatenates every

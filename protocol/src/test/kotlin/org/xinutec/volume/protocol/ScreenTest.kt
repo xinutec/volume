@@ -617,6 +617,7 @@ class ScreenTest {
                 Drivers.BoseQc45,
                 Drivers.BoseQc35,
                 Drivers.JblBes,
+                Drivers.JblLivePro2,
                 Drivers.JLabQcy,
                 Drivers.SonyXm4(),
             )

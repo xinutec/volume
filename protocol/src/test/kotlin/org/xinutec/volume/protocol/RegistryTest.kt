@@ -98,8 +98,27 @@ class RegistryTest {
             Drivers.JblBes,
             Registry.fromAdvertisement("JBL TOUR ONE M2", jbl)!!.driver,
         )
-        assertNull(Registry.fromAdvertisement("JBL LIVE PRO 2 TWS", jbl))
         assertNull(Registry.fromAdvertisement("JBL Bar 2.1", jbl))
+    }
+
+    /**
+     * The LIVE PRO 2 gets its own driver, and **not** the M2's.
+     *
+     * ⚠ **The two share a vendor, a GATT service and a name command, and disagree
+     * about ANC.** Driving this pair with [Drivers.JblBes] would read a confirmed
+     * TalkThru as ANC and offer an ANC chip that cannot select ANC — so "which driver"
+     * is the whole of the fix, and asserting the vendor is not enough.
+     */
+    @Test
+    fun `the live pro 2 is driven as itself`() {
+        assertSame(
+            Drivers.JblLivePro2,
+            Registry.fromAdvertisement("JBL LIVE PRO 2 TWS", jbl)!!.driver,
+        )
+        assertEquals(
+            "JBL LIVE PRO 2",
+            Registry.fromAdvertisement("JBL LIVE PRO 2 TWS", jbl)!!.model,
+        )
     }
 
     /**

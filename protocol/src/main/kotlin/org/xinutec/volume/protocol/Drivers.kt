@@ -449,16 +449,8 @@ object Drivers {
             }
         }
 
-        /**
-         * `aa 11` asks; the reply `aa 12 <len> <name…>` starts with the name as
-         * NUL-terminated ASCII, followed by battery and addresses.
-         */
-        override fun name(t: Transport): String? {
-            val r = t.exchange(OutFrame(byteArrayOf(0xaa.toByte(), 0x11, 0x00)))
-            if (r.size < 4 || r[0] != 0xaa.toByte() || r[1] != 0x12.toByte()) return null
-            val end = (3 until r.size).firstOrNull { r[it] == 0x00.toByte() } ?: return null
-            return String(r, 3, end - 3, Charsets.UTF_8).trim().ifBlank { null }
-        }
+        /** `aa 11` asks; [Bes.name] decodes the reply — shared with the LIVE PRO 2. */
+        override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
 
         override fun write(t: Transport, mode: AncMode) {
             val anc = if (mode == AncMode.ANC) 1 else 0
@@ -675,6 +667,126 @@ object Drivers {
             val frame = JblEq.set(read, table, gains) ?: return null
             t.exchange(frame)
             return readCurve(t)
+        }
+    }
+
+    /**
+     * JBL LIVE PRO 2 TWS — the same chip and the same service as [JblBes], and a
+     * different ANC protocol.
+     *
+     * ⚠⚠ **A second driver rather than a branch inside [JblBes], because the two
+     * disagree about both halves.** Measured 2026-09-13 against this device, with
+     * every mode confirmed by read-back and TalkThru confirmed by its owner's ears:
+     *
+     * ```
+     * OFF        aa 31 01 00                        ← aa 00 02 31 00   the ack
+     * ANC        aa 31 01 01                        ← aa 00 02 31 00
+     * AMBIENT    aa 91 07 10 01 00 02 01 03 00      ← the M2's own frame, echoed
+     * TALK_THRU  aa 91 07 10 01 00 02 00 03 01      ← echoed
+     * ```
+     *
+     * ⚠⚠ **[JblBes.read]'s `aa 91 01 11` is WRONG on this model and must not be used
+     * here.** In a confirmed TalkThru it answered `01 01 02 00 03 00` ("ANC") at 11:12
+     * and `01 00 02 01 03 00` ("Ambient") at 11:14 — two different wrong answers for
+     * one real state. The status fields are right every time, and the device returns
+     * **both of them** to a single `aa 21 01 31`:
+     *
+     * ```
+     * → aa 21 01 31   ← aa 22 02 31 <anc>  aa 22 02 32 <aa-mode>
+     * ```
+     * `32` is `EnumAAStatus` from the vendor SDK — `00` off, `01` TalkThru, `02`
+     * Ambient Aware — and it **outranks** `31`: a confirmed TalkThru reads `31 01`
+     * *and* `32 01` together, so a decoder that tested ANC first would call it ANC.
+     *
+     * ⚠ **`aa 32 01 <mode>`, which the SDK builds for exactly this, is refused** —
+     * `aa 00 02 32 04` — while `aa 32 01 00` (off) is accepted. So the SDK's own
+     * generator is not the route on this firmware, and the M2's frame is.
+     *
+     * ⚠ **Writes are refused with status `04` unless BOTH buds are in ears.** With
+     * `aa 21 01 41` reading `00 00` or `00 01`, every setter answered `aa 00 02 <cmd>
+     * 04` and nothing moved; with `01 01` the same bytes took. That is the device's
+     * own guard, not a protocol fault, and it is why [read] is the confirmation.
+     */
+    object JblLivePro2 : AncDriver {
+        override val modes =
+            setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
+
+        /** `aa 31 01 <on>` — ANC on and off, with an `aa 00` ack rather than an echo. */
+        private const val SET_ANC: Byte = 0x31
+
+        /** The status ids this device answers: `31` ANC, `32` ambient-aware mode. */
+        private const val ANC_STATUS: Byte = 0x31
+        private const val AA_STATUS: Byte = 0x32
+
+        /** `EnumAAStatus` in the vendor SDK — `00` is off and needs no name here. */
+        private const val AA_TALK_THRU: Byte = 0x01
+        private const val AA_AMBIENT: Byte = 0x02
+
+        private const val ON: Byte = 0x01
+
+        override fun read(t: Transport): AncMode? {
+            val ask = byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, ANC_STATUS)
+            val buffer = t.exchange(OutFrame(ask))
+            // ⚠ The ANC field is the one asked for, so its absence means the reply is
+            // not an answer to this — a battery notification, or nothing at all.
+            val anc = field(buffer, ANC_STATUS) ?: return null
+            return when (field(buffer, AA_STATUS)) {
+                AA_TALK_THRU -> AncMode.TALK_THRU
+                AA_AMBIENT -> AncMode.AMBIENT
+                else -> if (anc == ON) AncMode.ANC else AncMode.OFF
+            }
+        }
+
+        override fun write(t: Transport, mode: AncMode) {
+            val frame =
+                when (mode) {
+                    AncMode.OFF -> byteArrayOf(Bes.HEADER, SET_ANC, 0x01, 0x00)
+
+                    AncMode.ANC -> byteArrayOf(Bes.HEADER, SET_ANC, 0x01, ON)
+
+                    AncMode.AMBIENT -> advanced(ambient = ON, talkThru = 0)
+
+                    AncMode.TALK_THRU -> advanced(ambient = 0, talkThru = ON)
+
+                    // Offered by no JBL; see [modes].
+                    AncMode.ANC_LOW -> return
+                }
+            t.exchange(OutFrame(frame))
+        }
+
+        /** `aa 11` asks; [Bes.name] decodes. Identical on this model and the M2. */
+        override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
+
+        /**
+         * The M2's `aa 91` setter, which is what moves the two ambient modes here.
+         *
+         * ⚠ ANC is deliberately `00`: this frame cannot select it on this model —
+         * `aa 91 07 10 01 01 02 00 03 00` sent from Ambient left the device in
+         * Ambient, four reads over three seconds. [SET_ANC] is the route for ANC.
+         */
+        private fun advanced(ambient: Byte, talkThru: Byte) =
+            byteArrayOf(
+                Bes.HEADER,
+                0x91.toByte(),
+                0x07,
+                0x10,
+                0x01,
+                0x00,
+                0x02,
+                ambient,
+                0x03,
+                talkThru,
+            )
+
+        /**
+         * One status field out of a reply that carries several, concatenated.
+         *
+         * ⚠ [Bes.frame] walks them: a single `aa 21 01 31` is answered by an `aa 22`
+         * for `31` AND one for `32`, and which arrives first is not fixed.
+         */
+        private fun field(buffer: ByteArray, id: Byte): Byte? {
+            val frame = Bes.frame(buffer) { Bes.status(it, id) != null } ?: return null
+            return Bes.status(frame, id)?.firstOrNull()
         }
     }
 
