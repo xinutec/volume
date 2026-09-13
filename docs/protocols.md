@@ -1459,6 +1459,58 @@ above. Answering is not meaning the same thing. #1587.
 `04` Rock. Either the numbering is wrong or `34` is not the preset index. The `aa a2`
 ten-band read is silent on this model, so no EQ row ships either way.
 
+### ✅ The EQ on this model is `aa 40` / `34`, and our preset table is the WRONG ONE
+
+Driven 2026-09-13, all four indices written and read back, buds in and no music playing
+so nothing was audible:
+
+```
+→ aa 40 01 <idx>   (no ack)        → aa 21 01 34   ← aa 22 02 34 <idx>
+   01 → 34 = 01      05 → 34 = 05      03 → 34 = 03      04 → 34 = 04
+```
+So **`34` is the preset index and it mirrors the write**. The numbering is the SDK's
+`EnumEqPresetIdx`, which is NOT the `EQSettings2` scheme `JBL_EQ_PRESETS` was built from:
+
+```
+00 OFF · 01 JAZZ · 02 VOCAL · 03 BASS · 04 USER · 05 ROCK · 06 PIANO · 07 CLUB · 08 STUDIO
+```
+
+⚠ **`04` is USER, and this repo's table calls it Rock** — Rock is `05` here. Two preset
+numberings live in one SDK, and the M2's `aa a2` ten-band curve is silent on this model,
+so nothing else would have caught it.
+
+⚠ **The app's "JAZZ" label is its carousel position, not the active preset.** It showed
+JAZZ throughout while the field read `04`. A label beside a picker is not a state read.
+
+⚠ `aa 42 01 <idx>` (REQ_CUSTOM_EQ) answers short and undecoded — `af 03` for index 1,
+`03 01` for index 4. ⛔ **Do not publish any curve bytes from it.** A USER curve on a JBL
+can be a hearing profile; this repo has already purged one audiogram from public history.
+
+⛔ **No preset WRITER should ship without a decision from Pippijn.** Selecting a preset
+raises bands relative to a cut one, which is the same argument that keeps the JLab's EQ
+writer out of the tree. The READ costs nothing and is where the value is.
+
+### The rest of the SDK's request surface, measured on this model
+
+```
+aa 25 00       ← aa 25 0d …            ✅ battery. ⚠ `JblBattery.get()` sends
+                                          `aa 25 01 01` and gets NOTHING here; the
+                                          SDK's own generator is no-args.
+aa 92 01 01    ← aa 92 07 02 01 00 02 01 04 00    voice assistant / hotword, undecoded
+aa 96 01 01    ← aa 96 05 02 01 01 02 00          standby mode, undecoded
+aa 26 01 01    ← aa 26 04 01 02 00 02             charging-case version
+aa 94 01 01    ← aa 94 11 02 <ascii>              ⛔ the SERIAL NUMBER. Never commit it.
+aa 9b 01 02    ← aa 00 02 9b 01                   multi-status: refused
+aa 78 01 01 · aa 79 01 01   ← (nothing)           function / touch-panel control
+```
+⛔ `aa 23` REQ_EAR_BUDS_BEEPING was NOT sent: it is Find My Buds and it plays a loud
+tone into whoever is wearing them.
+
+⚠ **Every frame above came from `CmdGen`'s own generators**, extracted the same way as
+`aa 21 01 41` — never from guessing a sub-op. `scripts/smali_enum.py` and a regex over
+`generate*` give the whole request surface in one pass; that is the method, and it is
+cheaper than any capture.
+
 ### ⚠⚠ Ambient Sound Control switches ITSELF on when worn — one fact, four symptoms
 
 Measured 2026-09-13, nobody writing anything:
