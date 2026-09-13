@@ -1514,6 +1514,56 @@ tone into whoever is wearing them.
 `generate*` give the whole request surface in one pass; that is the method, and it is
 cheaper than any capture.
 
+### ✅ Find My Buds — `aa 36`, and the wire values are NOT the enum's ordinals
+
+Driven 2026-09-13, buds out of ears, each frame confirmed by the person in the room:
+
+```
+aa 36 01 11   start LEFT        aa 36 01 01   stop LEFT      ← aa 00 02 36 00 to each
+aa 36 01 10   start RIGHT       aa 36 01 00   stop RIGHT
+aa 23 00      → aa 24 01 <n>    status; `generateGetEarBeepingCmd` takes no argument
+```
+
+⚠⚠ **`BesBeepingType`'s ordinals are `00 01 02 03` and its WIRE values are `00 01 10
+11`.** `generateSetEarBeepingCmd` maps through `CmdBase.values_ear_beeping`, a dedicated
+four-entry table, **not** the generic `CmdBase.values` that every other generator uses.
+Sending the ordinal raw gets `aa 00 02 36 00` — a success ack — and does nothing at all.
+That table was dumped hours earlier and walked past. ⚠ **When a generator indexes a
+named table, read WHICH table.** Two commands in this file now turn on that distinction;
+the other is the EQ preset space.
+
+⚠ **The status field does not track the beeping.** `aa 23 00` answered `00` while the
+left bud was audibly beeping. It is a third lying read on this model, after `aa 91` for
+TalkThru — ⛔ **do not confirm this write from a read.** There is nothing to confirm it
+with except a person.
+
+### ⚠ The vendor app gates this on hearing, and we can do better than it
+
+`jbl.stc.com` will not beep until a modal is dismissed:
+
+> **Take Off Your Earbuds** — To protect your hearing, please ensure that your earbuds
+> are not worn. · CONTINUE
+
+So the hazard is real and JBL's answer is a confirmation dialog. **Ours can be a
+measurement**: `aa 21 01 41` reports each bud's in-ear state, so this app can refuse to
+beep a bud that says it is in an ear, and needs no modal for the one that is not. A
+guard the device answers beats a checkbox the owner clicks through.
+
+⚠ This is also the shape of the earlier mistake here: "it makes a loud noise" was taken
+as a reason not to SHIP it, when the vendor — who has the same hazard — ships it with a
+gate. The rule is about what this repo does unprompted, not about what its owner may do.
+
+### ⚠ `service … not on this device` is an LE-addressing state, not a fault
+
+For ~25 minutes the probe found the device advertising at -42 dBm, connected, and got
+`✗ gatt failed — service 65786365-… not on this device`, while **the vendor app drove
+the same buds perfectly throughout**. Its Fast Pair advert had changed from
+`fe2c=00 40 …` (10 bytes) to `fe2c=10 40 …` (18 bytes) and its LE address stopped
+rotating — surviving a full Bluetooth stack restart on the phone, so it is not the
+phone's GATT cache. The probe resolves by LE SCAN; the app connects through the BOND.
+⛔ Do not read this state as the device being unreachable, and do not debug frames
+through it — every write sent during it is uninformative.
+
 ### ⚠⚠ Ambient Sound Control switches ITSELF on when worn — one fact, four symptoms
 
 Measured 2026-09-13, nobody writing anything:
