@@ -645,7 +645,24 @@ object JblSmartAv {
 
     fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, GET, 0x00))
 
-    fun set(v: SmartAv): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, SET, LEN) + v.bytes)
+    /**
+     * The payloads each mode carries, **per model**.
+     *
+     * ⚠⚠ **The modes are shared and the BYTES are not.** A LIVE PRO 2 answers VIDEO with
+     * the M2's payload byte-for-byte and AUDIO with one of its own
+     * (`00 01 2e 00 18 01 ff ff` against `00 01 35 00 96 00 ff ff`), so a single payload
+     * per enum entry cannot describe both — and [set] writes exactly these bytes, so
+     * getting it wrong does not mis-read, it mis-writes. Measured 2026-09-13 by switching
+     * the vendor app's Audio/Video row and reading `aa 82` either side.
+     *
+     * ⚠ The LIVE PRO 2 offers **two** modes; there is no OFF on its screen. A table that
+     * omits a mode is how that is said.
+     */
+    val TOUR_ONE_M2: Map<SmartAv, ByteArray> = SmartAv.entries.associateWith { it.bytes }
+
+    fun set(v: SmartAv): OutFrame = set(v.bytes)
+
+    fun set(payload: ByteArray): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, SET, LEN) + payload)
 
     /**
      * ⚠ Returns null for a payload nobody has captured rather than guessing the
@@ -653,10 +670,14 @@ object JblSmartAv {
      * that fell back to [SmartAv.OFF] would report the headphones off whenever the
      * firmware said something new.
      */
-    fun state(reply: ByteArray): SmartAv? {
+    fun state(reply: ByteArray): SmartAv? = state(reply, TOUR_ONE_M2)
+
+    /** Which mode [table] says these bytes are, or null when they are none of them. */
+    fun state(reply: ByteArray, table: Map<SmartAv, ByteArray>): SmartAv? {
         if (reply.size < AT + LEN) return null
         if (reply[0] != Bes.HEADER || reply[1] != STATUS || reply[2] != LEN) return null
-        return SmartAv.of(reply.copyOfRange(AT, AT + LEN))
+        val payload = reply.copyOfRange(AT, AT + LEN)
+        return table.entries.firstOrNull { it.value.contentEquals(payload) }?.key
     }
 }
 

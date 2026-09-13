@@ -695,6 +695,9 @@ class ScreenTest {
                 // ⚠ Accompanies `eq`, like `bands` — a naming table for ids that are
                 // shown elsewhere, never a reading of its own.
                 "eqPresetNames",
+                // ⚠ Accompanies `smartAv`: which modes exist, not a reading. Empty means
+                // all three, so it can never be the only thing a card has to show.
+                "smartAvOptions",
                 "refuses",
                 "attempted",
                 "focusOnVoiceSettable",

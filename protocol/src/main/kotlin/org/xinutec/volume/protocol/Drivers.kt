@@ -757,6 +757,39 @@ object Drivers {
         /** `aa 11` asks; [Bes.name] decodes. Identical on this model and the M2. */
         override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
 
+        /**
+         * This model's Audio/Video payloads — see [JblSmartAv.TOUR_ONE_M2] for why they
+         * are a table rather than a constant.
+         *
+         * ⚠ VIDEO is the M2's byte-for-byte; only AUDIO differs. ⚠ Two entries, not
+         * three: the vendor app offers no OFF on this model, and a mode we cannot name
+         * a payload for must not appear as a chip.
+         */
+        val SMART_AV =
+            mapOf(
+                SmartAv.AUDIO to Hex.parse("00012e001801ffff"),
+                SmartAv.VIDEO to Hex.parse("c5002e005000ffff"),
+            )
+
+        /** ⚠ Walks the buffer, for the reason [readCharge] does. */
+        fun readSmartAv(t: Transport): SmartAv? = smartAv(t.exchange(JblSmartAv.get()))
+
+        /**
+         * ⚠ **The write's own reply is an `aa 83` status frame**, so this reads the
+         * outcome out of it rather than spending a second round trip — measured
+         * 2026-09-13, `aa 81 08 …` came back `aa 83 08 …` carrying the new mode.
+         */
+        fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? {
+            val payload = SMART_AV[v] ?: return null
+            return smartAv(t.exchange(JblSmartAv.set(payload)))
+        }
+
+        private fun smartAv(buffer: ByteArray): SmartAv? {
+            JblSmartAv.state(buffer, SMART_AV)?.let { return it }
+            val frame = Bes.frame(buffer) { JblSmartAv.state(it, SMART_AV) != null } ?: return null
+            return JblSmartAv.state(frame, SMART_AV)
+        }
+
         /** Which buds are being worn — the guard [findBud] needs, and much else. */
         fun readInEar(t: Transport): InEar? = JblInEar.state(t.exchange(JblInEar.get()))
 

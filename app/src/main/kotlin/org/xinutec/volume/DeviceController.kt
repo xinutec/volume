@@ -460,6 +460,7 @@ class DeviceController(
 
             Drivers.JblLivePro2 -> {
                 val charge = Drivers.JblLivePro2.readCharge(s.transport)
+                val smartAvModes = ArrayList(Drivers.JblLivePro2.SMART_AV.keys)
                 // ⚠⚠ **Exactly the reads this device was measured to ANSWER, 2026-09-13,
                 // and no others.** All sixteen of the M2's settings reads were sent to
                 // it; eight came back silent — the `aa a2` EQ curve, `aa a0` PSAP,
@@ -553,6 +554,10 @@ class DeviceController(
                     // on the locating tone, and a bud that went into an ear since the
                     // last read would otherwise still be offered a button.
                     inEar = Drivers.JblLivePro2.readInEar(s.transport),
+                    // ✅ Its own payload table — VIDEO matches the M2's, AUDIO does not,
+                    // and there is no OFF on this model. See [Drivers.JblLivePro2.SMART_AV].
+                    smartAv = Drivers.JblLivePro2.readSmartAv(s.transport),
+                    smartAvOptions = smartAvModes,
                     attempted = true,
                 )
             }
@@ -1307,9 +1312,21 @@ class DeviceController(
         }
     }
 
+    /**
+     * ⚠ **Dispatched on the driver, because the PAYLOADS differ by model.** The modes
+     * are shared; the bytes each one carries are not, and `JblSmartAv.set` writes those
+     * bytes — so sending the M2's AUDIO to a LIVE PRO 2 would write the wrong thing
+     * rather than fail visibly.
+     */
     override fun setSmartAv(address: String, v: SmartAv) =
         applied<SmartAv>(address, "setting smart audio & video", { it.name.lowercase() }) {
-            when (val after = Drivers.JblBes.writeSmartAv(it.transport, v)) {
+            val write =
+                if (it.headphones.driver === Drivers.JblLivePro2) {
+                    Drivers.JblLivePro2::writeSmartAv
+                } else {
+                    Drivers.JblBes::writeSmartAv
+                }
+            when (val after = write(it.transport, v)) {
                 null -> Confirmation.Unverifiable
                 v -> Confirmation.Confirmed
                 else -> Confirmation.Contradicted(after)

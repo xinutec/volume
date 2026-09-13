@@ -1153,7 +1153,10 @@ private fun SettingsSection(
             // Video-and-off, a state the headphones never actually hold.
             SettingLabel("Smart audio & video", v.name.lowercase())
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (m in SmartAv.entries) {
+                // ⚠ **What this model HAS**, falling back to all three when it did not
+                // say — see [Settings.smartAvOptions]. A chip for a mode whose payload is
+                // unknown on this device would write nothing at all.
+                for (m in settings.smartAvOptions.ifEmpty { SmartAv.entries }) {
                     FilterChip(
                         selected = m == v,
                         onClick = { actions.setSmartAv(address, m) },

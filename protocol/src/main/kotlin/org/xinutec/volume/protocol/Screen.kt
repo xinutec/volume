@@ -235,6 +235,15 @@ data class Settings(
      * offered at all.
      */
     val inEar: InEar? = null,
+    /**
+     * Which [SmartAv] modes this device actually has, when it is not all of them.
+     *
+     * ⚠ **Empty means "all three", not "none"** — the Tour One M2 offers OFF, AUDIO and
+     * VIDEO and says nothing here. A LIVE PRO 2 has two, and drawing a third chip whose
+     * payload this repo cannot name would be a control that writes nothing. Accompanies
+     * [smartAv]; never shown alone.
+     */
+    val smartAvOptions: List<SmartAv> = emptyList(),
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
     /**
