@@ -1405,8 +1405,13 @@ matching row in `jbl.stc.com` for this model — auto-off `aa 21 01 33` (its "Po
 Saving"), auto play `38`, L/R balance `aa a8`, voice prompts `aa 93` — and writes were
 driven and read back for auto-off (`30 → 60 → 30 min`) and auto play (`on → off → on`).
 
-✅ **Gestures `aa 77` are shipped too, and the vendor app has NO controls screen for
-this model** — so the map was checked by driving it:
+✅ **Gestures `aa 77` are shipped**, checked by driving the map rather than by reading
+a screen. ⚠⚠ **This section said the vendor app has no controls screen for this model.
+It has one** — a Gestures section holding "Ambient Sound Control" and "Playback & Voice
+Assistant Control". That survey was taken with the buds OUT of ears, where the app
+renders greyed and lists a SUBSET of its rows. **The in-ear confound corrupts a survey
+of the app exactly as it corrupts a run of the protocol**, and a missing row is much
+harder to notice than a greyed one. The driving evidence below is unaffected:
 
 ```
 06 left once   → 0b cycle ANC/ambient    announced "Noise cancelling"; 31 01
@@ -1442,9 +1447,12 @@ express "same VIDEO, different AUDIO" — it needs a per-model table. ✅ The wr
 works: `aa 81 08` with the measured payload was acked and read back. The app offers only
 two options on this model; there is no third.
 
-⚠ **Still not shown** — `aa 98` VoiceAware (answers `aa 98 03 02 02 00`, no vendor row
-for this model) and `aa a0` PSAP (silent). Answering is not meaning the same thing.
-#1587.
+✅ **VoiceAware `aa 98` ships.** ⚠ It was excluded on that same bad survey. The app's
+row is a switch plus Low/Mid/High; on 2026-09-13 it read **off** and **Mid**, against
+`aa 98 03 02 02 00`, which decodes to exactly that.
+
+⚠ **Still not shown** — `aa a0` PSAP is silent on this model, and `aa 82` is blocked
+above. Answering is not meaning the same thing. #1587.
 
 ⚠ **The EQ contradicts itself and nothing here depends on it.** `aa 21 01 34` reads
 `04` while the vendor app shows the equaliser as JAZZ; this repo's preset table calls

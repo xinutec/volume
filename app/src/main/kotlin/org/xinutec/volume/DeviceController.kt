@@ -477,10 +477,14 @@ class DeviceController(
                 // vendor counterpart — Power Saving, Auto Play & Pause, Left / Right
                 // Sound Balance, Voice Prompts — and reads the same value it shows.
                 //
-                // ✅ `aa 77` gestures are here despite **the vendor app having no
-                // controls screen for this model at all** — so the usual oracle was
-                // missing and three slots were driven by hand instead, 2026-09-13, each
-                // read by a different instrument:
+                // ✅ `aa 77` gestures. ⚠ **This comment used to say the vendor app has no
+                // controls screen for this model. It has one** — a Gestures section with
+                // "Ambient Sound Control" and "Playback & Voice Assistant Control". The
+                // survey that missed it was taken with the buds OUT of ears, when the app
+                // renders greyed and lists a subset; see the in-ear section in
+                // `docs/protocols.md`. The slots below were still driven by hand,
+                // 2026-09-13, each read by a different instrument, and that evidence
+                // stands on its own:
                 //
                 //   * `06` left once  → `0b` cycle ANC/ambient — the buds ANNOUNCED
                 //     "Noise cancelling", and `aa 21 01 31` agreed;
@@ -506,7 +510,10 @@ class DeviceController(
                 // send at all. [JblAdvancedAnc] skips tags it does not know, so they cost
                 // nothing here; they are not evidence of anything either.
                 //
-                // ⛔ `aa 98` VoiceAware — answers `aa 98 03 02 02 00`; no vendor row.
+                // ✅ `aa 98` VoiceAware. ⚠ **Also excluded on a bad survey**: the app
+                // does have the row — a switch plus Low/Mid/High — and it read `off` and
+                // `Mid` on 2026-09-13 against our `aa 98 03 02 02 00`, which decodes to
+                // exactly that. Confirmed, not assumed.
                 // ⛔ `aa 82` smart audio/video — **measured, and blocked on a design
                 // question rather than a value.** This model's Video is byte-identical to
                 // [SmartAv.VIDEO]; its Audio is `00 01 2e 00 18 01 ff ff` where the M2's
@@ -525,6 +532,7 @@ class DeviceController(
                     voicePrompts = Drivers.JblBes.readVoicePrompts(s.transport),
                     gestures = Drivers.JblBes.readGestures(s.transport),
                     advancedAnc = Drivers.JblBes.readAdvancedAnc(s.transport),
+                    voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
                     attempted = true,
                 )
             }
