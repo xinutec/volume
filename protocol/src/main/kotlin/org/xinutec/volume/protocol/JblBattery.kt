@@ -56,6 +56,24 @@ object JblBattery {
      */
     fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
 
+    /**
+     * `aa 25 00` — the frame the vendor app itself sends, and the ONLY one a LIVE PRO 2
+     * answers.
+     *
+     * ⚠⚠ **Two frames rather than one corrected frame, deliberately.** `CmdGen`'s
+     * `generateGetBatteryInfoCmd` takes no argument, so this is the app's own shape and
+     * [get]'s sub-command byte is this repo's. But **the Tour One M2 answers [get]** —
+     * that is measured, and every M2 battery reading in this repo came through it. So
+     * replacing it would move the bug to the other pair rather than fix it, on a model
+     * that is not connected to test against. The day someone can put an M2 in front of
+     * this, try [get] and this one on it: if it answers both, these collapse into one.
+     *
+     * ⚠ [state] and [charge] decode BOTH replies unchanged — the difference is only in
+     * the asking. Measured 2026-09-13: `aa 25 0d 01 …` came back with `5a` in both cup
+     * slots, 90%, agreeing with what `jbl.stc.com` drew for the same moment.
+     */
+    fun getSdk(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x00))
+
     /** `parseBatteryInfo` reads the levels only when the sub-command is `01`. */
     private const val LEVELS: Byte = 0x01
 

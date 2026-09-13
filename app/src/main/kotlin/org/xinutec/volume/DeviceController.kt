@@ -31,6 +31,7 @@ import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JLabCurve
 import org.xinutec.volume.protocol.JLabSafeHearing
+import org.xinutec.volume.protocol.JblBattery
 import org.xinutec.volume.protocol.JblEqPreset
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
@@ -458,6 +459,7 @@ class DeviceController(
             }
 
             Drivers.JblLivePro2 -> {
+                val charge = Drivers.JblLivePro2.readCharge(s.transport)
                 // ⚠⚠ **Exactly the reads this device was measured to ANSWER, 2026-09-13,
                 // and no others.** All sixteen of the M2's settings reads were sent to
                 // it; eight came back silent — the `aa a2` EQ curve, `aa a0` PSAP,
@@ -538,6 +540,12 @@ class DeviceController(
                     // from [JblEqPreset], NOT [JBL_EQ_PRESETS] — different field, same
                     // small integers, and the M2's `aa a2` is silent here so a value
                     // named out of the wrong table would look perfectly reasonable.
+                    // ✅ `aa 25 00`, the app's own frame — ours (`aa 25 01 01`) is
+                    // silent here. The DECODER is unchanged; only the asking differed.
+                    // Hoisted for the reason the M2's is: one exchange carries both the
+                    // charge and whether the two cups agreed.
+                    battery = charge?.battery,
+                    jblCupsDiffer = charge?.cupsDiffer,
                     eq = Drivers.JblLivePro2.readEq(s.transport),
                     eqPresets = JblEqPreset.NAMES.keys.sorted(),
                     eqPresetNames = JblEqPreset.NAMES,

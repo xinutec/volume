@@ -758,6 +758,21 @@ object Drivers {
         override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
 
         /**
+         * Charge, from the frame the vendor app asks with — see [JblBattery.getSdk].
+         *
+         * ⚠ **Walks the buffer, for the reason [JblBes.ask] does.** A reply can begin
+         * with a frame nobody asked for, and every decoder here checks its command byte
+         * and correctly returns null when handed the wrong offset. Reading this with a
+         * bare `exchange` put no battery on the card at all while the device was
+         * answering perfectly — the decode was never the problem, the offset was.
+         */
+        fun readCharge(t: Transport): JblCharge? {
+            val buffer = t.exchange(JblBattery.getSdk())
+            return JblBattery.charge(buffer)
+                ?: Bes.frame(buffer) { JblBattery.charge(it) != null }?.let(JblBattery::charge)
+        }
+
+        /**
          * The equaliser is a PRESET INDEX here, not the M2's ten-band curve.
          *
          * ⚠ [EqSetting.levels] is empty and that is honest: `aa a2` is silent on this
