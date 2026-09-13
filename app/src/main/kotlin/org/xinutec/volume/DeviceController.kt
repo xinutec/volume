@@ -31,6 +31,7 @@ import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JLabCurve
 import org.xinutec.volume.protocol.JLabSafeHearing
+import org.xinutec.volume.protocol.JblEqPreset
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.NoMode
@@ -533,6 +534,13 @@ class DeviceController(
                     gestures = Drivers.JblBes.readGestures(s.transport),
                     advancedAnc = Drivers.JblBes.readAdvancedAnc(s.transport),
                     voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
+                    // ✅ The preset index, driven on four values 2026-09-13. ⚠ Names come
+                    // from [JblEqPreset], NOT [JBL_EQ_PRESETS] — different field, same
+                    // small integers, and the M2's `aa a2` is silent here so a value
+                    // named out of the wrong table would look perfectly reasonable.
+                    eq = Drivers.JblLivePro2.readEq(s.transport),
+                    eqPresets = JblEqPreset.NAMES.keys.sorted(),
+                    eqPresetNames = JblEqPreset.NAMES,
                     attempted = true,
                 )
             }

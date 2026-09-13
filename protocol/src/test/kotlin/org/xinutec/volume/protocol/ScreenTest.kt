@@ -689,6 +689,9 @@ class ScreenTest {
         val IGNORED =
             setOf(
                 "bands",
+                // ⚠ Accompanies `eq`, like `bands` — a naming table for ids that are
+                // shown elsewhere, never a reading of its own.
+                "eqPresetNames",
                 "refuses",
                 "attempted",
                 "focusOnVoiceSettable",

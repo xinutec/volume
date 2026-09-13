@@ -942,11 +942,17 @@ private fun SettingsSection(
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         settings.eq?.let { eq ->
-            // ⚠ **Sony's own name, or the number — never an invented one.**
-            // [SonyEqPresets] is read from the vendor APK's `EqPresetId`, so an id it
-            // does not carry still falls back to the bare number rather than getting a
-            // label somebody guessed. The levels underneath mean something either way.
-            SettingLabel("Equaliser", SonyEqPresets.name(eq.preset) ?: "preset ${eq.preset}")
+            // ⚠ **The device's OWN name, or the number — never an invented one, and
+            // never another device's.** [Settings.eqPresetNames] is filled from whichever
+            // table belongs to this model; where it is empty the Sony one is tried,
+            // because Sony is the vendor that answers with ids and no names. An id in
+            // neither falls back to the bare number rather than getting a guessed label.
+            //
+            // ⚠⚠ The order matters: the JBL's `aa 40` indices collide with Sony ids AND
+            // with its own `aa a2` table ids, so a shared table consulted first would
+            // mislabel with total confidence.
+            val naming = { p: Int -> settings.eqPresetNames[p] ?: SonyEqPresets.name(p) }
+            SettingLabel("Equaliser", naming(eq.preset) ?: "preset ${eq.preset}")
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -959,7 +965,7 @@ private fun SettingsSection(
                     FilterChip(
                         selected = p == eq.preset,
                         onClick = { actions.setEqPreset(address, p) },
-                        label = { Text(SonyEqPresets.name(p) ?: "preset $p") },
+                        label = { Text(naming(p) ?: "preset $p") },
                     )
                 }
             }

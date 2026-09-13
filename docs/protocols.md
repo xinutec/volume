@@ -1475,9 +1475,12 @@ So **`34` is the preset index and it mirrors the write**. The numbering is the S
 00 OFF · 01 JAZZ · 02 VOCAL · 03 BASS · 04 USER · 05 ROCK · 06 PIANO · 07 CLUB · 08 STUDIO
 ```
 
-⚠ **`04` is USER, and this repo's table calls it Rock** — Rock is `05` here. Two preset
-numberings live in one SDK, and the M2's `aa a2` ten-band curve is silent on this model,
-so nothing else would have caught it.
+⚠⚠ **Two numberings collide on small integers, and `JBL_EQ_PRESETS` is the OTHER one.**
+It is not a wrong version of this table — it maps the M2's `aa a2` **table ids**, where
+`04` is Rock and `c9` is Personi-Fi. Here `04` is a **preset index** meaning USER, and
+Rock is `05`. Same digits, different field, and the M2's `aa a2` is silent on this model
+so nothing would have flagged the confusion. ⛔ Never name an `aa 40` index out of
+`JBL_EQ_PRESETS`.
 
 ⚠ **The app's "JAZZ" label is its carousel position, not the active preset.** It showed
 JAZZ throughout while the field read `04`. A label beside a picker is not a state read.

@@ -214,6 +214,16 @@ data class Settings(
      * of its own even when asked in a language.
      */
     val eqPresets: List<Int> = emptyList(),
+    /**
+     * What to call each id in [eqPresets], when the device's vendor has a table for it.
+     *
+     * ⚠ **Per device, because the ids are per device and they COLLIDE.** `04` is Rock
+     * in the JBL's `aa a2` table space and User in its `aa 40` preset space, and a
+     * single shared naming table would confidently mislabel one of them. Empty means
+     * "no table here", and a caller falls back to the bare number rather than to
+     * somebody else's names.
+     */
+    val eqPresetNames: Map<Int, String> = emptyMap(),
     /** How much charge is left — read, never written, because there is nothing to write. */
     val battery: Battery? = null,
     /**

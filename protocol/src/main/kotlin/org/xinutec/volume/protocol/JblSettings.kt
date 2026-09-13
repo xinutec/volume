@@ -723,12 +723,61 @@ object JblFeature {
 }
 
 /**
+ * The `EnumEqPresetIdx` namespace — `aa 40` writes it, status field `34` reports it.
+ *
+ * ⚠⚠ **NOT [JBL_EQ_PRESETS], which is a different field with colliding digits.** That
+ * one names `aa a2` TABLE ids, where `04` is Rock and `c9` is Personi-Fi; here `04` is
+ * USER and Rock is `05`. The two spaces overlap on every small integer, and the M2's
+ * `aa a2` is silent on the LIVE PRO 2 — so nothing would catch a value read out of the
+ * wrong table. Name an `aa 40` index only from here.
+ *
+ * ✅ Driven on a LIVE PRO 2, 2026-09-13: writing `01`, `05`, `03` and `04` each made
+ * field `34` report the same number back. The write draws no ack at all, so [state] is
+ * the only confirmation there is.
+ *
+ * ⚠ The vendor app's equaliser label is its CAROUSEL POSITION, not this field — it read
+ * "JAZZ" throughout while `34` said `04`. A label beside a picker is not a state read.
+ */
+object JblEqPreset {
+    /** `aa 40` sets; there is no get on this command — [FIELD] is the read. */
+    const val SET: Byte = 0x40
+
+    /** `EnumDeviceStatusType.EQ_PRESET`, read with `aa 21 01 34`. */
+    const val FIELD: Byte = 0x34
+
+    /** From the SDK's own `EnumEqPresetIdx`, not from a capture. */
+    val NAMES =
+        mapOf(
+            0x00 to "Off",
+            0x01 to "Jazz",
+            0x02 to "Vocal",
+            0x03 to "Bass",
+            0x04 to "User",
+            0x05 to "Rock",
+            0x06 to "Piano",
+            0x07 to "Club",
+            0x08 to "Studio",
+        )
+
+    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
+
+    fun set(preset: Int): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, preset.toByte()))
+
+    /** The index out of an `aa 22 02 34 <idx>`, or null when that is not what arrived. */
+    fun state(reply: ByteArray): Int? {
+        val first = Bes.status(reply, FIELD)?.firstOrNull() ?: return null
+        return first.toInt() and 0xff
+    }
+}
+
+/**
  * The BES chip's framing, which the JBL and the JLab share at the byte level.
  *
  * `aa <command> <length> <payload…>`, and a reply comes back under `command + 1`
  * (`aa 11` → `aa 12`) — except the status pair, where `aa 21` asks and `aa 22`
  * answers for every field.
  */
+
 object Bes {
     const val HEADER: Byte = 0xaa.toByte()
 

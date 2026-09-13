@@ -707,7 +707,7 @@ object Drivers {
      * 04` and nothing moved; with `01 01` the same bytes took. That is the device's
      * own guard, not a protocol fault, and it is why [read] is the confirmation.
      */
-    object JblLivePro2 : AncDriver {
+    object JblLivePro2 : AncDriver, EqDriver {
         override val modes =
             setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
 
@@ -756,6 +756,26 @@ object Drivers {
 
         /** `aa 11` asks; [Bes.name] decodes. Identical on this model and the M2. */
         override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
+
+        /**
+         * The equaliser is a PRESET INDEX here, not the M2's ten-band curve.
+         *
+         * ⚠ [EqSetting.levels] is empty and that is honest: `aa a2` is silent on this
+         * model, and `aa 42`'s custom-curve reply is four bytes this repo cannot yet
+         * decode. An empty list draws no band sliders; a made-up one would draw ten.
+         */
+        override fun readEq(t: Transport): EqSetting? =
+            JblEqPreset.state(t.exchange(JblEqPreset.get()))?.let { EqSetting(it, emptyList()) }
+
+        /**
+         * ⚠ **`aa 40` answers NOTHING — not an ack, not an echo.** So the write cannot
+         * confirm itself and this returns the read instead, which `setEq` then compares
+         * against what was asked for. Driven on four indices, 2026-09-13.
+         */
+        override fun writeEq(t: Transport, preset: Int): EqSetting? {
+            t.exchange(JblEqPreset.set(preset))
+            return readEq(t)
+        }
 
         /**
          * The M2's `aa 91` setter, which is what moves the two ambient modes here.
