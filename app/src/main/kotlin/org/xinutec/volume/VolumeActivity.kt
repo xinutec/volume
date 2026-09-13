@@ -566,9 +566,8 @@ fun VolumeScreen(
 /**
  * Why there are no headphone cards.
  *
- * ⚠ A row rather than the whole screen, and that is a change: it used to be the only
- * thing drawn, centred in the window. It cannot be any more — the Mac card is above it
- * and is most useful in exactly this state. The sentence and its spinner are the same.
+ * ⚠ A row, not the whole screen: the Mac card sits above it and is most useful in
+ * exactly this state, so this cannot take the window over.
  */
 @Composable
 private fun NoHeadphones(why: Emptiness) {
@@ -845,10 +844,9 @@ private const val NEW_MODE_LEVEL = 5
  * switch here would flip and spring back — this repo's oldest trap wearing a new hat.
  * The value is still worth showing; the control is not.
  *
- * ⚠ **They do not fail for the same reason and the screen must not say they do.** This
- * comment used to read "and Sony's own app fails the same way" about both. That is true
- * of multipoint and false of the button, and the note rendered under them said so out
- * loud — see [RefusalReason].
+ * ⚠ **They do not fail for the same reason and the screen must not say they do.**
+ * "Sony's own app fails the same way" is true of multipoint and false of the button —
+ * see [RefusalReason].
  */
 
 @Composable
@@ -2065,8 +2063,8 @@ private fun Caveat(text: String) {
 /** ⚠ The one sentence that keeps a missing control from reading as a missing feature. */
 @Composable
 private fun RefusedNote(reason: RefusalReason?) {
-    // ⚠ Two sentences because there are two facts. One of them used to be said about
-    // both, and was false about the button — see [RefusalReason].
+    // ⚠ Two sentences because there are two facts, and saying either about both is
+    // false about the button — see [RefusalReason].
     val text =
         when (reason) {
             RefusalReason.DEVICE -> {
@@ -2236,10 +2234,10 @@ private fun prettyAction(name: String) =
 /**
  * What an empty list means, in words.
  *
- * ⚠ Each of these used to be "No headphones bonded to this phone", and four of
- * them were false. They are worded to name the thing the owner can act on — the
- * radio, the permission, the switch on the headphones — rather than to describe
- * the app's own state, which is what the old sentence did.
+ * ⚠ **One sentence for all of these is false in four cases** — "no headphones bonded"
+ * is wrong with the radio off, with permission refused, and with pairs bonded but
+ * switched off. Each names the thing its owner can act on: the radio, the permission,
+ * the switch on the headphones.
  */
 fun reason(e: Emptiness): String =
     when (e) {

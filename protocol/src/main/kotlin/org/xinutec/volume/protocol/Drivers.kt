@@ -1442,17 +1442,13 @@ object Drivers {
      * JLab JBuds Sport ANC 4, on plain SPP — the channel that looked dead because
      * it only ever emitted an unsolicited broadcast.
      *
-     * ✅ **The read was found on 2026-08-16 and this device is now confirmable.**
-     * Until then [read] returned null and every write was
-     * [Confirmation.Unverifiable]. Its `47` reply is still not a success signal — a
-     * mode that does not exist draws the identical one — so confirmation comes from
-     * [read], never from the reply.
+     * ⚠ **Its `47` reply is not a success signal** — a mode that does not exist draws
+     * the identical one — so confirmation comes from [read], never from the reply.
      *
-     * ⚠ **It was found by disproving "the app tracks the mode locally"**, which is
-     * what this file used to say. The test was to set a mode from *this* code, then
-     * launch `com.jlab.app` cold and see what its UI drew: it showed the mode the
-     * device was actually in, both ways round. So a read had to exist, and the
-     * capture of that launch contained it.
+     * ⚠ **"The vendor app tracks the mode locally" is false, and testable in minutes**:
+     * set a mode from here, launch `com.jlab.app` cold, and its UI draws the mode the
+     * device is actually in, both ways round. That is how the read was found, and it is
+     * the method to reach for whenever a device is believed to have none.
      */
     object JLabQcy : AncDriver {
         override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT)
@@ -1465,12 +1461,12 @@ object Drivers {
          * `04 04` in either ANC mode and `00 00` when ANC is off, so a decoder keying on
          * them would be reading something else's field.
          *
-         * ⚠⚠ **This used to test `r[3]` and return null otherwise, and that shipped a
-         * bug.** On 2026-09-01 the first read after an idle link answered 20 ms after its
-         * own window closed, so this one got nothing and the read after it got `45` — the
-         * card said "could not read it" while the device had answered perfectly. Going
-         * through [ask] and [JLabFrame.replyTo] is what makes the reply findable wherever
-         * it landed, and what asks a second time when the window closed empty.
+         * ⚠⚠ **The reply does not reliably start at `r[3]`, and testing that offset
+         * drops it.** The first read after an idle link can answer ~20 ms after its own
+         * window closes: this read then gets nothing, the NEXT one gets `45`, and the
+         * card says "could not read it" while the device answered perfectly. [ask] and
+         * [JLabFrame.replyTo] find the reply wherever it landed and ask again when the
+         * window closed empty.
          *
          * ⚠ The reply's checksum does not follow the requests' sum-mod-256 rule, and has
          * no rule of its own that anyone here has found: seven reply commands come out

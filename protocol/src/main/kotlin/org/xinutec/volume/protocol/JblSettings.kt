@@ -384,12 +384,10 @@ data class Spatial(
  * `mode` is `01` Music · `02` Movie · `03` Game, measured by picking each in turn and
  * diffing three replies that differ in that byte alone.
  *
- * ⚠ **This row was published as "the mode buttons send NOTHING when tapped" and that
- * was wrong.** The taps behind that claim landed on a `clickable="false"` label rather
- * than the tile beside it, so the capture window was empty for want of a tap, and the
- * emptiness was written up as a fact about the headphones. The retraction and the two
- * windows that settle it are in `docs/protocols.md`. What survives is the other half:
- * the mode does travel with the on/off write, which is why [set] always sends both.
+ * ⚠⚠ **An empty capture window is not evidence the device sent nothing.** These tiles
+ * have a `clickable="false"` label beside them, and a tap that lands on the label sends
+ * no frame — which reads identically to a device that ignores its own buttons. Aim at
+ * the tile. ⚠ The mode travels with the on/off write, which is why [set] sends both.
  *
  * ⚠ Unlike [JblAutoOff] this reply is not an ack — the device answers with the status
  * frame itself, so a caller can trust [state] on the reply to a [set].
@@ -744,23 +742,15 @@ object JblFeature {
 }
 
 /**
- * Find My Buds — `aa 36` starts and stops a locating tone, one bud at a time.
+ * Find My Buds — `aa 36` sounds a locating tone.
  *
- * ⚠⚠ **The wire values are NOT the enum's ordinals.** `BesBeepingType` runs
- * `00 STOP_RIGHT · 01 STOP_LEFT · 02 START_RIGHT · 03 START_LEFT`, and
- * `generateSetEarBeepingCmd` maps those through `CmdBase.values_ear_beeping`
- * (`00 01 10 11`) rather than the identity table every other generator uses. An
- * ordinal sent raw comes back `aa 00 02 36 00` — a SUCCESS ack — and does nothing at
- * all. That cost an evening; the values below are the ones seen on the wire while the
- * vendor app drove each bud, matched against four known taps.
+ * ⚠ **Ordinals are not wire values.** `generateSetEarBeepingCmd` maps `BesBeepingType`
+ * through `CmdBase.values_ear_beeping`, so `0..3` go out as `00 01 10 11`. An ordinal
+ * sent raw is acked `aa 00 02 36 00` and does nothing.
  *
- * ⛔ **[status] does not track the tone and must never confirm a write.** It answered
- * `00` while a bud was audibly beeping. The only confirmation is a person in the room.
+ * ⛔ [status] read `00` while a bud was audibly beeping; it cannot confirm a write.
  *
- * ⚠ **A hearing hazard with a measured guard.** `jbl.stc.com` will not start until its
- * owner dismisses a *"Take Off Your Earbuds"* modal. This app can do better: the device
- * reports each bud's in-ear state, so a bud that says it is worn is simply not offered
- * — see [JblInEar]. A guard the hardware answers beats a checkbox somebody clicks past.
+ * ⚠ Loud. [JblInEar] gates it — a bud reporting itself worn gets no button.
  */
 object JblBeeping {
     const val SET: Byte = 0x36

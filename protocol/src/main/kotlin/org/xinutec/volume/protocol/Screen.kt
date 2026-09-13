@@ -383,13 +383,11 @@ data class Settings(
     /**
      * The name the **headphones** hold, which is not [DeviceCard.name].
      *
-     * ⚠⚠ **This used to be deliberately absent**, on the reasoning that the card already
-     * had a name and a second copy would be two places to be wrong about one string. They
-     * are two different strings. The card's is Android's bonded record, which a rename
-     * over this protocol does not touch — so renaming a QC45 from the app on 2026-08-28
-     * was confirmed against an independent read while every name on screen went on
-     * saying the old one. A write that works and a write that does nothing looked the
-     * same, which is the failure [Confirmation] exists to prevent.
+     * ⚠⚠ **Two different strings, not two copies of one.** [DeviceCard.name] is
+     * Android's bonded record, which a rename over this protocol does not touch: a QC45
+     * rename confirmed against an independent read while every name on screen kept
+     * saying the old one. Without this field, a write that works and a write that does
+     * nothing look identical — the failure [Confirmation] exists to prevent.
      *
      * ⚠ Null when the device was not asked or would not say; the card falls back to the
      * bonded name rather than showing a blank.

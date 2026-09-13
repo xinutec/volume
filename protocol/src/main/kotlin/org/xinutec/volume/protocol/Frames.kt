@@ -101,10 +101,9 @@ object Frames {
     /**
      * ⚠⚠ **DIRECTION IS DECIDED BY THE COMMAND BYTE, NEVER BY SHAPE.** A BES getter and its
      * setter are the same size: `JblAutoPlay.get()` is `aa 21 01 38` and `set(true)` is
-     * `aa 35 01 01` — both four bytes with `01` at index 2. This used to read that shape and
-     * call the SETTER a "read", which is the worst thing this sentence can do, since its
-     * whole job is to make a wrong frame visible before it is sent (caught by a test, not by
-     * a person, 2026-08-29).
+     * `aa 35 01 01` — both four bytes with `01` at index 2. **Reading that shape calls the
+     * SETTER a "read"**, which is the worst thing this sentence can do: its whole job is to
+     * make a wrong frame visible before it is sent.
      *
      * ⚠ So "read" is claimed on POSITIVE evidence only, and there are exactly two kinds.
      * `Bes.STATUS_GET`, which is always one. And `aa <named cmd> 01 01` — the other getter

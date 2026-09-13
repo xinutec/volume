@@ -1375,6 +1375,9 @@ TALK_THRU  → aa 91 07 10 01 00 02 00 03 01    ← echoed verbatim
 read       → aa 21 01 31   ← aa 22 02 31 <anc>  aa 22 02 32 <aa-mode>
 ```
 
+**The buds announce the mode aloud — "Noise cancelling", "TalkThru" — which is the one
+check that owes nothing to this decode. Ask whoever is wearing them.**
+
 ⚠⚠ **`aa 91 01 11` — the M2's read — is WRONG here, and wrong in two different
 directions.** In a TalkThru confirmed by its owner's ears it answered `01 01 02 00 03
 00` ("ANC") at 11:12 and `01 00 02 01 03 00` ("Ambient") at 11:14. The status fields
@@ -1388,15 +1391,6 @@ stayed in Ambient across four reads over three seconds. And **`aa 32 01 <mode>`,
 `CmdGen.generateSetAmbientAwareCmd` builds for precisely this, is refused** with `aa 00
 02 32 04`, while `aa 32 01 00` (off) is accepted. So neither the SDK's generator nor
 the sibling model's frame is the whole answer; the split above is.
-
-### ✅ The device's own voice prompt is an oracle — use it
-
-The buds ANNOUNCE the mode they enter: "Noise cancelling", "TalkThru". That sentence
-comes from the firmware and owes nothing to this repo's decode, to the vendor app, or
-to the wire — which makes it the independent check that was missing all day while a
-lying read-back was believed six times over. **Ask the person wearing them what the
-headphones just said.** It costs one message and it is not a proxy for the state; it is
-the device reporting it.
 
 ### ✅ Settings — what this model answers, and what was driven
 
@@ -1416,7 +1410,7 @@ harder to notice than a greyed one. The driving evidence below is unaffected:
 ```
 06 left once   → 0b cycle ANC/ambient    announced "Noise cancelling"; 31 01
 07 left twice  → 04 TalkThru             announced "TalkThru";         32 01
-0a right twice → 05 next track           media session: Hytta → Segla
+0a right twice → 05 next track           the media session's track changed
 ```
 Three instruments, none of them our own read. ✅ Writes confirmed on slot `08` (left
 three times, the one slot left unassigned): `00 → 06 → 00`, each read back from the
@@ -1535,23 +1529,9 @@ the other is the EQ preset space.
 ⚠ **The status field does not track the beeping.** `aa 23 00` answered `00` while the
 left bud was audibly beeping. It is a third lying read on this model, after `aa 91` for
 TalkThru — ⛔ **do not confirm this write from a read.** There is nothing to confirm it
-with except a person.
-
-### ⚠ The vendor app gates this on hearing, and we can do better than it
-
-`jbl.stc.com` will not beep until a modal is dismissed:
-
-> **Take Off Your Earbuds** — To protect your hearing, please ensure that your earbuds
-> are not worn. · CONTINUE
-
-So the hazard is real and JBL's answer is a confirmation dialog. **Ours can be a
-measurement**: `aa 21 01 41` reports each bud's in-ear state, so this app can refuse to
-beep a bud that says it is in an ear, and needs no modal for the one that is not. A
-guard the device answers beats a checkbox the owner clicks through.
-
-⚠ This is also the shape of the earlier mistake here: "it makes a loud noise" was taken
-as a reason not to SHIP it, when the vendor — who has the same hazard — ships it with a
-gate. The rule is about what this repo does unprompted, not about what its owner may do.
+with except a person. `jbl.stc.com` gates the tone behind a *"Take Off
+Your Earbuds"* modal; this app reads `aa 21 01 41` and offers no button for a bud that
+says it is worn.
 
 ### ⚠ `service … not on this device` is an LE-addressing state, not a fault
 

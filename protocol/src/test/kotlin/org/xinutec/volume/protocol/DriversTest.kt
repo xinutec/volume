@@ -461,10 +461,9 @@ class DriversTest {
      * frame; the old code acked only its chosen reply, so a volunteered notification
      * sharing the window was left unacknowledged.
      *
-     * ⚠ **This is NOT what causes the desync, and this comment used to say it was.** The
-     * probe was given the identical fix and still ran one behind (#1107, measured
-     * 2026-08-23 20:10). Acking every frame is correct because the device asks for it,
-     * and for no other reason.
+     * ⚠ **This does NOT fix the desync**, tempting as the connection is: the probe got
+     * the identical fix and still ran one behind (#1107). Acking every frame is correct
+     * because the device asks for it, and for no other reason.
      */
     @Test
     fun `sony acks every data frame in the window`() {
@@ -483,8 +482,8 @@ class DriversTest {
     /**
      * ✅ **A write retires what it left behind.** The XM4 answers `e8 02 …` with its own
      * `e9`, and then volunteers `17` COMMON_NTFY_UPSCALING_EFFECT a moment later. That
-     * second frame used to be collected by the FIRST exchange of the settings refresh
-     * that runs next — which is how a tap left the device on, the switch drawn on, and
+     * second frame is otherwise collected by the FIRST exchange of the settings refresh
+     * that runs next — which is how a tap leaves the device on, the switch drawn on, and
      * the row's own label saying "off".
      *
      * Here the stray is delivered after the confirming read, and must be consumed AND

@@ -375,9 +375,8 @@ object BoseButton {
  * The QC35's whole SETTINGS block, as `01 01` GET_ALL returns it.
  *
  * ⚠ **Read with operator `05` START, not `01` Get.** A Get answers `04 01 05`, which
- * `docs/bose-read-surface.md` used to call "not gettable, i.e. a Set". It is neither:
- * `05` opens a transaction and the device streams `07` Processing, one Status frame per
- * setting, then `06` Result. Found by capturing Bose Connect's own connect.
+ * looks like "not gettable, i.e. a Set" and is neither: `05` opens a transaction and the
+ * device streams `07` Processing, one Status frame per setting, then `06` Result.
  *
  * ⚠ **The reply is SEVEN BMAP frames in one read**, which is why [Bose.frames] exists.
  * Every other Bose decoder here takes a fixed offset off the front of one frame, and
@@ -1555,11 +1554,10 @@ interface BoseSettingsDriver : AncDriver {
  * QC45 before the decompile was read: Quiet `01`, Aware `02`, Commute `07`, Home `0a`.
  * They all agree, which is what makes the other 33 worth having.
  *
- * ⚠⚠ **The table is NOT alphabetical, and reasoning as if it were is how this repo got
- * it wrong once.** Commute `07` and Home `0a` are three apart while the vendor's PICKER
- * — which is sorted — shows only Focus between them; that was written up as "at least
- * one entry the picker does not show". The picker is a product-specific SUBSET presented
- * in display order, and the wire order is this one.
+ * ⚠⚠ **The table is NOT alphabetical — the PICKER is.** Commute `07` and Home `0a` are
+ * three apart while the picker shows only Focus between them, because the picker is a
+ * product-specific subset in display order. Inferring wire values from its ordering is
+ * wrong every time the subset skips an entry.
  *
  * ⚠ [OFFERED] is the subset Bose Music offers for the QC45, read off its own picker.
  * The other entries are decoded but unattested ON THIS PRODUCT: nothing here has seen

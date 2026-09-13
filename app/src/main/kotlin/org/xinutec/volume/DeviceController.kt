@@ -467,74 +467,22 @@ class DeviceController(
             Drivers.JblLivePro2 -> {
                 val charge = Drivers.JblLivePro2.readCharge(s.transport)
                 val smartAvModes = ArrayList(Drivers.JblLivePro2.SMART_AV.keys)
-                // ⚠⚠ **Exactly the reads this device was measured to ANSWER, 2026-09-13,
-                // and no others.** All sixteen of the M2's settings reads were sent to
-                // it; eight came back silent — the `aa a2` EQ curve, `aa a0` PSAP,
-                // `aa a5` volume limiter, `aa 9d` spatial, `aa 9f` smart talk, `aa 9e`
-                // low-volume EQ, `aa b1` LE-audio/Auracast, and `aa 25` battery. Calling
-                // them anyway would be honest in its result — null renders no row — and
-                // costs ~1.6 s each in timeout, which is thirteen seconds of spinner on
-                // a card whose owner is waiting.
+                // ⚠⚠ **Exactly the reads this device answers, and no others.** All
+                // sixteen of the M2's were tried; the silent ones cost ~1.6 s each in
+                // timeout, which is thirteen seconds of spinner for rows that render
+                // nothing. Decoders are [Drivers.JblBes]'s — the frames ARE the M2's,
+                // byte for byte, and only ANC differs.
                 //
-                // ⚠ The decoders are [Drivers.JblBes]'s because the frames ARE the M2's,
-                // byte for byte. Only ANC differs between these two models, which is
-                // what [Drivers.JblLivePro2] is for.
+                // ⚠ **Four reads that ANSWER are dropped.** The test is whether
+                // `jbl.stc.com` offers the same row for THIS model: a reply that decodes
+                // is not evidence the field means here what it means on an over-ear.
+                // ⛔ `aa 82` audio/video is measured but blocked — [SmartAv] holds one
+                // payload per entry and this model's AUDIO differs from the M2's. #1587.
                 //
-                // ⚠⚠ **Four of the eight that ANSWER are dropped, and the test is
-                // whether `jbl.stc.com` offers the same row for THIS model.** Its screen
-                // is the only oracle available: a reply that decodes is not evidence the
-                // field means here what it means on an over-ear. Every row below has a
-                // vendor counterpart — Power Saving, Auto Play & Pause, Left / Right
-                // Sound Balance, Voice Prompts — and reads the same value it shows.
+                // ⚠ **`canPowerOff` is not claimed**: `aa 97` has never been sent here.
                 //
-                // ✅ `aa 77` gestures. ⚠ **This comment used to say the vendor app has no
-                // controls screen for this model. It has one** — a Gestures section with
-                // "Ambient Sound Control" and "Playback & Voice Assistant Control". The
-                // survey that missed it was taken with the buds OUT of ears, when the app
-                // renders greyed and lists a subset; see the in-ear section in
-                // `docs/protocols.md`. The slots below were still driven by hand,
-                // 2026-09-13, each read by a different instrument, and that evidence
-                // stands on its own:
-                //
-                //   * `06` left once  → `0b` cycle ANC/ambient — the buds ANNOUNCED
-                //     "Noise cancelling", and `aa 21 01 31` agreed;
-                //   * `07` left twice → `04` TalkThru — announced, and `32 01`;
-                //   * `0a` right twice → `05` next track — Android's media session went
-                //     Hytta → Segla, which is neither his report nor ours.
-                //
-                // ⚠ **The device's own voice prompt is the oracle this repo was
-                // missing.** It says the mode out loud, from the firmware, owing nothing
-                // to our decode — see `docs/protocols.md`.
-                //
-                // ✅ Writes confirmed on the one slot that was unassigned: `08` left
-                // three times, `00` → `06` → `00`, each read back from the full map.
-                // ✅ `aa 91 01 21` advanced ANC IS read — checked tag by tag against the
-                // vendor's own "Customize ANC" screen, 2026-09-13, **with the device worn
-                // so that screen would render at all**:
-                //
-                //   `01 01` adaptive · `05 01` leakage · `06 01` ear-canal — three
-                //   switches, all ON there; and `a1 04` against its ambient slider
-                //   sitting at 4 of 6.
-                //
-                // ⚠ Two tags stay undecoded — `02 ff` and `07 00`, which the M2 does not
-                // send at all. [JblAdvancedAnc] skips tags it does not know, so they cost
-                // nothing here; they are not evidence of anything either.
-                //
-                // ✅ `aa 98` VoiceAware. ⚠ **Also excluded on a bad survey**: the app
-                // does have the row — a switch plus Low/Mid/High — and it read `off` and
-                // `Mid` on 2026-09-13 against our `aa 98 03 02 02 00`, which decodes to
-                // exactly that. Confirmed, not assumed.
-                // ⛔ `aa 82` smart audio/video — **measured, and blocked on a design
-                // question rather than a value.** This model's Video is byte-identical to
-                // [SmartAv.VIDEO]; its Audio is `00 01 2e 00 18 01 ff ff` where the M2's
-                // is `00 01 35 00 96 00 ff ff`. An enum holding ONE payload per entry
-                // cannot say "same VIDEO, different AUDIO", and [JblSmartAv.set] writes
-                // those bytes — so the row needs a per-model table, not a paste.
-                // ✅ The write itself works: `aa 81 08` with the measured payload was
-                // acked and read back. #1587.
-                //
-                // ⚠ **`canPowerOff` is not claimed.** `aa 97` has never been sent to
-                // this device; the M2's flag would offer a button nothing has tried.
+                // Which reads were driven, against which instrument, is in
+                // `docs/protocols.md` — not repeated here.
                 Settings(
                     timedOff = Drivers.JblBes.readAutoOff(s.transport),
                     autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
@@ -1600,14 +1548,13 @@ class DeviceController(
          * from `onStop`) is what actually stops this app squatting on the radio; this
          * only catches a screen left open and forgotten, holding links for an hour.
          *
-         * ⚠ **Deliberately long, and it used to be 8 s.** Coexisting with the vendor
-         * apps was the original reason to let go quickly — and that reason is gone:
-         * Bose Music, Sony Headphones, JBL and JLab are to be uninstalled once this
-         * app replaces them (Pippijn, 2026-08-16). With nothing to yield to, an eager
-         * release only buys a reconnect the next time its owner taps — a second on
-         * RFCOMM and up to 25 on the JBL, whose rotating address must be found by an
-         * LE scan first. Two minutes is long enough that no interaction pays that,
-         * and short enough that a forgotten screen does not hold five links all day.
+         * ⚠ **Deliberately long.** Letting go quickly only matters while the vendor
+         * apps need the channel, and they are to be uninstalled once this app replaces
+         * them. With nothing to yield to, an eager release only buys a reconnect on the
+         * next tap — a second on RFCOMM, up to 25 on the JBL, whose rotating address
+         * must be found by an LE scan first. Two minutes is long enough that no
+         * interaction pays that, short enough that a forgotten screen does not hold
+         * five links all day.
          */
         const val IDLE_MS = 120_000L
 

@@ -335,11 +335,9 @@ object SonyButton {
  * | settingType | one per feature, usually a single entry | `ControlByWearingSettingType.ON_OFF` = `00` |
  * | value | one per feature, `00`/`01` | `ControlByWearingSettingValue.ON` = `01` |
  *
- * ⚠ **The settingType byte is the one that was previously carried without a name**, and
- * the reason it is a parameter here rather than a constant `00`: [SonySoundQuality] sends
- * `00` where [SonyAutoOff] sends `01`, and the file used to say only that "whatever that
- * byte counts, it is not the same thing in both". It is the same *kind* of thing in both —
- * a per-feature type selector — and the two features simply have different tables.
+ * ⚠ **settingType is a parameter, not a constant `00`**: [SonySoundQuality] sends `00`
+ * where [SonyAutoOff] sends `01`. It is the same *kind* of byte in both — a per-feature
+ * type selector — and the two features simply have different tables.
  * `AutoPowerOffParameterType` has no `00` at all; its single entry is
  * `01 ACTIVE_AND_SELECTIME_ID`, which is exactly the byte that frame carries.
  *

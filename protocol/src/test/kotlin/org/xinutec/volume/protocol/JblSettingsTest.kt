@@ -469,9 +469,8 @@ class JblSettingsTest {
     /**
      * The cold-launch read, which is the frame that carried the answer all along.
      *
-     * ⚠ Its `02` was written up as an unexplained constant for as long as this row has
-     * been in the docs. Nothing was wrong with the frame; nobody had moved the slider,
-     * so the level and a constant were indistinguishable.
+     * ⚠ Its `02` reads as an unexplained constant until the slider is moved: with the
+     * level never changed, a level byte and a constant are indistinguishable.
      */
     @Test
     fun `switched off still names a level`() {

@@ -101,8 +101,8 @@ object Hazards {
      *
      * ⚠ [Transport] refuses bare bytes at compile time, so a hand-typed payload — the
      * probe tool's stock in trade — must come through here, and this runs [check] on the
-     * way. What used to be a call somebody remembered to make is now the only path that
-     * exists. Refusing is the default; [force] is the probe's per-call override, and an
+     * way. **The check is unskippable by construction rather than by discipline.**
+     * Refusing is the default; [force] is the probe's per-call override, and an
      * admission it forced still carries the refusal so the caller can print what was
      * overridden rather than sending in silence.
      */
