@@ -48,6 +48,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -1163,38 +1164,54 @@ private fun SettingsSection(
         }
 
         settings.inEar?.let { worn ->
-            // ⚠ **An ACTION, not a setting — the only one on this card.** There is no
-            // state to show and nothing to confirm: [JblBeeping.status] reads `00` while
-            // a bud is audibly sounding, so a "beeping" indicator would be a guess. The
-            // buttons say what they will do and the owner hears whether it happened.
+            // ⚠ **An ACTION, not a setting — the only one on this card.** Nothing here
+            // reports state: [JblBeeping.status] answers `00` while a bud is audibly
+            // sounding, so a "beeping now" indicator would be invented.
             //
-            // ⚠⚠ **A bud that reports itself IN AN EAR gets no button.** The vendor app
-            // guards the same tone with a modal asking its owner to confirm the buds are
-            // out; this device answers that question directly, so it is asked rather
-            // than delegated. If both are worn the row says so and offers nothing —
-            // never a disabled control with no explanation.
-            val out =
+            // ⚠⚠ **A bud that reports itself IN AN EAR is not offered**, and the
+            // subtitle SAYS WHICH. The vendor app guards the same tone with a modal
+            // asking its owner to confirm the buds are out; this device answers that
+            // directly, so it is asked instead. ⚠ But a control that silently vanishes
+            // reads as a bug — naming the skipped side is the difference between a
+            // guard and a glitch.
+            val skipped =
                 listOfNotNull(
-                    if (!worn.left) "left" else null,
-                    if (!worn.right) "right" else null,
+                    if (worn.left) "left" else null,
+                    if (worn.right) "right" else null,
                 )
             SettingLabel(
                 "Find my buds",
-                if (out.isEmpty()) "take them out of your ears first" else "sounds a loud tone",
+                when (skipped.size) {
+                    2 -> "both are in your ears"
+                    1 -> "sounds a loud tone · ${skipped.first()} is in your ear"
+                    else -> "sounds a loud tone"
+                },
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (side in out) {
-                    val left = side == "left"
-                    FilterChip(
-                        selected = false,
-                        onClick = { actions.findBud(address, left, true) },
-                        label = { Text("sound $side") },
-                    )
-                    FilterChip(
-                        selected = false,
-                        onClick = { actions.findBud(address, left, false) },
-                        label = { Text("stop $side") },
-                    )
+                for ((left, isWorn) in listOf(true to worn.left, false to worn.right)) {
+                    val side = if (left) "left" else "right"
+                    // ⚠ **Keyed, because the set of chips CHANGES** — a bud going into
+                    // an ear removes one mid-composition, and unkeyed state would slide
+                    // onto its neighbour.
+                    key(side) {
+                        if (!isWorn) {
+                            // ⚠ **What was last ASKED FOR, never what the device says** —
+                            // it will not say. One chip that alternates, like the vendor's,
+                            // instead of a `sound`/`stop` pair per bud spelling out the
+                            // wire. ⚠ It can go stale if the tone stops on its own; a
+                            // second `stop` costs nothing, and the label never claims to
+                            // be a reading.
+                            var asked by remember(address) { mutableStateOf(false) }
+                            FilterChip(
+                                selected = asked,
+                                onClick = {
+                                    actions.findBud(address, left, !asked)
+                                    asked = !asked
+                                },
+                                label = { Text(if (asked) "stop $side" else "sound $side") },
+                            )
+                        }
+                    }
                 }
             }
         }
