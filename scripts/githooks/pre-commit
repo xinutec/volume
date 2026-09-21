@@ -11,7 +11,39 @@
 # Bypass a genuine work-in-progress commit with:  git commit --no-verify
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-if ! out=$(./gate.sh 2>&1); then
+# ⚠ THE GATE'S EXIT CODE IS NOT A BOOLEAN, and `if ! cmd` throws it away.
+# `gate --help` is explicit: 1 = the gate ran and a check failed; 2 = it REFUSED
+# and judged NOTHING (unreadable table, or another gate already holds this
+# worktree's lock), which is "NOT a failing gate; a caller that conflates it
+# with 1 reports the opposite of the truth". This was that caller.
+#
+# Above 128 the gate was SIGNALLED: `on_interrupt` kills the running check's
+# process group and `_exit(128 + sig)`s, so it prints no summary, the check in
+# flight leaves no row in the run ledger and no log, and the whole thing reads
+# as a broken commit. That cost three re-runs of a green tree on 2026-09-16
+# before the shape was recognised (tasks#1643); the number says it at once.
+#
+# ⚠ `gate.sh` is transparent to this — it `exec`s, so the gate's status is its
+# status and there is no wrapper left to flatten it.
+#
+# ⚠ `out=$(cmd) || rc=$?`, never `if ! out=$(cmd)` — the second is what discards
+# the number, and under `set -e` the `||` is also what stops the assignment
+# aborting the hook.
+#
+# A commit is refused in every case: a gate that did not judge is not
+# permission to land. What changes is what it says.
+rc=0
+out=$(./gate.sh 2>&1) || rc=$?
+if [ "$rc" -ne 0 ]; then
   printf '%s\n' "$out" >&2
+  if [ "$rc" -eq 2 ]; then
+    printf '\npre-commit: the gate REFUSED to run and judged NOTHING (exit 2).\n' >&2
+    printf 'Nothing above is a verdict on your changes. Re-run once it can run.\n' >&2
+  elif [ "$rc" -gt 128 ]; then
+    printf '\npre-commit: the gate was KILLED by signal %s (exit %s) before it finished.\n' \
+      "$((rc - 128))" "$rc" >&2
+    printf 'Only the checks printed above ran; the one in flight left no row and no log.\n' >&2
+    printf 'This is not a verdict on your changes either — see tasks#1643.\n' >&2
+  fi
   exit 1
 fi
