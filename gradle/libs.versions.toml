@@ -2,12 +2,12 @@
 # all three build under the same nix `#android` devshell.
 [versions]
 agp = "8.13.0"
-kotlin = "2.4.0"
+kotlin = "2.4.20"
 junit = "4.13.2"
 # Compose, for the app's screen. The probe deliberately has none — see :app's
 # build script — but #785 is a phone app someone looks at, not a logcat stream.
 activity-compose = "1.11.0"
-compose-bom = "2025.09.00"
+compose-bom = "2026.05.00"
 lifecycle = "2.9.4"
 core-ktx = "1.17.0"
 # org.json, for the thoth HTTP contract. NOT a runtime dependency: Android has this
