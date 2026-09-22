@@ -794,7 +794,7 @@ object BoseCncModes {
      * puts it last in a 39-byte record. Then driven — `[38]` set to `01` came back at
      * `[46]` as `01`, and was put back.
      */
-    private const val WIND_WRITE = 38
+    private const val WIND_WRITE = 38 // dev-lint: allow-detekt measured; kept beside WIND_READ
     private const val WIND_READ = 46
 
     /** `[41]`, a bitfield of mutability flags rather than any kind of level. */

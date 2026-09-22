@@ -7,7 +7,6 @@ import org.xinutec.volume.protocol.BoseFrame
 import org.xinutec.volume.protocol.BoseIdentity
 import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.Channels
-import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Headphones
 import org.xinutec.volume.protocol.Registry
 import org.xinutec.volume.protocol.Route

@@ -172,11 +172,11 @@ class FramesTest {
      */
     @Test
     fun `a frame that cannot be placed is not treated as a read`() {
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("06 01 00"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(null, bytes("aa 35 01 01"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(null, bytes("aa 42 09 01"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(Channels.SONY, bytes("38 01 01"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(null, ByteArray(0), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("06 01 00")))
+        assertEquals(false, Frames.reads(null, bytes("aa 35 01 01")))
+        assertEquals(false, Frames.reads(null, bytes("aa 42 09 01")))
+        assertEquals(false, Frames.reads(Channels.SONY, bytes("38 01 01")))
+        assertEquals(false, Frames.reads(null, ByteArray(0)))
     }
 
     /**
@@ -186,10 +186,10 @@ class FramesTest {
      */
     @Test
     fun `the ordinary reads are still recognised as reads`() {
-        assertEquals(true, Frames.reads(Channels.SPP, bytes("01 06 01 00"), SonyTable.TABLE_1))
-        assertEquals(true, Frames.reads(Channels.SPP, bytes("00 01 01 00"), SonyTable.TABLE_1))
-        assertEquals(true, Frames.reads(Channels.SPP, BoseEq.get().bytes, SonyTable.TABLE_1))
-        assertEquals(true, Frames.reads(null, JblAutoPlay.get().bytes, SonyTable.TABLE_1))
+        assertEquals(true, Frames.reads(Channels.SPP, bytes("01 06 01 00")))
+        assertEquals(true, Frames.reads(Channels.SPP, bytes("00 01 01 00")))
+        assertEquals(true, Frames.reads(Channels.SPP, BoseEq.get().bytes))
+        assertEquals(true, Frames.reads(null, JblAutoPlay.get().bytes))
     }
 
     /**
@@ -206,7 +206,7 @@ class FramesTest {
      */
     @Test
     fun `a getter whose direction is not generically decidable is not guessed at`() {
-        assertEquals(false, Frames.reads(null, JblGestures.get().bytes, SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(null, JblGestures.get().bytes))
     }
 
     /**
@@ -215,9 +215,9 @@ class FramesTest {
      */
     @Test
     fun `a BMAP set, set-get or start is not a read`() {
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 00 01 21"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 02 01 21"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 01 05 00"), SonyTable.TABLE_1))
-        assertEquals(false, Frames.reads(Channels.SPP, bytes("04 07 02 00"), SonyTable.TABLE_1))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 00 01 21")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 03 02 01 21")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("01 01 05 00")))
+        assertEquals(false, Frames.reads(Channels.SPP, bytes("04 07 02 00")))
     }
 }

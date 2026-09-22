@@ -19,7 +19,6 @@ import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.CncModes
 import org.xinutec.volume.protocol.Confirmation
-import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Drivers
 import org.xinutec.volume.protocol.Emptiness
@@ -31,7 +30,6 @@ import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
 import org.xinutec.volume.protocol.JLabCurve
 import org.xinutec.volume.protocol.JLabSafeHearing
-import org.xinutec.volume.protocol.JblBattery
 import org.xinutec.volume.protocol.JblEqPreset
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.MultipointDriver
@@ -141,7 +139,7 @@ class DeviceController(
             val bonded =
                 try {
                     adapter.bondedDevices.orEmpty()
-                } catch (e: SecurityException) {
+                } catch (expected: SecurityException) {
                     emit(Screen(emptyList(), Emptiness.NOT_PERMITTED))
                     return@execute
                 }
@@ -1352,7 +1350,7 @@ class DeviceController(
         val device =
             try {
                 adapter?.bondedDevices?.firstOrNull { it.address == address }
-            } catch (e: SecurityException) {
+            } catch (expected: SecurityException) {
                 null
             } ?: run {
                 update(address, DeviceState.Unavailable("no longer bonded"))

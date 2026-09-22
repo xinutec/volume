@@ -67,7 +67,6 @@ import androidx.core.content.IntentCompat
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.Balance
-import org.xinutec.volume.protocol.Battery
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseCncModes
@@ -103,7 +102,6 @@ import org.xinutec.volume.protocol.SonyEq
 import org.xinutec.volume.protocol.SonyEqPresets
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
-import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TalkTimeout
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
@@ -1075,7 +1073,7 @@ private fun SettingsSection(
             // should render for is not also a decision to turn it on. The mode is
             // offered while off for the same reason the device keeps it: it is
             // remembered, and `off` is not `no mode`.
-            // ⚠ [Settings.spatialModes], not [SpatialMode.entries]: the JLab has no
+            // ⚠ [Settings.spatialModes], not [org.xinutec.volume.protocol.SpatialMode.entries]: the JLab has no
             // Game, and a chip whose write this repo refuses is worse than no chip.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (m in settings.spatialModes) {
@@ -1493,7 +1491,7 @@ private fun SettingsSection(
             SettingLabel(
                 "Battery",
                 // ⚠ `== true`, not truthiness: null means the device never said, and
-                // saying nothing is right there — see [Battery.charging].
+                // saying nothing is right there — see [org.xinutec.volume.protocol.Battery.charging].
                 if (b.charging == true) "${b.percent}%, charging" else "${b.percent}%",
             )
             // ⚠ **Only when it is TRUE.** False is the ordinary case and null means the

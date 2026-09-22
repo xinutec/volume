@@ -167,7 +167,7 @@ object Frames {
      * ⚠ Reads are not gated, because dry-running them would make this tool useless for the
      * job it exists to do. The rule is about MUTATION, and a read mutates nothing.
      */
-    fun reads(uuid: String?, payload: ByteArray, table: SonyTable): Boolean =
+    fun reads(uuid: String?, payload: ByteArray): Boolean =
         when {
             payload.isEmpty() -> false
 

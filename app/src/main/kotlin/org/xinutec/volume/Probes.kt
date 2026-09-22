@@ -340,7 +340,7 @@ class Probes(
         intent: Intent,
     ): Boolean {
         if (intent.getBooleanExtra("apply", false)) return false
-        val writes = packets.filterNot { Frames.reads(uuid, it, table) }
+        val writes = packets.filterNot { Frames.reads(uuid, it) }
         if (writes.isEmpty()) return false
         emit("")
         emit("◻ DRY RUN — nothing was sent. ${writes.size} of ${packets.size} packet(s) are")

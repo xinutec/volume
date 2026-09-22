@@ -161,7 +161,7 @@ object Tap {
                     Registry.fromAdvertisement(d.name.orEmpty(), uuids) != null ||
                         Channels.SPP in uuids
                 }.map { it.address to (it.name ?: it.address) }
-        } catch (e: SecurityException) {
+        } catch (expected: SecurityException) {
             emptyList()
         }
     }

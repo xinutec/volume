@@ -1,7 +1,6 @@
 package org.xinutec.volume
 
 import android.app.Activity
-import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -9,30 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.ScrollView
 import android.widget.TextView
-import org.xinutec.volume.protocol.AncMode
-import org.xinutec.volume.protocol.AutoOff
-import org.xinutec.volume.protocol.BoseBands
-import org.xinutec.volume.protocol.BoseButton
-import org.xinutec.volume.protocol.BoseEq
-import org.xinutec.volume.protocol.ButtonWrite
-import org.xinutec.volume.protocol.Channels
-import org.xinutec.volume.protocol.Confirmation
-import org.xinutec.volume.protocol.Drivers
-import org.xinutec.volume.protocol.Hex
-import org.xinutec.volume.protocol.SonyButton
-import org.xinutec.volume.protocol.SonyDsee
-import org.xinutec.volume.protocol.SonyEq
-import org.xinutec.volume.protocol.SonyFrame
-import org.xinutec.volume.protocol.SonyPauseOnRemoval
-import org.xinutec.volume.protocol.SonySpeakToChat
-import org.xinutec.volume.protocol.SonyTouchPanel
-import org.xinutec.volume.protocol.SoundQuality
-import org.xinutec.volume.protocol.Sweep
-import org.xinutec.volume.protocol.Transport
 import org.xinutec.volume.protocol.set
-import org.xinutec.volume.protocol.setEq
-import org.xinutec.volume.protocol.setMultipoint
-import java.util.UUID
 
 /**
  * The #783 probe, driven from the terminal.

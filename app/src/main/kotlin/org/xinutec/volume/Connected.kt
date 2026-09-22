@@ -51,7 +51,7 @@ object Connected {
             if (!adapter.getProfileProxy(context, listener, profile)) return emptyList()
             ready.await(PROXY_MS, TimeUnit.MILLISECONDS)
             proxy?.connectedDevices.orEmpty().map(BluetoothDevice::getAddress)
-        } catch (e: SecurityException) {
+        } catch (expected: SecurityException) {
             emptyList()
         } finally {
             // Proxies are a limited resource and leak across activity restarts.
