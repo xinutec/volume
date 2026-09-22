@@ -1,36 +1,6 @@
 #!/usr/bin/env bash
 # Personal data in a commit MESSAGE — the half of the leak surface no scan of
-# the tree can see, and the half that has actually leaked. The slip log in
-# `feedback_no_private_in_commits` records the recurrence; the most recent was
-# memview 2d91347, over a completely clean tree.
-#
-# A message is not a file. Nothing in the checkout shows it, no later edit
-# removes it, and once pushed only a history rewrite touches it — so the only
-# moment this is cheap is right now, before the commit object exists.
-#
-# ⚠ git runs `pre-commit` FIRST, so a failure here has already cost a full
-# gate. That is the wrong way round and git gives no way to reorder it, which
-# is precisely why this rule is written to have no false positives: measured
-# over the fleet's whole history, 9459 commit messages, it reports one — and
-# that one is real. A term that is genuinely unavoidable belongs in the
-# denylist's own `in:` tolerance, not in a waiver here; there are none.
-#
-# ⚠ The denylist is LOCAL and untracked by design (it holds the data). Absent,
-# dev-lint says so and passes — a host that never had the data cannot leak it.
-#
-# Silent on success. Bypass a genuine exception with:  git commit --no-verify
+# the tree can see. git runs `pre-commit` first, so a failure here has already
+# cost a full gate; that is why the rule behind it has no false positives.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
-rc=0
-out=$(nix run "git+file:../dev-lint?ref=HEAD#dev-lint" -- --commit-msg "$1" 2>&1) || rc=$?
-if [ "$rc" -ne 0 ]; then
-  printf '%s\n' "$out" >&2
-  if [ "$rc" -eq 2 ]; then
-    # Same stance as pre-commit: a check that did not judge is not permission
-    # to land. It says which, because "could not read the denylist" and "your
-    # message names someone" want completely different fixes.
-    printf '\ncommit-msg: the message was NOT judged (exit 2) — see above.\n' >&2
-  fi
-  printf '\ncommit-msg: fix the message and commit again.\n' >&2
-  exit 1
-fi
+exec nix run "git+file:../dev-lint?ref=HEAD#dev-lint" -- --commit-msg "$1"

@@ -8,8 +8,9 @@
 # file or directory", which reads as a broken flake. Copy-pasting the raw command
 # out of the README is exactly how that happens.
 #
-# So this is the one definition, it cds to itself first, and the pre-commit hook
-# calls it rather than repeating the invocation. Arguments are passed through, so
+# So this is the one definition for a person, and it cds to itself first. The
+# pre-commit hook execs the runner directly (git runs it at the root, so nothing
+# there is cwd-relative). Arguments are passed through, so
 # `./gate.sh --only ktlint` and friends still work.
 #
 # `?ref=HEAD`, matching the other repositories' hooks: a plain path builds the
