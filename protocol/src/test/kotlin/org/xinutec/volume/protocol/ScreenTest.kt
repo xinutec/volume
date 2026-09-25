@@ -609,9 +609,9 @@ class ScreenTest {
      * ⚠⚠ This was "every driver here has a read command" until 2026-09-03, and the
      * completeness check at the bottom is what caught the SoundLink Revolve: the first
      * device here that is not headphones, with no ANC to read. **`reads = false` is only
-     * honest when there is nothing to read**, so it is paired with an empty [modes] rather
-     * than accepted on its own — otherwise a driver whose read was merely never found
-     * could opt out of [NoMode] by declaring itself readless.
+     * honest when there is nothing to read**, so it is paired with an empty
+     * [AncDriver.modes] rather than accepted on its own — otherwise a driver whose read
+     * was merely never found could opt out of [NoMode] by declaring itself readless.
      */
     @Test
     fun `every driver either reads a mode or has none to read`() {

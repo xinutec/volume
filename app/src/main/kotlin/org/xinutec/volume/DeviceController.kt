@@ -294,9 +294,9 @@ class DeviceController(
      * being rediscovered by a user watching a switch spring back.
      *
      * ⚠ **The two do NOT fail for the same reason, and it is a Map now because of
-     * that.** Sony's own app fails at multipoint identically — that is [DEVICE]. It
-     * changes the [CUSTOM] button perfectly well, and only this repo cannot — that is
-     * [THIS_APP], and it is #965. Both were a plain `Set` until 2026-08-23, under a
+     * that.** Sony's own app fails at multipoint identically — that is [RefusalReason.DEVICE]. It
+     * changes the CUSTOM button perfectly well, and only this repo cannot — that is
+     * [RefusalReason.THIS_APP], and it is #965. Both were a plain `Set` until 2026-08-23, under a
      * note on screen reading "not even its own app", which was false for the button.
      */
     private fun readSettings(s: Session): Settings =
@@ -580,7 +580,7 @@ class DeviceController(
      * trust the write's own answer, the log line that prints both. A second copy would
      * drift from it, and the JBL gesture write is exactly the caller that needs all three:
      * a refused write there can leave the device in a state the write's answer does not
-     * name. See [GestureWrite].
+     * name. See [org.xinutec.volume.protocol.GestureWrite].
      */
     private fun <O> driven(
         address: String,
@@ -687,7 +687,7 @@ class DeviceController(
 
     /**
      * ⚠ The Status echoes the byte written, unlike multipoint's flags word, so this
-     * compares directly — see [BoseCncPersistence].
+     * compares directly — see [org.xinutec.volume.protocol.BoseCncPersistence].
      */
     override fun setCncPersistence(address: String, on: Boolean) =
         applied<Boolean>(address, "setting noise persistence", { if (it) "on" else "off" }) { s ->
@@ -706,7 +706,7 @@ class DeviceController(
         }
 
     /**
-     * ⚠ **[was] comes from the CARD, which is what the owner was looking at when they
+     * ⚠ **`was` comes from the CARD, which is what the owner was looking at when they
      * tapped.** Re-reading the map first would spend a round trip and still be a guess
      * about the moment between the two frames — and if the two disagreed, the value to
      * put back is the one on screen, not one the device volunteered in between.
@@ -1103,7 +1103,7 @@ class DeviceController(
         sonySwitch(address, "the touch panel", SonyTouchPanel, on)
 
     /**
-     * Ask the XM4 to change its [CUSTOM] key.
+     * Ask the XM4 to change its CUSTOM key.
      *
      * ⚠ **This may end by putting a question on the card rather than finishing.** The
      * device will not commit until its alert is answered, and answering yes drops the

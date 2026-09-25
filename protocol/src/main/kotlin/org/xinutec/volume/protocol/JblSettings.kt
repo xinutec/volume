@@ -700,7 +700,7 @@ object JblSmartAv {
 object JblFeature {
     const val CMD: Byte = 0xb1.toByte()
 
-    /** ⚠ Renegotiates the audio link when it changes — see [JblSettings]' callers. */
+    /** ⚠ Renegotiates the audio link when it changes — see [Settings.leAudio]. */
     const val LE_AUDIO: Byte = 0x01
     const val AURACAST: Byte = 0x02
 

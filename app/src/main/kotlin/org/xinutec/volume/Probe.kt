@@ -117,7 +117,8 @@ object Probe {
      * the send provably caused.
      *
      * This is protocol-agnostic and will happily send writes. The read-only
-     * guarantee belongs to [Sweep], which builds only Get-shaped packets.
+     * guarantee belongs to [org.xinutec.volume.protocol.Sweep], which builds only
+     * Get-shaped packets.
      */
     fun exchangeAll(
         adapter: BluetoothAdapter,
@@ -236,7 +237,7 @@ object Probe {
      * the unacked frame four to six times meanwhile. Driven on the XM4 2026-08-23.
      *
      * [acksFor] is called on the buffer so far and returns an ack per DATA frame in
-     * order, so the list only grows; [sent] is how much of it has already gone out.
+     * order, so the list only grows; `sent` is how much of it has already gone out.
      * Sending an ack restarts the quiet timer, because having just prompted the
      * device is precisely when more is expected.
      */

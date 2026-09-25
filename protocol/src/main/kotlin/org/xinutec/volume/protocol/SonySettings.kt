@@ -177,7 +177,7 @@ object SonySoundQuality {
 }
 
 /**
- * The [CUSTOM] button's assignment — block `f0` (SYSTEM), type `06`.
+ * The CUSTOM button's assignment — block `f0` (SYSTEM), type `06`.
  *
  * ```
  * → f0 06              GET_CAPABILITY — the assignable codes
@@ -581,7 +581,7 @@ private fun generalSwitch(type: Byte) =
  * volume, receive/end phone calls, and more" — so **on means enabled**, and this pair
  * reads `00`, meaning the panel is currently off.
  *
- * ⚠ **This is NOT the [CUSTOM] button and must not be merged with it.** That one is
+ * ⚠ **This is NOT the CUSTOM button and must not be merged with it.** That one is
  * `f8 06` and is refused for us alone (#965). This is the whole panel on or off.
  *
  * ⚠ **Nor is it multipoint, which shares the `d8 <type> 01 <v>` frame family and is
@@ -654,7 +654,7 @@ val SonyPauseOnRemoval = systemSwitch(type = 0x03, readType = 0x00, writeType = 
  *
  * ⚠ **`f8 05 00 01` — the same byte as the read — is accepted, acked, and silently does
  * nothing.** That is what was sent first, and for an hour this file said the XM4 refused
- * Speak-to-Chat, next to multipoint and the [CUSTOM] button. It does not. The device even
+ * Speak-to-Chat, next to multipoint and the CUSTOM button. It does not. The device even
  * said so: it answered the bad SET with `f9 05 01 00`, echoing a `01` where a `00` had
  * been sent, and that transposition was read as a malformed echo rather than as the
  * device naming the table it actually wanted.
@@ -666,7 +666,7 @@ val SonyPauseOnRemoval = systemSwitch(type = 0x03, readType = 0x00, writeType = 
  * ⚠ **The sensitivity and mode-out time are NOT reachable through this.** They live on
  * `fa`/`fc` SYSTEM_*_EXTENDED_PARAM with their own tables — `DetectionSensitivity`
  * (`00` AUTO, `01` HIGH, `02` LOW) and `ModeOutTime` (`00` FAST, `01` MID, `02` SLOW,
- * `03` NONE). Nothing here has sent an extended-parameter frame, and [state] rejects one
+ * `03` NONE). Nothing here has sent an extended-parameter frame, and [SonySwitch.state] rejects one
  * rather than decoding its first byte as an on/off.
  *
  * ⚠ **Turning this ON changes what the headphones do to audio when you talk**, which is

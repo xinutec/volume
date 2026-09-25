@@ -485,7 +485,7 @@ interface SettingActions {
      *
      * ⛔ **Nothing confirms this** — the device's own beeping status reads `00` while a
      * bud is audibly sounding. The screen shows what was asked for and the owner hears
-     * the truth; see [JblBeeping].
+     * the truth; see [org.xinutec.volume.protocol.JblBeeping].
      */
     fun findBud(address: String, left: Boolean, on: Boolean)
 
@@ -838,7 +838,7 @@ private const val NEW_MODE_LEVEL = 5
  * Everything a device has beyond ANC.
  *
  * ⚠ **A setting that will not move is drawn as a value, not a control.** The XM4
- * reports its multipoint and its [CUSTOM] button and then ignores writes to both, so a
+ * reports its multipoint and its CUSTOM button and then ignores writes to both, so a
  * switch here would flip and spring back — this repo's oldest trap wearing a new hat.
  * The value is still worth showing; the control is not.
  *
@@ -1884,7 +1884,7 @@ private fun SettingsSection(
  *
  * ⚠ **SIX levels for FIVE bands.** The first is CLEAR BASS, which Sony's own app
  * draws as a separate control below the curve rather than as a sixth point on it.
- * Zipping [levels] straight against [bands] is off by one from the first entry
+ * Zipping [EqSetting.levels] straight against [bands] is off by one from the first entry
  * onward, which is why the names are built with clear bass prepended rather than by
  * indexing one list with the other's position.
  *

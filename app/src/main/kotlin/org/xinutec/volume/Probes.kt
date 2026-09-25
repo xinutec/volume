@@ -115,9 +115,10 @@ class Probes(
      * What the bonded device at [mac] speaks, or null if it is not bonded.
      *
      * ⚠ **A uuid is not a protocol here.** SPP is the QC45's and QC35's control channel
-     * AND the JLab JBuds' ([Registry]), so a rule keyed on the uuid would read the
-     * JLab's ordinary read as a malformed BMAP frame. [Channels.detect] already knows
-     * SPP is ambiguous and answers `NONE` for a device it cannot name.
+     * AND the JLab JBuds' ([org.xinutec.volume.protocol.Registry]), so a rule keyed on
+     * the uuid would read the JLab's ordinary read as a malformed BMAP frame.
+     * [Channels.detect] already knows SPP is ambiguous and answers `NONE` for a device
+     * it cannot name.
      *
      * ⚠ Null on any failure, including a missing permission — this feeds a syntax check
      * that must not fire without evidence, and an exception here would otherwise turn a
@@ -329,7 +330,7 @@ class Probes(
      * to do. [Frames.reads] decides, and it answers false for anything it cannot place, so
      * "I am not sure" spends a flag rather than a device.
      *
-     * ⚠ **All-or-nothing across a run**, matching [anyRefused]: a `seq` may be a
+     * ⚠ **All-or-nothing across a run**, matching [admittedAll]: a `seq` may be a
      * transaction, so sending its read-shaped prefix and stopping at the first write would
      * leave the device half way through one.
      */

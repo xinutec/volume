@@ -1041,7 +1041,7 @@ object BoseBattery {
  *
  * ⚠ **The scale is PER DEVICE and is not a percentage.** The QC35 counts to 25, the
  * SoundLink Revolve to 100 (`64 24` — 100 steps, sitting at 36). A caller that renders
- * [level] as a percent is right on one of them by accident.
+ * [BoseLoudness.level] as a percent is right on one of them by accident.
  *
  * ⚠ **Read as `<steps> <level>`, and the other order was ruled OUT rather than not
  * considered**: `19 12` the other way round is a device at 25 with a maximum of 18.

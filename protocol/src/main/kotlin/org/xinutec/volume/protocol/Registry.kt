@@ -42,7 +42,7 @@ object Registry {
      * Returns null when the SDP record cannot settle it, which is not a failure to
      * paper over: Pippijn's own QC35 is renamed "LE-Pippijn Headphon" and
      * advertises nothing but standard and shared UUIDs, so a name-based guess would
-     * be wrong for anyone who renamed a QC45 instead. Use [identify] then.
+     * be wrong for anyone who renamed a QC45 instead. Use [identifyBose] then.
      */
     fun fromAdvertisement(name: String, uuids: Set<String>): Headphones? {
         val d = Channels.detect(name, uuids)

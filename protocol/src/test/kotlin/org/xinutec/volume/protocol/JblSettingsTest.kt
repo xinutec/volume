@@ -522,7 +522,7 @@ class JblSettingsTest {
     /**
      * The captured frame, which is also the one this repo once drove by mistake.
      *
-     * ⚠ Off still names a hold, exactly as [SPATIAL_OFF_MUSIC] still names a mode —
+     * ⚠ Off still names a hold, exactly as [JblFrames.SPATIAL_OFF_MUSIC] still names a mode —
      * so the same reasoning applies: `off` is not `no timeout`.
      */
     @Test

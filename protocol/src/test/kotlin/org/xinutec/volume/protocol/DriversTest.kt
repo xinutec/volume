@@ -1080,7 +1080,7 @@ class DriversTest {
      * three TLV slots to zero through the same sub-op `10` every other mode uses.
      * Both are plausible and only the device settles it — ⚠ and a refusal here looks
      * like every other refusal on this protocol: an ack, and the old state on
-     * read-back. Which is why [Drivers.JblBes.set] confirms with a real `aa 91 01 11`
+     * read-back. Which is why [Drivers.JblBes.write] confirms with a real `aa 91 01 11`
      * rather than with the reply.
      */
     @Test

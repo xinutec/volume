@@ -233,7 +233,7 @@ class ThothController(
     /**
      * Choose the default input.
      *
-     * ⚠ Which call this makes is [ThothInput.pickIs]'s decision, not this method's: a
+     * ⚠ Which call this makes is [pickIs]'s decision, not this method's: a
      * plain switch while a pin is standing is undone by the server's own guard within
      * a second or two, so the pick has to MOVE the pin instead.
      */

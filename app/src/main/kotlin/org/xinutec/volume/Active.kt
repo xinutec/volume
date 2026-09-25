@@ -14,8 +14,8 @@ import android.media.AudioManager
  * ⚠ **`BluetoothA2dp.getActiveDevice()` is exactly this answer and is `@hide`**, so
  * the public route is the audio framework's own output list. It reports what is
  * *available* to route to rather than what is routed, so a single A2DP output is a
- * confident answer and several are not — hence null rather than a guess. [OneButton]
- * is what decides what to do with that null.
+ * confident answer and several are not — hence null rather than a guess.
+ * [org.xinutec.volume.protocol.OneButton] is what decides what to do with that null.
  */
 object Active {
     fun address(context: Context): String? {

@@ -97,7 +97,7 @@ object JLabFrame {
  * drifted to 70/60 the vendor app was opened beside a read of this frame and its two
  * battery icons measured off the render: the `L` icon's green fill is **34 px** and the
  * `R` icon's is **30 px**, while this frame read byte 6 = 70 and byte 7 = 60. Same
- * direction, so byte 6 is [left]. ⚠ That fixes the ORDER only — the icon fill is not
+ * direction, so byte 6 is [BudBattery.left]. ⚠ That fixes the ORDER only — the icon fill is not
  * linear in the percentage (34/30 px for 70/60) and nothing here calibrates it.
  *
  * ⚠ This is the question [JblBattery]'s master/slave note still cannot answer, and the
@@ -294,7 +294,7 @@ object JLabSpatialMode {
  * ⚠⚠ **BUT THE TEN LEVEL BYTES DID NOT LAND, and that is the finding.** The card sends a
  * slot's OWN stored curve, so `eq 1` carried slot 0's flat `78`s — and `49` answered
  * preset `0` still holding the CUT curve, `78 78 5a 78 78 78 5a 78 78 78`.
- * [DeviceController] reported `Contradicted`, naming the disagreement instead of
+ * `DeviceController` reported `Contradicted`, naming the disagreement instead of
  * reporting a write it could not see.
  *
  * ✅ **The `Contradicted` alone carries that, without leaning on the `71` capture.** The

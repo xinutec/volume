@@ -1,7 +1,7 @@
 package org.xinutec.volume.protocol
 
 /**
- * What asking the XM4 to change its [CUSTOM] key produced.
+ * What asking the XM4 to change its CUSTOM key produced.
  *
  * ⚠ **`Asks` is not a failure and not a success** — it is the device putting a question
  * to the owner, about disconnecting their own audio. Modelled as a distinct outcome so a
@@ -1163,7 +1163,7 @@ object Drivers {
         /**
          * Speak-to-Chat's three detail settings, which travel as one frame.
          *
-         * ⚠ **[expect] names both `fb` and `fd`** because a write's own notify is a
+         * ⚠ **`expect` names both `fb` and `fd`** because a write's own notify is a
          * legitimate answer to a read that raced it. Leaving it out would take the last
          * DATA frame in the window whatever it said — the defect that made a working
          * DSEE write report as unconfirmable.

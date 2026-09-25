@@ -49,7 +49,7 @@ data class DeviceCard(
  * ⚠ **Presence in [Settings] means "this device has it", not "we can change it".**
  * Those came apart on 2026-08-16: the XM4 answers `d6 d2` and `f6 06` perfectly well
  * and then ignores the matching writes, while the QC45 accepts both. So each field
- * is a value the device reported, and [refuses] says which of them will not move.
+ * is a value the device reported, and [Settings.refuses] says which of them will not move.
  */
 enum class SettingKind {
     EQ,
@@ -72,7 +72,7 @@ enum class SettingKind {
  * ⚠ **One boolean was carrying two different facts, and the screen asserted the
  * stronger one for both.** `refuses` held MULTIPOINT and BUTTON together, and the note
  * under them read *"this pair will not let anything change it — not even its own app"*.
- * That is true of multipoint, measured. It is **false of the [CUSTOM] button**, which
+ * That is true of multipoint, measured. It is **false of the CUSTOM button**, which
  * Sony's app changes freely and only this repo cannot — the asymmetry that is the whole
  * content of #965. So the app was telling its owner something untrue about their own
  * hardware, in the one place the reasoning was supposed to be visible.
@@ -462,7 +462,7 @@ data class Settings(
     /**
      * The XM4's touch sensor control panel, on or off.
      *
-     * ⚠ **Not the [CUSTOM] button** — that is [SettingKind.BUTTON] and is #965. This is
+     * ⚠ **Not the CUSTOM button** — that is [SettingKind.BUTTON] and is #965. This is
      * whether the panel responds at all.
      */
     val touchPanel: Boolean? = null,
