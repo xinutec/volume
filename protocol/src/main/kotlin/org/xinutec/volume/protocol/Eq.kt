@@ -284,7 +284,13 @@ object SonyEqCapability {
  * selection alone" byte, not a slot, and naming it would put it on a menu.
  */
 object SonyEqPresets {
-    private val NAMES =
+    /**
+     * The ids seen on the wire, offered when the device will not list its own. The XM4
+     * holds more, but nothing captured says which it accepts.
+     */
+    val SEEN = listOf(0xa0, 0xa1, 0xa2)
+
+    val NAMES =
         mapOf(
             0x00 to "Off",
             0x01 to "Rock",

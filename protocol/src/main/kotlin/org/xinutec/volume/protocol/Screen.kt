@@ -206,9 +206,8 @@ data class Settings(
     /**
      * The preset ids the device says it has, in the order it listed them.
      *
-     * ⚠ **EMPTY means it would not say, not that it has none** — a card must fall back
-     * to whatever it already offers rather than drawing an empty menu. Sony is the only
-     * device that answers this today; see [SonyEqCapability].
+     * The device's own branch supplies a fallback when it will not say, so this is
+     * exactly what the card offers — never another vendor's ids.
      *
      * ⚠ Ids, not names. [SonyEqPresets] names them, and the device sends no name text
      * of its own even when asked in a language.
@@ -219,9 +218,8 @@ data class Settings(
      *
      * ⚠ **Per device, because the ids are per device and they COLLIDE.** `04` is Rock
      * in the JBL's `aa a2` table space and User in its `aa 40` preset space, and a
-     * single shared naming table would confidently mislabel one of them. Empty means
-     * "no table here", and a caller falls back to the bare number rather than to
-     * somebody else's names.
+     * single shared naming table would confidently mislabel one of them. An id with no
+     * name here is shown as its number, never with somebody else's name.
      */
     val eqPresetNames: Map<Int, String> = emptyMap(),
     /**

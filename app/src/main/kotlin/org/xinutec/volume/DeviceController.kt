@@ -50,6 +50,7 @@ import org.xinutec.volume.protocol.SmartAvDriver
 import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
+import org.xinutec.volume.protocol.SonyEqPresets
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
 import org.xinutec.volume.protocol.SonySpeakToChat
 import org.xinutec.volume.protocol.SonySwitch
@@ -319,7 +320,8 @@ class DeviceController(
                     codec = d.readCodec(s.transport),
                     canPowerOff = true,
                     chatDetail = d.readChatDetail(s.transport),
-                    eqPresets = d.readEqPresets(s.transport),
+                    eqPresets = d.readEqPresets(s.transport).ifEmpty { SonyEqPresets.SEEN },
+                    eqPresetNames = SonyEqPresets.NAMES,
                     // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
                     // separately cost an extra `66 02` per settings load.
                     focusOnVoice = focus.on,

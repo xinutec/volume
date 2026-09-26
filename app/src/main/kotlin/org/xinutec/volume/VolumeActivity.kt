@@ -100,7 +100,6 @@ import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SonyEq
-import org.xinutec.volume.protocol.SonyEqPresets
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.TalkTimeout
@@ -949,16 +948,8 @@ private fun SettingsSection(
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         settings.eq?.let { eq ->
-            // ⚠ **The device's OWN name, or the number — never an invented one, and
-            // never another device's.** [Settings.eqPresetNames] is filled from whichever
-            // table belongs to this model; where it is empty the Sony one is tried,
-            // because Sony is the vendor that answers with ids and no names. An id in
-            // neither falls back to the bare number rather than getting a guessed label.
-            //
-            // ⚠⚠ The order matters: the JBL's `aa 40` indices collide with Sony ids AND
-            // with its own `aa a2` table ids, so a shared table consulted first would
-            // mislabel with total confidence.
-            val naming = { p: Int -> settings.eqPresetNames[p] ?: SonyEqPresets.name(p) }
+            // The device's own name for a preset, or its number — never another vendor's.
+            val naming = { p: Int -> settings.eqPresetNames[p] }
             SettingLabel("Equaliser", naming(eq.preset) ?: "preset ${eq.preset}")
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -968,7 +959,7 @@ private fun SettingsSection(
                 // ids when it would not say. Never an empty menu: [Settings.eqPresets]
                 // is empty for "no answer", and drawing that literally would take the
                 // equaliser away on a read that merely timed out.
-                for (p in settings.eqPresets.ifEmpty { SONY_PRESETS }) {
+                for (p in settings.eqPresets) {
                     FilterChip(
                         selected = p == eq.preset,
                         onClick = { actions.setEqPreset(address, p) },
@@ -2084,21 +2075,6 @@ private fun RefusedNote(reason: RefusalReason?) {
         color = MaterialTheme.colorScheme.tertiary,
     )
 }
-
-/**
- * The XM4 preset chips: `Custom` and the first two `User Setting` slots.
- *
- * ⚠ **These are the USER slots, not a selection from Sony's named curves.** Sony also
- * names Bright, Excited, Mellow, Relaxed, Vocal, Treble, Bass and Speech (`0x10`–`0x17`),
- * plus further user slots at `0xa3`–`0xa5`; [SonyEqPresets] holds the whole naming table.
- *
- * ⚠ **The others stay unoffered, and that decision is unchanged by knowing their
- * names.** These three are the ids seen on the wire (`docs/sony-settings.md`), the XM4's
- * own menu holds more, and nothing captured enumerates what the device actually accepts.
- * A fuller list would be guesswork rendered as fact — an SDK naming a preset is not a
- * device having it, so adding one needs the device asked, not the enum read.
- */
-private val SONY_PRESETS = listOf(0xa0, 0xa1, 0xa2)
 
 /** Bose Music's four buttons, with the numbers it actually sends. */
 private val BOSE_TONE =
