@@ -3,6 +3,7 @@ package org.xinutec.volume.protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -578,45 +579,19 @@ class ScreenTest {
         assertEquals(NoteKind.CAUTION, note?.kind)
     }
 
-    /**
-     * ⚠ The bug this pair of types exists for: a dead link must not be reported as a
-     * limitation of the headphones.
-     */
+    /** A dead link must not be reported as a limitation of the headphones. */
     @Test
-    fun `a read that did not answer is not a device that cannot be read`() {
-        assertEquals(NoMode.UNANSWERED, noMode(reads = true, mode = null, hasModes = true))
-        assertEquals(NoMode.NO_READ, noMode(reads = false, mode = null, hasModes = true))
-        // ⚠ No modes beats both: nothing to read AND nothing to set.
-        assertEquals(NoMode.NO_MODES, noMode(reads = false, mode = null, hasModes = false))
-        assertNull(noMode(reads = true, mode = AncMode.ANC, hasModes = true))
-        // ⚠ Even a driver with no read command says nothing when it HAS a mode —
-        // the mode is what matters, not how it was come by.
-        assertNull(noMode(reads = false, mode = AncMode.ANC, hasModes = true))
+    fun `a read that did not answer is not a device without noise cancelling`() {
+        assertEquals(NoMode.UNANSWERED, noMode(Drivers.BoseQc35, mode = null))
+        assertEquals(NoMode.NO_MODES, noMode(Drivers.BoseRevolve, mode = null))
+        assertNull(noMode(Drivers.BoseQc35, mode = AncMode.ANC))
     }
 
-    /**
-     * ⚠ **Every driver either HAS a mode read, or has no mode at all — never neither.**
-     *
-     * ⚠⚠ **`NoMode.NO_READ` IS REACHABLE NOW, and this doc said the opposite until
-     * 2026-09-03.** "Every shipped driver reads, which is why `UNANSWERED` is the
-     * reachable case" was true of five headphones and stopped being true the moment a
-     * speaker arrived. That claim was load-bearing for which sentence the card shows.
-     *
-     * ⚠ Checks the LIST against the declared drivers, not just the values: "no driver
-     * is in that state" is exactly the kind of claim that goes stale the day someone
-     * adds one.
-     *
-     * ⚠⚠ This was "every driver here has a read command" until 2026-09-03, and the
-     * completeness check at the bottom is what caught the SoundLink Revolve: the first
-     * device here that is not headphones, with no ANC to read. **`reads = false` is only
-     * honest when there is nothing to read**, so it is paired with an empty
-     * [AncDriver.modes] rather than accepted on its own — otherwise a driver whose read
-     * was merely never found could opt out of [NoMode] by declaring itself readless.
-     */
+    /** Every declared driver is either an ANC driver with modes to offer, or not one at all. */
     @Test
-    fun `every driver either reads a mode or has none to read`() {
-        val withModes =
-            listOf<AncDriver>(
+    fun `every driver has noise cancelling with modes, or has none`() {
+        val withAnc =
+            listOf<Driver>(
                 Drivers.BoseQc45,
                 Drivers.BoseQc35,
                 Drivers.JblBes,
@@ -624,32 +599,25 @@ class ScreenTest {
                 Drivers.JLabQcy,
                 Drivers.SonyXm4(),
             )
-        for (d in withModes) {
-            assertTrue("${d::class.java.simpleName} should report a read", d.reads)
-            assertTrue("${d::class.java.simpleName} should offer modes", d.modes.isNotEmpty())
+        for (d in withAnc) {
+            val anc = d as? AncDriver
+            assertNotNull("${d::class.java.simpleName} should have noise cancelling", anc)
+            assertTrue("${d::class.java.simpleName} should offer modes", anc!!.modes.isNotEmpty())
         }
-
-        val withoutModes = listOf<AncDriver>(Drivers.BoseRevolve)
-        for (d in withoutModes) {
-            assertFalse(
-                "${d::class.java.simpleName} has no mode, so it must not claim a read",
-                d.reads,
-            )
-            assertTrue(
-                "${d::class.java.simpleName} declares no read, so it must have no modes",
-                d.modes.isEmpty(),
-            )
+        val withoutAnc = listOf<Driver>(Drivers.BoseRevolve)
+        for (d in withoutAnc) {
+            assertFalse("${d::class.java.simpleName} has no noise cancelling", d is AncDriver)
         }
 
         val declared =
             Drivers::class.java.declaredClasses
-                .filter { AncDriver::class.java.isAssignableFrom(it) }
+                .filter { Driver::class.java.isAssignableFrom(it) }
                 .map { it.simpleName }
                 .toSet()
         assertEquals(
-            "a driver was added — decide whether it has a read before trusting NoMode",
+            "a driver was added — say whether it has noise cancelling",
             declared,
-            (withModes + withoutModes).map { it::class.java.simpleName }.toSet(),
+            (withAnc + withoutAnc).map { it::class.java.simpleName }.toSet(),
         )
     }
 

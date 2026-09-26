@@ -73,11 +73,7 @@ class RegistryTest {
         assertNotNull(r)
         assertSame(Drivers.BoseRevolve, r!!.driver)
         assertEquals("Bose SoundLink Revolve", r.model)
-        // ⚠ Empty modes AND `reads=false`: no chips to offer, and a null mode from it is
-        // "there is nothing to read" rather than "the read failed".
-        assertTrue(r.driver.modes.isEmpty())
-        assertTrue(r.driver.offeredModes().isEmpty())
-        assertFalse(r.driver.reads)
+        assertFalse(r.driver is AncDriver)
     }
 
     /**

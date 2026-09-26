@@ -25,7 +25,7 @@ data class Headphones(
     val vendor: Channels.Vendor,
     val model: String,
     val route: Route,
-    val driver: AncDriver,
+    val driver: Driver,
 )
 
 /**
@@ -244,7 +244,7 @@ object Registry {
  */
 sealed interface BoseIdentity {
     data class Known(
-        val driver: AncDriver,
+        val driver: Driver,
         val model: String,
     ) : BoseIdentity
 

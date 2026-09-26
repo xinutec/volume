@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import org.xinutec.volume.protocol.Admission
+import org.xinutec.volume.protocol.AncDriver
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.BoseBands
@@ -543,8 +544,13 @@ class Probes(
      */
     private fun anc(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
         withSession(adapter, intent, "anc") {
-            val before = it.headphones.driver.read(it.transport)
-            emit("  mode: ${before ?: "(this device has no read command)"}")
+            val anc = it.headphones.driver as? AncDriver
+            if (anc == null) {
+                emit("  ${it.headphones.model} has no noise cancelling")
+                return@withSession
+            }
+            val before = anc.read(it.transport)
+            emit("  mode: ${before ?: "(no answer)"}")
 
             val mode = intent.getStringExtra("mode") ?: return@withSession
             val target =
@@ -553,14 +559,12 @@ class Probes(
                 emit("  ✗ '$mode' is not one of ${AncMode.entries}")
                 return@withSession
             }
-            if (target !in it.headphones.driver.modes) {
-                emit(
-                    "  ✗ ${it.headphones.model} has no $target, only ${it.headphones.driver.modes}",
-                )
+            if (target !in anc.modes) {
+                emit("  ✗ ${it.headphones.model} has no $target, only ${anc.modes}")
                 return@withSession
             }
             emit("  → $target")
-            report(it.headphones.driver.set(it.transport, target))
+            report(anc.set(it.transport, target))
         }
     }
 

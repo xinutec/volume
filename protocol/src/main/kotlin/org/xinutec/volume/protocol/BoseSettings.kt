@@ -1446,7 +1446,7 @@ object BoseName {
  * two models. What justifies it here is that each function below appears in *both*
  * devices' own `01 01` enumeration, in the same shape, and was read from each.
  */
-interface BoseSettingsDriver : AncDriver {
+interface BoseSettingsDriver : Driver {
     /**
      * ⚠ **A QC35 has been seen answering NOTHING until the session is woken** — see
      * [Registry.wakeBose], which also records why that is not unconditional. This override

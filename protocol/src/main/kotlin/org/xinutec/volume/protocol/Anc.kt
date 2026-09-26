@@ -108,8 +108,33 @@ interface Transport {
     fun receive(): ByteArray
 }
 
+/** A device this app can drive, whatever it has. */
+interface Driver {
+    /**
+     * Open the conversation, once per [Transport].
+     *
+     * ⚠ Some protocols need a session established before they answer anything, and
+     * the failure is silent: the Sony returns a bare ACK to a read it would
+     * otherwise answer, which reads as "this device has no mode". Its driver got
+     * away without this for as long as the link happened to be an old one, and
+     * started returning null the first time the app met a freshly connected pair.
+     */
+    fun prepare(t: Transport) {}
+
+    /**
+     * The name the **device** holds, or null if it will not say.
+     *
+     * ⚠ Not the same string as the bonded record, and usually better. Android's
+     * bonded name for this phone's QC35 is "LE-Pippijn Headphon" — the LE
+     * advertisement's truncation of it — while the headphones themselves report
+     * "Pippijn Bose QC35". Showing the former is showing a Bluetooth artefact to
+     * someone who named their headphones something else.
+     */
+    fun name(t: Transport): String? = null
+}
+
 /** One headphone family's ANC control, in terms of [AncMode]. */
-interface AncDriver {
+interface AncDriver : Driver {
     /** The subset of [AncMode] this device implements. */
     val modes: Set<AncMode>
 
@@ -154,41 +179,8 @@ interface AncDriver {
      */
     fun read(t: Transport): AncMode?
 
-    /**
-     * Whether [read] is implemented at all.
-     *
-     * ⚠ **True for every driver here, and it still has to be asked.** Without it the
-     * only evidence about a null mode is the null itself, which is what let a dead link
-     * be reported as a device that cannot be read — see [NoMode]. A driver that has no
-     * read overrides this to false and says so honestly; the default is the common case
-     * and the one that must not be assumed.
-     */
-    val reads: Boolean get() = true
-
     /** Send the mode. ⚠ Whether it took is [set]'s job, never the reply's. */
     fun write(t: Transport, mode: AncMode)
-
-    /**
-     * Open the conversation, once per [Transport].
-     *
-     * ⚠ Some protocols need a session established before they answer anything, and
-     * the failure is silent: the Sony returns a bare ACK to a read it would
-     * otherwise answer, which reads as "this device has no mode". Its driver got
-     * away without this for as long as the link happened to be an old one, and
-     * started returning null the first time the app met a freshly connected pair.
-     */
-    fun prepare(t: Transport) {}
-
-    /**
-     * The name the **device** holds, or null if it will not say.
-     *
-     * ⚠ Not the same string as the bonded record, and usually better. Android's
-     * bonded name for this phone's QC35 is "LE-Pippijn Headphon" — the LE
-     * advertisement's truncation of it — while the headphones themselves report
-     * "Pippijn Bose QC35". Showing the former is showing a Bluetooth artefact to
-     * someone who named their headphones something else.
-     */
-    fun name(t: Transport): String? = null
 }
 
 /**

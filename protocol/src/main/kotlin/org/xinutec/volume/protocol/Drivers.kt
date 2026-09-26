@@ -45,6 +45,7 @@ object Drivers {
      * two ends.
      */
     object BoseQc45 :
+        AncDriver,
         BoseSettingsDriver,
         MultipointDriver {
         override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
@@ -240,7 +241,9 @@ object Drivers {
      * earlier table's `AMBIENT` was a mode this device does not have, which is the
      * detail that should have looked wrong on paper before any of it was driven.
      */
-    object BoseQc35 : BoseSettingsDriver {
+    object BoseQc35 :
+        AncDriver,
+        BoseSettingsDriver {
         override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.ANC_LOW)
 
         private fun value(mode: AncMode): Byte =
@@ -333,31 +336,14 @@ object Drivers {
      * it — the wake, the framing and the settings reads all worked unmodified on a device
      * none of them was written for. See `docs/bose-read-surface.md`.
      *
-     * ⚠⚠ **NO ANC, and that is why [modes] is empty and [reads] is FALSE.** `01 06` ANR
-     * answers `04 01 04`, function not supported — a speaker has nothing to cancel. Saying
-     * so through [reads] is what stops a null mode being read as a device that failed;
-     * [AncDriver.reads] exists for exactly this case and this is its first real user.
+     * ⚠ **No ANC**, so not an [AncDriver]: `01 06` ANR answers `04 01 04`, function not
+     * supported — a speaker has nothing to cancel.
      *
      * ⚠ Also absent, measured rather than assumed: `01 09` BUTTONS and `01 0a` MULTIPOINT
      * both answer `04 01 04`. What it does have that the QC35 does not is `02 05`
      * CHARGER_DETECT and a whole block `07` CONTROL.
      */
     object BoseRevolve : BoseSettingsDriver {
-        override val modes: Set<AncMode> = emptySet()
-
-        /** ⚠ There is no mode to read, which is not the same as failing to read one. */
-        override val reads = false
-
-        override fun read(t: Transport): AncMode? = null
-
-        /**
-         * ⚠ **Loud rather than silent.** [modes] is empty so the card offers no chips and
-         * nothing can reach this; a no-op body would make that unreachability invisible if
-         * it ever stopped being true.
-         */
-        override fun write(t: Transport, mode: AncMode): Unit =
-            throw UnsupportedOperationException("the SoundLink Revolve has no ANC to set")
-
         override fun name(t: Transport): String? = Bose.name(t)
 
         /**
@@ -753,15 +739,10 @@ object Drivers {
             val frame =
                 when (mode) {
                     AncMode.OFF -> byteArrayOf(Bes.HEADER, SET_ANC, 0x01, 0x00)
-
                     AncMode.ANC -> byteArrayOf(Bes.HEADER, SET_ANC, 0x01, ON)
-
                     AncMode.AMBIENT -> advanced(ambient = ON, talkThru = 0)
-
                     AncMode.TALK_THRU -> advanced(ambient = 0, talkThru = ON)
-
-                    // Offered by no JBL; see [modes].
-                    AncMode.ANC_LOW -> return
+                    AncMode.ANC_LOW -> throw IllegalArgumentException("the LIVE PRO 2 has no $mode")
                 }
             t.exchange(OutFrame(frame))
         }
@@ -1502,7 +1483,8 @@ object Drivers {
                 when (mode) {
                     AncMode.OFF -> 0x00
                     AncMode.ANC -> 0x01
-                    else -> 0x02
+                    AncMode.AMBIENT -> 0x02
+                    else -> throw IllegalArgumentException("the JLab has no $mode")
                 }
             t.exchange(
                 checksummed(

@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.util.Log
+import org.xinutec.volume.protocol.AncDriver
 import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.OneButton
 import org.xinutec.volume.protocol.Registry
@@ -123,7 +124,9 @@ object Tap {
     }
 
     private fun exchange(target: String, s: Session): State {
-        val driver = s.headphones.driver
+        val driver =
+            s.headphones.driver as? AncDriver
+                ?: return State(false, s.headphones.model, "no noise cancelling")
         val current = runCatching { driver.read(s.transport) }.getOrNull()
         val to = OneButton.next(driver.modes.toList(), current)
         val confirmation = runCatching { driver.set(s.transport, to) }.getOrNull()

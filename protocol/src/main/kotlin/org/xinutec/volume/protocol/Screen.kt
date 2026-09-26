@@ -834,60 +834,24 @@ data class Note(
 )
 
 /**
- * Why a card has no mode to show — two different facts that arrive as the same null.
- *
- * ⚠ **They were one sentence, and it was a claim about the HEADPHONES.** A card with
- * `mode == null` said *"this one reports no mode; it can be set but not read"*, written
- * when the JLab was believed to have no read command. Every driver here has one now, so
- * the only way to reach that sentence is a read that did not come back — and on
- * 2026-08-17 a stale GATT link produced exactly that on the JBL, whose mode reads fine
- * and six of whose settings are decoded. The app stated a permanent limitation of the
- * hardware where the truth was a dead link and a relaunch fixed it.
- *
- * The distinction is not cosmetic: one of these is a fact to accept and the other is a
- * thing to retry, and a sentence that cannot tell them apart teaches its reader to
- * ignore both.
+ * Why a card has no mode to show. A read that did not answer is a thing to retry, and a
+ * device without noise cancelling is a fact to accept; one sentence for both teaches the
+ * reader to ignore both.
  */
 enum class NoMode {
-    /**
-     * The driver has no read command at all.
-     *
-     * ⚠ A claim about this repo, never about the device — see [AncDriver.read]. No
-     * driver here is in this state, which is precisely why the other case needs a
-     * sentence of its own.
-     */
-    NO_READ,
-
     /** There is a read and it did not answer. Transient; retrying is the move. */
     UNANSWERED,
 
-    /**
-     * The device has no modes at all — nothing to read AND nothing to set.
-     *
-     * ⚠⚠ **Added 2026-09-03 with the SoundLink Revolve, and it is not a shade of
-     * [NO_READ].** A speaker has no ANC, so the card's "it can be set but not read"
-     * would be false in its second half — the sentence for a driver whose read was
-     * merely never found, said about a device with nothing to find.
-     */
+    /** The device has no noise cancelling: nothing to read and nothing to set. */
     NO_MODES,
 }
 
-/**
- * Which of [NoMode] applies, or null when there is a mode and nothing to explain.
- *
- * [reads] is [AncDriver.reads] — asked of the driver rather than guessed from the null,
- * which is the whole point.
- *
- * ⚠ **[hasModes] has NO DEFAULT deliberately.** A default would pick the headphone answer
- * for a caller that never thought about speakers, which is the same fail-open shape as the
- * Sony table byte that defaulted to the table where a refusal does not fire.
- */
-fun noMode(reads: Boolean, mode: AncMode?, hasModes: Boolean): NoMode? =
+/** Which of [NoMode] applies, or null when there is a mode and nothing to explain. */
+fun noMode(driver: Driver, mode: AncMode?): NoMode? =
     when {
         mode != null -> null
-        !hasModes -> NoMode.NO_MODES
-        reads -> NoMode.UNANSWERED
-        else -> NoMode.NO_READ
+        driver !is AncDriver -> NoMode.NO_MODES
+        else -> NoMode.UNANSWERED
     }
 
 /**

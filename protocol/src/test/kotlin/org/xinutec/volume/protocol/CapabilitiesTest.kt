@@ -6,7 +6,7 @@ import org.junit.Test
 /** A setter reaches a driver only through these, so membership is what keeps frames off the wrong device. */
 class CapabilitiesTest {
     private val sony = Drivers.SonyXm4()
-    private val all: List<AncDriver> =
+    private val all: List<Driver> =
         listOf(
             Drivers.BoseQc45,
             Drivers.BoseQc35,

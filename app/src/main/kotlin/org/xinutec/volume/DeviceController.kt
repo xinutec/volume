@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
+import org.xinutec.volume.protocol.AncDriver
 import org.xinutec.volume.protocol.AncMode
 import org.xinutec.volume.protocol.AutoOff
 import org.xinutec.volume.protocol.Balance
@@ -236,8 +237,9 @@ class DeviceController(
 
     private fun drive(address: String, mode: AncMode) {
         val s = openIfNeeded(address) ?: return
+        val anc = s.can<AncDriver>() ?: return
         update(address, DeviceState.Busy("setting ${mode.name.lowercase()}…"))
-        val result = runCatching { s.headphones.driver.set(s.transport, mode) }
+        val result = runCatching { anc.set(s.transport, mode) }
         result.onFailure {
             drop(address)
             update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
@@ -247,7 +249,7 @@ class DeviceController(
             address,
             DeviceState.Ready(
                 s.headphones.model,
-                s.headphones.driver.offeredModes(),
+                s.offered,
                 c.resulting(mode),
                 c.note(mode, ::label),
             ),
@@ -550,6 +552,10 @@ class DeviceController(
      */
     private inline fun <reified C> Session.can(): C? = headphones.driver as? C
 
+    /** The noise-cancelling chips to draw; none for a device without it. */
+    private val Session.offered: List<AncMode>
+        get() = can<AncDriver>()?.offeredModes().orEmpty()
+
     /** The block-`01` settings every Bose shares, or null if it is not a Bose. */
     private val Session.bose: BoseSettingsDriver?
         get() = can<BoseSettingsDriver>()
@@ -607,7 +613,7 @@ class DeviceController(
                     address,
                     DeviceState.Ready(
                         s.headphones.model,
-                        s.headphones.driver.offeredModes(),
+                        s.offered,
                         mode,
                         absent,
                     ),
@@ -643,7 +649,7 @@ class DeviceController(
                 address,
                 DeviceState.Ready(
                     s.headphones.model,
-                    s.headphones.driver.offeredModes(),
+                    s.offered,
                     mode,
                     note(outcome),
                 ),
@@ -1285,39 +1291,22 @@ class DeviceController(
      */
     private fun describe(address: String, session: Session): Session {
         update(address, DeviceState.Busy("reading…"))
-        val mode = runCatching { session.headphones.driver.read(session.transport) }.getOrNull()
+        val mode =
+            session.can<AncDriver>()?.let { d ->
+                runCatching { d.read(session.transport) }.getOrNull()
+            }
         // The name the device holds beats the bonded record, which for this phone's
         // QC35 is the LE advertisement's truncation of what its owner actually set.
         runCatching { session.headphones.driver.name(session.transport) }
             .getOrNull()
             ?.let { rename(address, it) }
-        // ⚠ **Which sentence to show is a decision, and it is made in :protocol.** This
-        // used to assume a null mode meant the device had no read command — the JLab's
-        // old case — and said so as a fact about the hardware. Every driver reads now,
-        // so the reachable case is a read that did not answer, and on 2026-08-17 a stale
-        // link had the JBL described as unreadable while its mode was perfectly fine.
-        //
-        // ⚠ PROBLEM rather than CAUTION for the second: it did not work, and unlike an
-        // unconfirmable write there is something the owner can do about it.
+        // A read that did not answer is PROBLEM, not CAUTION: retrying can fix it.
         val note =
             when (
-                noMode(
-                    session.headphones.driver.reads,
-                    mode,
-                    hasModes =
-                        session.headphones.driver.modes
-                            .isNotEmpty(),
-                )
+                noMode(session.headphones.driver, mode)
             ) {
                 null -> {
                     null
-                }
-
-                NoMode.NO_READ -> {
-                    Note(
-                        "this one has no read command; it can be set but not read",
-                        NoteKind.CAUTION,
-                    )
                 }
 
                 // ⚠ **No note at all, and that is the point.** A speaker has no ANC, so
@@ -1338,7 +1327,7 @@ class DeviceController(
             address,
             DeviceState.Ready(
                 session.headphones.model,
-                session.headphones.driver.offeredModes(),
+                session.offered,
                 mode,
                 note,
             ),
