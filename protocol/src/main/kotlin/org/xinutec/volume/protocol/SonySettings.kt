@@ -438,15 +438,13 @@ private fun audioSwitch(type: Byte, readType: Byte, writeType: Byte) =
     )
 
 /** How hard the XM4 listens before deciding you are talking. */
-enum class ChatSensitivity {
-    /** `00` — the device picks. */
-    AUTO,
-
-    /** `01`. */
-    HIGH,
-
-    /** `02`. */
-    LOW,
+enum class ChatSensitivity(
+    val wire: Byte,
+) {
+    /** The device picks. */
+    AUTO(0x00),
+    HIGH(0x01),
+    LOW(0x02),
 }
 
 /**
@@ -457,19 +455,15 @@ enum class ChatSensitivity {
  * ordinal. The XM4 answered `0f 1e 3c 00`.
  */
 enum class ModeOutTime(
+    val wire: Byte,
     val seconds: Int,
 ) {
-    /** `00`. */
-    FAST(15),
+    FAST(0x00, 15),
+    MID(0x01, 30),
+    SLOW(0x02, 60),
 
-    /** `01`. */
-    MID(30),
-
-    /** `02`. */
-    SLOW(60),
-
-    /** `03` — stays in Speak-to-Chat until you tap out of it. */
-    NONE(0),
+    /** Stays in Speak-to-Chat until you tap out of it. */
+    NONE(0x03, 0),
 }
 
 /**
@@ -528,9 +522,9 @@ object SonyChatDetail {
             SET,
             TYPE,
             DETAIL,
-            detail.sensitivity.ordinal.toByte(),
+            detail.sensitivity.wire,
             if (detail.voiceFocus) 0x01 else 0x00,
-            detail.modeOutTime.ordinal.toByte(),
+            detail.modeOutTime.wire,
         )
 
     /**
@@ -542,14 +536,15 @@ object SonyChatDetail {
         if (payload.size < 6) return null
         if (payload[0] != RET && payload[0] != NOTIFY) return null
         if (payload[1] != TYPE || payload[2] != DETAIL) return null
-        val sensitivity = ChatSensitivity.entries.getOrNull(payload[3].toInt()) ?: return null
+        val sensitivity =
+            ChatSensitivity.entries.firstOrNull { it.wire == payload[3] } ?: return null
         val focus =
             when (payload[4]) {
                 0x00.toByte() -> false
                 0x01.toByte() -> true
                 else -> return null
             }
-        val out = ModeOutTime.entries.getOrNull(payload[5].toInt()) ?: return null
+        val out = ModeOutTime.entries.firstOrNull { it.wire == payload[5] } ?: return null
         return ChatDetail(sensitivity, focus, out)
     }
 }

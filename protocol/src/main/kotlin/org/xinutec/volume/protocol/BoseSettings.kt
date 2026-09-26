@@ -457,11 +457,13 @@ data class BoseStandby(
  * ⚠ Named from `SidetoneMode` in `com.bose.monet`, and confirmed on the device: the app
  * showed Medium while the wire read `02`, then Low while it read `03`.
  */
-enum class SidetoneLevel {
-    OFF,
-    HIGH,
-    MEDIUM,
-    LOW,
+enum class SidetoneLevel(
+    val code: Byte,
+) {
+    OFF(0x00),
+    HIGH(0x01),
+    MEDIUM(0x02),
+    LOW(0x03),
 }
 
 /**
@@ -583,14 +585,10 @@ object BoseSidetone {
      * offset is wrong for a three-byte payload or the field means something else. It is
      * constant across two levels; that is all that is established.
      */
-    fun level(payload: ByteArray): SidetoneLevel? =
-        when (payload.getOrNull(1)?.toInt()?.and(0xff)) {
-            0x00 -> SidetoneLevel.OFF
-            0x01 -> SidetoneLevel.HIGH
-            0x02 -> SidetoneLevel.MEDIUM
-            0x03 -> SidetoneLevel.LOW
-            else -> null
-        }
+    fun level(payload: ByteArray): SidetoneLevel? {
+        val code = payload.getOrNull(1) ?: return null
+        return SidetoneLevel.entries.firstOrNull { it.code == code }
+    }
 }
 
 /** `01 03` VOICE_PROMPTS — the switch only; the language is read elsewhere. */
@@ -718,7 +716,7 @@ object BoseVoicePrompts {
         if (payload.size < 5) return emptyList()
         var mask = 0
         for (i in 1..4) mask = (mask shl 8) or (payload[i].toInt() and 0xff)
-        return BoseVoicePromptLanguage.entries.filter { (mask shr it.ordinal) and 1 == 1 }
+        return BoseVoicePromptLanguage.entries.filter { (mask shr it.code) and 1 == 1 }
     }
 }
 
@@ -1094,29 +1092,31 @@ data class BoseLoudness(
  * `01`, which Bose Connect renders as "English (U.S.)". A decoder off by one here is
  * wrong in a way nobody would notice.
  */
-enum class BoseVoicePromptLanguage {
-    UK_ENGLISH,
-    US_ENGLISH,
-    FRENCH,
-    ITALIAN,
-    GERMAN,
-    EUROPEAN_SPANISH,
-    MEXICAN_SPANISH,
-    BRAZILIAN_PORTUGUESE,
-    MANDARIN_CHINESE,
-    KOREAN,
-    RUSSIAN,
-    POLISH,
-    HEBREW,
-    TURKISH,
-    DUTCH,
-    JAPANESE,
-    CANTONESE,
-    ARABIC,
-    SWEDISH,
-    DANISH,
-    NORWEGIAN,
-    FINNISH,
+enum class BoseVoicePromptLanguage(
+    val code: Int,
+) {
+    UK_ENGLISH(0),
+    US_ENGLISH(1),
+    FRENCH(2),
+    ITALIAN(3),
+    GERMAN(4),
+    EUROPEAN_SPANISH(5),
+    MEXICAN_SPANISH(6),
+    BRAZILIAN_PORTUGUESE(7),
+    MANDARIN_CHINESE(8),
+    KOREAN(9),
+    RUSSIAN(10),
+    POLISH(11),
+    HEBREW(12),
+    TURKISH(13),
+    DUTCH(14),
+    JAPANESE(15),
+    CANTONESE(16),
+    ARABIC(17),
+    SWEDISH(18),
+    DANISH(19),
+    NORWEGIAN(20),
+    FINNISH(21),
     ;
 
     companion object {
@@ -1126,7 +1126,7 @@ enum class BoseVoicePromptLanguage {
                 .getOrNull(0)
                 ?.toInt()
                 ?.and(0x1f)
-                ?.let { entries.getOrNull(it) }
+                ?.let { code -> entries.firstOrNull { it.code == code } }
     }
 }
 
@@ -1173,7 +1173,7 @@ object BoseWrites {
                 (
                     (current.toInt() and 0xc0) or
                         (if (on) 0x20 else 0x00) or
-                        language.ordinal
+                        language.code
                 ).toByte(),
             ),
         )
@@ -1190,7 +1190,7 @@ object BoseWrites {
             BoseAllSettings.BLOCK,
             BoseSidetone.FN,
             BoseFrame.SET_GET,
-            byteArrayOf(persist, level.ordinal.toByte()),
+            byteArrayOf(persist, level.code),
         )
 }
 

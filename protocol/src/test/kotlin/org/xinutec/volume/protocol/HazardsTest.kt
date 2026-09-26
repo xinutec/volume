@@ -30,11 +30,11 @@ class HazardsTest {
     @Test
     fun `a BES frame whose length byte disagrees with its payload is refused`() {
         // says 1 payload byte, carries 2
-        val r = Hazards.check(null, bytes("aa a1 01 01 02"), SonyTable.TABLE_1)
+        val r = Hazards.check(null, bytes("aa a1 01 01 02"), SonyTable.TABLE_1, null)
         assertNotNull("a wrong length byte must not reach the wire", r)
         assertEquals(true, r!!.why.contains("length"))
         // says 4, carries 1
-        assertNotNull(Hazards.check(null, bytes("aa 9b 04 01"), SonyTable.TABLE_1))
+        assertNotNull(Hazards.check(null, bytes("aa 9b 04 01"), SonyTable.TABLE_1, null))
     }
 
     /**
@@ -61,7 +61,7 @@ class HazardsTest {
         for ((name, frame) in getters) {
             assertNull(
                 "$name must not be refused",
-                Hazards.check(null, frame.bytes, SonyTable.TABLE_1),
+                Hazards.check(null, frame.bytes, SonyTable.TABLE_1, null),
             )
         }
     }
@@ -74,34 +74,34 @@ class HazardsTest {
      */
     @Test
     fun `the aa a2 curve is exempt from the length invariant`() {
-        assertNull(Hazards.check(null, bytes("aa a2 02 01 01"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(null, bytes("aa a2 02 01 01"), SonyTable.TABLE_1, null))
         // the reply shape, one byte longer than its length byte claims
-        assertNull(Hazards.check(null, bytes("aa a2 03 02 01 01 00"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(null, bytes("aa a2 03 02 01 01 00"), SonyTable.TABLE_1, null))
     }
 
     @Test
     fun `a frame that is not BES at all is left alone`() {
         // Bose BMAP over SPP has no aa header and its own framing; the invariant
         // must not be applied to it, nor to arbitrary GATT probing.
-        assertNull(Hazards.check(Channels.SPP, bytes("01 06 01 00"), SonyTable.TABLE_1))
-        assertNull(Hazards.check(null, bytes("01 02 03"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SPP, bytes("01 06 01 00"), SonyTable.TABLE_1, null))
+        assertNull(Hazards.check(null, bytes("01 02 03"), SonyTable.TABLE_1, null))
     }
 
     @Test
     fun `the BES factory reset is refused`() {
-        val r = Hazards.check(null, bytes("aa 95 00"), SonyTable.TABLE_1)
+        val r = Hazards.check(null, bytes("aa 95 00"), SonyTable.TABLE_1, null)
         assertNotNull("aa 95 must never go out by accident", r)
         assertEquals(true, r!!.why.contains("wipes"))
     }
 
     @Test
     fun `Bose CLEAR_DEVICE_LIST is refused`() {
-        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 02 00"), SonyTable.TABLE_1))
+        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 02 00"), SonyTable.TABLE_1, null))
         // ⚠ Whatever the operator. `04 01 05` turned out to mean "this is a Start
         // transaction, ask again with 05" rather than "this is a Set" — which is an
         // invitation to try `05` on a function that answered it, and 04 07 did.
-        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 05 00"), SonyTable.TABLE_1))
-        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 01 00"), SonyTable.TABLE_1))
+        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 05 00"), SonyTable.TABLE_1, null))
+        assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 01 00"), SonyTable.TABLE_1, null))
     }
 
     /**
@@ -114,24 +114,34 @@ class HazardsTest {
     @Test
     fun `Bose REMOVE_DEVICE is refused, and its harmless neighbours are not`() {
         assertNotNull(
-            Hazards.check(Channels.SPP, bytes("04 03 02 06 aa bb cc dd ee ff"), SonyTable.TABLE_1),
+            Hazards.check(
+                Channels.SPP,
+                bytes("04 03 02 06 aa bb cc dd ee ff"),
+                SonyTable.TABLE_1,
+                null,
+            ),
         )
         // The reads either side of it stay usable — a guard that refused the whole
         // block would take the paired list with it.
-        assertNull(Hazards.check(Channels.SPP, bytes("04 04 01 00"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SPP, bytes("04 04 01 00"), SonyTable.TABLE_1, null))
         assertNull(
-            Hazards.check(Channels.SPP, bytes("04 05 01 06 aa bb cc dd ee ff"), SonyTable.TABLE_1),
+            Hazards.check(
+                Channels.SPP,
+                bytes("04 05 01 06 aa bb cc dd ee ff"),
+                SonyTable.TABLE_1,
+                null,
+            ),
         )
         // ⚠ And nothing outside block 04 is touched by the block check.
-        assertNull(Hazards.check(Channels.SPP, bytes("01 03 02 01 21"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SPP, bytes("01 03 02 01 21"), SonyTable.TABLE_1, null))
     }
 
     /** ⚠ The hazard is the PARAMETER, not the command — `38` alone is not it. */
     @Test
     fun `Sony unpair is refused, and the same command with another action is not`() {
-        assertNotNull(Hazards.check(Channels.SONY, bytes("38 01 02"), SonyTable.TABLE_2))
-        assertNull(Hazards.check(Channels.SONY, bytes("38 01 01"), SonyTable.TABLE_2))
-        assertNull(Hazards.check(Channels.SONY, bytes("38 01 00"), SonyTable.TABLE_2))
+        assertNotNull(Hazards.check(Channels.SONY, bytes("38 01 02"), SonyTable.TABLE_2, null))
+        assertNull(Hazards.check(Channels.SONY, bytes("38 01 01"), SonyTable.TABLE_2, null))
+        assertNull(Hazards.check(Channels.SONY, bytes("38 01 00"), SonyTable.TABLE_2, null))
     }
 
     /**
@@ -140,7 +150,7 @@ class HazardsTest {
      */
     @Test
     fun `the Sony unpair check does not fire on table one`() {
-        assertNull(Hazards.check(Channels.SONY, bytes("38 01 02"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SONY, bytes("38 01 02"), SonyTable.TABLE_1, null))
     }
 
     /**
@@ -155,7 +165,7 @@ class HazardsTest {
             val frame = JblGestures.set(Gesture.LEFT_TAP, a)
             assertNotNull(
                 "${a.label} binds a volume change",
-                Hazards.check(null, frame.bytes, SonyTable.TABLE_1),
+                Hazards.check(null, frame.bytes, SonyTable.TABLE_1, null),
             )
         }
     }
@@ -166,7 +176,7 @@ class HazardsTest {
             val frame = JblGestures.set(Gesture.LEFT_TAP, a)
             assertNull(
                 "${a.label} is ordinary",
-                Hazards.check(null, frame.bytes, SonyTable.TABLE_1),
+                Hazards.check(null, frame.bytes, SonyTable.TABLE_1, null),
             )
         }
     }
@@ -174,19 +184,22 @@ class HazardsTest {
     /** The reads this app makes on every settings load must stay allowed. */
     @Test
     fun `ordinary traffic is not refused`() {
-        assertNull(Hazards.check(Channels.SONY, SonyEq.get(), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SONY, SonyEq.get(), SonyTable.TABLE_1, null))
         assertNull(
             Hazards.check(
                 Channels.SONY,
                 SonyEq.setLevels(listOf(0, 0, 0, 0, 0, 0)),
                 SonyTable.TABLE_1,
+                null,
             ),
         )
-        assertNull(Hazards.check(Channels.SONY, SonyBattery.get(), SonyTable.TABLE_1))
-        assertNull(Hazards.check(Channels.SONY, SonyVoiceGuidance.set(true), SonyTable.TABLE_2))
-        assertNull(Hazards.check(Channels.SPP, BoseEq.get().bytes, SonyTable.TABLE_1))
-        assertNull(Hazards.check(null, JblGestures.get().bytes, SonyTable.TABLE_1))
-        assertNull(Hazards.check(null, JblPowerOff.off().bytes, SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SONY, SonyBattery.get(), SonyTable.TABLE_1, null))
+        assertNull(
+            Hazards.check(Channels.SONY, SonyVoiceGuidance.set(true), SonyTable.TABLE_2, null),
+        )
+        assertNull(Hazards.check(Channels.SPP, BoseEq.get().bytes, SonyTable.TABLE_1, null))
+        assertNull(Hazards.check(null, JblGestures.get().bytes, SonyTable.TABLE_1, null))
+        assertNull(Hazards.check(null, JblPowerOff.off().bytes, SonyTable.TABLE_1, null))
     }
 
     /**
@@ -197,13 +210,13 @@ class HazardsTest {
      */
     @Test
     fun `power off is allowed and the factory reset beside it is not`() {
-        assertNull(Hazards.check(null, bytes("aa 97 00"), SonyTable.TABLE_1))
-        assertNotNull(Hazards.check(null, bytes("aa 95 00"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(null, bytes("aa 97 00"), SonyTable.TABLE_1, null))
+        assertNotNull(Hazards.check(null, bytes("aa 95 00"), SonyTable.TABLE_1, null))
     }
 
     @Test
     fun `an empty payload is not a hazard`() {
-        assertNull(Hazards.check(Channels.SONY, ByteArray(0), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SONY, ByteArray(0), SonyTable.TABLE_1, null))
     }
 
     /**
@@ -212,8 +225,8 @@ class HazardsTest {
      */
     @Test
     fun `a truncated frame is judged on what it actually contains`() {
-        assertNull(Hazards.check(Channels.SONY, bytes("38"), SonyTable.TABLE_2))
-        assertNull(Hazards.check(Channels.SONY, bytes("38 01"), SonyTable.TABLE_2))
+        assertNull(Hazards.check(Channels.SONY, bytes("38"), SonyTable.TABLE_2, null))
+        assertNull(Hazards.check(Channels.SONY, bytes("38 01"), SonyTable.TABLE_2, null))
     }
 
     /**
@@ -273,7 +286,7 @@ class HazardsTest {
         assertNull(Hazards.check(Channels.SPP, jlab, SonyTable.TABLE_1, protocol = Protocol.NONE))
         assertNull(
             "an unidentified device must not be guessed at",
-            Hazards.check(Channels.SPP, jlab, SonyTable.TABLE_1),
+            Hazards.check(Channels.SPP, jlab, SonyTable.TABLE_1, null),
         )
     }
 
@@ -284,7 +297,7 @@ class HazardsTest {
      */
     @Test
     fun `an unidentified device keeps the old behaviour`() {
-        assertNull(Hazards.check(Channels.SPP, bytes("01 04 02 14"), SonyTable.TABLE_1))
+        assertNull(Hazards.check(Channels.SPP, bytes("01 04 02 14"), SonyTable.TABLE_1, null))
     }
 
     /**

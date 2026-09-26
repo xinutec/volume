@@ -74,7 +74,7 @@ class RcspTest {
     fun `a truncated destructive frame is still refused`() {
         val short = Rcsp.command(RcspCommand.FORMAT_DEVICE, 0).copyOf(7)
         assertEquals(RcspCommand.FORMAT_DEVICE, Rcsp.opcode(short))
-        assertNotNull(Hazards.check(Channels.SPP, short, SonyTable.TABLE_1))
+        assertNotNull(Hazards.check(Channels.SPP, short, SonyTable.TABLE_1, null))
     }
 
     // ---- the deny-list, which exists before anything has been sent ----------
@@ -89,11 +89,11 @@ class RcspTest {
     @Test
     fun `the destructive RCSP opcodes are refused`() {
         for (op in listOf(0x22, 0xe7, 0x1a, 0x1f, 0x23, 0x06)) {
-            val r = Hazards.check(Channels.SPP, Rcsp.command(op, 0), SonyTable.TABLE_1)
+            val r = Hazards.check(Channels.SPP, Rcsp.command(op, 0), SonyTable.TABLE_1, null)
             assertNotNull("opcode %02x was admitted".format(op), r)
         }
         for (op in 0xe1..0xe8) {
-            val r = Hazards.check(Channels.SPP, Rcsp.command(op, 0), SonyTable.TABLE_1)
+            val r = Hazards.check(Channels.SPP, Rcsp.command(op, 0), SonyTable.TABLE_1, null)
             assertNotNull("OTA opcode %02x was admitted".format(op), r)
         }
     }
@@ -102,7 +102,7 @@ class RcspTest {
     @Test
     fun `the RCSP reads are admitted`() {
         for (op in listOf(0x02, 0x03, 0x07, 0xd9)) {
-            val r = Hazards.check(Channels.SPP, Rcsp.command(op, 0), SonyTable.TABLE_1)
+            val r = Hazards.check(Channels.SPP, Rcsp.command(op, 0), SonyTable.TABLE_1, null)
             assertNull("opcode %02x was refused".format(op), r)
         }
     }
@@ -110,7 +110,7 @@ class RcspTest {
     /** The refusal names the command and the consequence, as every other one does. */
     @Test
     fun `a refusal says what it refused and why`() {
-        val r = Hazards.check(Channels.SPP, Rcsp.command(0x22, 0), SonyTable.TABLE_1)!!
+        val r = Hazards.check(Channels.SPP, Rcsp.command(0x22, 0), SonyTable.TABLE_1, null)!!
         assertEquals("RCSP 22", r.what)
         assertEquals(true, r.why.contains("FORMAT_DEVICE"))
     }

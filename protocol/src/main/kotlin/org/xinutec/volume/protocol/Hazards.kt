@@ -110,7 +110,7 @@ object Hazards {
         uuid: String?,
         payload: ByteArray,
         table: SonyTable,
-        protocol: Channels.Protocol? = null,
+        protocol: Channels.Protocol?,
         force: Boolean = false,
     ): Admission {
         val r = check(uuid, payload, table, protocol)
@@ -138,7 +138,7 @@ object Hazards {
         uuid: String?,
         payload: ByteArray,
         table: SonyTable,
-        protocol: Channels.Protocol? = null,
+        protocol: Channels.Protocol?,
     ): Refusal? =
         when {
             payload.isEmpty() -> null
