@@ -420,7 +420,11 @@ object Drivers {
      * than beside it. A parity analysis built from someone else's UI cannot see a
      * gap of that shape. #1041.
      */
-    object JblBes : AncDriver {
+    object JblBes :
+        AncDriver,
+        JblSharedSettings,
+        SpatialDriver,
+        SmartAvDriver {
         override val modes =
             setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
 
@@ -493,7 +497,8 @@ object Drivers {
             return decode(buffer) ?: Bes.frame(buffer) { decode(it) != null }?.let(decode)
         }
 
-        fun readAutoOff(t: Transport): TimedOff? = ask(t, JblAutoOff.get(), JblAutoOff::state)
+        override fun readAutoOff(t: Transport): TimedOff? =
+            ask(t, JblAutoOff.get(), JblAutoOff::state)
 
         /**
          * Send it, and say nothing about whether it took.
@@ -503,7 +508,7 @@ object Drivers {
          * repo has been wrong once already by reading one of those as an answer. The
          * caller re-reads; [readAutoOff] is the only thing that knows.
          */
-        fun writeAutoOff(t: Transport, v: TimedOff) {
+        override fun writeAutoOff(t: Transport, v: TimedOff) {
             t.exchange(JblAutoOff.set(v))
         }
 
@@ -528,14 +533,14 @@ object Drivers {
          * there is no way to change the switch alone, which is also why the vendor
          * app's mode buttons switch the feature on.
          */
-        fun writeSpatial(t: Transport, v: Spatial): Spatial? =
+        override fun writeSpatial(t: Transport, v: Spatial): Spatial? =
             JblSpatial.state(t.exchange(JblSpatial.set(v)))
 
-        fun readVoiceAware(t: Transport): VoiceAware? =
+        override fun readVoiceAware(t: Transport): VoiceAware? =
             ask(t, JblVoiceAware.get(), JblVoiceAware::state)
 
         /** Level and switch in one frame, and the reply is the read-back — as [writeSpatial]. */
-        fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
+        override fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
             JblVoiceAware.state(t.exchange(JblVoiceAware.set(v)))
 
         fun readSmartTalk(t: Transport): SmartTalk? =
@@ -551,9 +556,10 @@ object Drivers {
         fun writeLowVolumeEq(t: Transport, on: Boolean): Boolean? =
             JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.set(on)))
 
-        fun readSmartAv(t: Transport): SmartAv? = ask(t, JblSmartAv.get(), JblSmartAv::state)
+        override fun readSmartAv(t: Transport): SmartAv? =
+            ask(t, JblSmartAv.get(), JblSmartAv::state)
 
-        fun readGestures(t: Transport): Map<Gesture, GestureAction>? =
+        override fun readGestures(t: Transport): Map<Gesture, GestureAction>? =
             ask(t, JblGestures.get(), JblGestures::state)
 
         /**
@@ -563,21 +569,23 @@ object Drivers {
          */
         fun readCharge(t: Transport): JblCharge? = ask(t, JblBattery.get(), JblBattery::charge)
 
-        fun readAutoPlay(t: Transport): Boolean? = ask(t, JblAutoPlay.get(), JblAutoPlay::state)
+        override fun readAutoPlay(t: Transport): Boolean? =
+            ask(t, JblAutoPlay.get(), JblAutoPlay::state)
 
         /**
          * ⚠ **The reply to the set is an ACK, not the state** — `aa 00 02 35 <on>` — so
          * this re-reads, exactly as [writeAutoOff] does and unlike [writeSpatial].
          */
-        fun writeAutoPlay(t: Transport, on: Boolean): Boolean? {
+        override fun writeAutoPlay(t: Transport, on: Boolean): Boolean? {
             t.exchange(JblAutoPlay.set(on))
             return readAutoPlay(t)
         }
 
-        fun readBalance(t: Transport): Balance? = ask(t, JblBalance.get(), JblBalance::state)
+        override fun readBalance(t: Transport): Balance? =
+            ask(t, JblBalance.get(), JblBalance::state)
 
         /** The level goes back as it was read — [Balance] says why it is not offered. */
-        fun writeBalance(t: Transport, v: Balance): Balance? =
+        override fun writeBalance(t: Transport, v: Balance): Balance? =
             JblBalance.state(t.exchange(JblBalance.set(v)))
 
         /** ⚠ Read only, deliberately — see [JblPsap]. */
@@ -599,7 +607,7 @@ object Drivers {
          * ⚠ **The restore is believed from its own status frame**, never assumed. It goes
          * down the same path that just refused a write.
          */
-        fun writeGesture(
+        override fun writeGesture(
             t: Transport,
             g: Gesture,
             want: GestureAction,
@@ -625,11 +633,11 @@ object Drivers {
         }
 
         /** Voice Prompts' switch. ⚠ Read only — [JblVoicePrompts] says why. */
-        fun readVoicePrompts(t: Transport): Boolean? =
+        override fun readVoicePrompts(t: Transport): Boolean? =
             ask(t, JblVoicePrompts.get(), JblVoicePrompts::state)
 
         /** Customize ANC. ⚠ Read only — [JblAdvancedAnc] says why there is no writer. */
-        fun readAdvancedAnc(t: Transport): AdvancedAnc? =
+        override fun readAdvancedAnc(t: Transport): AdvancedAnc? =
             ask(t, JblAdvancedAnc.get(), JblAdvancedAnc::state)
 
         /**
@@ -653,7 +661,7 @@ object Drivers {
             t.exchange(JblPowerOff.off())
         }
 
-        fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
+        override fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
             JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
 
         /**
@@ -707,7 +715,11 @@ object Drivers {
      * 04` and nothing moved; with `01 01` the same bytes took. That is the device's
      * own guard, not a protocol fault, and it is why [read] is the confirmation.
      */
-    object JblLivePro2 : AncDriver, EqDriver {
+    object JblLivePro2 :
+        AncDriver,
+        EqDriver,
+        SmartAvDriver,
+        JblSharedSettings by JblBes {
         override val modes =
             setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT, AncMode.TALK_THRU)
 
@@ -772,14 +784,14 @@ object Drivers {
             )
 
         /** ⚠ Walks the buffer, for the reason [readCharge] does. */
-        fun readSmartAv(t: Transport): SmartAv? = smartAv(t.exchange(JblSmartAv.get()))
+        override fun readSmartAv(t: Transport): SmartAv? = smartAv(t.exchange(JblSmartAv.get()))
 
         /**
          * ⚠ **The write's own reply is an `aa 83` status frame**, so this reads the
          * outcome out of it rather than spending a second round trip — measured
          * 2026-09-13, `aa 81 08 …` came back `aa 83 08 …` carrying the new mode.
          */
-        fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? {
+        override fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? {
             val payload = SMART_AV[v] ?: return null
             return smartAv(t.exchange(JblSmartAv.set(payload)))
         }
@@ -1442,7 +1454,9 @@ object Drivers {
      * device is actually in, both ways round. That is how the read was found, and it is
      * the method to reach for whenever a device is believed to have none.
      */
-    object JLabQcy : AncDriver {
+    object JLabQcy :
+        AncDriver,
+        SpatialDriver {
         override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT)
 
         /**
@@ -1541,6 +1555,17 @@ object Drivers {
 
         fun readSpatialMode(t: Transport): SpatialMode? =
             ask(t, JLabSpatialMode.get(), JLabSpatialMode::state)
+
+        /**
+         * ⚠ **Two writes, and either can land without the other**: the JLab has no frame
+         * carrying both, so each is read back on its own and a half-applied edit comes
+         * back as a mismatch. Switch first, so the mode is the last word.
+         */
+        override fun writeSpatial(t: Transport, v: Spatial): Spatial? {
+            val on = writeSpatial(t, v.on)
+            val mode = writeSpatialMode(t, v.mode)
+            return if (on == null || mode == null) null else Spatial(on, mode)
+        }
 
         /**
          * ⚠ **Re-reads rather than trusting the reply.** `74` is answered by `75`, which

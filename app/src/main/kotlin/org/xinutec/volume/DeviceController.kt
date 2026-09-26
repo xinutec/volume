@@ -32,6 +32,7 @@ import org.xinutec.volume.protocol.JLabCurve
 import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JblEqPreset
 import org.xinutec.volume.protocol.JblFeature
+import org.xinutec.volume.protocol.JblSharedSettings
 import org.xinutec.volume.protocol.MultipointDriver
 import org.xinutec.volume.protocol.NoMode
 import org.xinutec.volume.protocol.Note
@@ -43,6 +44,7 @@ import org.xinutec.volume.protocol.SettingKind
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
+import org.xinutec.volume.protocol.SmartAvDriver
 import org.xinutec.volume.protocol.SmartTalk
 import org.xinutec.volume.protocol.SonyButton
 import org.xinutec.volume.protocol.SonyDsee
@@ -52,6 +54,7 @@ import org.xinutec.volume.protocol.SonySwitch
 import org.xinutec.volume.protocol.SonyTouchPanel
 import org.xinutec.volume.protocol.SoundQuality
 import org.xinutec.volume.protocol.Spatial
+import org.xinutec.volume.protocol.SpatialDriver
 import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
@@ -484,13 +487,13 @@ class DeviceController(
                 // Which reads were driven, against which instrument, is in
                 // `docs/protocols.md` — not repeated here.
                 Settings(
-                    timedOff = Drivers.JblBes.readAutoOff(s.transport),
-                    autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
-                    balance = Drivers.JblBes.readBalance(s.transport),
-                    voicePrompts = Drivers.JblBes.readVoicePrompts(s.transport),
-                    gestures = Drivers.JblBes.readGestures(s.transport),
-                    advancedAnc = Drivers.JblBes.readAdvancedAnc(s.transport),
-                    voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
+                    timedOff = Drivers.JblLivePro2.readAutoOff(s.transport),
+                    autoPlay = Drivers.JblLivePro2.readAutoPlay(s.transport),
+                    balance = Drivers.JblLivePro2.readBalance(s.transport),
+                    voicePrompts = Drivers.JblLivePro2.readVoicePrompts(s.transport),
+                    gestures = Drivers.JblLivePro2.readGestures(s.transport),
+                    advancedAnc = Drivers.JblLivePro2.readAdvancedAnc(s.transport),
+                    voiceAware = Drivers.JblLivePro2.readVoiceAware(s.transport),
                     // ✅ The preset index, driven on four values 2026-09-13. ⚠ Names come
                     // from [JblEqPreset], NOT [JBL_EQ_PRESETS] — different field, same
                     // small integers, and the M2's `aa a2` is silent here so a value
@@ -541,37 +544,26 @@ class DeviceController(
         }
 
     /**
-     * The block-`01` settings of whatever is on the other end, or null if it is not a Bose.
-     *
-     * ⚠ **This replaced `Drivers.BoseQc35` written out at five call sites** — including
-     * on QC45 sessions, where it worked. The drivers are stateless and the frames are
-     * identical, so nothing failed and nothing could; the code simply named the wrong
-     * model, and a reader checking whether the QC45 had these settings would have
-     * concluded from those five lines that it did not.
-     *
-     * ⚠ Null here means "not a Bose", which the card never offers these rows for — so it
-     * is a programming error rather than a device state. It is reported as
-     * [Confirmation.Unverifiable] all the same, because that is the outcome that cannot
-     * render as success.
+     * This session's driver as [C], or null when the device does not have it. Every
+     * setter reaches its driver this way, so a write meant for another model is refused
+     * rather than sent down this device's link.
      */
-    private val Session.bose: BoseSettingsDriver?
-        get() = headphones.driver as? BoseSettingsDriver
+    private inline fun <reified C> Session.can(): C? = headphones.driver as? C
 
-    /**
-     * Same idiom for the XM4's own settings — the features below have a single
-     * implementor, so a per-feature interface would be ceremony; what matters is that
-     * a wrong-driver dispatch is a typed [Confirmation.Unverifiable], never a
-     * [ClassCastException] on a listener thread.
-     */
+    /** The block-`01` settings every Bose shares, or null if it is not a Bose. */
+    private val Session.bose: BoseSettingsDriver?
+        get() = can<BoseSettingsDriver>()
+
+    /** The XM4's own settings have one implementor, so the model is the capability. */
     private val Session.sony: Drivers.SonyXm4?
-        get() = headphones.driver as? Drivers.SonyXm4
+        get() = can<Drivers.SonyXm4>()
 
     /** Every settings write goes through here: drive it, then re-read the truth. */
     private fun <T> applied(
         address: String,
         what: String,
         describe: (T) -> String,
-        body: (Session) -> Confirmation<T>,
+        body: (Session) -> Confirmation<T>?,
     ) = driven(address, what, { it.settingNote(describe) }, body)
 
     /**
@@ -584,11 +576,11 @@ class DeviceController(
      * a refused write there can leave the device in a state the write's answer does not
      * name. See [org.xinutec.volume.protocol.GestureWrite].
      */
-    private fun <O> driven(
+    private fun <O : Any> driven(
         address: String,
         what: String,
         note: (O) -> Note?,
-        body: (Session) -> O,
+        body: (Session) -> O?,
     ) = work.execute {
         holding(address) {
             val s = openIfNeeded(address) ?: return@holding
@@ -605,8 +597,23 @@ class DeviceController(
             c.onFailure {
                 drop(address)
                 update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
+                return@holding
             }
-            val outcome = c.getOrNull() ?: return@holding
+            val outcome = c.getOrNull()
+            if (outcome == null) {
+                val absent =
+                    Note("this pair does not have that — nothing was sent", NoteKind.PROBLEM)
+                update(
+                    address,
+                    DeviceState.Ready(
+                        s.headphones.model,
+                        s.headphones.driver.offeredModes(),
+                        mode,
+                        absent,
+                    ),
+                )
+                return@holding
+            }
             // ⚠ Re-read rather than assume. `Confirmed` already means a read agreed,
             // but the other two do not, and the row must show what the device says.
             val settings = runCatching { readSettings(s) }.getOrNull() ?: return@holding
@@ -649,7 +656,7 @@ class DeviceController(
 
     override fun setEqPreset(address: String, preset: Int) =
         applied<EqSetting>(address, "setting the equaliser", { "preset ${it.preset}" }) {
-            val d = it.headphones.driver as? EqDriver ?: return@applied Confirmation.Unverifiable
+            val d = it.can<EqDriver>() ?: return@applied null
             d.setEq(it.transport, preset)
         }
 
@@ -663,23 +670,20 @@ class DeviceController(
             "setting the equaliser bands",
             { it.levels.joinToString(", ") },
         ) {
-            val d = it.sony ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             d.setEqLevels(it.transport, levels)
         }
 
     override fun setTone(address: String, bands: BoseBands) =
         applied<BoseBands>(address, "setting the tone controls", { "$it" }) {
-            val after =
-                Drivers.BoseQc45.writeEq(it.transport, bands)
-                    ?: Drivers.BoseQc45.readEq(it.transport)
+            val d = it.can<Drivers.BoseQc45>() ?: return@applied null
+            val after = d.writeEq(it.transport, bands) ?: d.readEq(it.transport)
             confirm(bands, after)
         }
 
     override fun setMultipoint(address: String, on: Boolean) =
         applied<Boolean>(address, "setting multipoint", { if (it) "on" else "off" }) {
-            val d =
-                it.headphones.driver as? MultipointDriver
-                    ?: return@applied Confirmation.Unverifiable
+            val d = it.can<MultipointDriver>() ?: return@applied null
             d.setMultipoint(it.transport, on)
         }
 
@@ -689,13 +693,13 @@ class DeviceController(
      */
     override fun setCncPersistence(address: String, on: Boolean) =
         applied<Boolean>(address, "setting noise persistence", { if (it) "on" else "off" }) { s ->
-            val d = s.bose ?: return@applied Confirmation.Unverifiable
+            val d = s.bose ?: return@applied null
             d.writeCncPersistence(s.transport, on)
         }
 
     override fun setAutoOff(address: String, mode: AutoOff) =
         applied<AutoOff>(address, "setting power off", { it.name }) {
-            val d = it.sony ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             confirm(mode, d.writeAutoOff(it.transport, mode) ?: d.readAutoOff(it.transport))
         }
 
@@ -708,7 +712,7 @@ class DeviceController(
     override fun setGesture(address: String, g: Gesture, want: GestureAction) =
         driven(address, "setting ${g.label}", { it.note(GestureAction::label) }) {
             val was = card(address)?.settings?.gestures?.get(g) ?: GestureAction.NONE
-            Drivers.JblBes.writeGesture(it.transport, g, want, was)
+            it.can<JblSharedSettings>()?.writeGesture(it.transport, g, want, was)
         }
 
     override fun setTimedOff(address: String, v: TimedOff) =
@@ -719,9 +723,10 @@ class DeviceController(
             "setting power off",
             { "${if (it.on) "on" else "off"}, ${it.minutes} min" },
         ) {
-            Drivers.JblBes.writeAutoOff(it.transport, v)
+            val d = it.can<JblSharedSettings>() ?: return@applied null
+            d.writeAutoOff(it.transport, v)
             // ⚠ The write's own reply is an ack, so the truth comes from a re-read.
-            confirm(v, Drivers.JblBes.readAutoOff(it.transport))
+            confirm(v, d.readAutoOff(it.transport))
         }
 
     /**
@@ -735,7 +740,8 @@ class DeviceController(
             "selecting an ANC mode",
             { it.current?.name ?: "slot ${it.active}" },
         ) {
-            confirmBy(Drivers.BoseQc45.selectMode(it.transport, slot)) { m -> m.active == slot }
+            val d = it.can<Drivers.BoseQc45>() ?: return@applied null
+            confirmBy(d.selectMode(it.transport, slot)) { m -> m.active == slot }
         }
 
     override fun setWindBlock(address: String, slot: Int, on: Boolean) =
@@ -748,7 +754,8 @@ class DeviceController(
                 } ?: "unknown"
             },
         ) {
-            confirmBy(Drivers.BoseQc45.setWindBlock(it.transport, slot, on)) { t ->
+            val d = it.can<Drivers.BoseQc45>() ?: return@applied null
+            confirmBy(d.setWindBlock(it.transport, slot, on)) { t ->
                 t.modes.firstOrNull { m -> m.slot == slot }?.windBlock == on
             }
         }
@@ -759,7 +766,8 @@ class DeviceController(
             "creating an ANC mode",
             { it.modes.firstOrNull { m -> m.slot == slot }?.name ?: "nothing" },
         ) {
-            confirmBy(Drivers.BoseQc45.createMode(it.transport, slot, name, level)) { t ->
+            val d = it.can<Drivers.BoseQc45>() ?: return@applied null
+            confirmBy(d.createMode(it.transport, slot, name, level)) { t ->
                 t.slots?.holds(slot) == true
             }
         }
@@ -776,7 +784,8 @@ class DeviceController(
             "deleting an ANC mode",
             { "${it.modes.count { m -> m.editable }} of your own left" },
         ) {
-            confirmBy(Drivers.BoseQc45.deleteMode(it.transport, slot)) { t ->
+            val d = it.can<Drivers.BoseQc45>() ?: return@applied null
+            confirmBy(d.deleteMode(it.transport, slot)) { t ->
                 t.slots?.holds(slot) == false
             }
         }
@@ -791,7 +800,8 @@ class DeviceController(
             "setting an ANC level",
             { m -> m.current?.let { "${it.name} at ${it.level}" } ?: "unknown" },
         ) { session ->
-            val before = Drivers.BoseQc45.readModes(session.transport)
+            val d = session.can<Drivers.BoseQc45>() ?: return@applied null
+            val before = d.readModes(session.transport)
             val mode = before?.modes?.firstOrNull { it.slot == slot }
             // ⚠ Re-read first: the level goes out inside a record carrying the mode's
             // NAME and its undecoded [BoseCncModes.Mode.nameId], and a stale copy of
@@ -799,7 +809,7 @@ class DeviceController(
             if (mode == null) {
                 Confirmation.Unverifiable
             } else {
-                val after = Drivers.BoseQc45.setModeLevel(session.transport, mode, level)
+                val after = d.setModeLevel(session.transport, mode, level)
                 // A slot missing from the reading says nothing about the level.
                 confirmBy(after?.takeIf { t -> t.modes.any { it.slot == slot } }) { t ->
                     t.modes.first { it.slot == slot }.level == level
@@ -815,14 +825,16 @@ class DeviceController(
             // as "0 min" — which would read as powering off at once.
             { if (it.minutes == 0) "never" else "${it.minutes} min" },
         ) {
-            confirm(BoseStandby(minutes), it.bose?.writeStandby(it.transport, minutes))
+            val d = it.bose ?: return@applied null
+            confirm(BoseStandby(minutes), d.writeStandby(it.transport, minutes))
         }
 
     override fun setName(address: String, name: String) =
         applied<String>(address, "renaming", { it }) {
             // ⚠ The device's answer, not the request: if it trimmed or refused the
             // name, what it now reports IS the name, and the card must not disagree.
-            confirm(name, it.bose?.writeName(it.transport, name))
+            val d = it.bose ?: return@applied null
+            confirm(name, d.writeName(it.transport, name))
         }
 
     override fun forgetDevice(address: String, device: String) =
@@ -848,7 +860,7 @@ class DeviceController(
                     null
                 }
             }
-        }) { Drivers.BoseQc35.forget(it.transport, device) }
+        }) { it.can<Drivers.BoseQc35>()?.forget(it.transport, device) }
 
     override fun startPairing(address: String) =
         applied<Boolean>(
@@ -856,12 +868,14 @@ class DeviceController(
             "opening for a new device",
             { if (it) "ready" else "not ready" },
         ) {
-            confirm(true, Drivers.BoseQc35.startPairing(it.transport))
+            val d = it.can<Drivers.BoseQc35>() ?: return@applied null
+            confirm(true, d.startPairing(it.transport))
         }
 
     override fun setVoicePrompts(address: String, on: Boolean) =
         applied<Boolean>(address, "setting voice prompts", { if (it) "on" else "off" }) {
-            confirm(on, it.bose?.writeVoicePrompts(it.transport, on))
+            val d = it.bose ?: return@applied null
+            confirm(on, d.writeVoicePrompts(it.transport, on))
         }
 
     override fun setPromptLanguage(address: String, language: BoseVoicePromptLanguage) =
@@ -870,12 +884,14 @@ class DeviceController(
             "setting prompt language",
             { it.name.lowercase().replace('_', ' ') },
         ) {
-            confirm(language, it.bose?.writePromptLanguage(it.transport, language))
+            val d = it.bose ?: return@applied null
+            confirm(language, d.writePromptLanguage(it.transport, language))
         }
 
     override fun setSelfVoice(address: String, level: SidetoneLevel) =
         applied<SidetoneLevel>(address, "setting self voice", { it.name.lowercase() }) {
-            confirm(level, it.bose?.writeSelfVoice(it.transport, level))
+            val d = it.bose ?: return@applied null
+            confirm(level, d.writeSelfVoice(it.transport, level))
         }
 
     override fun setSpatial(address: String, v: Spatial) =
@@ -884,28 +900,8 @@ class DeviceController(
             "setting spatial sound",
             { "${if (it.on) "on" else "off"}, ${it.mode.name.lowercase()}" },
         ) {
-            // ⚠ No re-read for the JBL: `aa 9d` answers with the status frame, not an
-            // ack, so the reply IS the read-back. Contrast [setTimedOff], where it is an
-            // ack and a second round trip is the only way to know.
-            val after =
-                when (it.headphones.driver) {
-                    // ⚠⚠ **TWO writes, and either can land without the other.** The JLab
-                    // has no frame carrying both, so this reports what it can actually
-                    // verify: the switch and the mode are re-read separately and a
-                    // half-applied edit comes back as Contradicted rather than as a
-                    // success. Ordered switch-then-mode so that turning it on and
-                    // choosing a mode in one edit leaves the mode as the last word.
-                    is Drivers.JLabQcy -> {
-                        val on = Drivers.JLabQcy.writeSpatial(it.transport, v.on)
-                        val mode = Drivers.JLabQcy.writeSpatialMode(it.transport, v.mode)
-                        if (on == null || mode == null) null else Spatial(on, mode)
-                    }
-
-                    else -> {
-                        Drivers.JblBes.writeSpatial(it.transport, v)
-                    }
-                }
-            confirm(v, after)
+            val d = it.can<SpatialDriver>() ?: return@applied null
+            confirm(v, d.writeSpatial(it.transport, v))
         }
 
     /**
@@ -921,7 +917,8 @@ class DeviceController(
             "setting safe hearing",
             { it.name.lowercase() },
         ) {
-            confirm(level, Drivers.JLabQcy.writeSafeHearing(it.transport, level))
+            val d = it.can<Drivers.JLabQcy>() ?: return@applied null
+            confirm(level, d.writeSafeHearing(it.transport, level))
         }
 
     /**
@@ -934,7 +931,8 @@ class DeviceController(
             "setting the equaliser",
             { "preset ${it.preset}" },
         ) {
-            confirm(curve, Drivers.JLabQcy.writeEq(it.transport, curve.preset, curve.levels))
+            val d = it.can<Drivers.JLabQcy>() ?: return@applied null
+            confirm(curve, d.writeEq(it.transport, curve.preset, curve.levels))
         }
 
     override fun setVoiceAware(address: String, v: VoiceAware) =
@@ -943,7 +941,8 @@ class DeviceController(
             "setting voiceaware",
             { "${if (it.on) "on" else "off"}, ${it.level.name.lowercase()}" },
         ) {
-            confirm(v, Drivers.JblBes.writeVoiceAware(it.transport, v))
+            val d = it.can<JblSharedSettings>() ?: return@applied null
+            confirm(v, d.writeVoiceAware(it.transport, v))
         }
 
     override fun setSmartTalk(address: String, v: SmartTalk) =
@@ -952,7 +951,8 @@ class DeviceController(
             "setting smart talk",
             { "${if (it.on) "on" else "off"}, ${it.timeout.seconds} s" },
         ) {
-            confirm(v, Drivers.JblBes.writeSmartTalk(it.transport, v))
+            val d = it.can<Drivers.JblBes>() ?: return@applied null
+            confirm(v, d.writeSmartTalk(it.transport, v))
         }
 
     override fun setLowVolumeEq(address: String, on: Boolean) =
@@ -961,7 +961,8 @@ class DeviceController(
             "setting low volume dynamic eq",
             { if (it) "on" else "off" },
         ) {
-            confirm(on, Drivers.JblBes.writeLowVolumeEq(it.transport, on))
+            val d = it.can<Drivers.JblBes>() ?: return@applied null
+            confirm(on, d.writeLowVolumeEq(it.transport, on))
         }
 
     /**
@@ -972,9 +973,7 @@ class DeviceController(
      * [setVoiceGuidance], out of sight of this block. Count the callers of [sonySwitch],
      * never this sentence.
      *
-     * ⚠ Only reachable for the Sony; [sony] returns Unverifiable for anything else
-     * rather than silently doing nothing, because a switch that moves and reports
-     * success while sending no bytes is worse than one that says it could not.
+     * ⚠ Only the Sony has them; any other device is told so and sent nothing.
      */
     override fun setDsee(address: String, on: Boolean) = sonySwitch(address, "dsee", SonyDsee, on)
 
@@ -1011,7 +1010,7 @@ class DeviceController(
 
     override fun setVoiceGuidance(address: String, on: Boolean) =
         applied<Boolean>(address, "setting voice guidance", { if (it) "on" else "off" }) {
-            val d = it.sony ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             d.setVoiceGuidance(it.transport, on)
         }
 
@@ -1136,17 +1135,13 @@ class DeviceController(
      */
     override fun setChatDetail(address: String, detail: ChatDetail) =
         applied<ChatDetail>(address, "setting speak-to-chat detail", { it.sensitivity.name }) {
-            val d =
-                it.headphones.driver as? Drivers.SonyXm4
-                    ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             confirm(detail, d.writeChatDetail(it.transport, detail))
         }
 
     private fun sonySwitch(address: String, what: String, switch: SonySwitch, on: Boolean) =
         applied<Boolean>(address, "setting $what", { if (it) "on" else "off" }) {
-            val d =
-                it.headphones.driver as? Drivers.SonyXm4
-                    ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             d.setSwitch(it.transport, switch, on)
         }
 
@@ -1158,9 +1153,7 @@ class DeviceController(
      */
     override fun setFocusOnVoice(address: String, on: Boolean) =
         applied<Boolean>(address, "setting focus on voice", { if (it) "on" else "off" }) {
-            val d =
-                it.headphones.driver as? Drivers.SonyXm4
-                    ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             d.setFocusOnVoice(it.transport, on)
         }
 
@@ -1172,7 +1165,7 @@ class DeviceController(
         val side = if (left) "left" else "right"
         val what = if (on) "sounding the $side bud" else "stopping the $side bud"
         driven<Unit>(address, what, { null }) {
-            Drivers.JblLivePro2.findBud(it.transport, left, on)
+            it.can<Drivers.JblLivePro2>()?.findBud(it.transport, left, on)
         }
     }
 
@@ -1184,30 +1177,28 @@ class DeviceController(
      */
     override fun setSmartAv(address: String, v: SmartAv) =
         applied<SmartAv>(address, "setting smart audio & video", { it.name.lowercase() }) {
-            val write =
-                if (it.headphones.driver === Drivers.JblLivePro2) {
-                    Drivers.JblLivePro2::writeSmartAv
-                } else {
-                    Drivers.JblBes::writeSmartAv
-                }
-            confirm(v, write(it.transport, v))
+            val d = it.can<SmartAvDriver>() ?: return@applied null
+            confirm(v, d.writeSmartAv(it.transport, v))
         }
 
     override fun setAutoPlay(address: String, on: Boolean) =
         applied<Boolean>(address, "setting auto play and pause", { if (it) "on" else "off" }) {
-            confirm(on, Drivers.JblBes.writeAutoPlay(it.transport, on))
+            val d = it.can<JblSharedSettings>() ?: return@applied null
+            confirm(on, d.writeAutoPlay(it.transport, on))
         }
 
     override fun setBalance(address: String, v: Balance) =
         applied<Balance>(address, "setting the balance", { if (it.on) "on" else "off" }) {
-            confirm(v, Drivers.JblBes.writeBalance(it.transport, v))
+            val d = it.can<JblSharedSettings>() ?: return@applied null
+            confirm(v, d.writeBalance(it.transport, v))
         }
 
     override fun setCurve(address: String, curve: EqCurve) =
         applied<EqCurve>(address, "setting the equaliser", { "table ${it.table}" }) {
+            val d = it.can<Drivers.JblBes>() ?: return@applied null
             confirm(
                 curve,
-                Drivers.JblBes.writeCurve(
+                d.writeCurve(
                     it.transport,
                     curve.table,
                     curve.bands.map { b ->
@@ -1219,7 +1210,7 @@ class DeviceController(
 
     override fun setSoundQuality(address: String, mode: SoundQuality) =
         applied<SoundQuality>(address, "setting sound quality", { it.name }) {
-            val d = it.sony ?: return@applied Confirmation.Unverifiable
+            val d = it.sony ?: return@applied null
             val after =
                 d.writeSoundQuality(it.transport, mode) ?: d.readSoundQuality(it.transport)
             confirm(mode, after)
@@ -1227,9 +1218,8 @@ class DeviceController(
 
     override fun setButton(address: String, action: BoseButton.Action) =
         applied<BoseButton.Action>(address, "setting the button", { it.name }) {
-            val after =
-                Drivers.BoseQc45.writeButton(it.transport, action)
-                    ?: Drivers.BoseQc45.readButton(it.transport)
+            val d = it.can<Drivers.BoseQc45>() ?: return@applied null
+            val after = d.writeButton(it.transport, action) ?: d.readButton(it.transport)
             confirm(action, after)
         }
 
