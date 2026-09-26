@@ -54,7 +54,7 @@ echo "=== $serial (model:$MODEL) ==="
 # control channel, which no bonded-device list can supply.
 "$ADB" -s "$serial" shell pm grant "$PKG" android.permission.BLUETOOTH_CONNECT
 "$ADB" -s "$serial" shell pm grant "$PKG" android.permission.BLUETOOTH_SCAN
-# dev-lint: android-deploy allow=launch,fresh-launch
+# dev-lint: android-deploy allow=launch,fresh-launch — waived deliberately, not because the rule is noise; the block below says why
 #
 # ⚠ **Waived deliberately, not because the rule is noise.** Its two invariants exist
 # so a deploy cannot appear to succeed while the OLD build is still on screen — `am
