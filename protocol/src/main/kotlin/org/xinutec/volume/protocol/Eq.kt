@@ -130,9 +130,11 @@ object SonyEq {
      * ⚠ Which is why there is no preset parameter here. Taking one and discarding it
      * would let a caller believe it had chosen a slot to write into.
      */
-    fun setLevels(levels: List<Int>): ByteArray =
-        byteArrayOf(SET, TYPE, UNSPECIFIED.toByte(), levels.size.toByte()) +
+    fun setLevels(levels: List<Int>): ByteArray {
+        require(levels.all { it in RANGE }) { "$levels leaves $RANGE" }
+        return byteArrayOf(SET, TYPE, UNSPECIFIED.toByte(), levels.size.toByte()) +
             ByteArray(levels.size) { (levels[it] + ZERO).toByte() }
+    }
 
     /**
      * Decode `59 01 <preset> <count> <levels…>`, or null if it is not that.

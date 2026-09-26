@@ -16,7 +16,11 @@ package org.xinutec.volume.protocol
 data class TimedOff(
     val on: Boolean,
     val minutes: Int,
-)
+) {
+    init {
+        require(minutes in 0..0xff) { "$minutes minutes is not one byte" }
+    }
+}
 
 /**
  * The three idle timeouts the vendor app offers, in minutes.
@@ -856,7 +860,10 @@ object JblEqPreset {
 
     fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
 
-    fun set(preset: Int): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, preset.toByte()))
+    fun set(preset: Int): OutFrame {
+        require(preset in NAMES) { "preset $preset is not one of ${NAMES.keys}" }
+        return OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, preset.toByte()))
+    }
 
     /** The index out of an `aa 22 02 34 <idx>`, or null when that is not what arrived. */
     fun state(reply: ByteArray): Int? {

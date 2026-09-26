@@ -42,7 +42,11 @@ object JblAutoPlay {
 data class Balance(
     val on: Boolean,
     val level: Int,
-)
+) {
+    init {
+        require(level in 0..0xff) { "balance level $level is not one byte" }
+    }
+}
 
 /**
  * JBL left/right balance — `aa a8`, driven 2026-08-17 23:39.

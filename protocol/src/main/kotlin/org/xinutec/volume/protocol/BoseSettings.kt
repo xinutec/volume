@@ -543,13 +543,15 @@ object BoseStandbyTimer {
 
     fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
 
-    fun set(minutes: Int) =
-        BoseFrame.encode(
+    fun set(minutes: Int): OutFrame {
+        require(minutes in OFFERED) { "$minutes minutes is not one of $OFFERED" }
+        return BoseFrame.encode(
             BoseAllSettings.BLOCK,
             FN,
             BoseFrame.SET_GET,
             byteArrayOf(minutes.toByte()),
         )
+    }
 
     /**
      * ⚠ **Unsigned**, because "3 hours" is `b4` = 180 and a Kotlin `Byte` makes that −76.

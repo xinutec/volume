@@ -224,9 +224,14 @@ class DeviceController(
     private fun drive(address: String, mode: AncMode) {
         val s = openIfNeeded(address) ?: return
         val anc = s.can<AncDriver>() ?: return
+        val was = (card(address)?.state as? DeviceState.Ready)?.mode
         update(address, DeviceState.Busy("setting ${mode.name.lowercase()}…"))
         val result = runCatching { anc.set(s.transport, mode) }
         result.onFailure {
+            if (it is IllegalArgumentException) {
+                update(address, DeviceState.Ready(s.headphones.model, s.offered, was, refused(it)))
+                return
+            }
             drop(address)
             update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
         }
@@ -587,6 +592,13 @@ class DeviceController(
             update(address, DeviceState.Busy("$what…"))
             val c = runCatching { body(s) }
             c.onFailure {
+                if (it is IllegalArgumentException) {
+                    update(
+                        address,
+                        DeviceState.Ready(s.headphones.model, s.offered, mode, refused(it)),
+                    )
+                    return@holding
+                }
                 drop(address)
                 update(address, DeviceState.Unavailable("lost the connection: ${it.message}"))
                 return@holding
@@ -645,6 +657,10 @@ class DeviceController(
     }
 
     private fun card(address: String) = screen.cards.firstOrNull { it.address == address }
+
+    /** A builder refused the value before any frame existed, so the link is fine. */
+    private fun refused(e: IllegalArgumentException) =
+        Note("not sent: ${e.message}", NoteKind.PROBLEM)
 
     override fun setEqPreset(address: String, preset: Int) =
         applied<EqSetting>(address, "setting the equaliser", { "preset ${it.preset}" }) {
