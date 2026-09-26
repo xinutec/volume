@@ -254,3 +254,11 @@ data class ThothScreen(
             ThothScreen(host, ThothReach.AWAY, null, emptyList(), null, emptyList())
     }
 }
+
+/**
+ * The screen after a poll failed. [reached] when the Mac answered with something this
+ * app cannot read: that is not "off this network", and saying so sends the reader to
+ * the wrong place.
+ */
+fun ThothScreen.afterFailedPoll(reached: Boolean): ThothScreen =
+    if (reached) copy(reach = ThothReach.LIVE, pair = null) else ThothScreen.away(host)

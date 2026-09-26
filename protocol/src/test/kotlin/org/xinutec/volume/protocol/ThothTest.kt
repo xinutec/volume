@@ -349,4 +349,17 @@ class ThothTest {
         assertEquals(want, thothOrigin(""))
         assertEquals("http://mac.local:8089", thothOrigin("mac.local"))
     }
+
+    @Test
+    fun `a Mac that answers with something unreadable was reached, not lost`() {
+        val looking = ThothScreen.looking("mac:8089")
+        assertEquals(
+            "Reached mac:8089, but it did not describe its speakers",
+            looking.afterFailedPoll(reached = true).trouble,
+        )
+        assertEquals(
+            "Not reachable at mac:8089 — off this network?",
+            looking.afterFailedPoll(reached = false).trouble,
+        )
+    }
 }

@@ -2,6 +2,7 @@ package org.xinutec.volume
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONException
 import org.xinutec.volume.protocol.InputPick
 import org.xinutec.volume.protocol.PairPatch
 import org.xinutec.volume.protocol.THOTH_DEFAULT_HOST
@@ -10,6 +11,7 @@ import org.xinutec.volume.protocol.ThothInput
 import org.xinutec.volume.protocol.ThothReach
 import org.xinutec.volume.protocol.ThothRefused
 import org.xinutec.volume.protocol.ThothScreen
+import org.xinutec.volume.protocol.afterFailedPoll
 import org.xinutec.volume.protocol.pickIs
 import org.xinutec.volume.protocol.speakers
 import java.util.concurrent.Executors
@@ -144,12 +146,13 @@ class ThothController(
                     refusal = screen.refusal,
                 ),
             )
+        } catch (e: ThothRefused) {
+            pollFailed(e, reached = true)
+        } catch (e: JSONException) {
+            pollFailed(e, reached = true)
         } catch (e: Exception) {
-            // Anything at all: unroutable, refused, timed out, a body that did not
-            // parse. ⚠ All of it is "the Mac is not answering me", which is a true
-            // sentence and the one on the card — not a silent empty card.
-            Log.i(THOTH, "poll $host: ${e.javaClass.simpleName}: ${e.message}")
-            emit(ThothScreen.away(host))
+            // Unroutable or timed out: the Mac did not answer.
+            pollFailed(e, reached = false)
         }
     }
 
@@ -206,6 +209,7 @@ class ThothController(
             emit(screen.copy(refusal = e.reason))
         } catch (e: Exception) {
             Log.i(THOTH, "write $host: ${e.javaClass.simpleName}: ${e.message}")
+            emit(screen.copy(refusal = "Not sent — ${e.message ?: e.javaClass.simpleName}"))
         } finally {
             inFlight = false
             lastActivity = System.currentTimeMillis()
@@ -269,6 +273,12 @@ class ThothController(
             pendingCabinets.isEmpty() &&
             !inFlight &&
             System.currentTimeMillis() - lastActivity >= QUIET_MS
+
+    /** A refusal or an unreadable body means the Mac answered, which is not "away". */
+    private fun pollFailed(e: Exception, reached: Boolean) {
+        Log.i(THOTH, "poll $host: ${e.javaClass.simpleName}: ${e.message}")
+        emit(screen.afterFailedPoll(reached))
+    }
 
     private fun emit(next: ThothScreen) {
         screen = next
