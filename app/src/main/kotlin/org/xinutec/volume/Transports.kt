@@ -8,10 +8,12 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothSocket
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import org.xinutec.volume.protocol.OutFrame
 import org.xinutec.volume.protocol.Transport
 import java.io.Closeable
+import java.io.IOException
 import java.io.InputStream
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -193,20 +195,39 @@ class GattTransport private constructor(
     private val gatt: BluetoothGatt,
     private val writeChar: BluetoothGattCharacteristic,
     private val notifications: LinkedBlockingQueue<ByteArray>,
+    private val writes: WriteAcks,
     private val perMs: Long,
     private val quietMs: Long,
-    /**
-     * ⚠ **When the PROTOCOL says the exchange is finished**, so the read can stop
-     * instead of waiting out [quietMs] on a device that has already answered.
-     *
-     * Null for channels with no such rule, which keeps the timeout behaviour exactly as
-     * it was — Sony's framing is escaped and length-prefixed but its exchanges are a
-     * session rather than a request and a reply, and inventing a terminator for it would
-     * be guessing at the one protocol here that has already punished guessing.
-     */
-    private var finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
 ) : Transport,
     Closeable {
+    /** The outcome of the write in flight, as the GATT callback reports it. */
+    private class WriteAcks {
+        @Volatile private var pending = CountDownLatch(0)
+
+        @Volatile var status = BluetoothGatt.GATT_SUCCESS
+            private set
+
+        @Volatile var dropped = false
+            private set
+
+        fun arm() {
+            status = BluetoothGatt.GATT_SUCCESS
+            pending = CountDownLatch(1)
+        }
+
+        fun written(s: Int) {
+            status = s
+            pending.countDown()
+        }
+
+        fun drop() {
+            dropped = true
+            pending.countDown()
+        }
+
+        fun await(ms: Long) = pending.await(ms, TimeUnit.MILLISECONDS)
+    }
+
     companion object {
         private val CCC = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         private const val STEP_MS = 10_000L
@@ -222,12 +243,16 @@ class GattTransport private constructor(
             quietMs: Long = 500,
         ): GattTransport? {
             val notifications = LinkedBlockingQueue<ByteArray>()
+            val writes = WriteAcks()
             var step = CountDownLatch(1)
             var dead = false
             val cb =
                 object : BluetoothGattCallback() {
                     override fun onConnectionStateChange(g: BluetoothGatt, s: Int, new: Int) {
-                        if (new != BluetoothProfile.STATE_CONNECTED) dead = true
+                        if (new != BluetoothProfile.STATE_CONNECTED) {
+                            dead = true
+                            writes.drop()
+                        }
                         step.countDown()
                     }
 
@@ -245,7 +270,7 @@ class GattTransport private constructor(
                         g: BluetoothGatt,
                         c: BluetoothGattCharacteristic,
                         s: Int,
-                    ) = step.countDown()
+                    ) = writes.written(s)
 
                     override fun onCharacteristicChanged(
                         g: BluetoothGatt,
@@ -290,7 +315,7 @@ class GattTransport private constructor(
             g.writeDescriptor(ccc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
             step.await(STEP_MS, TimeUnit.MILLISECONDS)
 
-            val t = GattTransport(g, w, notifications, perMs, quietMs)
+            val t = GattTransport(g, w, notifications, writes, perMs, quietMs)
             t.collect(700, 300)
             return t
         }
@@ -342,25 +367,24 @@ class GattTransport private constructor(
     }
 
     /**
-     * Adopt a terminator **after** the device has been identified.
-     *
-     * ⚠ **A renamed device is identified by ASKING it**, which means the socket is open
-     * before anyone knows what is on the other end — so the rule cannot be chosen at
-     * construction for exactly the devices most likely to need it. Pippijn's QC35 is
-     * called "Pippijn Bose QC35", `Registry.fromAdvertisement` therefore returns null,
-     * and the whole early-stop change missed it while looking wired. The card said
-     * "**(renamed)**" the entire time.
+     * Write, and throw unless the device acknowledged it — as an RFCOMM write throws
+     * on a dead socket. An unchecked refusal would read as "the device did not answer".
      */
-    fun endsWith(f: (sent: ByteArray, got: ByteArray) -> Boolean) {
-        finished = f
-    }
-
     override fun send(packet: OutFrame) {
-        gatt.writeCharacteristic(
-            writeChar,
-            packet.bytes,
-            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
-        )
+        if (writes.dropped) throw IOException("GATT link is down")
+        writes.arm()
+        val rc =
+            gatt.writeCharacteristic(
+                writeChar,
+                packet.bytes,
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
+            )
+        if (rc != BluetoothStatusCodes.SUCCESS) throw IOException("GATT write refused, rc=$rc")
+        if (!writes.await(STEP_MS)) throw IOException("GATT write not acknowledged")
+        if (writes.dropped) throw IOException("GATT link dropped during a write")
+        if (writes.status != BluetoothGatt.GATT_SUCCESS) {
+            throw IOException("GATT write failed, status ${writes.status}")
+        }
     }
 
     /**
