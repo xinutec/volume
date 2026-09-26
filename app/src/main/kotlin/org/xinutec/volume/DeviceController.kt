@@ -16,6 +16,7 @@ import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.BoseVoicePrompts
+import org.xinutec.volume.protocol.Bud
 import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.CncModes
@@ -1169,11 +1170,10 @@ class DeviceController(
      * ⚠ The in-ear guard is in the UI, not here: a driver that silently refused would
      * leave a button on screen that does nothing, which is worse than no button.
      */
-    override fun findBud(address: String, left: Boolean, on: Boolean) {
-        val side = if (left) "left" else "right"
-        val what = if (on) "sounding the $side bud" else "stopping the $side bud"
+    override fun findBud(address: String, bud: Bud, on: Boolean) {
+        val what = if (on) "sounding the ${bud.label} bud" else "stopping the ${bud.label} bud"
         driven<Unit>(address, what, { null }) {
-            it.can<Drivers.JblLivePro2>()?.findBud(it.transport, left, on)
+            it.can<Drivers.JblLivePro2>()?.findBud(it.transport, bud, on)
         }
     }
 

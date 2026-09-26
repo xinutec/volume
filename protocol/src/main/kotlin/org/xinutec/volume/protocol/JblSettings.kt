@@ -768,13 +768,11 @@ object JblBeeping {
     private const val START_RIGHT: Byte = 0x10
     private const val START_LEFT: Byte = 0x11
 
-    fun set(left: Boolean, on: Boolean): OutFrame {
+    fun set(bud: Bud, on: Boolean): OutFrame {
         val v =
-            when {
-                left && on -> START_LEFT
-                left -> STOP_LEFT
-                on -> START_RIGHT
-                else -> STOP_RIGHT
+            when (bud) {
+                Bud.LEFT -> if (on) START_LEFT else STOP_LEFT
+                Bud.RIGHT -> if (on) START_RIGHT else STOP_RIGHT
             }
         return OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, v))
     }
@@ -819,7 +817,20 @@ object JblInEar {
 data class InEar(
     val left: Boolean,
     val right: Boolean,
-)
+) {
+    fun worn(bud: Bud): Boolean =
+        when (bud) {
+            Bud.LEFT -> left
+            Bud.RIGHT -> right
+        }
+}
+
+enum class Bud(
+    val label: String,
+) {
+    LEFT("left"),
+    RIGHT("right"),
+}
 
 /**
  * The `EnumEqPresetIdx` namespace — `aa 40` writes it, status field `34` reports it.

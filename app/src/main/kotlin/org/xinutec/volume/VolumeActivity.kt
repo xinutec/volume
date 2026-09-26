@@ -73,6 +73,7 @@ import org.xinutec.volume.protocol.BoseCncModes
 import org.xinutec.volume.protocol.BosePromptName
 import org.xinutec.volume.protocol.BoseStandbyTimer
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
+import org.xinutec.volume.protocol.Bud
 import org.xinutec.volume.protocol.ChatDetail
 import org.xinutec.volume.protocol.ChatSensitivity
 import org.xinutec.volume.protocol.DeviceCard
@@ -487,7 +488,7 @@ interface SettingActions {
      * bud is audibly sounding. The screen shows what was asked for and the owner hears
      * the truth; see [org.xinutec.volume.protocol.JblBeeping].
      */
-    fun findBud(address: String, left: Boolean, on: Boolean)
+    fun findBud(address: String, bud: Bud, on: Boolean)
 
     fun setAutoPlay(address: String, on: Boolean)
 
@@ -1187,13 +1188,13 @@ private fun SettingsSection(
                 },
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((left, isWorn) in listOf(true to worn.left, false to worn.right)) {
-                    val side = if (left) "left" else "right"
+                for (bud in Bud.entries) {
+                    val side = bud.label
                     // ⚠ **Keyed, because the set of chips CHANGES** — a bud going into
                     // an ear removes one mid-composition, and unkeyed state would slide
                     // onto its neighbour.
                     key(side) {
-                        if (!isWorn) {
+                        if (!worn.worn(bud)) {
                             // ⚠ **What was last ASKED FOR, never what the device says** —
                             // it will not say. One chip that alternates, like the vendor's,
                             // instead of a `sound`/`stop` pair per bud spelling out the
@@ -1204,7 +1205,7 @@ private fun SettingsSection(
                             FilterChip(
                                 selected = asked,
                                 onClick = {
-                                    actions.findBud(address, left, !asked)
+                                    actions.findBud(address, bud, !asked)
                                     asked = !asked
                                 },
                                 label = { Text(if (asked) "stop $side" else "sound $side") },

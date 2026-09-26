@@ -797,8 +797,8 @@ object Drivers {
          * ⚠ The in-ear guard is the CALLER's, not this function's — a driver that
          * silently refused would leave the UI showing a control that does nothing.
          */
-        fun findBud(t: Transport, left: Boolean, on: Boolean) {
-            t.exchange(JblBeeping.set(left, on))
+        fun findBud(t: Transport, bud: Bud, on: Boolean) {
+            t.exchange(JblBeeping.set(bud, on))
         }
 
         /**
