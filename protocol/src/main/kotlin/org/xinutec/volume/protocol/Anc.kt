@@ -219,6 +219,22 @@ sealed interface Confirmation<out T> {
     data object Unverifiable : Confirmation<Nothing>
 }
 
+/** What a read-back says about a write of [want]. A mismatch carries what was read. */
+fun <T : Any> confirm(want: T, after: T?): Confirmation<T> =
+    when (after) {
+        null -> Confirmation.Unverifiable
+        want -> Confirmation.Confirmed
+        else -> Confirmation.Contradicted(after)
+    }
+
+/** [confirm], for a read-back that is judged by [took] rather than compared. */
+fun <T : Any> confirmBy(after: T?, took: (T) -> Boolean): Confirmation<T> =
+    when {
+        after == null -> Confirmation.Unverifiable
+        took(after) -> Confirmation.Confirmed
+        else -> Confirmation.Contradicted(after)
+    }
+
 /**
  * Write, then read back, and say which happened.
  *
@@ -232,6 +248,5 @@ sealed interface Confirmation<out T> {
 fun AncDriver.set(t: Transport, mode: AncMode): Confirmation<AncMode> {
     require(mode in modes) { "$mode is not one of $modes" }
     write(t, mode)
-    val after = read(t) ?: return Confirmation.Unverifiable
-    return if (after == mode) Confirmation.Confirmed else Confirmation.Contradicted(after)
+    return confirm(mode, read(t))
 }

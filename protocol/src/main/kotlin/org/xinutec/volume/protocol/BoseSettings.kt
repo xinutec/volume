@@ -1476,10 +1476,7 @@ interface BoseSettingsDriver : AncDriver {
      */
     fun writeCncPersistence(t: Transport, on: Boolean): Confirmation<Boolean> {
         t.exchange(BoseCncPersistence.set(on))
-        val after =
-            BoseCncPersistence.state(t.exchange(BoseCncPersistence.get()))
-                ?: return Confirmation.Unverifiable
-        return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+        return confirm(on, BoseCncPersistence.state(t.exchange(BoseCncPersistence.get())))
     }
 
     /**

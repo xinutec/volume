@@ -363,7 +363,5 @@ interface EqDriver {
  * every correct write — and a device that quietly clamps a curve is a real
  * possibility this leaves visible rather than asserting away.
  */
-fun EqDriver.setEq(t: Transport, preset: Int): Confirmation<EqSetting> {
-    val after = writeEq(t, preset) ?: readEq(t) ?: return Confirmation.Unverifiable
-    return if (after.preset == preset) Confirmation.Confirmed else Confirmation.Contradicted(after)
-}
+fun EqDriver.setEq(t: Transport, preset: Int): Confirmation<EqSetting> =
+    confirmBy(writeEq(t, preset) ?: readEq(t)) { it.preset == preset }

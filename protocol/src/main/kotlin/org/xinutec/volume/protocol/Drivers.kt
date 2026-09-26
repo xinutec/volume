@@ -1011,8 +1011,7 @@ object Drivers {
         /** Write it, then establish from a real read what the device holds. */
         fun setVoiceGuidance(t: Transport, on: Boolean): Confirmation<Boolean> {
             writeVoiceGuidance(t, on)
-            val after = readVoiceGuidance(t) ?: return Confirmation.Unverifiable
-            return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+            return confirm(on, readVoiceGuidance(t))
         }
 
         /**
@@ -1044,8 +1043,7 @@ object Drivers {
             exchangeFramed(t, want)
             val after = current(t)?.let(::focus)
             settle(t)
-            after ?: return Confirmation.Unverifiable
-            return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+            return confirm(on, after)
         }
 
         /** The whole `67 02 …` frame, or null if the device did not answer with one. */
@@ -1103,12 +1101,7 @@ object Drivers {
          */
         fun setEqLevels(t: Transport, levels: List<Int>): Confirmation<EqSetting> {
             exchangeFramed(t, SonyEq.setLevels(levels))
-            val after = readEq(t) ?: return Confirmation.Unverifiable
-            return if (after.levels == levels) {
-                Confirmation.Confirmed
-            } else {
-                Confirmation.Contradicted(after)
-            }
+            return confirmBy(readEq(t)) { it.levels == levels }
         }
 
         /**
@@ -1271,8 +1264,7 @@ object Drivers {
             writeSwitch(t, switch, on)
             val after = readSwitch(t, switch)
             settle(t)
-            after ?: return Confirmation.Unverifiable
-            return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+            return confirm(on, after)
         }
 
         /**

@@ -56,6 +56,8 @@ import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
 import org.xinutec.volume.protocol.Wearable
+import org.xinutec.volume.protocol.confirm
+import org.xinutec.volume.protocol.confirmBy
 import org.xinutec.volume.protocol.noMode
 import org.xinutec.volume.protocol.note
 import org.xinutec.volume.protocol.resulting
@@ -670,11 +672,7 @@ class DeviceController(
             val after =
                 Drivers.BoseQc45.writeEq(it.transport, bands)
                     ?: Drivers.BoseQc45.readEq(it.transport)
-            when (after) {
-                null -> Confirmation.Unverifiable
-                bands -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(bands, after)
         }
 
     override fun setMultipoint(address: String, on: Boolean) =
@@ -698,11 +696,7 @@ class DeviceController(
     override fun setAutoOff(address: String, mode: AutoOff) =
         applied<AutoOff>(address, "setting power off", { it.name }) {
             val d = it.sony ?: return@applied Confirmation.Unverifiable
-            when (val after = d.writeAutoOff(it.transport, mode) ?: d.readAutoOff(it.transport)) {
-                null -> Confirmation.Unverifiable
-                mode -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(mode, d.writeAutoOff(it.transport, mode) ?: d.readAutoOff(it.transport))
         }
 
     /**
@@ -727,11 +721,7 @@ class DeviceController(
         ) {
             Drivers.JblBes.writeAutoOff(it.transport, v)
             // ⚠ The write's own reply is an ack, so the truth comes from a re-read.
-            when (val after = Drivers.JblBes.readAutoOff(it.transport)) {
-                null -> Confirmation.Unverifiable
-                v -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(v, Drivers.JblBes.readAutoOff(it.transport))
         }
 
     /**
@@ -745,12 +735,7 @@ class DeviceController(
             "selecting an ANC mode",
             { it.current?.name ?: "slot ${it.active}" },
         ) {
-            val after = Drivers.BoseQc45.selectMode(it.transport, slot)
-            when {
-                after == null -> Confirmation.Unverifiable
-                after.active == slot -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirmBy(Drivers.BoseQc45.selectMode(it.transport, slot)) { m -> m.active == slot }
         }
 
     override fun setWindBlock(address: String, slot: Int, on: Boolean) =
@@ -763,19 +748,8 @@ class DeviceController(
                 } ?: "unknown"
             },
         ) {
-            val after = Drivers.BoseQc45.setWindBlock(it.transport, slot, on)
-            when {
-                after == null -> {
-                    Confirmation.Unverifiable
-                }
-
-                after.modes.firstOrNull { m -> m.slot == slot }?.windBlock == on -> {
-                    Confirmation.Confirmed
-                }
-
-                else -> {
-                    Confirmation.Contradicted(after)
-                }
+            confirmBy(Drivers.BoseQc45.setWindBlock(it.transport, slot, on)) { t ->
+                t.modes.firstOrNull { m -> m.slot == slot }?.windBlock == on
             }
         }
 
@@ -785,11 +759,8 @@ class DeviceController(
             "creating an ANC mode",
             { it.modes.firstOrNull { m -> m.slot == slot }?.name ?: "nothing" },
         ) {
-            val after = Drivers.BoseQc45.createMode(it.transport, slot, name, level)
-            when {
-                after == null -> Confirmation.Unverifiable
-                after.slots?.holds(slot) == true -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
+            confirmBy(Drivers.BoseQc45.createMode(it.transport, slot, name, level)) { t ->
+                t.slots?.holds(slot) == true
             }
         }
 
@@ -805,11 +776,8 @@ class DeviceController(
             "deleting an ANC mode",
             { "${it.modes.count { m -> m.editable }} of your own left" },
         ) {
-            val after = Drivers.BoseQc45.deleteMode(it.transport, slot)
-            when {
-                after == null -> Confirmation.Unverifiable
-                after.slots?.holds(slot) == false -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
+            confirmBy(Drivers.BoseQc45.deleteMode(it.transport, slot)) { t ->
+                t.slots?.holds(slot) == false
             }
         }
 
@@ -832,11 +800,9 @@ class DeviceController(
                 Confirmation.Unverifiable
             } else {
                 val after = Drivers.BoseQc45.setModeLevel(session.transport, mode, level)
-                val got = after?.modes?.firstOrNull { it.slot == slot }
-                when {
-                    after == null || got == null -> Confirmation.Unverifiable
-                    got.level == level -> Confirmation.Confirmed
-                    else -> Confirmation.Contradicted(after)
+                // A slot missing from the reading says nothing about the level.
+                confirmBy(after?.takeIf { t -> t.modes.any { it.slot == slot } }) { t ->
+                    t.modes.first { it.slot == slot }.level == level
                 }
             }
         }
@@ -849,24 +815,14 @@ class DeviceController(
             // as "0 min" — which would read as powering off at once.
             { if (it.minutes == 0) "never" else "${it.minutes} min" },
         ) {
-            when (val after = it.bose?.writeStandby(it.transport, minutes)) {
-                null -> Confirmation.Unverifiable
-                BoseStandby(minutes) -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(BoseStandby(minutes), it.bose?.writeStandby(it.transport, minutes))
         }
 
     override fun setName(address: String, name: String) =
         applied<String>(address, "renaming", { it }) {
-            when (val after = it.bose?.writeName(it.transport, name)) {
-                null -> Confirmation.Unverifiable
-
-                name -> Confirmation.Confirmed
-
-                // ⚠ The device's answer, not the request: if it trimmed or refused the
-                // name, what it now reports IS the name, and the card must not disagree.
-                else -> Confirmation.Contradicted(after)
-            }
+            // ⚠ The device's answer, not the request: if it trimmed or refused the
+            // name, what it now reports IS the name, and the card must not disagree.
+            confirm(name, it.bose?.writeName(it.transport, name))
         }
 
     override fun forgetDevice(address: String, device: String) =
@@ -900,20 +856,12 @@ class DeviceController(
             "opening for a new device",
             { if (it) "ready" else "not ready" },
         ) {
-            when (Drivers.BoseQc35.startPairing(it.transport)) {
-                null -> Confirmation.Unverifiable
-                true -> Confirmation.Confirmed
-                false -> Confirmation.Contradicted(false)
-            }
+            confirm(true, Drivers.BoseQc35.startPairing(it.transport))
         }
 
     override fun setVoicePrompts(address: String, on: Boolean) =
         applied<Boolean>(address, "setting voice prompts", { if (it) "on" else "off" }) {
-            when (val after = it.bose?.writeVoicePrompts(it.transport, on)) {
-                null -> Confirmation.Unverifiable
-                on -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(on, it.bose?.writeVoicePrompts(it.transport, on))
         }
 
     override fun setPromptLanguage(address: String, language: BoseVoicePromptLanguage) =
@@ -922,20 +870,12 @@ class DeviceController(
             "setting prompt language",
             { it.name.lowercase().replace('_', ' ') },
         ) {
-            when (val after = it.bose?.writePromptLanguage(it.transport, language)) {
-                null -> Confirmation.Unverifiable
-                language -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(language, it.bose?.writePromptLanguage(it.transport, language))
         }
 
     override fun setSelfVoice(address: String, level: SidetoneLevel) =
         applied<SidetoneLevel>(address, "setting self voice", { it.name.lowercase() }) {
-            when (val after = it.bose?.writeSelfVoice(it.transport, level)) {
-                null -> Confirmation.Unverifiable
-                level -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(level, it.bose?.writeSelfVoice(it.transport, level))
         }
 
     override fun setSpatial(address: String, v: Spatial) =
@@ -965,11 +905,7 @@ class DeviceController(
                         Drivers.JblBes.writeSpatial(it.transport, v)
                     }
                 }
-            when (after) {
-                null -> Confirmation.Unverifiable
-                v -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(v, after)
         }
 
     /**
@@ -985,11 +921,7 @@ class DeviceController(
             "setting safe hearing",
             { it.name.lowercase() },
         ) {
-            when (val after = Drivers.JLabQcy.writeSafeHearing(it.transport, level)) {
-                null -> Confirmation.Unverifiable
-                level -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(level, Drivers.JLabQcy.writeSafeHearing(it.transport, level))
         }
 
     /**
@@ -1002,11 +934,7 @@ class DeviceController(
             "setting the equaliser",
             { "preset ${it.preset}" },
         ) {
-            when (val after = Drivers.JLabQcy.writeEq(it.transport, curve.preset, curve.levels)) {
-                null -> Confirmation.Unverifiable
-                curve -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(curve, Drivers.JLabQcy.writeEq(it.transport, curve.preset, curve.levels))
         }
 
     override fun setVoiceAware(address: String, v: VoiceAware) =
@@ -1015,11 +943,7 @@ class DeviceController(
             "setting voiceaware",
             { "${if (it.on) "on" else "off"}, ${it.level.name.lowercase()}" },
         ) {
-            when (val after = Drivers.JblBes.writeVoiceAware(it.transport, v)) {
-                null -> Confirmation.Unverifiable
-                v -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(v, Drivers.JblBes.writeVoiceAware(it.transport, v))
         }
 
     override fun setSmartTalk(address: String, v: SmartTalk) =
@@ -1028,11 +952,7 @@ class DeviceController(
             "setting smart talk",
             { "${if (it.on) "on" else "off"}, ${it.timeout.seconds} s" },
         ) {
-            when (val after = Drivers.JblBes.writeSmartTalk(it.transport, v)) {
-                null -> Confirmation.Unverifiable
-                v -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(v, Drivers.JblBes.writeSmartTalk(it.transport, v))
         }
 
     override fun setLowVolumeEq(address: String, on: Boolean) =
@@ -1041,11 +961,7 @@ class DeviceController(
             "setting low volume dynamic eq",
             { if (it) "on" else "off" },
         ) {
-            when (val after = Drivers.JblBes.writeLowVolumeEq(it.transport, on)) {
-                null -> Confirmation.Unverifiable
-                on -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(on, Drivers.JblBes.writeLowVolumeEq(it.transport, on))
         }
 
     /**
@@ -1223,11 +1139,7 @@ class DeviceController(
             val d =
                 it.headphones.driver as? Drivers.SonyXm4
                     ?: return@applied Confirmation.Unverifiable
-            when (d.writeChatDetail(it.transport, detail)) {
-                detail -> Confirmation.Confirmed
-                null -> Confirmation.Unverifiable
-                else -> Confirmation.Contradicted(detail)
-            }
+            confirm(detail, d.writeChatDetail(it.transport, detail))
         }
 
     private fun sonySwitch(address: String, what: String, switch: SonySwitch, on: Boolean) =
@@ -1278,47 +1190,31 @@ class DeviceController(
                 } else {
                     Drivers.JblBes::writeSmartAv
                 }
-            when (val after = write(it.transport, v)) {
-                null -> Confirmation.Unverifiable
-                v -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(v, write(it.transport, v))
         }
 
     override fun setAutoPlay(address: String, on: Boolean) =
         applied<Boolean>(address, "setting auto play and pause", { if (it) "on" else "off" }) {
-            when (val after = Drivers.JblBes.writeAutoPlay(it.transport, on)) {
-                null -> Confirmation.Unverifiable
-                on -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(on, Drivers.JblBes.writeAutoPlay(it.transport, on))
         }
 
     override fun setBalance(address: String, v: Balance) =
         applied<Balance>(address, "setting the balance", { if (it.on) "on" else "off" }) {
-            when (val after = Drivers.JblBes.writeBalance(it.transport, v)) {
-                null -> Confirmation.Unverifiable
-                v -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(v, Drivers.JblBes.writeBalance(it.transport, v))
         }
 
     override fun setCurve(address: String, curve: EqCurve) =
         applied<EqCurve>(address, "setting the equaliser", { "table ${it.table}" }) {
-            when (
-                val after =
-                    Drivers.JblBes.writeCurve(
-                        it.transport,
-                        curve.table,
-                        curve.bands.map { b ->
-                            b.gain
-                        },
-                    )
-            ) {
-                null -> Confirmation.Unverifiable
-                curve -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(
+                curve,
+                Drivers.JblBes.writeCurve(
+                    it.transport,
+                    curve.table,
+                    curve.bands.map { b ->
+                        b.gain
+                    },
+                ),
+            )
         }
 
     override fun setSoundQuality(address: String, mode: SoundQuality) =
@@ -1326,11 +1222,7 @@ class DeviceController(
             val d = it.sony ?: return@applied Confirmation.Unverifiable
             val after =
                 d.writeSoundQuality(it.transport, mode) ?: d.readSoundQuality(it.transport)
-            when (after) {
-                null -> Confirmation.Unverifiable
-                mode -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(mode, after)
         }
 
     override fun setButton(address: String, action: BoseButton.Action) =
@@ -1338,11 +1230,7 @@ class DeviceController(
             val after =
                 Drivers.BoseQc45.writeButton(it.transport, action)
                     ?: Drivers.BoseQc45.readButton(it.transport)
-            when (after) {
-                null -> Confirmation.Unverifiable
-                action -> Confirmation.Confirmed
-                else -> Confirmation.Contradicted(after)
-            }
+            confirm(action, after)
         }
 
     private fun openIfNeeded(address: String): Session? {

@@ -756,8 +756,7 @@ interface MultipointDriver {
  */
 fun MultipointDriver.setMultipoint(t: Transport, on: Boolean): Confirmation<Boolean> {
     writeMultipoint(t, on)
-    val after = readMultipoint(t) ?: return Confirmation.Unverifiable
-    return if (after == on) Confirmation.Confirmed else Confirmation.Contradicted(after)
+    return confirm(on, readMultipoint(t))
 }
 
 /**
