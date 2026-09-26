@@ -59,7 +59,6 @@ import org.xinutec.volume.protocol.SpatialDriver
 import org.xinutec.volume.protocol.SpatialMode
 import org.xinutec.volume.protocol.TimedOff
 import org.xinutec.volume.protocol.VoiceAware
-import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.confirm
 import org.xinutec.volume.protocol.confirmBy
 import org.xinutec.volume.protocol.noMode
@@ -209,20 +208,7 @@ class DeviceController(
                 ?.map { it.uuid.toString() }
                 ?.toSet()
                 .orEmpty()
-        // ⚠⚠ **A POSITIVE IDENTIFICATION BEATS THE CLASS HEURISTIC, and the order was the
-        // other way round until 2026-09-03.** [Wearable.couldBeHeadphones] exists to keep
-        // UNIDENTIFIED SPP devices off the list — the speakers are always in the room and
-        // a Connect button that can only fail slowly is worse than no row. But it answers
-        // false for `LOUDSPEAKER`, and the SoundLink Revolve is a loudspeaker this app now
-        // drives: BMAP on the QC35's own channel, with a driver and a card. Filtering a
-        // device we can NAME on a guess about its class is the heuristic overruling the
-        // fact.
-        if (Registry.fromAdvertisement(d.name.orEmpty(), uuids) != null) return true
-        // ⚠ Still first for everything else, and still for the same reason: SPP does not
-        // distinguish headphones from a laptop or a speaker. `Crowley` and the ACTON II
-        // have no driver here and must not list.
-        if (!Wearable.couldBeHeadphones(d.bluetoothClass?.deviceClass ?: 0)) return false
-        return org.xinutec.volume.protocol.Channels.SPP in uuids.map { it.lowercase() }
+        return Registry.drivable(d.name.orEmpty(), uuids, d.bluetoothClass?.deviceClass ?: 0)
     }
 
     fun connect(address: String) = work.execute { holding(address) { openIfNeeded(address) } }
@@ -1261,9 +1247,9 @@ class DeviceController(
                 device,
                 device.name.orEmpty(),
                 uuids,
-                resolveLe = { model ->
+                resolveLe = { model, advertises ->
                     update(address, DeviceState.Busy("looking for $model over LE…"))
-                    Scan.find(adapter, LE_MATCH[model] ?: model, 25_000)?.device
+                    Scan.find(adapter, advertises, 25_000)?.device
                 },
                 onNote = { why = it },
                 onNoControl = { durable = true },
@@ -1422,16 +1408,5 @@ class DeviceController(
          * five links all day.
          */
         const val IDLE_MS = 120_000L
-
-        /**
-         * What a device calls itself over LE, where that differs from its bonded
-         * name. ⚠ The JLab advertises no name at all, so it is matched on a stable
-         * run inside its Fast Pair service data.
-         */
-        val LE_MATCH =
-            mapOf(
-                "JBL Tour One M2" to "JBL TOUR",
-                "JLab JBuds Sport ANC 4" to "21 55 35 33",
-            )
     }
 }

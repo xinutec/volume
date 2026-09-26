@@ -216,4 +216,25 @@ class RegistryTest {
     fun `a device with no control channel gets no driver`() {
         assertNull(Registry.fromAdvertisement("ACTON II", std))
     }
+
+    @Test
+    fun `a GATT device carries the name it advertises over LE`() {
+        val m2 = Registry.fromAdvertisement("JBL TOUR ONE M2", setOf(Channels.FAST_PAIR))!!
+        assertEquals("JBL TOUR", (m2.route as Route.Gatt).advertises)
+        val lp2 = Registry.fromAdvertisement("JBL LIVE PRO 2 TWS", setOf(Channels.FAST_PAIR))!!
+        assertEquals("JBL LIVE PRO 2", (lp2.route as Route.Gatt).advertises)
+    }
+
+    @Test
+    fun `one rule decides what the app and the tile drive`() {
+        val headphones = 0x0418
+        val loudspeaker = 0x0414
+        val laptop = 0x010c
+        // Known from its record, whatever its class says.
+        assertTrue(Registry.drivable("Bose Revolve SoundLink", qc35, loudspeaker))
+        // Unknown headphones on SPP: asked what they are.
+        assertTrue(Registry.drivable("Pippijn Headphones", qc35, headphones))
+        assertFalse(Registry.drivable("Some Laptop", qc35, laptop))
+        assertFalse(Registry.drivable("Pippijn Headphones", std + shared, headphones))
+    }
 }

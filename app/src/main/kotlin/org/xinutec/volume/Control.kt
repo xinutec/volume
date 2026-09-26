@@ -42,7 +42,7 @@ object Control {
         bonded: BluetoothDevice,
         name: String,
         uuids: Set<String>,
-        resolveLe: (String) -> BluetoothDevice?,
+        resolveLe: (model: String, advertises: String) -> BluetoothDevice?,
         onNote: (String) -> Unit = {},
         /**
          * Called when the failure is a property of the DEVICE rather than of this
@@ -117,7 +117,7 @@ object Control {
         adapter: BluetoothAdapter,
         bonded: BluetoothDevice,
         h: Headphones,
-        resolveLe: (String) -> BluetoothDevice?,
+        resolveLe: (model: String, advertises: String) -> BluetoothDevice?,
         onNote: (String) -> Unit,
     ): Session? =
         when (val r = h.route) {
@@ -164,7 +164,7 @@ object Control {
                 // ⚠ The bonded BR/EDR device is the wrong object here: this one is
                 // reached over LE at an address that rotates, so it must be scanned
                 // for and connected through the scanner's own device.
-                val le = resolveLe(h.model)
+                val le = resolveLe(h.model, r.advertises)
                 if (le == null) {
                     onNote("${h.model}: not advertising right now")
                     null

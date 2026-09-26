@@ -616,9 +616,9 @@ class Probes(
                 bonded,
                 bonded.name.orEmpty(),
                 uuids,
-                resolveLe = { model ->
+                resolveLe = { model, advertises ->
                     emit("  scanning for $model over LE…")
-                    Scan.find(adapter, LE_NAMES[model] ?: model, 25000)?.device
+                    Scan.find(adapter, advertises, 25000)?.device
                 },
                 onNote = { emit("  $it") },
             ) ?: return
@@ -973,18 +973,5 @@ class Probes(
                 r.error?.let { emit("      ⚠ $it") }
             }
         if (err != null) emit("✗ gatt failed — $err") else emit("done")
-    }
-
-    companion object {
-        /**
-         * What a device calls itself over LE, when that differs from its bonded
-         * name. ⚠ The JLab advertises no name at all, so it is matched on a stable
-         * run inside its Fast Pair service data instead.
-         */
-        private val LE_NAMES =
-            mapOf(
-                "JBL Tour One M2" to "JBL TOUR",
-                "JLab JBuds Sport ANC 4" to "21 55 35 33",
-            )
     }
 }

@@ -17,6 +17,8 @@ sealed interface Route {
         val service: String,
         val write: String,
         val notify: String,
+        /** What to look for in an LE scan, which is how the rotating address is found. */
+        val advertises: String,
     ) : Route
 }
 
@@ -100,6 +102,7 @@ object Registry {
                         Channels.BES_GATT_SERVICE,
                         Channels.BES_GATT_WRITE,
                         Channels.BES_GATT_NOTIFY,
+                        advertises = "JBL LIVE PRO 2",
                     ),
                     Drivers.JblLivePro2,
                 )
@@ -122,6 +125,7 @@ object Registry {
                         Channels.BES_GATT_SERVICE,
                         Channels.BES_GATT_WRITE,
                         Channels.BES_GATT_NOTIFY,
+                        advertises = "JBL TOUR",
                     ),
                     Drivers.JblBes,
                 )
@@ -153,6 +157,18 @@ object Registry {
             }
         }
     }
+
+    /**
+     * Whether to list a bonded device: known from its record, or headphones on SPP that
+     * [identifyBose] can ask. One rule, so the app and the tile list the same devices.
+     */
+    fun drivable(name: String, uuids: Set<String>, deviceClass: Int): Boolean =
+        fromAdvertisement(name, uuids) != null ||
+            (
+                Wearable.couldBeHeadphones(
+                    deviceClass,
+                ) && Channels.SPP in uuids.map { it.lowercase() }
+            )
 
     /**
      * Wake a Bose BMAP session — a QC35 has been seen answering NOTHING until this is sent.

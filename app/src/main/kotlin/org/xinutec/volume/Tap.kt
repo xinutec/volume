@@ -5,10 +5,8 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.util.Log
 import org.xinutec.volume.protocol.AncDriver
-import org.xinutec.volume.protocol.Channels
 import org.xinutec.volume.protocol.OneButton
 import org.xinutec.volume.protocol.Registry
-import org.xinutec.volume.protocol.Wearable
 import org.xinutec.volume.protocol.resulting
 import org.xinutec.volume.protocol.set
 
@@ -112,8 +110,8 @@ object Tap {
                 device,
                 device.name.orEmpty(),
                 uuids,
-                resolveLe = { model ->
-                    Scan.find(adapter, LE_MATCH[model] ?: model, 25_000)?.device
+                resolveLe = { _, advertises ->
+                    Scan.find(adapter, advertises, 25_000)?.device
                 },
                 onNote = { why = it },
             ) ?: return State(false, device.name ?: "Volume", why)
@@ -151,28 +149,16 @@ object Tap {
             adapter.bondedDevices
                 .orEmpty()
                 .filter { it.address in here }
-                // ⚠ Same rule as the screen's list, and for the same reason: a
-                // speaker offers SPP too, and a tile that targets the kitchen
-                // speaker looks exactly like one that worked.
-                .filter { Wearable.couldBeHeadphones(it.bluetoothClass?.deviceClass ?: 0) }
                 .filter { d ->
                     val uuids =
                         d.uuids
-                            ?.map { it.uuid.toString().lowercase() }
+                            ?.map { it.uuid.toString() }
                             ?.toSet()
                             .orEmpty()
-                    Registry.fromAdvertisement(d.name.orEmpty(), uuids) != null ||
-                        Channels.SPP in uuids
+                    Registry.drivable(d.name.orEmpty(), uuids, d.bluetoothClass?.deviceClass ?: 0)
                 }.map { it.address to (it.name ?: it.address) }
         } catch (expected: SecurityException) {
             emptyList()
         }
     }
-
-    /** Same LE naming quirks as the app's list; see `DeviceController.LE_MATCH`. */
-    private val LE_MATCH =
-        mapOf(
-            "JBL Tour One M2" to "JBL TOUR",
-            "JLab JBuds Sport ANC 4" to "21 55 35 33",
-        )
 }
