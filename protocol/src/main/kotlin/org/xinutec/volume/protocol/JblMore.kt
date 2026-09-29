@@ -110,7 +110,7 @@ object JblBalance {
  * ⚠ **PSAP amplifies the world into your ears.** It is not the Max Volume Limiter, but
  * it is the other control on this device whose whole job is to make things louder, so it
  * gets the same treatment: shown, never set. No writer exists here and none should
- * without Pippijn asking for one.
+ * without the user asking for one.
  *
  * ✅ **This row's published contradiction is resolved, and it was a misreading, not a
  * device fault.** The note said `PSAPCmd` takes `setOn` from index 4 — `01` in the

@@ -424,7 +424,7 @@ interface SettingActions {
 
     /**
      * ⚠⚠ **This CAN RAISE an exposure ceiling** — `DEFAULT` is the least protective of the
-     * JLab's three. Writable at Pippijn's explicit request, 2026-09-01; it shipped
+     * JLab's three. Writable at the user's explicit request, 2026-09-01; it shipped
      * read-only first so that adding it had to be a decision. The JBL's Max Volume Limiter
      * and PSAP are the same class of control and remain read-only.
      */
@@ -432,7 +432,7 @@ interface SettingActions {
 
     /**
      * ⚠⚠ **Can RAISE band levels** — this device's stored presets are flat while its live
-     * Custom curve is cut in two places. Writable at Pippijn's explicit request.
+     * Custom curve is cut in two places. Writable at the user's explicit request.
      */
     fun setJlabEq(address: String, curve: JLabCurve)
 
@@ -642,7 +642,7 @@ private fun DeviceRow(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // ⚠ The bonded name, and it may be anything: this phone's QC35 is called
-            // "LE-Pippijn Headphon". The model we worked out goes underneath rather
+            // "LE-the user Headphon". The model we worked out goes underneath rather
             // than replacing it, so the owner can still tell which pair this is.
             Text(
                 card.name,
@@ -1501,7 +1501,7 @@ private fun SettingsSection(
         //
         // ⚠⚠ **A LABEL, not a control.** A volume is never raised above where it was
         // found, so this shows and does not set — the same treatment Safe Hearing had
-        // before Pippijn asked for a writer explicitly.
+        // before the user asked for a writer explicitly.
         settings.loudness?.let { v ->
             SettingLabel("Volume", "${v.level} of ${v.steps}")
         }
@@ -1647,7 +1647,7 @@ private fun SettingsSection(
 
         settings.cncPersistence?.let { on ->
             // ⚠ **The subtitle does not say what the name suggests, because the name was
-            // tested and did not survive.** Pippijn power-cycled the headphones with this
+            // tested and did not survive.** The user power-cycled the headphones with this
             // ON (Home, level 0) and again with it OFF (Commute, level 7): the mode AND
             // the level came back both times. So this flag is not what carries the noise
             // setting across a power cycle, whatever else it does — see BoseCncPersistence.

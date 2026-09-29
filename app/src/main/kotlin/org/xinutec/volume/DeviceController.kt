@@ -916,7 +916,7 @@ class DeviceController(
         }
 
     /**
-     * ⚠⚠ **Raising this raises how loud the headphones can get.** Writable at Pippijn's
+     * ⚠⚠ **Raising this raises how loud the headphones can get.** Writable at the user's
      * explicit request, 2026-09-01. It re-reads rather than trusting the reply: `69`
      * answers `01` for every level, so it is an ack and says nothing about what the device
      * did — and reporting a hearing control as set when it was not is the worst version of
@@ -934,7 +934,7 @@ class DeviceController(
 
     /**
      * ⚠⚠ **Can RAISE band levels** — the JLab's stored presets are flat while its live
-     * Custom curve is cut in two places. Writable at Pippijn's explicit request.
+     * Custom curve is cut in two places. Writable at the user's explicit request.
      */
     override fun setJlabEq(address: String, curve: JLabCurve) =
         applied<JLabCurve>(

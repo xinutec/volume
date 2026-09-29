@@ -267,7 +267,7 @@ object JLabSpatialMode {
  * answered `03` while the app had **Custom** — the fourth of EQ1/EQ2/EQ3/Custom — ticked,
  * and preset 3's ten bytes inside `71` are byte-identical to `49`'s curve.
  *
- * ⚠⚠ **WRITABLE AT PIPPIJN'S EXPLICIT REQUEST — 2026-09-01.** It shipped read-only first,
+ * ⚠⚠ **WRITABLE AT THE USER'S EXPLICIT REQUEST — 2026-09-01.** It shipped read-only first,
  * because selecting any of EQ1/EQ2/EQ3 — all flat `78` — RAISES the two bands the live
  * Custom curve cuts to `5a`. That is still true and the card says so; what changed is that
  * he asked for the control.
@@ -405,7 +405,7 @@ data class JLabCurve(
  * mistake this control punishes.** `02` is the most protective setting and `00` is the
  * least. Anything that sorts or compares these numbers as "loudness" has them backwards.
  *
- * ⚠⚠ **THE WRITER EXISTS BECAUSE PIPPIJN ASKED FOR IT — 2026-09-01, explicitly.** It was
+ * ⚠⚠ **THE WRITER EXISTS BECAUSE THE USER ASKED FOR IT — 2026-09-01, explicitly.** It was
  * shipped read-only first, with a test asserting the absence, precisely so that adding one
  * had to be a decision rather than a refactor. That decision was taken; this comment is
  * the record of it, and nothing here should be read as the default for a control of this

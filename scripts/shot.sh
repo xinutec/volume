@@ -4,8 +4,8 @@
 # The phone is set up with Volume above and the agent console below. ⚠ **That split
 # is the WAKE LOCK, not a layout preference**: the console holds the screen awake, so
 # while the split exists the display never sleeps and hardware work needs no unlock
-# from Pippijn at all. It is the alternative to changing `screen_off_timeout`, which
-# he declined as a session-long change — so tearing the app out of the split does not
+# from the user at all. It is the alternative to changing `screen_off_timeout`, which
+# they declined as a session-long change — so tearing the app out of the split does not
 # rearrange the screen, it re-imposes the cost the arrangement removes.
 #
 # ⚠ **`am force-stop` and `am start` both break it** (`am start` re-creates the task

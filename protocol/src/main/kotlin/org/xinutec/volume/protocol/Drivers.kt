@@ -1582,7 +1582,7 @@ object Drivers {
             ask(t, JLabEq.presets(), JLabEq::allPresets)
 
         /**
-         * ⚠⚠ **Can RAISE band levels.** Writable at Pippijn's explicit request.
+         * ⚠⚠ **Can RAISE band levels.** Writable at the user's explicit request.
          *
          * ⚠ Re-reads: `4b` came back with preset `01` and a flat curve after a write of
          * preset `03`, so it reports neither the request nor the state.

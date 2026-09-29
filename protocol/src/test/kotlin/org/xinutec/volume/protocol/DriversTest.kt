@@ -913,7 +913,7 @@ class DriversTest {
 
     /**
      * ⚠ The point of asking at all. Android's bonded record for this phone's QC35
-     * is "LE-Pippijn Headphon" — the LE advertisement's truncation — while the
+     * is "LE-the user Headphon" — the LE advertisement's truncation — while the
      * headphones report the name their owner actually set.
      */
     @Test
@@ -924,9 +924,9 @@ class DriversTest {
         val t =
             Replay(
                 "01 02 01 00" to
-                    "01 02 03 12 00 50 69 70 70 69 6a 6e 20 42 6f 73 65 20 51 43 33 35",
+                    "01 02 03 12 00 45 78 61 6d 70 6c 65 20 42 6f 73 65 20 51 43 33 35",
             )
-        assertEquals("Pippijn Bose QC35", Drivers.BoseQc35.name(t))
+        assertEquals("Example Bose QC35", Drivers.BoseQc35.name(t))
     }
 
     @Test
@@ -1386,7 +1386,7 @@ class DriversTest {
      */
     private val qc45All =
         "01 01 07 00 " +
-            "01 02 03 12 00 50 69 70 70 69 6a 6e 20 42 6f 73 65 20 51 43 34 35 " +
+            "01 02 03 12 00 45 78 61 6d 70 6c 65 20 42 6f 73 65 20 51 43 34 35 " +
             "01 03 03 07 a1 00 01 81 5e 00 00 " +
             "01 04 03 01 00 " +
             "01 05 03 03 0b 07 03 " +
@@ -1409,7 +1409,7 @@ class DriversTest {
         assertEquals(BoseVoicePromptLanguage.US_ENGLISH, all.promptLanguage)
         // ⚠ The name comes back in the SAME reply, so the card needs no second ask —
         // and it is the device's own, not the bonded record the card header shows.
-        assertEquals("Pippijn Bose QC45", all.name)
+        assertEquals("Example Bose QC45", all.name)
     }
 
     /**

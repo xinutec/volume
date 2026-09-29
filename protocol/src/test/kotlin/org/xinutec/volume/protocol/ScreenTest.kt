@@ -81,8 +81,8 @@ class ScreenTest {
     @Test
     fun `a rename touches one card and keeps its state`() {
         val busy = screen.with("E4:58:BC:3E:9D:AA", DeviceState.Busy("reading"))
-        val named = busy.renamed("E4:58:BC:3E:9D:AA", "Pippijn Bose QC35")
-        assertEquals("Pippijn Bose QC35", named.cards[0].name)
+        val named = busy.renamed("E4:58:BC:3E:9D:AA", "Example Bose QC35")
+        assertEquals("Example Bose QC35", named.cards[0].name)
         assertTrue(named.cards[0].state is DeviceState.Busy)
         assertEquals("JLab JBuds Sport ANC 4", named.cards[1].name)
     }
@@ -187,7 +187,7 @@ class ScreenTest {
                 .with(
                     "E4:58:BC:3E:9D:AA",
                     DeviceState.Ready("Bose QC45", listOf(AncMode.ANC), AncMode.ANC),
-                ).renamed("E4:58:BC:3E:9D:AA", "Pippijn Bose QC45")
+                ).renamed("E4:58:BC:3E:9D:AA", "Example Bose QC45")
 
         val next =
             live.reconciled(
@@ -199,7 +199,7 @@ class ScreenTest {
             )
 
         // Untouched: still Ready, still under the name it reported for itself.
-        assertEquals("Pippijn Bose QC45", next.cards[0].name)
+        assertEquals("Example Bose QC45", next.cards[0].name)
         assertTrue(next.cards[0].state is DeviceState.Ready)
         assertTrue(next.cards[1].state is DeviceState.Idle)
     }

@@ -6,7 +6,7 @@ on 2026-08-15, the app's own behaviour and the Sony/Bose settings captures on
 
 ## ⚠ This app is a replacement, not an addition
 
-A **pure Kotlin native app** — Pippijn's call, #785. The vendor apps (Bose Music, Sony
+A **pure Kotlin native app** — the user's call, #785. The vendor apps (Bose Music, Sony
 Headphones, JBL, JLab) stay installed and go unused: **they are the reference for what a
 device can do**, and walking their screens is how every parity table here was built. Two
 consequences, and both change what counts as done:
@@ -22,7 +22,7 @@ consequences, and both change what counts as done:
   (Bose **Music**) drives the QC45 and knows the Revolve only through the shared
   `BoseProductId` enum. ⚠ So **Bose Music is not what the speakers depend on** — Bose
   Connect is, and it is the one to walk for a speaker's rows.
-- ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — Pippijn,
+- ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — the user,
   2026-09-03. Scope is **headphones**: the five in the table below. A speaker absent from
   that table is a DECISION, not an omission — the distinction `docs/sony-settings.md` had
   to learn one level down.
@@ -92,7 +92,7 @@ from *session* behaviour — greetings answering questions never asked, writes t
 need a transaction, reads that need an ack. So the fixtures are real captures, and
 `Confirmation` exists so a caller cannot mistake a reply for a result.
 
-⚠ Repo is PUBLIC and carries the headphones' MACs — Pippijn's call, 2026-08-15.
+⚠ Repo is PUBLIC and carries the headphones' MACs — the user's call, 2026-08-15.
 
 ## ANC driven on all five. Two transports.
 
@@ -431,7 +431,7 @@ channel it releases.
 
 ```bash
 nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest
-./gate.sh                # from anywhere: /Users/pippijn/Code/volume/gate.sh
+./gate.sh                # from anywhere: ~/Code/volume/gate.sh
 ```
 ⚠ **Run the gate through `gate.sh`, not the raw `nix run`.** The underlying command is
 relative on three counts, and from the wrong directory it fails as though the *flake*

@@ -148,7 +148,7 @@ class ChannelsTest {
      */
     @Test
     fun `a renamed qc35 is not guessed at, but keeps a probeable channel`() {
-        val d = Channels.detect("LE-Pippijn Headphon", qc35)
+        val d = Channels.detect("LE-the user Headphon", qc35)
         assertEquals(Channels.Vendor.UNKNOWN, d.vendor)
         assertEquals(Channels.SPP, d.channel)
     }

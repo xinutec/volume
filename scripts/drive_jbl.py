@@ -184,7 +184,7 @@ def group_leaudio(d: Driver) -> None:
 
 
 def group_maxvol(d: Driver) -> None:
-    """⚠ Hearing protection, driven ONCE with Pippijn's explicit approval.
+    """⚠ Hearing protection, driven ONCE with the user's explicit approval.
 
     Driven through the app's own switch rather than by composing a write: the set
     frame for `aa a5` has never been observed, and guessing bytes at the one command

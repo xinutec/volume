@@ -195,7 +195,7 @@ def locked() -> bool:
     exactly like an app that is slow to connect — and it waited the full two minutes
     twice before reporting `jbl.stc.com never came up focused and connected`, which
     named the wrong thing entirely. Waiting cannot fix this one and neither can the
-    driver: clearing a keyguard means Pippijn's credential, which this does not touch.
+    driver: clearing a keyguard means the user's credential, which this does not touch.
     """
     return "isKeyguardShowing=true" in adb("shell", "dumpsys", "window", check=False)
 
@@ -458,7 +458,7 @@ class Driver:
         ⚠ **Says what it is doing while it hunts, and that is not decoration.** A
         lookup can nudge forty times before its one tap, and the old version printed
         nothing until the tap landed — so a working run and a wedged one looked
-        identical from the outside, which is a thing Pippijn has now had to ask about
+        identical from the outside, which is a thing the user has now had to ask about
         twice. Scrolling with no explanation is indistinguishable from stuck.
         """
         for attempt in range(2):
@@ -522,7 +522,7 @@ class Driver:
         # False and then refused the restoring tap seconds later; the identical tap,
         # by hand and a little later, worked. So one retry, rather than reporting "not
         # driven" about a switch that is merely busy — the cost of being wrong here is
-        # leaving Pippijn's headphones changed.
+        # leaving the user's headphones changed.
         for attempt in range(2):
             if attempt:
                 say(f"    '{want}' did not take; one retry")
@@ -562,7 +562,7 @@ class Driver:
         gets ignored on a real one.
 
         Costs a scroll per touched switch, at the end of a run, and answers the only
-        question worth asking: is it as Pippijn left it?
+        question worth asking: is it as the user left it?
         """
         changed = []
         for want, was in self.baseline.items():

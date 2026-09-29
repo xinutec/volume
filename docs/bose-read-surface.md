@@ -150,7 +150,7 @@ on. **Read the dated sections below before quoting anything here.**
 Differs from the QC45 — battery moves, ANC moves:
 ```
 00 01  "1.0.4"   00 05  "4.8.1"   00 06  own BD_ADDR
-00 07  "077061Z93573967AZ"        01 02  "Pippijn Bose QC35"
+00 07  "077061Z93573967AZ"        01 02  "Example Bose QC35"
 01 04  3c  ⚠ NOT battery — see below
 01 06  01 0b  ← ANC       01 03  a1 00 04 cf de     01 09  10 04 02 07
 02 02  46        03 01  01      03 04  ff 00000000 "0.0.0"
@@ -236,7 +236,7 @@ answers "what does this unit have", and it is the one to ask first.
 
 | frame | answer | |
 | --- | --- | --- |
-| `01 02` PRODUCT_NAME | `00` + `"Pippijn Bose QC35"` | |
+| `01 02` PRODUCT_NAME | `00` + `"Example Bose QC35"` | |
 | `01 03` VOICE_PROMPTS | `a1 00 04 cf de` | decoded below |
 | `01 04` STANDBY_TIMER | `3c` | 60, and the unit is minutes — below |
 | `01 06` ANR | `01 0b` | ANC state `01`; `0b` constant, as before |
@@ -547,7 +547,7 @@ page arrived at independently. Then it does the thing this page had no idea abou
 
     → 01 01 05 00                     SETTINGS/GET_ALL, operator 05 START
     ← 01 01 07 00                     Processing
-    ← 01 02 03 12 00 "Pippijn Bose QC35"
+    ← 01 02 03 12 00 "Example Bose QC35"
     ← 01 03 03 05 a1 00 04 cf de      voice prompts
     ← 01 04 03 01 3c                  standby timer
     ← 01 06 03 02 01 0b               ANR
@@ -695,7 +695,7 @@ a position across reads.
 
 ```
 <A>  03 02 03  "Pixel 9"          connected
-<L>  01 01 03  "pippijn-mac"      connected
+<L>  01 01 03  "example-mac"      connected
 <M>  00 01 01  "…Mac mini"        NOT connected
 ```
 
@@ -813,8 +813,8 @@ ERROR.
 taken effect.** They were taken through a `uiautomator` poll, which reads the *focused*
 window; and the early stop was wired at one of the **two** `RfcommTransport.open` call
 sites. A **renamed** device does not match `Registry.fromAdvertisement`, so it is
-identified by *asking* it — down the other path, the unpatched one. Pippijn's QC35 is
-called "Pippijn Bose QC35"; the card had been printing "Bose QC35 **(renamed)**" all day.
+identified by *asking* it — down the other path, the unpatched one. The user's QC35 is
+called "Example Bose QC35"; the card had been printing "Bose QC35 **(renamed)**" all day.
 
 ✅ **Measured on the wire instead, which cannot be confounded by the UI: 8.77 s → 1.84 s**
 for the same forty frames, with the gap between a reply and the next request falling from
@@ -902,7 +902,7 @@ task's premise is that Bose Music never shows this row on this device at all.
 
 ### The QC45's settings enumeration — `01 01 05 00`
 
-    01 02  00 "Pippijn Bose QC45"     01 03  e1 00 01 81 5e 00 00   voice prompts
+    01 02  00 "Example Bose QC45"     01 03  e1 00 01 81 5e 00 00   voice prompts
     01 04  00            standby      01 05  0b 0a 03               ANC level
     01 07  f6 0a 00 00 …  EQ          01 09  80 09 03 00 01 40 08 … Action button
     01 0a  06     multipoint off      01 0b  01 02 0f               self voice
@@ -1007,7 +1007,7 @@ high bits back is accepted — `a1` in, `a1` out — so carrying an undecoded fi
 and dropping one has a known cost.
 
 ⛔ **That guess was "not modified since power-on". It is DEAD** — checked 2026-08-26 and
-the branch that mattered more is the one that happened. Pippijn power-cycled the QC45 and
+the branch that mattered more is the one that happened. The user power-cycled the QC45 and
 `01 03` answered `a1`.
 
 ⚠ **And the first reading of that was nearly wrong.** Bose Music auto-starts on the
@@ -1036,7 +1036,7 @@ the practical cost is probably nil — *probably* being the operative word.
 
 ## ✅ The QC45 slot record, decoded by watching Bose Music edit one — 2026-08-26
 
-Pippijn created a mode in the vendor app while this session was reading the table, which
+The user created a mode in the vendor app while this session was reading the table, which
 gave a before and an after of one controlled change. **That is the diff that decoded the
 record**, and it did it in a way no amount of staring at a single reading could.
 
@@ -1125,7 +1125,7 @@ values plus a selected index" is the shape to expect in whatever `1f` write does
 ## ✅✅ The mode-edit write, captured and replayed — 2026-08-26
 
 The SDK route failed (above), so this came from a snoop capture of Bose Music, decoded
-with `scripts/btsnoop.py`. **The edit had already happened** — Pippijn created "Commute"
+with `scripts/btsnoop.py`. **The edit had already happened** — the user created "Commute"
 at 14:01 while this session was reading the table — so the capture cost nobody anything.
 
     → 1f 06 02 27  <slot> 00 <nameId>  <name, 32 bytes NUL-padded>  <level> 00 00 00
@@ -1175,7 +1175,7 @@ on this should send on release, not on change, or the channel carries a burst pe
 
 ### ⚠ The HARDWARE BUTTON cycles the modes, so the selection moves on its own
 
-Pippijn pressed it a few times on 2026-08-26 and it rotated through the slots, landing
+The user pressed it a few times on 2026-08-26 and it rotated through the slots, landing
 back on Commute — confirmed here immediately afterwards: `1f 03` `03`, `01 05` `0b 07 03`.
 
 **So the active slot is not this app's to cache.** Nothing was sent, the app was not
@@ -1254,7 +1254,7 @@ establishes that, and the leading `07` is unexplained.
 Each one driven from the app's own card on 2026-08-28, on the QC45, and restored. The
 frames are the QC35's unchanged; what was not the QC35's is everything below.
 
-    01 02  rename    "Pippijn Bose QC452" → GET confirms → renamed back      ✅
+    01 02  rename    "Example Bose QC452" → GET confirms → renamed back      ✅
     01 03  prompts   off, on, and the language to French and back            ✅
     01 04  standby   never → 5 min → never                                   ✅
     01 0b  self voice medium → low → medium                                  ✅
@@ -1437,7 +1437,7 @@ BMAP server was not answering.
     → 00 01 01 00    ← 00 01 03 05 "1.0.4"          the BMAP protocol version
     → 00 02 01 00    ← 00 02 03 03 21 03 3f         the function-block mask
     → 01 06 01 00    ← 01 06 03 02 01 0b            ANC High — the read that drew nothing
-    → 01 02 01 00    ← 01 02 03 12 00 "Pippijn Bose QC35"
+    → 01 02 01 00    ← 01 02 03 12 00 "Example Bose QC35"
 
 ⚠ **It is block `00`, not one magic frame.** `00 01` and `00 02` were each shown to work on
 a fresh socket.
@@ -1703,7 +1703,7 @@ a delete "must" change was reaching past it. See the delete section below.
 
 ## ✅✅ A mode DELETED and RECREATED on hardware — 2026-08-28
 
-Pippijn gave explicit consent to delete one of his own ANC modes, on the understanding
+The user gave explicit consent to delete one of their own ANC modes, on the understanding
 that Bose Music is the only thing that can put it back: this repo has no attested create.
 **"Home" (slot 2, nameId `0a`, level 0) was deleted in the vendor app and recreated there,
 and it came back byte-for-byte identical.** The whole table either side agrees, and the
@@ -2010,7 +2010,7 @@ Music Share between the QC35 and the QC45 in Bose Connect and re-read.
 precisely the reasoning that ends with `04 07 05 00` and an erased pairing list. The ban is a
 guard against a *train of thought*, not against a byte.
 
-⚠ **It is NOT Pippijn's rule**, and this page briefly said it was — then, worse, swung to
+⚠ **It is NOT the user's rule**, and this page briefly said it was — then, worse, swung to
 claiming it did not exist at all. Both were wrong, and the second was checked badly: the repo
 and the memory store were grepped, the TASK store was not, which is where it lived. Searching
 two of three places and reporting "nowhere" is how a real precaution gets deleted.
@@ -2065,7 +2065,7 @@ for `01 05` against `01 06`.
 
 #### ⚠⚠ The name was tested on hardware, and the obvious reading of it FAILED
 
-Pippijn power-cycled the headphones twice, once per arm:
+The user power-cycled the headphones twice, once per arm:
 
     persistence ON   selected Home,    level 0   ->  came back Home,    level 0
     persistence OFF  selected Commute, level 7   ->  came back Commute, level 7
@@ -2243,7 +2243,7 @@ the wire while our language write lands. Worth knowing before that control is tr
 
 ## ✅✅ Re-swept after firmware `3.0.4` → `3.1.1` — 2026-09-04
 
-Pippijn applied the update on 2026-09-03; **it landed.** `00 05` now reads
+The user applied the update on 2026-09-03; **it landed.** `00 05` now reads
 `33 2e 31 2e 31` = `"3.1.1"`. Same 288 GET packets, same two ranges, block `04` still
 unswept for the same reason. **269 answered, 19 silent, 0 killed the link.**
 

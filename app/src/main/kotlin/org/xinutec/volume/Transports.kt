@@ -129,8 +129,8 @@ class RfcommTransport private constructor(
      *
      * ⚠ **A renamed device is identified by ASKING it**, which means the socket is open
      * before anyone knows what is on the other end — so the rule cannot be chosen at
-     * construction for exactly the devices most likely to need it. Pippijn's QC35 is
-     * called "Pippijn Bose QC35", `Registry.fromAdvertisement` therefore returns null,
+     * construction for exactly the devices most likely to need it. The user's QC35 is
+     * called "Example Bose QC35", `Registry.fromAdvertisement` therefore returns null,
      * and the whole early-stop change missed it while looking wired. The card said
      * "**(renamed)**" the entire time.
      */

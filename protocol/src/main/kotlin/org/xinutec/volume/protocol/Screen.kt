@@ -264,7 +264,7 @@ data class Settings(
      *
      * ⚠⚠ **Shown, never written.** The rule is that a volume is never raised above where
      * it was found, so this ships read-only and a writer would be a decision — the same
-     * treatment [jlabSafeHearing] had before Pippijn asked for it explicitly.
+     * treatment [jlabSafeHearing] had before the user asked for it explicitly.
      */
     val loudness: BoseLoudness? = null,
     /**
@@ -276,7 +276,7 @@ data class Settings(
      */
     val budBattery: BudBattery? = null,
     /**
-     * The JLab's equaliser — **written, at Pippijn's explicit request (2026-09-01)**.
+     * The JLab's equaliser — **written, at the user's explicit request (2026-09-01)**.
      *
      * ⚠ It was read-only first, for the hearing reason, and that is why this doc says so
      * rather than reading as though a preset tap were ever ordinary. Its three stored
@@ -311,7 +311,7 @@ data class Settings(
      */
     val jlabTouch: Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? = null,
     /**
-     * The JLab's Safe Hearing ceiling — **written, at Pippijn's explicit request
+     * The JLab's Safe Hearing ceiling — **written, at the user's explicit request
      * (2026-09-01)**.
      *
      * ⚠ It shipped read-only first, with a test asserting the absence, so that adding a

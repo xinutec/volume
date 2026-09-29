@@ -1049,7 +1049,7 @@ object BoseBattery {
  * ⚠⚠ **NO WRITER HERE, AND THE ABSENCE IS DELIBERATE.** This is a loudness control and
  * this repo's rule is that a volume is never raised above where it was found. It ships
  * read-only first so that adding a writer has to be a decision rather than a refactor —
- * exactly how [JLabSafeHearing] was handled before Pippijn asked for it explicitly.
+ * exactly how [JLabSafeHearing] was handled before the user asked for it explicitly.
  * `BoseSettingsTest` asserts the absence so this comment cannot quietly rot.
  */
 object BoseVolume {

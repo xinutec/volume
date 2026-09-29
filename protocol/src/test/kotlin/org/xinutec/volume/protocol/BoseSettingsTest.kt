@@ -63,7 +63,7 @@ class BoseSettingsTest {
      * ⚠⚠ **THE ABSENCE OF A VOLUME WRITER IS A DECISION AND THIS TEST IS ITS RECORD.**
      * The rule is that a volume is never raised above where it was found, so it ships
      * read-only first and adding a writer has to be a deliberate act rather than a
-     * refactor — exactly how `JLabSafeHearing` was handled before Pippijn asked for it.
+     * refactor — exactly how `JLabSafeHearing` was handled before the user asked for it.
      * ⚠ If this test is deleted, say who asked and when, in the commit.
      */
     @Test
@@ -308,7 +308,7 @@ class BoseAllSettingsTest {
     private val getAll =
         Hex.parse(
             "01 01 07 00 " +
-                "01 02 03 12 00 50 69 70 70 69 6a 6e 20 42 6f 73 65 20 51 43 33 35 " +
+                "01 02 03 12 00 45 78 61 6d 70 6c 65 20 42 6f 73 65 20 51 43 33 35 " +
                 "01 03 03 05 a1 00 04 cf de " +
                 "01 04 03 01 3c " +
                 "01 06 03 02 01 0b " +

@@ -135,7 +135,7 @@ field** — asking only one is how a captured frame reads as "the app sent nothi
 
 Taken to settle the one claim in `docs/sony-settings.md` that rested on the SDK alone: that
 ASC's on/off is app-side. **Driven entirely over adb — no hands needed**, because an ASC
-toggle is a tap. The EQ band the same afternoon needed Pippijn only because a *drag* cannot
+toggle is a tap. The EQ band the same afternoon needed the user only because a *drag* cannot
 be automated.
 
 | time | action | on the wire |
@@ -171,7 +171,7 @@ question four rounds of reasoning had not.
 | time | action |
 |---|---|
 | 18:52:55 | Sound Connect launched cold; it read `56 01` → `57 01 a2 06 0d 0a 0a 0c 0e 10` |
-| 18:57:08–18:57:18 | **Pippijn drags** 16k from +6 down to −5 — ten `58 01` frames |
+| 18:57:08–18:57:18 | **the user drags** 16k from +6 down to −5 — ten `58 01` frames |
 | 18:57:19 | the app re-reads: `57 01 a2 06 0d 0a 0a 0c 0e 05` |
 | 18:57:22–18:57:24 | dragged back up, eight more frames |
 | 18:57:25 | `57 01 a2 06 0d 0a 0a 0c 0e 10` — exactly the before-state |
@@ -215,7 +215,7 @@ re-argued.
 | 11:11:28/35/43 | pick Movie, Game, Music | `aa 9d 03 00 01 02` / `…03` / `…01` |
 | 11:11:53 | Spatial Sound off | `aa 9d 03 00 00 01` |
 | 11:34–11:35 | intended VoiceAware Low/High/Mid | ⚠ `aa 9f` — **Smart Talk**, see below |
-| 12:13:39–46 | **Pippijn drags** the VoiceAware bar: Mid, Low, High, Mid | `aa 98 03 00 <02/01/03/02> 01` |
+| 12:13:39–46 | **the user drags** the VoiceAware bar: Mid, Low, High, Mid | `aa 98 03 00 <02/01/03/02> 01` |
 | 12:50:01 | pick Video Mode, switch on | `aa 81 08 c5 00 2e 00 50 00 ff ff` |
 | 12:50:40 | switch off, **Video still selected** | `aa 81 08 00 01 35 00 e6 00 ff ff` |
 | 12:52:03 | pick Audio Mode | `aa 81 08 00 01 35 00 96 00 ff ff` |
@@ -260,7 +260,7 @@ from `uiautomator dump` rather than fixed coordinates.
 | 18:07:46 → 18:08:13 | [CUSTOM] button → **Digital assistant**: DONE, then OK |
 | 18:09:11 → 18:09:26 | restored → **Ambient Sound Control**, same two taps |
 | 18:10:58, 18:12:21 | multipoint ON ×2 — ⚠ **REFUSED**, the switch reverts itself |
-| 18:12:52 | ⚠ Pippijn pressed the same switch **by hand** — same frame, same revert |
+| 18:12:52 | ⚠ the user pressed the same switch **by hand** — same frame, same revert |
 | 18:16:52 | Sound Quality Mode → **Priority on Stable Connection** — accepted |
 | 18:17:54 | multipoint ON again — ⚠ **the tap missed; NOTHING was sent** |
 | 18:19:58 | Sound Quality Mode → restored to **Prioritize Sound Quality** |
@@ -280,7 +280,7 @@ was blamed on: the button change *itself* drops the link, so a capture that puts
 last loses whatever follows. Do it FIRST, and treat it as connection-disturbing.
 
 ⚠ **Multipoint could not be enabled at all** — by this repo's driver, by the vendor
-app driven over adb, or by Pippijn's own finger. All three send the identical
+app driven over adb, or by the user's own finger. All three send the identical
 `d8 d2 01 01` and get `d9 d2 01 00` back. So the frame is not wrong; the device is
 refusing it. Not the codec either: re-tested over RFCOMM in **both** Sound Quality
 Modes after the tap above was found to have sent nothing. Cause unknown.

@@ -1101,8 +1101,8 @@ owner could change.
     → 28 00     ← 29 00 <JSON>                 {"formatVer":"BT02","di":"…"}
 
 ⚠ **The values are deliberately not written down. This repo is public**, and two of these
-three are stable identifiers for Pippijn's headphones. The shapes are what a decoder
-needs; the bytes would only be a way to recognise his hardware.
+three are stable identifiers for the user's headphones. The shapes are what a decoder
+needs; the bytes would only be a way to recognise their hardware.
 
 - **`14` BLE_SETUP** is `1c`/`1d` COMMON_*_BLUETOOTH_DEVICE_INFO, with
   `BluetoothDeviceInfoType` `00 BLUETOOTH_DEVICE_ADDRESS · 01 BLE_HASH_VALUE`. Both are

@@ -66,8 +66,8 @@ echo "=== $serial (model:$MODEL) ==="
 #
 # ⚠ **No `am start` by default, and never `-S`.** The phone keeps Volume in a split
 # screen with the agent console below it, and `am start` re-creates the task in
-# FULLSCREEN — which throws the console out of the split and costs Pippijn a manual
-# rebuild of his layout. `install -r` already kills the running process, so the old
+# FULLSCREEN — which throws the console out of the split and costs the user a manual
+# rebuild of their layout. `install -r` already kills the running process, so the old
 # build cannot survive on screen; the system relaunches the activity in place, in
 # its own half, with the new code. That is the whole reason `-S` was here, and it is
 # handled without it.

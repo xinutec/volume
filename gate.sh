@@ -4,7 +4,7 @@
 # ⚠ `nix run ../dev-lint#gate -- . gate.json` has THREE cwd-relative parts — the
 # flake ref, the repo argument and the table — and getting the directory wrong does
 # not report a wrong directory. `../dev-lint` resolves against wherever you happen
-# to be and the run dies with "getting status of /Users/pippijn/dev-lint: No such
+# to be and the run dies with "getting status of /Users/user/dev-lint: No such
 # file or directory", which reads as a broken flake. Copy-pasting the raw command
 # out of the README is exactly how that happens.
 #

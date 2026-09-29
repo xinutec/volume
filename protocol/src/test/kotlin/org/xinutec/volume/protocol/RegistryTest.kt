@@ -162,7 +162,7 @@ class RegistryTest {
      */
     @Test
     fun `a renamed bose is not guessed at from its advertisement`() {
-        assertNull(Registry.fromAdvertisement("LE-Pippijn Headphon", qc35))
+        assertNull(Registry.fromAdvertisement("LE-the user Headphon", qc35))
     }
 
     /**
@@ -233,8 +233,8 @@ class RegistryTest {
         // Known from its record, whatever its class says.
         assertTrue(Registry.drivable("Bose Revolve SoundLink", qc35, loudspeaker))
         // Unknown headphones on SPP: asked what they are.
-        assertTrue(Registry.drivable("Pippijn Headphones", qc35, headphones))
+        assertTrue(Registry.drivable("the user Headphones", qc35, headphones))
         assertFalse(Registry.drivable("Some Laptop", qc35, laptop))
-        assertFalse(Registry.drivable("Pippijn Headphones", std + shared, headphones))
+        assertFalse(Registry.drivable("the user Headphones", std + shared, headphones))
     }
 }

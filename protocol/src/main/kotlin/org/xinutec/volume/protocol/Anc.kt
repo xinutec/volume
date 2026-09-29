@@ -125,9 +125,9 @@ interface Driver {
      * The name the **device** holds, or null if it will not say.
      *
      * ⚠ Not the same string as the bonded record, and usually better. Android's
-     * bonded name for this phone's QC35 is "LE-Pippijn Headphon" — the LE
+     * bonded name for this phone's QC35 is "LE-the user Headphon" — the LE
      * advertisement's truncation of it — while the headphones themselves report
-     * "Pippijn Bose QC35". Showing the former is showing a Bluetooth artefact to
+     * "Example Bose QC35". Showing the former is showing a Bluetooth artefact to
      * someone who named their headphones something else.
      */
     fun name(t: Transport): String? = null

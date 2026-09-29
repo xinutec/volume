@@ -86,7 +86,7 @@ object JblFrames {
     const val SPATIAL_OFF_MUSIC = "aa9d03020001"
 
     /**
-     * 2026-08-17 12:13:41 / :45 / :46 — Low, High, Mid, from Pippijn dragging the bar.
+     * 2026-08-17 12:13:41 / :45 / :46 — Low, High, Mid, from the user dragging the bar.
      *
      * ⚠ The only way these could be got: the bar takes a gesture, and two runs that
      * tried to reach it by tapping produced clean logs and no level traffic.

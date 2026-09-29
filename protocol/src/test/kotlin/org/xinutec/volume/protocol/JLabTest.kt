@@ -222,7 +222,7 @@ class JLabTest {
      * ✅ **The three writes exactly as the vendor app sent them**, 2026-09-01.
      *
      * ⚠ This test replaced one asserting that no writer existed. That guard did its job:
-     * shipping read-only first meant adding the writer was a decision Pippijn took
+     * shipping read-only first meant adding the writer was a decision the user took
      * explicitly, rather than something that appeared in a refactor.
      */
     @Test

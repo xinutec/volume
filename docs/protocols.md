@@ -734,7 +734,7 @@ Recorded because the arithmetic was tidy enough to have been believed without th
 traps around driving this row, are in `docs/captures.md`.
 
 ✅ **VoiceAware's `02` was the LEVEL, and the level is Mid.** Settled 2026-08-17 by
-Pippijn dragging the bar by hand while the capture ran — the driver cannot do it, and
+the user dragging the bar by hand while the capture ran — the driver cannot do it, and
 two attempts to reach the levels by tapping had failed, the second by pressing another
 card's control (`docs/captures.md`). Three drags, Low then High then Mid:
 
@@ -992,7 +992,7 @@ earlier sweep looked silent: the feature needs a 6 MB download before it will ru
 all. Once downloaded, this device already had a profile stored, so the switch could be
 cycled without anyone taking a hearing test.
 
-⚠ **`aa 9a` EarCanalTesting is still unexercised as a TEST TRIGGER.** Pippijn ran RETEST
+⚠ **`aa 9a` EarCanalTesting is still unexercised as a TEST TRIGGER.** The user ran RETEST
 on 2026-08-29 and the only `9a` on the wire was `→ aa 9a 01 01` with **no reply** — the
 same silent get this file already recorded. Whatever starts the test, it is not that.
 
@@ -1483,7 +1483,7 @@ JAZZ throughout while the field read `04`. A label beside a picker is not a stat
 `03 01` for index 4. ⛔ **Do not publish any curve bytes from it.** A USER curve on a JBL
 can be a hearing profile; this repo has already purged one audiogram from public history.
 
-⛔ **No preset WRITER should ship without a decision from Pippijn.** Selecting a preset
+⛔ **No preset WRITER should ship without a decision from the user.** Selecting a preset
 raises bands relative to a cut one, which is the same argument that keeps the JLab's EQ
 writer out of the tree. The READ costs nothing and is where the value is.
 
@@ -1554,7 +1554,7 @@ in ears       aa 21 01 41 → 41 01 01      aa 21 01 31 → 31 01           (ANC
 ```
 
 **This is the explanation for four separate things that each looked like a fault**, and
-it was Pippijn's hypothesis, not a reading off the wire:
+it was the user's hypothesis, not a reading off the wire:
 
   * every setter refused with `aa 00 02 <cmd> 04` when not worn — there is no active
     mode to set;
@@ -1581,7 +1581,7 @@ fault**, and an app should say "put them in" rather than report a failed write.
 
 - **Handling a bud cycles the mode.** The touch surface is the whole stem, so picking
   one up to put it back in changes ANC. A test perturbed that way looks exactly like a
-  device rejecting a write. Pippijn reported it happening; it is not hypothetical.
+  device rejecting a write. The user reported it happening; it is not hypothetical.
 - **A read-back can be the liar.** Six runs said this device refused TalkThru — the
   write echoed and the next read said ANC. The writes had worked every time. What
   settled it was asking the person wearing them, after the wire could say no more: the
@@ -1750,9 +1750,9 @@ driver's own surface.
 | Noise Control Modes — Off · Be Aware · NC On | ✅ `44`/`45`/`46` | ✅ r/w, all three driven |
 | **Spatial Audio** on/off | ✅ `76` read, `74` write | ✅ r/w |
 | **Spatial mode** — Music · Movie | ✅ `50`/`51`/`52` | ✅ r/w, driven from our own card |
-| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ✅ write `4a` captured | ✅ r/w at Pippijn's explicit request — ⚠ the index lands; `49`'s levels are the CUSTOM slot's, so read `71` for a chip's curve |
+| **Equalizer** — EQ1 · EQ2 · EQ3 · Custom, 10 bands | ✅ read `48`/`49` + `70`/`71`; ✅ write `4a` captured | ✅ r/w at the user's explicit request — ⚠ the index lands; `49`'s levels are the CUSTOM slot's, so read `71` for a chip's curve |
 | **Touch Controls** — 6 gestures × 2 sides | ✅ read `4c`/`4d`; ⚠ writer predicted, uncaptured | ✅ read — ⛔ no writer exists to capture |
-| **Safe Hearing** — 85 dB · 95 dB · Default | ✅ `66` read, `68` write | ✅ r/w at Pippijn's explicit request — ⚠ higher value = LOWER ceiling |
+| **Safe Hearing** — 85 dB · 95 dB · Default | ✅ `66` read, `68` write | ✅ r/w at the user's explicit request — ⚠ higher value = LOWER ceiling |
 | Interval Timer — active/rest/repeat, Start Workout | ⚪ opening it sends nothing | ⚪ app-side timer |
 | Check for Update | ⛔ firmware | ⛔ excluded by rule, not by the device |
 | Settings tab — support, registration, language, legal, theme | ⚪ app content | n/a |
@@ -1768,7 +1768,7 @@ firmware content this repo does not implement.
 ⚠ **Before 2026-09-01 it was one row and no table**, and "the JLab is capture-only" was
 true while also doing duty as an excuse not to count.
 
-✅ **`Safe Hearing` is identified — 2026-09-01, with Pippijn's explicit go-ahead**, and it
+✅ **`Safe Hearing` is identified — 2026-09-01, with the user's explicit go-ahead**, and it
 is `66` read · `68` write · `00` Default, `01` 95 dB, `02` 85 dB.
 
 ⚠⚠ **A HIGHER VALUE IS A LOWER CEILING.** `02` is the most protective and `00` the least.
@@ -2158,7 +2158,7 @@ the record out of the capture:
 sits on channel 4 (`19 11 1e 19 12 03`, `08 04`) and A2DP on L2CAP. Nothing was
 connecting to the wrong place.
 
-✅ **With the risk bar lowered by Pippijn on 2026-09-12** ("you shouldn't worry about
+✅ **With the risk bar lowered by the user on 2026-09-12** ("you shouldn't worry about
 accidental errors, this device can be repaired easily"), three more probes and a long
 hold. All silent:
 
@@ -2178,10 +2178,10 @@ silence in answer to a good one.
 closes the connection. The RFCOMM server accepts and holds; nothing above it speaks.
 
 ⚠⚠ **The passive test is INCONCLUSIVE, and this page called it the evening's strongest
-result. It was not.** The plan was to hold the socket open 60 s while Pippijn pressed
-the device's buttons. He pressed them, nothing arrived, he said so, and it was written
-down as confirmed. **The timestamps refute it**: his presses land at `23:04:09`–
-`23:04:33` in the AVRCP log and the socket did not connect until `23:04:53`. He was
+result. It was not.** The plan was to hold the socket open 60 s while the user pressed
+the device's buttons. They pressed them, nothing arrived, they said so, and it was written
+down as confirmed. **The timestamps refute it**: their presses land at `23:04:09`–
+`23:04:33` in the AVRCP log and the socket did not connect until `23:04:53`. They were
 pressing in the gap between the command starting and the socket opening, and stopped
 twenty seconds before the listening window began. **The window contained no presses at
 all.**
@@ -2224,7 +2224,7 @@ state**, which `Active.kt` already knows how to answer; and the **negotiated cod
 which `dumpsys` reports as AAC and `BluetoothA2dp` exposes.
 
 ⚠ **And today this device gets NO CARD AT ALL.** `Registry.fromAdvertisement` returns
-null for anything it cannot name, so the pair Pippijn is actually listening on is
+null for anything it cannot name, so the pair the user is actually listening on is
 invisible to the app. A generic card — any A2DP/AVRCP device, volume and state, no
 vendor protocol required — is the feature this points at, and it would cover every
 future device with no control channel rather than this one alone.
@@ -2243,7 +2243,7 @@ Jieli stack; the silent SPP is consistent with RCSP, which waits to be asked. Th
 step is one bounded read — `03` GET_TARGET_INFO — with a read-back. Until that answers,
 everything above describes the SDK rather than the device.
 
-⚠ Identification as a Newpie NP-S2201 is **Pippijn's recollection and unconfirmed** —
+⚠ Identification as a Newpie NP-S2201 is **the user's recollection and unconfirmed** —
 the name searches poorly, the class byte says wearable headset rather than hands-free,
 and cheap devices misreport class routinely. Nothing above depends on the model name.
 

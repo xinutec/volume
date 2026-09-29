@@ -42,7 +42,7 @@ object Registry {
      * From what the device advertises alone.
      *
      * Returns null when the SDP record cannot settle it, which is not a failure to
-     * paper over: Pippijn's own QC35 is renamed "LE-Pippijn Headphon" and
+     * paper over: the user's own QC35 is renamed "LE-the user Headphon" and
      * advertises nothing but standard and shared UUIDs, so a name-based guess would
      * be wrong for anyone who renamed a QC45 instead. Use [identifyBose] then.
      */
@@ -112,7 +112,7 @@ object Registry {
             // until 2026-09-12**, which is nine days after the identical fix went in
             // for JLab immediately below and did not get carried across. A LIVE PRO 2
             // TWS was named "JBL Tour One M2" on screen and sent the app hunting for
-            // the wrong model over LE; Pippijn watched it do that.
+            // the wrong model over LE; the user watched it do that.
             //
             // ⛔ The stake is the one the JLab comment names: BES is where `aa 95`
             // factory reset lives, so a second JBL model driven by the Tour One M2's
