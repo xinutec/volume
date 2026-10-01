@@ -203,8 +203,8 @@ class DriversTest {
      */
     @Test
     fun `sony speak-to-chat writes a different type byte than it reads`() {
-        assertArrayEquals(Hex.parse("f8050101"), SonySpeakToChat.set(true))
-        assertArrayEquals(Hex.parse("f8050100"), SonySpeakToChat.set(false))
+        assertArrayEquals(Hex.parse("f8050101"), SonySpeakToChat.set(true).bytes)
+        assertArrayEquals(Hex.parse("f8050100"), SonySpeakToChat.set(false).bytes)
         // the RET, which uses the other table
         assertEquals(false, SonySpeakToChat.state(Hex.parse("f7050000")))
         // the NOTIFY, which uses the write's
@@ -221,9 +221,9 @@ class DriversTest {
      */
     @Test
     fun `sony touch panel is general setting d1, not multipoint d2`() {
-        assertArrayEquals(Hex.parse("d6d1"), SonyTouchPanel.get())
-        assertArrayEquals(Hex.parse("d8d10101"), SonyTouchPanel.set(true))
-        assertArrayEquals(Hex.parse("d8d10100"), SonyTouchPanel.set(false))
+        assertArrayEquals(Hex.parse("d6d1"), SonyTouchPanel.get().bytes)
+        assertArrayEquals(Hex.parse("d8d10101"), SonyTouchPanel.set(true).bytes)
+        assertArrayEquals(Hex.parse("d8d10100"), SonyTouchPanel.set(false).bytes)
         // the RET and the NOTIFY, both as measured
         assertEquals(false, SonyTouchPanel.state(Hex.parse("d7d10100")))
         assertEquals(true, SonyTouchPanel.state(Hex.parse("d9d10101")))
@@ -240,7 +240,7 @@ class DriversTest {
      */
     @Test
     fun `sony speak-to-chat detail is one frame carrying three settings`() {
-        assertArrayEquals(Hex.parse("fa05"), SonyChatDetail.get())
+        assertArrayEquals(Hex.parse("fa05"), SonyChatDetail.get().bytes)
         // the real frame: TYPE_1, AUTO, focus off, MID
         val measured = SonyChatDetail.state(Hex.parse("fb 05 00 00 00 01"))!!
         assertEquals(ChatSensitivity.AUTO, measured.sensitivity)
@@ -248,7 +248,7 @@ class DriversTest {
         assertEquals(ModeOutTime.MID, measured.modeOutTime)
         assertEquals(30, measured.modeOutTime.seconds)
         // round trip: what was read rebuilds what was sent
-        assertArrayEquals(Hex.parse("fc 05 00 00 00 01"), SonyChatDetail.set(measured))
+        assertArrayEquals(Hex.parse("fc 05 00 00 00 01"), SonyChatDetail.set(measured).bytes)
         // the notify is an answer too, and the LOW/on/SLOW frame that was driven
         val other = SonyChatDetail.state(Hex.parse("fd 05 00 02 01 02"))!!
         assertEquals(ChatSensitivity.LOW, other.sensitivity)
@@ -264,8 +264,8 @@ class DriversTest {
     /** The other two agree in both directions, and must keep doing so. */
     @Test
     fun `sony dsee and pause use one type byte both ways`() {
-        assertArrayEquals(Hex.parse("e8020001"), SonyDsee.set(true))
-        assertArrayEquals(Hex.parse("f8030000"), SonyPauseOnRemoval.set(false))
+        assertArrayEquals(Hex.parse("e8020001"), SonyDsee.set(true).bytes)
+        assertArrayEquals(Hex.parse("f8030000"), SonyPauseOnRemoval.set(false).bytes)
         assertEquals(true, SonyDsee.state(Hex.parse("e9020001")))
         assertEquals(false, SonyPauseOnRemoval.state(Hex.parse("f9030000")))
     }

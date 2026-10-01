@@ -7,9 +7,9 @@ import org.junit.Test
 class WireRangesTest {
     @Test
     fun `sony eq levels stay inside the device's range`() {
-        SonyEq.setLevels(listOf(-10, 0, 10))
-        assertThrows(IllegalArgumentException::class.java) { SonyEq.setLevels(listOf(0, 11)) }
-        assertThrows(IllegalArgumentException::class.java) { SonyEq.setLevels(listOf(-11)) }
+        SonyEq.setLevels(listOf(-10, 0, 10)).bytes
+        assertThrows(IllegalArgumentException::class.java) { SonyEq.setLevels(listOf(0, 11)).bytes }
+        assertThrows(IllegalArgumentException::class.java) { SonyEq.setLevels(listOf(-11)).bytes }
     }
 
     @Test

@@ -111,13 +111,13 @@ object SonyEq {
      * 10:58:21, where Sony Headphones Connect asks it once on connecting. So this is
      * measured, not inferred: `→ 56 01` drew `← 57 01 a2 06 0d 0a 0a 0c 0e 10`.
      */
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
     /** `5a 01` — the band table. The app re-asks after every preset change. */
-    fun getBands(): ByteArray = byteArrayOf(GET_BANDS, TYPE)
+    fun getBands(): SonyPayload = SonyPayload.table1(GET_BANDS, TYPE)
 
     /** `58 01 <preset> 00` — ask for a preset, sending no levels of our own. */
-    fun set(preset: Int): ByteArray = byteArrayOf(SET, TYPE, preset.toByte(), 0x00)
+    fun set(preset: Int): SonyPayload = SonyPayload.table1(SET, TYPE, preset.toByte(), 0x00)
 
     /**
      * `ff` — `EqPresetId.UNSPECIFIED`, the preset byte a *levels* write carries.
@@ -142,10 +142,15 @@ object SonyEq {
      * ⚠ Which is why there is no preset parameter here. Taking one and discarding it
      * would let a caller believe it had chosen a slot to write into.
      */
-    fun setLevels(levels: List<Int>): ByteArray {
+    fun setLevels(levels: List<Int>): SonyPayload {
         require(levels.all { it in RANGE }) { "$levels leaves $RANGE" }
-        return byteArrayOf(SET, TYPE, UNSPECIFIED.toByte(), levels.size.toByte()) +
-            ByteArray(levels.size) { (levels[it] + ZERO).toByte() }
+        return SonyPayload.table1(
+            SET,
+            TYPE,
+            UNSPECIFIED.toByte(),
+            levels.size.toByte(),
+            *ByteArray(levels.size) { (levels[it] + ZERO).toByte() },
+        )
     }
 
     /**
@@ -254,7 +259,7 @@ object SonyEqCapability {
     private const val COUNT = 4
     private const val FIRST = 5
 
-    fun get(): ByteArray = byteArrayOf(GET, PRESET_EQ, ENGLISH)
+    fun get(): SonyPayload = SonyPayload.table1(GET, PRESET_EQ, ENGLISH)
 
     /**
      * The preset ids this device supports, in the order it lists them, or null.

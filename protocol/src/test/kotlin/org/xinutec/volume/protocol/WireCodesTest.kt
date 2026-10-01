@@ -57,11 +57,11 @@ class WireCodesTest {
     fun `speak-to-chat detail`() {
         assertArrayEquals(
             Hex.parse("fc 05 00 02 01 03"),
-            SonyChatDetail.set(ChatDetail(ChatSensitivity.LOW, true, ModeOutTime.NONE)),
+            SonyChatDetail.set(ChatDetail(ChatSensitivity.LOW, true, ModeOutTime.NONE)).bytes,
         )
         assertArrayEquals(
             Hex.parse("fc 05 00 01 00 01"),
-            SonyChatDetail.set(ChatDetail(ChatSensitivity.HIGH, false, ModeOutTime.MID)),
+            SonyChatDetail.set(ChatDetail(ChatSensitivity.HIGH, false, ModeOutTime.MID)).bytes,
         )
     }
 }

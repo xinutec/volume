@@ -22,7 +22,7 @@ class SonyEqTest {
 
     @Test
     fun `setting a preset is four bytes`() {
-        assertEquals("5801a100", SonyEq.set(0xa1).joinToString("") { "%02x".format(it) })
+        assertEquals("5801a100", SonyEq.set(0xa1).bytes.joinToString("") { "%02x".format(it) })
     }
 
     /**
@@ -36,7 +36,7 @@ class SonyEqTest {
      */
     @Test
     fun `a levels write carries UNSPECIFIED, never the selected preset`() {
-        val f = SonyEq.setLevels(listOf(3, 0, 0, 2, 4, 6))
+        val f = SonyEq.setLevels(listOf(3, 0, 0, 2, 4, 6)).bytes
         assertEquals("5801ff060d0a0a0c0e10", f.joinToString("") { "%02x".format(it) })
     }
 
@@ -172,6 +172,6 @@ class SonyEqCapabilityTest {
     /** The request carries the display language, so it is three bytes, not two. */
     @Test
     fun `the request asks in a language`() {
-        assertEquals("50 01 01", Hex.format(SonyEqCapability.get()))
+        assertEquals("50 01 01", Hex.format(SonyEqCapability.get().bytes))
     }
 }

@@ -941,7 +941,7 @@ object Drivers {
          * ceremony: it is the difference between a session and a socket.
          */
         override fun prepare(t: Transport) {
-            exchangeFramed(t, byteArrayOf(0x00, 0x00))
+            exchangeFramed(t, SonyPayload.table1(0x00, 0x00))
         }
 
         private companion object {
@@ -972,7 +972,7 @@ object Drivers {
         }
 
         override fun read(t: Transport): AncMode? {
-            val body = exchangeFramed(t, byteArrayOf(0x66, TYPE)) ?: return null
+            val body = exchangeFramed(t, SonyPayload.table1(0x66, TYPE)) ?: return null
             // 67 02 <NcAsmEffect> 02 <NcDualSingleValue> 01 <AsmId> <ambient 0-20>
             //
             // ✅ Every byte is named now. The three that this file called "held 02 01 00
@@ -991,7 +991,7 @@ object Drivers {
             val on: Byte = if (mode == AncMode.OFF) 0x00 else 0x01
             val nc: Byte = if (mode == AncMode.ANC) 0x02 else 0x00
             val ambient: Byte = if (mode == AncMode.ANC) 0x00 else AMBIENT_MAX
-            exchangeFramed(t, byteArrayOf(0x68, TYPE, on, 0x02, nc, 0x01, NORMAL, ambient))
+            exchangeFramed(t, SonyPayload.table1(0x68, TYPE, on, 0x02, nc, 0x01, NORMAL, ambient))
         }
 
         /**
@@ -1012,7 +1012,7 @@ object Drivers {
          * Voice guidance — the spoken prompts. ⚠ **Table 2**; see [SonyVoiceGuidance].
          */
         fun readVoiceGuidance(t: Transport): Boolean? =
-            exchangeFramed2(t, SonyVoiceGuidance.get(), SonyVoiceGuidance.RET)
+            exchangeFramed(t, SonyVoiceGuidance.get(), SonyVoiceGuidance.RET)
                 ?.let(SonyVoiceGuidance::state)
 
         /**
@@ -1024,7 +1024,7 @@ object Drivers {
          * is the one write here that is audible to whoever is wearing them.
          */
         internal fun writeVoiceGuidance(t: Transport, on: Boolean): Boolean? =
-            exchangeFramed2(t, SonyVoiceGuidance.set(on), SonyVoiceGuidance.NOTIFY)
+            exchangeFramed(t, SonyVoiceGuidance.set(on), SonyVoiceGuidance.NOTIFY)
                 ?.let(SonyVoiceGuidance::state)
 
         /** Write it, then establish from a real read what the device holds. */
@@ -1059,7 +1059,7 @@ object Drivers {
             val want = before.copyOf()
             want[0] = 0x68
             want[6] = if (on) VOICE else NORMAL
-            exchangeFramed(t, want)
+            exchangeFramed(t, SonyPayload.table1(*want))
             val after = current(t)?.let(::focus)
             settle(t)
             return confirm(on, after)
@@ -1067,7 +1067,7 @@ object Drivers {
 
         /** The whole `67 02 …` frame, or null if the device did not answer with one. */
         private fun current(t: Transport): ByteArray? {
-            val body = exchangeFramed(t, byteArrayOf(0x66, TYPE)) ?: return null
+            val body = exchangeFramed(t, SonyPayload.table1(0x66, TYPE)) ?: return null
             return if (body.size >= 8 && body[0] == 0x67.toByte()) body else null
         }
 
@@ -1232,13 +1232,7 @@ object Drivers {
          * draws nothing at all, which is [ButtonWrite.Unchanged] and not a failure.
          */
         fun beginButtonWrite(t: Transport, action: SonyButton.Action): ButtonWrite {
-            val ask =
-                SonyFrame.encode(
-                    SonyFrame.TYPE_DATA_MDR,
-                    nextSeq(),
-                    SonyButton.subscribeAlerts(),
-                )
-            t.send(ask)
+            t.send(frame(SonyButton.subscribeAlerts()))
             val reply =
                 exchangeFramed(t, SonyButton.set(action), ALERT, SonyButton.NOTIFY)
                     ?: return ButtonWrite.Unchanged
@@ -1262,9 +1256,7 @@ object Drivers {
          */
         fun answerButtonAlert(t: Transport, yes: Boolean) {
             runCatching {
-                val frame =
-                    SonyFrame.encode(SonyFrame.TYPE_DATA_MDR, nextSeq(), SonyButton.answer(yes))
-                t.send(frame)
+                t.send(frame(SonyButton.answer(yes)))
             }
         }
 
@@ -1375,38 +1367,26 @@ object Drivers {
          */
         private fun exchangeFramed(
             t: Transport,
-            payload: ByteArray,
+            payload: SonyPayload,
             vararg expect: Byte,
-        ): ByteArray? = exchangeOn(t, SonyFrame.TYPE_DATA_MDR, payload, expect.toList())
+        ): ByteArray? = exchangeOn(t, payload, expect.toList())
 
-        /**
-         * The same exchange, on **table 2**.
-         *
-         * ⚠ **The type byte is the only thing that says which command table a payload
-         * belongs to, and the ranges overlap.** `48` is `VPT_SET_PARAM` on table 1 and
-         * `VOICE_GUIDANCE_SET_PARAM` on table 2, with nothing in the payload to tell
-         * them apart. So this is a separate entry point rather than a flag on the one
-         * above: a caller has to say which table it means.
-         */
-        private fun exchangeFramed2(
-            t: Transport,
-            payload: ByteArray,
-            vararg expect: Byte,
-        ): ByteArray? = exchangeOn(t, SonyFrame.TYPE_DATA_MDR_NO2, payload, expect.toList())
+        /** [payload] framed for its own table, with this session's next sequence bit. */
+        private fun frame(payload: SonyPayload): OutFrame =
+            SonyFrame.encode(payload.type, nextSeq(), payload.bytes)
 
         private fun exchangeOn(
             t: Transport,
-            type: Byte,
-            payload: ByteArray,
+            payload: SonyPayload,
             expect: List<Byte>,
         ): ByteArray? {
+            val type = payload.type
             // ⚠ **Every DATA frame is acked, and acked WHILE THE WINDOW IS OPEN.** The
             // XM4 is stop-and-wait, so acking after the window returns is what made a
             // single volunteered notification displace every later reply — see
             // [Transport.exchange]. This is the fix for #1107; [EXTRA_READS] below is
             // now the fallback rather than the cure.
-            val frame = SonyFrame.encode(type, nextSeq(), payload)
-            var got = t.exchange(frame, ::acks)
+            var got = t.exchange(frame(payload), ::acks)
             var rounds = 0
             while (true) {
                 val frames = SonyFrame.decodeAll(got).filter { it.type == type }

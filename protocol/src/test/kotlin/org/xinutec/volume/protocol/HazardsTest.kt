@@ -184,18 +184,23 @@ class HazardsTest {
     /** The reads this app makes on every settings load must stay allowed. */
     @Test
     fun `ordinary traffic is not refused`() {
-        assertNull(Hazards.check(Channels.SONY, SonyEq.get(), SonyTable.TABLE_1, null))
+        assertNull(Hazards.check(Channels.SONY, SonyEq.get().bytes, SonyTable.TABLE_1, null))
         assertNull(
             Hazards.check(
                 Channels.SONY,
-                SonyEq.setLevels(listOf(0, 0, 0, 0, 0, 0)),
+                SonyEq.setLevels(listOf(0, 0, 0, 0, 0, 0)).bytes,
                 SonyTable.TABLE_1,
                 null,
             ),
         )
-        assertNull(Hazards.check(Channels.SONY, SonyBattery.get(), SonyTable.TABLE_1, null))
+        assertNull(Hazards.check(Channels.SONY, SonyBattery.get().bytes, SonyTable.TABLE_1, null))
         assertNull(
-            Hazards.check(Channels.SONY, SonyVoiceGuidance.set(true), SonyTable.TABLE_2, null),
+            Hazards.check(
+                Channels.SONY,
+                SonyVoiceGuidance.set(true).bytes,
+                SonyTable.TABLE_2,
+                null,
+            ),
         )
         assertNull(Hazards.check(Channels.SPP, BoseEq.get().bytes, SonyTable.TABLE_1, null))
         assertNull(Hazards.check(null, JblGestures.get().bytes, SonyTable.TABLE_1, null))

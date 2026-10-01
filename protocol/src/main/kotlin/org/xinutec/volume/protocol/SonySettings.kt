@@ -39,10 +39,22 @@ object SonyAutoOff {
     private const val NEVER: Byte = 0x11
     private const val WHEN_REMOVED: Byte = 0x10
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
-    fun set(mode: AutoOff): ByteArray =
-        byteArrayOf(SET, TYPE, 0x01, if (mode == AutoOff.NEVER) NEVER else WHEN_REMOVED, 0x00)
+    fun set(mode: AutoOff): SonyPayload =
+        SonyPayload.table1(
+            SET,
+            TYPE,
+            0x01,
+            if (mode ==
+                AutoOff.NEVER
+            ) {
+                NEVER
+            } else {
+                WHEN_REMOVED
+            },
+            0x00,
+        )
 
     /**
      * ⚠ Accepts [RET] and [NOTIFY] alike, and **nothing else**. An unknown value byte
@@ -97,9 +109,9 @@ object SonyMultipoint {
     const val SET: Byte = 0xd8.toByte()
     const val NOTIFY: Byte = 0xd9.toByte()
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
-    fun set(on: Boolean): ByteArray = byteArrayOf(SET, TYPE, 0x01, if (on) 0x01 else 0x00)
+    fun set(on: Boolean): SonyPayload = SonyPayload.table1(SET, TYPE, 0x01, if (on) 0x01 else 0x00)
 
     fun state(payload: ByteArray): Boolean? {
         if (payload.size < 4) return null
@@ -159,10 +171,10 @@ object SonySoundQuality {
     const val SET: Byte = 0xe8.toByte()
     const val NOTIFY: Byte = 0xe9.toByte()
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
-    fun set(mode: SoundQuality): ByteArray =
-        byteArrayOf(SET, TYPE, 0x00, if (mode == SoundQuality.STABLE) 0x01 else 0x00)
+    fun set(mode: SoundQuality): SonyPayload =
+        SonyPayload.table1(SET, TYPE, 0x00, if (mode == SoundQuality.STABLE) 0x01 else 0x00)
 
     fun state(payload: ByteArray): SoundQuality? {
         if (payload.size < 4) return null
@@ -277,11 +289,11 @@ object SonyButton {
         return out
     }
 
-    fun capabilities(): ByteArray = byteArrayOf(GET_CAPABILITY, TYPE)
+    fun capabilities(): SonyPayload = SonyPayload.table1(GET_CAPABILITY, TYPE)
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
-    fun set(action: Action): ByteArray = byteArrayOf(SET, TYPE, 0x01, action.code)
+    fun set(action: Action): SonyPayload = SonyPayload.table1(SET, TYPE, 0x01, action.code)
 
     /**
      * `94 01 00` — ALERT_SET_STATUS · FIXED_MESSAGE · ENABLE.
@@ -291,7 +303,7 @@ object SonyButton {
      * this, a button write is acked and silently dropped — which for eight days read as
      * the device refusing this app in particular. It draws no reply of its own.
      */
-    fun subscribeAlerts(): ByteArray = byteArrayOf(0x94.toByte(), 0x01, 0x00)
+    fun subscribeAlerts(): SonyPayload = SonyPayload.table1(0x94.toByte(), 0x01, 0x00)
 
     /**
      * Answer the device's `99 01 02 01` — `AlertAction.POSITIVE` or `NEGATIVE`.
@@ -304,8 +316,8 @@ object SonyButton {
      * reconnects at once, so the write of this frame reports a broken pipe while its bytes
      * land. Driven both ways 2026-08-24: negative gives an orderly `f9` and no disconnect.
      */
-    fun answer(yes: Boolean): ByteArray =
-        byteArrayOf(0x98.toByte(), 0x01, 0x02, if (yes) 0x01 else 0x00)
+    fun answer(yes: Boolean): SonyPayload =
+        SonyPayload.table1(0x98.toByte(), 0x01, 0x02, if (yes) 0x01 else 0x00)
 
     /** True if this is the device asking about a key-assign change — `99 01 02 …`. */
     fun asksAboutKeyAssign(payload: ByteArray): Boolean =
@@ -381,9 +393,9 @@ class SonySwitch(
      */
     val answers: ByteArray get() = byteArrayOf(retCmd, notifyCmd)
 
-    fun get(): ByteArray = byteArrayOf(getCmd, type)
+    fun get(): SonyPayload = SonyPayload.table1(getCmd, type)
 
-    fun set(on: Boolean): ByteArray = byteArrayOf(setCmd, type, writeType, onOff(on))
+    fun set(on: Boolean): SonyPayload = SonyPayload.table1(setCmd, type, writeType, onOff(on))
 
     private fun onOff(on: Boolean): Byte = if (on) 0x01 else 0x00
 
@@ -515,10 +527,10 @@ object SonyChatDetail {
     /** `SmartTalkingModeDetailSettingType.TYPE_1`. */
     private const val DETAIL: Byte = 0x00
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
-    fun set(detail: ChatDetail): ByteArray =
-        byteArrayOf(
+    fun set(detail: ChatDetail): SonyPayload =
+        SonyPayload.table1(
             SET,
             TYPE,
             DETAIL,
@@ -705,7 +717,7 @@ object SonyBattery {
     private const val NOT_CHARGING: Byte = 0x00
     private const val CHARGING: Byte = 0x01
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
     /**
      * ⚠ **`f0` UNKNOWN is not "not charging"**, and an unrecognised status yields null
@@ -796,9 +808,10 @@ object SonyVoiceGuidance {
     const val SET: Byte = 0x48
     const val NOTIFY: Byte = 0x49
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE, ON_OFF)
+    fun get(): SonyPayload = SonyPayload.table2(GET, TYPE, ON_OFF)
 
-    fun set(on: Boolean): ByteArray = byteArrayOf(SET, TYPE, ON_OFF, if (on) 0x01 else 0x00)
+    fun set(on: Boolean): SonyPayload =
+        SonyPayload.table2(SET, TYPE, ON_OFF, if (on) 0x01 else 0x00)
 
     /**
      * Decode `47 01 01 <v>` or `49 01 01 <v>`.
@@ -839,7 +852,7 @@ object SonyCodec {
     const val GET: Byte = 0x18
     const val RET: Byte = 0x19
 
-    fun get(): ByteArray = byteArrayOf(GET, TYPE)
+    fun get(): SonyPayload = SonyPayload.table1(GET, TYPE)
 
     /**
      * `19 00 <AudioCodec>`, as Sony's own enum names it.
@@ -890,5 +903,5 @@ object SonyPowerOff {
     /** `PowerOffSettingValue.USER_POWER_OFF`. */
     private const val USER_POWER_OFF: Byte = 0x01
 
-    fun off(): ByteArray = byteArrayOf(SET, TYPE, USER_POWER_OFF)
+    fun off(): SonyPayload = SonyPayload.table1(SET, TYPE, USER_POWER_OFF)
 }

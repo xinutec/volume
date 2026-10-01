@@ -172,3 +172,35 @@ object SonyFrame {
 
 /** The Sony's two command tables. See [SonyFrame.tableOf] for why there is no default. */
 enum class SonyTable { TABLE_1, TABLE_2 }
+
+/**
+ * A Sony payload and the command table it belongs to.
+ *
+ * ⚠ **The table is the builder's to say, not the caller's.** `48` is `VPT_SET_PARAM` on
+ * table 1 and `VOICE_GUIDANCE_SET_PARAM` on table 2, with nothing in the payload to tell
+ * them apart; when the driver chose the table by which exchange it called, sending one
+ * as the other was a wrong function name away.
+ */
+class SonyPayload private constructor(
+    val table: SonyTable,
+    val bytes: ByteArray,
+) {
+    /** The frame type that carries this table. */
+    val type: Byte
+        get() =
+            if (table ==
+                SonyTable.TABLE_2
+            ) {
+                SonyFrame.TYPE_DATA_MDR_NO2
+            } else {
+                SonyFrame.TYPE_DATA_MDR
+            }
+
+    override fun toString(): String = "$table ${Hex.format(bytes)}"
+
+    internal companion object {
+        fun table1(vararg bytes: Byte) = SonyPayload(SonyTable.TABLE_1, bytes)
+
+        fun table2(vararg bytes: Byte) = SonyPayload(SonyTable.TABLE_2, bytes)
+    }
+}

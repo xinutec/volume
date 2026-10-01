@@ -196,8 +196,8 @@ class SonySettingsTest {
     /** ⚠ The third byte is `00` here and `01` everywhere else — don't normalise it. */
     @Test
     fun `sound quality set carries the zero byte the capture has`() {
-        assertEquals("e8 01 00 01", Hex.format(SonySoundQuality.set(SoundQuality.STABLE)))
-        assertEquals("e8 01 00 00", Hex.format(SonySoundQuality.set(SoundQuality.QUALITY)))
+        assertEquals("e8 01 00 01", Hex.format(SonySoundQuality.set(SoundQuality.STABLE).bytes))
+        assertEquals("e8 01 00 00", Hex.format(SonySoundQuality.set(SoundQuality.QUALITY).bytes))
     }
 
     // ---- the [CUSTOM] button -----------------------------------------------
@@ -284,9 +284,9 @@ class SonySettingsTest {
     /** The alert frames — the subscription and both answers. */
     @Test
     fun `the alert frames are the ones the app sent`() {
-        assertEquals("94 01 00", Hex.format(SonyButton.subscribeAlerts()))
-        assertEquals("98 01 02 01", Hex.format(SonyButton.answer(true)))
-        assertEquals("98 01 02 00", Hex.format(SonyButton.answer(false)))
+        assertEquals("94 01 00", Hex.format(SonyButton.subscribeAlerts().bytes))
+        assertEquals("98 01 02 01", Hex.format(SonyButton.answer(true).bytes))
+        assertEquals("98 01 02 00", Hex.format(SonyButton.answer(false).bytes))
         assertTrue(SonyButton.asksAboutKeyAssign(Hex.parse("99010201")))
         // ⚠ a different alert message must NOT be read as this one
         assertFalse(SonyButton.asksAboutKeyAssign(Hex.parse("99010601")))
@@ -301,7 +301,7 @@ class SonySettingsTest {
      */
     @Test
     fun `the capability frame is asked for but its reply is not decoded`() {
-        assertEquals("f0 06", Hex.format(SonyButton.capabilities()))
+        assertEquals("f0 06", Hex.format(SonyButton.capabilities().bytes))
         val reply = "f1 06 01 02 01 00 03 00 02 00 01 21 02 31 03 00 31 01 33 22 32 32 01 00 34"
         assertNull(SonyButton.state(Hex.parse(reply)))
     }
