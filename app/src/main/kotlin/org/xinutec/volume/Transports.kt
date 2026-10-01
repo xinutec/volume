@@ -13,8 +13,8 @@ import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import org.xinutec.volume.protocol.OutFrame
 import org.xinutec.volume.protocol.Transport
+import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -82,14 +82,10 @@ class RfcommTransport private constructor(
 
     override fun exchange(packet: OutFrame): ByteArray {
         send(packet)
-        return drain(
-            socket.inputStream,
-            perMs,
-            quietMs,
-            finished?.let { f ->
-                { got -> f(packet.bytes, got) }
-            },
-        )
+        val done = finished
+        // ⚠ Checked after every chunk, not only on quiet: the terminator can arrive in
+        // the same chunk as the frames before it — this device batches.
+        return window(perMs, quietMs, ::chunk) { got -> done != null && done(packet.bytes, got) }
     }
 
     /**
@@ -99,28 +95,7 @@ class RfcommTransport private constructor(
      */
     override fun exchange(packet: OutFrame, acksFor: (ByteArray) -> List<OutFrame>): ByteArray {
         send(packet)
-        val out = java.io.ByteArrayOutputStream()
-        val buf = ByteArray(4096)
-        val start = System.nanoTime()
-        var lastData = start
-        var acked = 0
-        while ((System.nanoTime() - start) / 1_000_000 < perMs) {
-            val n = if (socket.inputStream.available() > 0) socket.inputStream.read(buf) else 0
-            if (n > 0) {
-                out.write(buf, 0, n)
-                lastData = System.nanoTime()
-                val acks = acksFor(out.toByteArray())
-                acks.drop(acked).forEach {
-                    send(it)
-                    lastData = System.nanoTime()
-                }
-                acked = acks.size
-            } else {
-                if (out.size() > 0 && (System.nanoTime() - lastData) / 1_000_000 > quietMs) break
-                Thread.sleep(20)
-            }
-        }
-        return out.toByteArray()
+        return window(perMs, quietMs, ::chunk, acking(acksFor, ::send))
     }
 
     /**
@@ -153,34 +128,23 @@ class RfcommTransport private constructor(
         runCatching { socket.close() }
     }
 
-    /** Poll rather than block: a blocking read on a BT socket cannot be interrupted. */
-    private fun readFor(totalMs: Long, quietMs: Long): ByteArray =
-        drain(socket.inputStream, totalMs, quietMs)
+    private fun readFor(totalMs: Long, quietMs: Long): ByteArray = window(totalMs, quietMs, ::chunk)
 
-    private fun drain(
-        input: InputStream,
-        totalMs: Long,
-        quietMs: Long,
-        done: ((ByteArray) -> Boolean)? = null,
-    ): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val buf = ByteArray(4096)
-        val start = System.nanoTime()
-        var lastData = start
-        while ((System.nanoTime() - start) / 1_000_000 < totalMs) {
+    private val buf = ByteArray(4096)
+
+    /**
+     * Whatever arrives within [waitMs], or null. Polls rather than blocks: a blocking
+     * read on a BT socket cannot be interrupted.
+     */
+    private fun chunk(waitMs: Long): ByteArray? {
+        val input = socket.inputStream
+        val until = System.nanoTime() + waitMs * 1_000_000
+        while (true) {
             val n = if (input.available() > 0) input.read(buf) else 0
-            if (n > 0) {
-                out.write(buf, 0, n)
-                lastData = System.nanoTime()
-                // ⚠ Checked after every read, not only on quiet: the terminator can
-                // arrive in the same chunk as the frames before it — this device batches.
-                if (done != null && done(out.toByteArray())) break
-            } else {
-                if (out.size() > 0 && (System.nanoTime() - lastData) / 1_000_000 > quietMs) break
-                Thread.sleep(20)
-            }
+            if (n > 0) return buf.copyOf(n)
+            if (System.nanoTime() >= until) return null
+            Thread.sleep(20)
         }
-        return out.toByteArray()
     }
 }
 
@@ -435,21 +399,7 @@ class GattTransport private constructor(
     override fun exchange(packet: OutFrame, acksFor: (ByteArray) -> List<OutFrame>): ByteArray {
         notifications.clear()
         send(packet)
-        val out = java.io.ByteArrayOutputStream()
-        val start = System.nanoTime()
-        var acked = 0
-        while ((System.nanoTime() - start) / 1_000_000 < perMs) {
-            val next = notifications.poll(quietMs, TimeUnit.MILLISECONDS)
-            if (next == null) {
-                if (out.size() > 0) break
-            } else {
-                out.write(next)
-                val acks = acksFor(out.toByteArray())
-                acks.drop(acked).forEach { send(it) }
-                acked = acks.size
-            }
-        }
-        return out.toByteArray()
+        return window(perMs, quietMs, ::chunk, acking(acksFor, ::send))
     }
 
     /**
@@ -492,19 +442,9 @@ class GattTransport private constructor(
     }
 
     /** Flatten notifications: a long reply is split by MTU, and the split is noise. */
-    private fun collect(totalMs: Long, quietMs: Long): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val start = System.nanoTime()
-        while ((System.nanoTime() - start) / 1_000_000 < totalMs) {
-            val next = notifications.poll(quietMs, TimeUnit.MILLISECONDS)
-            if (next == null) {
-                if (out.size() > 0) break
-            } else {
-                out.write(next)
-            }
-        }
-        return out.toByteArray()
-    }
+    private fun collect(totalMs: Long, quietMs: Long): ByteArray = window(totalMs, quietMs, ::chunk)
+
+    private fun chunk(waitMs: Long): ByteArray? = notifications.poll(waitMs, TimeUnit.MILLISECONDS)
 }
 
 /** A step of opening a GATT link: what it produced, or why it produced nothing. */
@@ -516,4 +456,53 @@ sealed interface GattStep<out T> {
     data class Failed(
         val why: String,
     ) : GattStep<Nothing>
+}
+
+/**
+ * Read one reply window: until [totalMs] passes, until [quietMs] passes with nothing new
+ * once something has arrived, or until [onData] says the reply is complete.
+ *
+ * [next] waits up to the given milliseconds for the next chunk and returns null if none
+ * came. Both transports read through here, so a window means the same thing on each.
+ */
+internal fun window(
+    totalMs: Long,
+    quietMs: Long,
+    next: (waitMs: Long) -> ByteArray?,
+    onData: (ByteArray) -> Boolean = { false },
+): ByteArray {
+    val out = ByteArrayOutputStream()
+    val end = System.nanoTime() + totalMs * 1_000_000
+    while (true) {
+        val left = (end - System.nanoTime()) / 1_000_000
+        if (left <= 0) break
+        val got = next(minOf(quietMs, left))
+        if (got == null) {
+            if (out.size() > 0) break
+            continue
+        }
+        out.write(got)
+        if (onData(out.toByteArray())) break
+    }
+    return out.toByteArray()
+}
+
+/**
+ * An `onData` for [window] that sends each ack [acksFor] finds, once, as it is found.
+ *
+ * ⚠ **Sending an ack is new data's moment, so the quiet timer restarts with it.** Having
+ * just unblocked a stop-and-wait device is when more is expected; treating that moment as
+ * silence would close the window on the frame the ack just released.
+ */
+internal fun acking(
+    acksFor: (ByteArray) -> List<OutFrame>,
+    send: (OutFrame) -> Unit,
+): (ByteArray) -> Boolean {
+    var acked = 0
+    return { got ->
+        val acks = acksFor(got)
+        acks.drop(acked).forEach(send)
+        acked = acks.size
+        false
+    }
 }
