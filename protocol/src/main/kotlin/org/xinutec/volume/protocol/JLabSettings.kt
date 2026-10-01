@@ -39,11 +39,21 @@ object JLabFrame {
     fun checksummed(body: ByteArray): OutFrame =
         OutFrame(body + body.fold(0) { acc, b -> acc + (b.toInt() and 0xff) }.toByte())
 
-    /** The read every one of the app's getters uses, with only [cmd] varying. */
-    fun read(cmd: Byte): OutFrame =
-        checksummed(
-            byteArrayOf(0xc0.toByte(), 0xff.toByte(), 0x00, cmd, 0x00, 0x00, 0x01, 0x00),
+    /**
+     * `c0 ff 00 <cmd> <count> 00 <values…> 01 00 <sum>`, the shape of every request the
+     * app sends, with the count counted.
+     */
+    fun request(cmd: Byte, vararg values: Byte): OutFrame {
+        require(values.size <= 0xff) { "a JLab count is one byte: ${values.size}" }
+        return checksummed(
+            byteArrayOf(0xc0.toByte(), 0xff.toByte(), 0x00, cmd, values.size.toByte(), 0x00) +
+                values +
+                byteArrayOf(0x01, 0x00),
         )
+    }
+
+    /** The read every one of the app's getters uses: a request carrying no values. */
+    fun read(cmd: Byte): OutFrame = request(cmd)
 
     /**
      * The answer to [cmd] **wherever it sits in [r]**, or null if it is not there.
@@ -175,20 +185,7 @@ object JLabSpatial {
         }
     }
 
-    fun set(on: Boolean): OutFrame =
-        JLabFrame.checksummed(
-            byteArrayOf(
-                0xc0.toByte(),
-                0xff.toByte(),
-                0x00,
-                SET,
-                0x01,
-                0x00,
-                if (on) 0x01 else 0x00,
-                0x01,
-                0x00,
-            ),
-        )
+    fun set(on: Boolean): OutFrame = JLabFrame.request(SET, if (on) 0x01 else 0x00)
 }
 
 /**
@@ -239,19 +236,7 @@ object JLabSpatialMode {
                 // success for a mode the device was never put into.
                 SpatialMode.GAME -> return null
             }
-        return JLabFrame.checksummed(
-            byteArrayOf(
-                0xc0.toByte(),
-                0xff.toByte(),
-                0x00,
-                SET,
-                0x01,
-                0x00,
-                m,
-                0x01,
-                0x00,
-            ),
-        )
+        return JLabFrame.request(SET, m)
     }
 }
 
@@ -362,11 +347,7 @@ object JLabEq {
     fun set(preset: Int, levels: List<Int>): OutFrame? {
         if (levels.size != BANDS) return null
         if (levels.any { it !in 0..0xff }) return null
-        return JLabFrame.checksummed(
-            byteArrayOf(0xc0.toByte(), 0xff.toByte(), 0x00, SET, 0x0b, 0x00, preset.toByte()) +
-                levels.map { it.toByte() }.toByteArray() +
-                byteArrayOf(0x01, 0x00),
-        )
+        return JLabFrame.request(SET, preset.toByte(), *levels.map { it.toByte() }.toByteArray())
     }
 
     /** All four stored curves, in the order the device lists them. */
@@ -455,20 +436,7 @@ object JLabSafeHearing {
      * them, not to a clamp invented here that would silently refuse what the vendor app
      * does freely.
      */
-    fun set(level: Level): OutFrame =
-        JLabFrame.checksummed(
-            byteArrayOf(
-                0xc0.toByte(),
-                0xff.toByte(),
-                0x00,
-                SET,
-                0x01,
-                0x00,
-                level.wire,
-                0x01,
-                0x00,
-            ),
-        )
+    fun set(level: Level): OutFrame = JLabFrame.request(SET, level.wire)
 }
 
 /**

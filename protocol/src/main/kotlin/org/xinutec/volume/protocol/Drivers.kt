@@ -1514,23 +1514,7 @@ object Drivers {
          */
         override fun write(t: Transport, mode: AncMode) {
             val m = table.byte(mode)
-            t.exchange(
-                checksummed(
-                    byteArrayOf(
-                        0xc0.toByte(),
-                        0xff.toByte(),
-                        0x00,
-                        0x46,
-                        0x03,
-                        0x00,
-                        m,
-                        0x04,
-                        0x04,
-                        0x01,
-                        0x00,
-                    ),
-                ),
-            )
+            t.exchange(JLabFrame.request(0x46, m, 0x04, 0x04))
         }
 
         /**
