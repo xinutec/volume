@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothSocket
 import android.bluetooth.BluetoothStatusCodes
@@ -186,8 +187,9 @@ class RfcommTransport private constructor(
 /**
  * GATT: the JBL, and the only device here not on RFCOMM.
  *
- * ⚠ Reached at a **scanned** address with `autoConnect = false` — see [Gatt] for
- * why both halves of that matter and how each fails if you get it wrong.
+ * ⚠ Reached at a **scanned** address with `autoConnect = false` — see [connect] for
+ * why both halves of that matter and how each fails if you get it wrong. The probe
+ * ([Gatt]) connects and writes through here too.
  */
 class GattTransport private constructor(
     private val gatt: BluetoothGatt,
@@ -198,7 +200,7 @@ class GattTransport private constructor(
     private val quietMs: Long,
 ) : Link {
     /** The outcome of the write in flight, as the GATT callback reports it. */
-    private class WriteAcks {
+    internal class WriteAcks {
         @Volatile private var pending = CountDownLatch(0)
 
         @Volatile var status = BluetoothGatt.GATT_SUCCESS
@@ -225,98 +227,185 @@ class GattTransport private constructor(
         fun await(ms: Long) = pending.await(ms, TimeUnit.MILLISECONDS)
     }
 
+    /** Every callback the stack makes on one link, as latches a blocking caller waits on. */
+    internal class Callbacks : BluetoothGattCallback() {
+        val notifications = LinkedBlockingQueue<ByteArray>()
+        val writes = WriteAcks()
+
+        @Volatile private var step = CountDownLatch(1)
+
+        @Volatile var lastStatus = BluetoothGatt.GATT_SUCCESS
+            private set
+
+        @Volatile var dead = false
+            private set
+
+        /** Expect the next step's callback. */
+        fun arm() {
+            step = CountDownLatch(1)
+        }
+
+        fun await(ms: Long) = step.await(ms, TimeUnit.MILLISECONDS)
+
+        private fun done(status: Int) {
+            lastStatus = status
+            step.countDown()
+        }
+
+        override fun onConnectionStateChange(g: BluetoothGatt, s: Int, new: Int) {
+            if (new != BluetoothProfile.STATE_CONNECTED) {
+                // Release whatever is waiting, or a dropped link hangs for the full
+                // step timeout on every remaining call.
+                dead = true
+                writes.drop()
+            }
+            done(s)
+        }
+
+        override fun onServicesDiscovered(g: BluetoothGatt, s: Int) = done(s)
+
+        override fun onMtuChanged(g: BluetoothGatt, m: Int, s: Int) = done(s)
+
+        override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, s: Int) =
+            done(s)
+
+        override fun onCharacteristicWrite(
+            g: BluetoothGatt,
+            c: BluetoothGattCharacteristic,
+            s: Int,
+        ) = writes.written(s)
+
+        override fun onCharacteristicChanged(
+            g: BluetoothGatt,
+            c: BluetoothGattCharacteristic,
+            value: ByteArray,
+        ) {
+            notifications.offer(value)
+        }
+    }
+
+    /**
+     * An LE link with its services discovered and no channel bound yet: what the probe
+     * maps, and what [subscribe] makes a transport of.
+     */
+    class Connection internal constructor(
+        private val gatt: BluetoothGatt,
+        private val cb: Callbacks,
+    ) {
+        val services: List<BluetoothGattService> get() = gatt.services
+
+        /**
+         * Subscribe to [notify] and write through [write], both on [service]. Closes the
+         * link when it fails, and says which step did.
+         */
+        fun subscribe(
+            service: UUID,
+            write: UUID,
+            notify: UUID,
+            perMs: Long = 1500,
+            quietMs: Long = 500,
+        ): GattStep<GattTransport> {
+            fun fail(why: String): GattStep<GattTransport> {
+                close()
+                return GattStep.Failed(why)
+            }
+            val svc =
+                gatt.getService(service)
+                    ?: return fail(
+                        "service $service not on this device — " +
+                            services.joinToString { it.uuid.toString() },
+                    )
+            val w = svc.getCharacteristic(write) ?: return fail("no write characteristic $write")
+            val n = svc.getCharacteristic(notify) ?: return fail("no notify characteristic $notify")
+            // Both halves: local routing, then telling the peer. Doing only the first
+            // succeeds everywhere and delivers nothing.
+            if (!gatt.setCharacteristicNotification(n, true)) {
+                return fail("setCharacteristicNotification refused")
+            }
+            val ccc = n.getDescriptor(CCC) ?: return fail("notify char has no CCC descriptor")
+            cb.arm()
+            gatt.writeDescriptor(ccc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            if (!cb.await(STEP_MS)) return fail("CCC write timed out")
+            val t = GattTransport(gatt, w, cb.notifications, cb.writes, perMs, quietMs)
+            // Drain what the device volunteers on subscribe, so the first request's
+            // window is not polluted by a greeting.
+            t.collect(700, 300)
+            return GattStep.Done(t)
+        }
+
+        fun close() {
+            runCatching {
+                gatt.disconnect()
+                gatt.close()
+            }
+        }
+    }
+
     companion object {
         private val CCC = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         private const val STEP_MS = 10_000L
 
+        /**
+         * Connect [device] over LE and discover its services.
+         *
+         * ⚠ [device] should come from [Scan], and [autoConnect] stays false for it: a
+         * rotating private address never advertises under the same value twice, so an
+         * accept-list wait can only time out. Measured on the JBL: `true` gives status
+         * 135 after 45 s, `false` connects in about a second.
+         */
+        fun connect(
+            context: Context,
+            device: BluetoothDevice,
+            autoConnect: Boolean = false,
+            connectMs: Long = 20_000,
+        ): GattStep<Connection> {
+            val cb = Callbacks()
+            val g =
+                try {
+                    device.connectGatt(context, autoConnect, cb, BluetoothDevice.TRANSPORT_LE)
+                } catch (e: SecurityException) {
+                    return GattStep.Failed("BLUETOOTH_CONNECT not granted: ${e.message}")
+                } ?: return GattStep.Failed("connectGatt returned null")
+            val c = Connection(g, cb)
+            if (!cb.await(connectMs) || cb.dead) {
+                c.close()
+                return GattStep.Failed(
+                    "no LE connection to ${device.address} in ${connectMs}ms (status ${cb.lastStatus})",
+                )
+            }
+            // Before discovery: the default 23-byte MTU truncates any longer reply,
+            // and a truncated reply looks like a different, shorter command.
+            cb.arm()
+            g.requestMtu(517)
+            cb.await(STEP_MS)
+            cb.arm()
+            if (!g.discoverServices()) {
+                c.close()
+                return GattStep.Failed("discoverServices refused")
+            }
+            if (!cb.await(STEP_MS)) {
+                c.close()
+                return GattStep.Failed("service discovery timed out")
+            }
+            return GattStep.Done(c)
+        }
+
+        /** [connect], then [Connection.subscribe]: the transport a session drives. */
         fun open(
             context: Context,
             device: BluetoothDevice,
             service: UUID,
             write: UUID,
             notify: UUID,
-            connectMs: Long = 20_000,
-            perMs: Long = 1500,
-            quietMs: Long = 500,
-        ): GattTransport? {
-            val notifications = LinkedBlockingQueue<ByteArray>()
-            val writes = WriteAcks()
-            var step = CountDownLatch(1)
-            var dead = false
-            val cb =
-                object : BluetoothGattCallback() {
-                    override fun onConnectionStateChange(g: BluetoothGatt, s: Int, new: Int) {
-                        if (new != BluetoothProfile.STATE_CONNECTED) {
-                            dead = true
-                            writes.drop()
-                        }
-                        step.countDown()
-                    }
-
-                    override fun onServicesDiscovered(g: BluetoothGatt, s: Int) = step.countDown()
-
-                    override fun onMtuChanged(g: BluetoothGatt, m: Int, s: Int) = step.countDown()
-
-                    override fun onDescriptorWrite(
-                        g: BluetoothGatt,
-                        d: BluetoothGattDescriptor,
-                        s: Int,
-                    ) = step.countDown()
-
-                    override fun onCharacteristicWrite(
-                        g: BluetoothGatt,
-                        c: BluetoothGattCharacteristic,
-                        s: Int,
-                    ) = writes.written(s)
-
-                    override fun onCharacteristicChanged(
-                        g: BluetoothGatt,
-                        c: BluetoothGattCharacteristic,
-                        value: ByteArray,
-                    ) {
-                        notifications.offer(value)
-                    }
-                }
-
-            val g =
-                device.connectGatt(context, false, cb, BluetoothDevice.TRANSPORT_LE) ?: return null
-            if (!step.await(connectMs, TimeUnit.MILLISECONDS) || dead) {
-                runCatching { g.close() }
-                return null
+        ): GattStep<GattTransport> =
+            when (val c = connect(context, device)) {
+                is GattStep.Failed -> c
+                is GattStep.Done -> c.value.subscribe(service, write, notify)
             }
-            // Before discovery: the default 23-byte MTU truncates any longer reply,
-            // and a truncated reply looks like a different, shorter command.
-            step = CountDownLatch(1)
-            g.requestMtu(517)
-            step.await(STEP_MS, TimeUnit.MILLISECONDS)
-
-            step = CountDownLatch(1)
-            g.discoverServices()
-            step.await(STEP_MS, TimeUnit.MILLISECONDS)
-
-            val svc = g.getService(service)
-            val w = svc?.getCharacteristic(write)
-            val n = svc?.getCharacteristic(notify)
-            val ccc = n?.getDescriptor(CCC)
-            if (w == null || n == null || ccc == null) {
-                runCatching {
-                    g.disconnect()
-                    g.close()
-                }
-                return null
-            }
-            // Both halves: local routing, then telling the peer. Doing only the first
-            // succeeds everywhere and delivers nothing.
-            g.setCharacteristicNotification(n, true)
-            step = CountDownLatch(1)
-            g.writeDescriptor(ccc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-            step.await(STEP_MS, TimeUnit.MILLISECONDS)
-
-            val t = GattTransport(g, w, notifications, writes, perMs, quietMs)
-            t.collect(700, 300)
-            return t
-        }
     }
+
+    /** Whether the link has gone, so a caller can stop rather than fail every write after. */
+    val down: Boolean get() = writes.dropped
 
     override fun exchange(packet: OutFrame): ByteArray {
         // ⚠ **Drop anything already queued before asking.** Whatever is sitting here
@@ -416,4 +505,15 @@ class GattTransport private constructor(
         }
         return out.toByteArray()
     }
+}
+
+/** A step of opening a GATT link: what it produced, or why it produced nothing. */
+sealed interface GattStep<out T> {
+    data class Done<T>(
+        val value: T,
+    ) : GattStep<T>
+
+    data class Failed(
+        val why: String,
+    ) : GattStep<Nothing>
 }

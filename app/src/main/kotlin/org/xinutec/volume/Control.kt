@@ -172,7 +172,7 @@ object Control {
                     onNote("${h.model}: not advertising right now")
                     null
                 } else {
-                    val t =
+                    val opened =
                         GattTransport.open(
                             context,
                             le,
@@ -180,12 +180,19 @@ object Control {
                             UUID.fromString(r.write),
                             UUID.fromString(r.notify),
                         )
-                    if (t == null) {
-                        onNote("${h.model}: GATT would not open at ${le.address}")
-                        null
-                    } else {
-                        runCatching { h.driver.prepare(t) }
-                        Session(h, t)
+                    when (opened) {
+                        is GattStep.Failed -> {
+                            onNote(
+                                "${h.model}: GATT would not open at ${le.address} — ${opened.why}",
+                            )
+                            null
+                        }
+
+                        is GattStep.Done -> {
+                            val t = opened.value
+                            runCatching { h.driver.prepare(t) }
+                            Session(h, t)
+                        }
                     }
                 }
             }

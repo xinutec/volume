@@ -1,17 +1,11 @@
 package org.xinutec.volume
 
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
-import android.bluetooth.BluetoothProfile
 import android.content.Context
 import org.xinutec.volume.protocol.OutFrame
+import java.io.IOException
 import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
 
 /**
  * The BLE half of the probe.
@@ -47,11 +41,6 @@ object Gatt {
         }
     }
 
-    private const val STEP_MS = 10_000L
-
-    /** The 0x2902 Client Characteristic Configuration every notify subscription needs. */
-    private val CCC = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
-
     /**
      * Connect and report every service, characteristic and property.
      *
@@ -59,82 +48,57 @@ object Gatt {
      * pairs a given device actually implements, which is how an hour goes missing.
      * Properties matter as much as UUIDs: a characteristic with no NOTIFY cannot be
      * a reply path however plausible its name.
+     *
+     * ⚠ No service is opened and nothing is written, so this is safe against anything.
      */
     fun map(
         context: Context,
         device: BluetoothDevice,
         connectMs: Long,
     ): Pair<List<String>, String?> {
+        val c =
+            when (val step = GattTransport.connect(context, device, connectMs = connectMs)) {
+                is GattStep.Failed -> return Pair(emptyList(), step.why)
+                is GattStep.Done -> step.value
+            }
         val lines = ArrayList<String>()
-        val err =
-            exchange(
-                context,
-                device,
-                // No service is opened: an empty packet list means discovery runs and
-                // nothing is written, so this is safe against anything.
-                ANY,
-                ANY,
-                ANY,
-                emptyList(),
-                0,
-                0,
-                false,
-                connectMs,
-                onDiscovered = { services ->
-                    services.forEach { svc ->
-                        lines.add(svc.uuid.toString())
-                        svc.characteristics.forEach { c ->
-                            val p = c.properties
-                            val flags =
-                                buildString {
-                                    if (p and BluetoothGattCharacteristic.PROPERTY_READ != 0) {
-                                        append("read ")
-                                    }
-                                    if (p and BluetoothGattCharacteristic.PROPERTY_WRITE != 0) {
-                                        append("write ")
-                                    }
-                                    if (p and
-                                        BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0
-                                    ) {
-                                        append("write-nr ")
-                                    }
-                                    if (p and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
-                                        append("NOTIFY ")
-                                    }
-                                    if (p and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0) {
-                                        append("indicate ")
-                                    }
-                                }
-                            lines.add("    ${c.uuid}  ${flags.trim()}")
-                        }
-                    }
-                },
-            ) {}
-        return Pair(lines, err)
+        try {
+            c.services.forEach { svc ->
+                lines.add(svc.uuid.toString())
+                svc.characteristics.forEach { ch ->
+                    lines.add("    ${ch.uuid}  ${flags(ch.properties)}")
+                }
+            }
+        } finally {
+            c.close()
+        }
+        return Pair(lines, null)
     }
 
-    /** Placeholder for [map], which opens no service. Never matches a real one. */
-    private val ANY = UUID.fromString("00000000-0000-0000-0000-000000000000")
+    private fun flags(p: Int): String =
+        listOfNotNull(
+            "read".takeIf { p and BluetoothGattCharacteristic.PROPERTY_READ != 0 },
+            "write".takeIf { p and BluetoothGattCharacteristic.PROPERTY_WRITE != 0 },
+            "write-nr".takeIf { p and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0 },
+            "NOTIFY".takeIf { p and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0 },
+            "indicate".takeIf { p and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0 },
+        ).joinToString(" ")
 
     /**
      * Connect [device] over LE, subscribe to [notify], and write each of [packets]
      * to [write], reporting what was notified after each.
      *
-     * ⚠ [device] should come from [Scan], not from `getRemoteDevice(mac)`. It is
-     * reached at an **LE** address, which is neither its BR/EDR one nor stable, and
-     * a device built from an address string is assumed to be a public one.
+     * The connection and every write go through [GattTransport] — the same checks the
+     * app's sessions make, so a probe and a session cannot disagree about what a refused
+     * or unacknowledged write looks like.
      *
-     * ⚠ [autoConnect] must be **false** for an address that came from a scan, which
-     * is the opposite of the usual advice. `autoConnect` puts the address on the
-     * controller's accept list and waits for it to advertise again — but a rotating
-     * private address never advertises under the same value twice, so the wait can
-     * only time out. Direct connect uses the address while it is still current.
-     * Measured both ways on the JBL: `true` gives status 135 after the full 45 s,
-     * `false` connects in about a second.
+     * ⚠ [device] should come from [Scan], not from `getRemoteDevice(mac)`: it is reached
+     * at an **LE** address, which is neither its BR/EDR one nor stable. [autoConnect] is
+     * for a device whose address is fixed — see [GattTransport.connect].
      *
-     * Replies cannot be attributed to writes with certainty — the device also
-     * notifies unprompted (battery every ten seconds on the JBL), so a quiet window
-     * after a write is a heuristic, exactly as in [Probe.exchangeAll].
+     * Replies cannot be attributed to writes with certainty — the device also notifies
+     * unprompted (battery every ten seconds on the JBL), so a quiet window after a write
+     * is a heuristic, exactly as in [Probe.exchangeAll].
      */
     fun exchange(
         context: Context,
@@ -147,174 +111,32 @@ object Gatt {
         quietMs: Long,
         autoConnect: Boolean,
         connectMs: Long,
-        /** Called once with everything discovered, before any packet is written. */
-        onDiscovered: (List<android.bluetooth.BluetoothGattService>) -> Unit = {},
         onResult: (Result) -> Unit,
     ): String? {
-        val notifications = LinkedBlockingQueue<ByteArray>()
-        var connected = CountDownLatch(1)
-        var step = CountDownLatch(1)
-        var lastStatus = BluetoothGatt.GATT_SUCCESS
-        var disconnected = false
-
-        val callback =
-            object : BluetoothGattCallback() {
-                override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-                    lastStatus = status
-                    if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        connected.countDown()
-                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        // Release whatever is waiting, or a dropped link hangs for the
-                        // full step timeout on every remaining packet.
-                        disconnected = true
-                        connected.countDown()
-                        step.countDown()
-                    }
-                }
-
-                override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-                    lastStatus = status
-                    step.countDown()
-                }
-
-                override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) {
-                    lastStatus = status
-                    step.countDown()
-                }
-
-                override fun onDescriptorWrite(
-                    g: BluetoothGatt,
-                    d: BluetoothGattDescriptor,
-                    status: Int,
-                ) {
-                    lastStatus = status
-                    step.countDown()
-                }
-
-                override fun onCharacteristicWrite(
-                    g: BluetoothGatt,
-                    c: BluetoothGattCharacteristic,
-                    status: Int,
-                ) {
-                    lastStatus = status
-                    step.countDown()
-                }
-
-                override fun onCharacteristicChanged(
-                    g: BluetoothGatt,
-                    c: BluetoothGattCharacteristic,
-                    value: ByteArray,
-                ) {
-                    notifications.offer(value)
-                }
+        val c =
+            when (val step = GattTransport.connect(context, device, autoConnect, connectMs)) {
+                is GattStep.Failed -> return step.why
+                is GattStep.Done -> step.value
             }
-
-        val gatt =
-            try {
-                device.connectGatt(context, autoConnect, callback, BluetoothDevice.TRANSPORT_LE)
-            } catch (e: SecurityException) {
-                return "BLUETOOTH_CONNECT not granted: ${e.message}"
-            } ?: return "connectGatt returned null"
-
+        val t =
+            when (val step = c.subscribe(service, write, notify, perMs, quietMs)) {
+                is GattStep.Failed -> return step.why
+                is GattStep.Done -> step.value
+            }
         try {
-            if (!connected.await(connectMs, TimeUnit.MILLISECONDS) || disconnected) {
-                return "no LE connection to ${device.address} in ${connectMs}ms " +
-                    "(status $lastStatus)"
-            }
-
-            // ⚠ Before discovery, not after: the default 23-byte MTU truncates every
-            // reply longer than 20 bytes, and the JBL's EQ and device-info answers run
-            // past 100. A truncated reply looks like a different, shorter command.
-            step = CountDownLatch(1)
-            gatt.requestMtu(517)
-            step.await(STEP_MS, TimeUnit.MILLISECONDS)
-
-            step = CountDownLatch(1)
-            if (!gatt.discoverServices()) return "discoverServices refused"
-            if (!step.await(STEP_MS, TimeUnit.MILLISECONDS)) return "service discovery timed out"
-            onDiscovered(gatt.services)
-            if (packets.isEmpty()) return null
-
-            val svc =
-                gatt.getService(service)
-                    ?: return "service $service not on this device — " +
-                        gatt.services.joinToString { it.uuid.toString() }
-            val writeChar = svc.getCharacteristic(write) ?: return "no write characteristic $write"
-            val notifyChar =
-                svc.getCharacteristic(notify) ?: return "no notify characteristic $notify"
-
-            // Two halves, and both are required: the first is local routing, the second
-            // is what actually tells the peer to send. Doing only the first is a classic
-            // silent-GATT bug — everything succeeds and nothing ever arrives.
-            if (!gatt.setCharacteristicNotification(notifyChar, true)) {
-                return "setCharacteristicNotification refused"
-            }
-            val ccc = notifyChar.getDescriptor(CCC) ?: return "notify char has no CCC descriptor"
-            step = CountDownLatch(1)
-            gatt.writeDescriptor(ccc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-            if (!step.await(STEP_MS, TimeUnit.MILLISECONDS)) return "CCC write timed out"
-
-            // Drain what the device volunteers on subscribe, so the first packet's
-            // window is not polluted by a greeting — the mistake that made a Fast Pair
-            // hello read as an answer.
-            collect(notifications, 700, 300)
-
             for (p in packets) {
-                step = CountDownLatch(1)
-                val rc =
-                    gatt.writeCharacteristic(
-                        writeChar,
-                        p.bytes,
-                        BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
-                    )
-                if (rc != BluetoothGatt.GATT_SUCCESS) {
-                    onResult(Result(p.bytes, ByteArray(0), "write refused, rc=$rc"))
-                    continue
+                try {
+                    onResult(Result(p.bytes, t.exchange(p), null))
+                } catch (e: IOException) {
+                    onResult(Result(p.bytes, ByteArray(0), e.message))
+                    if (t.down) return "link dropped"
                 }
-                val acked = step.await(STEP_MS, TimeUnit.MILLISECONDS)
-                if (disconnected) {
-                    onResult(Result(p.bytes, ByteArray(0), "link dropped on this packet"))
-                    return "link dropped"
-                }
-                val err =
-                    when {
-                        !acked -> "write not acknowledged"
-                        lastStatus != BluetoothGatt.GATT_SUCCESS -> "write status $lastStatus"
-                        else -> null
-                    }
-                onResult(Result(p.bytes, collect(notifications, perMs, quietMs), err))
             }
             return null
         } catch (e: SecurityException) {
             return "SecurityException: ${e.message}"
         } finally {
-            runCatching {
-                gatt.disconnect()
-                gatt.close()
-            }
+            t.close()
         }
-    }
-
-    /**
-     * Concatenate notifications until the link goes quiet for [quietMs] or [totalMs]
-     * elapses. Flattened rather than kept as separate frames because a long reply
-     * arrives split across notifications and the split is an artefact of the MTU.
-     */
-    private fun collect(
-        queue: LinkedBlockingQueue<ByteArray>,
-        totalMs: Long,
-        quietMs: Long,
-    ): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val start = System.nanoTime()
-        while ((System.nanoTime() - start) / 1_000_000 < totalMs) {
-            val next = queue.poll(quietMs, TimeUnit.MILLISECONDS)
-            if (next == null) {
-                if (out.size() > 0) break
-            } else {
-                out.write(next)
-            }
-        }
-        return out.toByteArray()
     }
 }
