@@ -974,17 +974,10 @@ object Drivers {
         }
 
         override fun read(t: Transport): AncMode? {
-            val body = exchangeFramed(t, SonyPayload.table1(0x66, TYPE)) ?: return null
-            // 67 02 <NcAsmEffect> 02 <NcDualSingleValue> 01 <AsmId> <ambient 0-20>
-            //
-            // ✅ Every byte is named now. The three that this file called "held 02 01 00
-            // in all three states and are not identified" are NcAsmSettingType.
-            // DUAL_SINGLE_OFF, AsmSettingType.LEVEL_ADJUSTMENT and AsmId — the last of
-            // which is Focus on Voice and moves. See [setFocusOnVoice].
-            if (body.size < 8 || body[0] != 0x67.toByte()) return null
+            val asm = current(t) ?: return null
             return when {
-                body[2] == 0x00.toByte() -> AncMode.OFF
-                body[4] == 0x00.toByte() -> AncMode.AMBIENT
+                !asm.on -> AncMode.OFF
+                !asm.noiseCancelling -> AncMode.AMBIENT
                 else -> AncMode.ANC
             }
         }
@@ -1008,7 +1001,7 @@ object Drivers {
          * Getting back required going through ambient. Hence the mode check below: this
          * refuses rather than sending a frame that would be silently dropped.
          */
-        fun readFocusOnVoice(t: Transport): Boolean? = focus(current(t) ?: return null)
+        fun readFocusOnVoice(t: Transport): Boolean? = current(t)?.focus
 
         /**
          * Voice guidance — the spoken prompts. ⚠ **Table 2**; see [SonyVoiceGuidance].
@@ -1044,41 +1037,66 @@ object Drivers {
          * one behind (#1107). The screen needs both, so the driver returns both.
          */
         fun readFocus(t: Transport): Focus {
-            val body = current(t) ?: return Focus(null, settable = false)
-            // Ambient means NcAsmEffect on with NcDualSingleValue off — the same two
-            // bytes [read] uses, and the same condition [setFocusOnVoice] enforces.
-            val ambient = body[2] != 0x00.toByte() && body[4] == 0x00.toByte()
-            return Focus(focus(body), settable = ambient)
+            val asm = current(t) ?: return Focus(null, settable = false)
+            return Focus(asm.focus, settable = asm.ambient)
         }
 
         fun setFocusOnVoice(t: Transport, on: Boolean): Confirmation<Boolean> {
             val before = current(t) ?: return Confirmation.Unverifiable
-            // ⚠ byte 4 is NcDualSingleValue; anything but OFF means noise cancelling is
-            // engaged and this setting is not the one in play.
-            if (before[4] != 0x00.toByte() || before[2] == 0x00.toByte()) {
-                return Confirmation.Contradicted(focus(before) ?: return Confirmation.Unverifiable)
+            // ⚠ Noise cancelling engaged, or the whole effect off: this setting is not
+            // the one in play.
+            if (!before.ambient) {
+                return Confirmation.Contradicted(before.focus ?: return Confirmation.Unverifiable)
             }
-            val want = before.copyOf()
-            want[0] = 0x68
-            want[6] = if (on) VOICE else NORMAL
-            exchangeFramed(t, SonyPayload.table1(*want))
-            val after = current(t)?.let(::focus)
+            exchangeFramed(t, before.withFocus(on))
+            val after = current(t)?.focus
             settle(t)
             return confirm(on, after)
         }
 
-        /** The whole `67 02 …` frame, or null if the device did not answer with one. */
-        private fun current(t: Transport): ByteArray? {
-            val body = exchangeFramed(t, SonyPayload.table1(0x66, TYPE)) ?: return null
-            return if (body.size >= 8 && body[0] == 0x67.toByte()) body else null
-        }
+        /** The `67 02 …` frame, or null if the device did not answer with one. */
+        private fun current(t: Transport): Asm? =
+            exchangeFramed(t, SonyPayload.table1(0x66, TYPE))?.let(Asm::of)
 
-        private fun focus(body: ByteArray): Boolean? =
-            when (body[6]) {
-                NORMAL -> false
-                VOICE -> true
-                else -> null
+        /**
+         * `67 02 <NcAsmEffect> 02 <NcDualSingleValue> 01 <AsmId> <ambient 0-20>`, read once.
+         *
+         * ✅ Every byte is named: the `02 01` between are NcAsmSettingType.DUAL_SINGLE_OFF
+         * and AsmSettingType.LEVEL_ADJUSTMENT, and AsmId is Focus on Voice.
+         */
+        private class Asm private constructor(
+            private val body: ByteArray,
+        ) {
+            /** NcAsmEffect: the whole noise control on or off. */
+            val on: Boolean get() = body[2] != 0x00.toByte()
+
+            /** NcDualSingleValue: anything but off is noise cancelling. */
+            val noiseCancelling: Boolean get() = body[4] != 0x00.toByte()
+
+            /** The mode Focus on Voice can move in. */
+            val ambient: Boolean get() = on && !noiseCancelling
+
+            val focus: Boolean?
+                get() =
+                    when (body[6]) {
+                        NORMAL -> false
+                        VOICE -> true
+                        else -> null
+                    }
+
+            /** This state written back with only AsmId changed. */
+            fun withFocus(voice: Boolean): SonyPayload {
+                val want = body.copyOf()
+                want[0] = 0x68
+                want[6] = if (voice) VOICE else NORMAL
+                return SonyPayload.table1(*want)
             }
+
+            companion object {
+                fun of(body: ByteArray): Asm? =
+                    if (body.size >= 8 && body[0] == 0x67.toByte()) Asm(body) else null
+            }
+        }
 
         /**
          * The equaliser, decoded 2026-08-16 (`docs/sony-settings.md`).
