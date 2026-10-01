@@ -61,7 +61,7 @@ object JblAutoOff {
      */
     private const val TRAILER: Byte = 0x00
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
+    fun get(): OutFrame = Bes.encode(Bes.STATUS_GET, FIELD)
 
     /** Decode `aa 22 04 33 <on> <minutes> <?>`, or null if it is not that. */
     fun state(reply: ByteArray): TimedOff? {
@@ -71,16 +71,7 @@ object JblAutoOff {
     }
 
     fun set(v: TimedOff): OutFrame =
-        OutFrame(
-            byteArrayOf(
-                Bes.HEADER,
-                SET,
-                0x03,
-                if (v.on) 0x01 else 0x00,
-                v.minutes.toByte(),
-                TRAILER,
-            ),
-        )
+        Bes.encode(SET, if (v.on) 0x01 else 0x00, v.minutes.toByte(), TRAILER)
 }
 
 /**
@@ -146,8 +137,7 @@ object JblEq {
     private const val GAIN = 1
     private const val FREQUENCY = 5
 
-    fun get(table: Byte = CURRENT): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x02, REQUEST, table))
+    fun get(table: Byte = CURRENT): OutFrame = Bes.encode(CMD, REQUEST, table)
 
     /**
      * Decode a ten-band user curve, or null.
@@ -335,7 +325,7 @@ object JblSafeSound {
     /** Where `SafeSoundCmd.setStatus` reads from, counting the `aa`. */
     private const val STATUS_AT = 5
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
+    fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
     fun state(reply: ByteArray): Boolean? {
         if (reply.size <= STATUS_AT) return null
@@ -403,10 +393,9 @@ object JblSpatial {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
+    fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
-    fun set(v: Spatial): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.mode.wire))
+    fun set(v: Spatial): OutFrame = Bes.encode(CMD, SET, if (v.on) 0x01 else 0x00, v.mode.wire)
 
     /**
      * The state a status frame reports, or null if this is not one.
@@ -477,10 +466,9 @@ object JblVoiceAware {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
+    fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
-    fun set(v: VoiceAware): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, v.level.wire, if (v.on) 0x01 else 0x00))
+    fun set(v: VoiceAware): OutFrame = Bes.encode(CMD, SET, v.level.wire, if (v.on) 0x01 else 0x00)
 
     /**
      * ⚠ Checks the command byte. `aa 9d 03 02 01 01` — Spatial Sound, on, Music — has
@@ -544,10 +532,9 @@ object JblSmartTalk {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
+    fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
-    fun set(v: SmartTalk): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (v.on) 0x01 else 0x00, v.timeout.wire))
+    fun set(v: SmartTalk): OutFrame = Bes.encode(CMD, SET, if (v.on) 0x01 else 0x00, v.timeout.wire)
 
     fun state(reply: ByteArray): SmartTalk? {
         if (reply.size < 6) return null
@@ -577,10 +564,9 @@ object JblLowVolumeEq {
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x01, 0x01))
+    fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
-    fun set(on: Boolean): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, LEN, SET, if (on) 0x01 else 0x00))
+    fun set(on: Boolean): OutFrame = Bes.encode(CMD, SET, if (on) 0x01 else 0x00)
 
     fun state(reply: ByteArray): Boolean? {
         if (reply.size < 5) return null
@@ -645,7 +631,7 @@ object JblSmartAv {
     private const val LEN: Byte = 0x08
     private const val AT = 3
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, GET, 0x00))
+    fun get(): OutFrame = Bes.encode(GET)
 
     /**
      * The payloads each mode carries, **per model**.
@@ -664,7 +650,7 @@ object JblSmartAv {
 
     fun set(v: SmartAv): OutFrame = set(v.bytes)
 
-    fun set(payload: ByteArray): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, SET, LEN) + payload)
+    fun set(payload: ByteArray): OutFrame = Bes.encode(SET, *payload)
 
     /**
      * ⚠ Returns null for a payload nobody has captured rather than guessing the
@@ -717,7 +703,7 @@ object JblFeature {
     private const val SET: Byte = 0x01
     private const val STATUS: Byte = 0x02
 
-    fun get(key: Key): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x03, GET, key.code, 0x00))
+    fun get(key: Key): OutFrame = Bes.encode(CMD, GET, key.code, 0x00)
 
     /**
      * ⚠ **Built and tested, never sent.** Flipping [Key.LE_AUDIO] renegotiates the link
@@ -725,7 +711,7 @@ object JblFeature {
      * in a settings read, and nothing wires it yet.
      */
     fun set(key: Key, on: Boolean): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x04, SET, key.code, 0x01, if (on) 0x01 else 0x00))
+        Bes.encode(CMD, SET, key.code, 0x01, if (on) 0x01 else 0x00)
 
     /**
      * The value [key] carries in a status reply, or null if this frame has no such key.
@@ -782,10 +768,10 @@ object JblBeeping {
                 Bud.LEFT -> if (on) START_LEFT else STOP_LEFT
                 Bud.RIGHT -> if (on) START_RIGHT else STOP_RIGHT
             }
-        return OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, v))
+        return Bes.encode(SET, v)
     }
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, GET, 0x00))
+    fun get(): OutFrame = Bes.encode(GET)
 
     /** Whatever the device claims, for the record — ⛔ NOT a confirmation. See above. */
     fun status(reply: ByteArray): Int? {
@@ -811,7 +797,7 @@ object JblInEar {
     private const val FIELD: Byte = 0x41
     private const val IN: Byte = 0x01
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
+    fun get(): OutFrame = Bes.encode(Bes.STATUS_GET, FIELD)
 
     /** Left to right, as the frame carries them, or null if this is not that reply. */
     fun state(reply: ByteArray): InEar? {
@@ -877,11 +863,11 @@ object JblEqPreset {
             0x08 to "Studio",
         )
 
-    fun get(): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, FIELD))
+    fun get(): OutFrame = Bes.encode(Bes.STATUS_GET, FIELD)
 
     fun set(preset: Int): OutFrame {
         require(preset in NAMES) { "preset $preset is not one of ${NAMES.keys}" }
-        return OutFrame(byteArrayOf(Bes.HEADER, SET, 0x01, preset.toByte()))
+        return Bes.encode(SET, preset.toByte())
     }
 
     /** The index out of an `aa 22 02 34 <idx>`, or null when that is not what arrived. */
@@ -901,6 +887,12 @@ object JblEqPreset {
 
 object Bes {
     const val HEADER: Byte = 0xaa.toByte()
+
+    /** `aa <cmd> <len> <payload…>`, with the length counted rather than typed. */
+    fun encode(cmd: Byte, vararg payload: Byte): OutFrame {
+        require(payload.size <= 0xff) { "a BES length is one byte: ${payload.size}" }
+        return OutFrame(byteArrayOf(HEADER, cmd, payload.size.toByte()) + payload)
+    }
 
     /** `aa 21 01 <field>` asks; `aa 22 <len> <field> <payload…>` answers. */
     const val STATUS_GET: Byte = 0x21
@@ -955,6 +947,24 @@ object Bes {
             at += 3 + (buffer[at + 2].toInt() and 0xff)
         }
         return null
+    }
+
+    /**
+     * Send [request] and hand [decode] the frame it is looking for. Every BES read and
+     * every write whose reply is the state goes through here.
+     *
+     * ⚠ **This exists because the buffer can begin with someone ELSE's frame.** See
+     * [Bes.frame]: an unsolicited battery notification lands in 1 reply in 8, and when
+     * it arrives first every decoder correctly returns null and a settings row silently
+     * disappears. #1154. The decoders were never wrong; they were being handed the
+     * wrong offset.
+     *
+     * ⚠ [decode] is applied to the whole buffer FIRST, so a reply that already starts
+     * where it should behaves exactly as it did before this was added.
+     */
+    fun <T> ask(t: Transport, request: OutFrame, decode: (ByteArray) -> T?): T? {
+        val buffer = t.exchange(request)
+        return decode(buffer) ?: frame(buffer) { decode(it) != null }?.let(decode)
     }
 
     /**

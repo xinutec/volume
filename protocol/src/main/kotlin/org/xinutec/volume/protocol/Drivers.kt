@@ -446,23 +446,26 @@ object Drivers {
          * `< 9` while the byte it now reads is index 9, which needs 10.
          */
         override fun read(t: Transport): AncMode? {
-            val r = t.exchange(OutFrame(byteArrayOf(0xaa.toByte(), 0x91.toByte(), 0x01, 0x11)))
             // ⚠ **The command byte is checked, not just the `aa`.** Every frame this
             // chip sends starts `aa`, including the `aa b1` GetSetFeature poll it
             // runs every four seconds, so `aa` alone admits any of them — and the TLV slots would
             // then be read out of a frame about the battery. Being strict turns a
             // confident wrong mode into an honest "cannot say".
-            if (r.size < 10 || r[0] != 0xaa.toByte() || r[1] != 0x91.toByte()) return null
-            return when {
-                r[5] == 0x01.toByte() -> AncMode.ANC
-                r[7] == 0x01.toByte() -> AncMode.AMBIENT
-                r[9] == 0x01.toByte() -> AncMode.TALK_THRU
-                else -> AncMode.OFF
+            return Bes.ask(t, Bes.encode(ANC_CMD, 0x11)) { r ->
+                if (r.size < 10 || r[0] != Bes.HEADER || r[1] != ANC_CMD) return@ask null
+                when {
+                    r[5] == 0x01.toByte() -> AncMode.ANC
+                    r[7] == 0x01.toByte() -> AncMode.AMBIENT
+                    r[9] == 0x01.toByte() -> AncMode.TALK_THRU
+                    else -> AncMode.OFF
+                }
             }
         }
 
+        private const val ANC_CMD: Byte = 0x91.toByte()
+
         /** `aa 11` asks; [Bes.name] decodes the reply — shared with the LIVE PRO 2. */
-        override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
+        override fun name(t: Transport): String? = Bes.ask(t, OutFrame(Bes.NAME_GET), Bes::name)
 
         override fun write(t: Transport, mode: AncMode) {
             val anc = if (mode == AncMode.ANC) 1 else 0
@@ -471,42 +474,21 @@ object Drivers {
             // device reports the state and how its app writes it.
             val talk = if (mode == AncMode.TALK_THRU) 1 else 0
             t.exchange(
-                OutFrame(
-                    byteArrayOf(
-                        0xaa.toByte(),
-                        0x91.toByte(),
-                        0x07,
-                        0x10,
-                        0x01,
-                        anc.toByte(),
-                        0x02,
-                        amb.toByte(),
-                        0x03,
-                        talk.toByte(),
-                    ),
+                Bes.encode(
+                    ANC_CMD,
+                    0x10,
+                    0x01,
+                    anc.toByte(),
+                    0x02,
+                    amb.toByte(),
+                    0x03,
+                    talk.toByte(),
                 ),
             )
         }
 
-        /**
-         * Ask, then hand the decoder the frame it is looking for.
-         *
-         * ⚠ **This exists because the buffer can begin with someone ELSE's frame.** See
-         * [Bes.frame]: an unsolicited battery notification lands in 1 reply in 8, and when
-         * it arrives first every decoder correctly returns null and a settings row silently
-         * disappears. #1154. The decoders were never wrong; they were being handed the
-         * wrong offset.
-         *
-         * ⚠ [decode] is applied to the whole buffer FIRST, so a reply that already starts
-         * where it should behaves exactly as it did before this was added.
-         */
-        private fun <T> ask(t: Transport, request: OutFrame, decode: (ByteArray) -> T?): T? {
-            val buffer = t.exchange(request)
-            return decode(buffer) ?: Bes.frame(buffer) { decode(it) != null }?.let(decode)
-        }
-
         override fun readAutoOff(t: Transport): TimedOff? =
-            ask(t, JblAutoOff.get(), JblAutoOff::state)
+            Bes.ask(t, JblAutoOff.get(), JblAutoOff::state)
 
         /**
          * Send it, and say nothing about whether it took.
@@ -520,13 +502,13 @@ object Drivers {
             t.exchange(JblAutoOff.set(v))
         }
 
-        fun readCurve(t: Transport): EqCurve? = ask(t, JblEq.get(), JblEq::curve)
+        fun readCurve(t: Transport): EqCurve? = Bes.ask(t, JblEq.get(), JblEq::curve)
 
         /** ⚠ Read only, deliberately — [JblSafeSound] says why there is no writer. */
         fun readVolumeLimit(t: Transport): Boolean? =
-            ask(t, JblSafeSound.get(), JblSafeSound::state)
+            Bes.ask(t, JblSafeSound.get(), JblSafeSound::state)
 
-        fun readSpatial(t: Transport): Spatial? = ask(t, JblSpatial.get(), JblSpatial::state)
+        fun readSpatial(t: Transport): Spatial? = Bes.ask(t, JblSpatial.get(), JblSpatial::state)
 
         /**
          * Write both the switch and the mode, and return what the device then reports.
@@ -542,43 +524,43 @@ object Drivers {
          * app's mode buttons switch the feature on.
          */
         internal fun writeSpatial(t: Transport, v: Spatial): Spatial? =
-            JblSpatial.state(t.exchange(JblSpatial.set(v)))
+            Bes.ask(t, JblSpatial.set(v), JblSpatial::state)
 
         override fun readVoiceAware(t: Transport): VoiceAware? =
-            ask(t, JblVoiceAware.get(), JblVoiceAware::state)
+            Bes.ask(t, JblVoiceAware.get(), JblVoiceAware::state)
 
         /** Level and switch in one frame, and the reply is the read-back — as [writeSpatial]. */
         internal fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
-            JblVoiceAware.state(t.exchange(JblVoiceAware.set(v)))
+            Bes.ask(t, JblVoiceAware.set(v), JblVoiceAware::state)
 
         fun readSmartTalk(t: Transport): SmartTalk? =
-            ask(t, JblSmartTalk.get(), JblSmartTalk::state)
+            Bes.ask(t, JblSmartTalk.get(), JblSmartTalk::state)
 
         /** Switch and hold in one frame, and the reply is the read-back — as [writeSpatial]. */
         internal fun writeSmartTalk(t: Transport, v: SmartTalk): SmartTalk? =
-            JblSmartTalk.state(t.exchange(JblSmartTalk.set(v)))
+            Bes.ask(t, JblSmartTalk.set(v), JblSmartTalk::state)
 
         fun readLowVolumeEq(t: Transport): Boolean? =
-            ask(t, JblLowVolumeEq.get(), JblLowVolumeEq::state)
+            Bes.ask(t, JblLowVolumeEq.get(), JblLowVolumeEq::state)
 
         internal fun writeLowVolumeEq(t: Transport, on: Boolean): Boolean? =
-            JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.set(on)))
+            Bes.ask(t, JblLowVolumeEq.set(on), JblLowVolumeEq::state)
 
         override fun readSmartAv(t: Transport): SmartAv? =
-            ask(t, JblSmartAv.get(), JblSmartAv::state)
+            Bes.ask(t, JblSmartAv.get(), JblSmartAv::state)
 
         override fun readGestures(t: Transport): Map<Gesture, GestureAction>? =
-            ask(t, JblGestures.get(), JblGestures::state)
+            Bes.ask(t, JblGestures.get(), JblGestures::state)
 
         /**
          * ⚠ **Returns the charge AND whether the cups agreed**, because both come off the
          * same frame. [JblBattery.cupsDiffer] is the warrant for reading one byte as the
          * pair's charge, and a caller that never sees it prints an unattributable number.
          */
-        fun readCharge(t: Transport): JblCharge? = ask(t, JblBattery.get(), JblBattery::charge)
+        fun readCharge(t: Transport): JblCharge? = Bes.ask(t, JblBattery.get(), JblBattery::charge)
 
         override fun readAutoPlay(t: Transport): Boolean? =
-            ask(t, JblAutoPlay.get(), JblAutoPlay::state)
+            Bes.ask(t, JblAutoPlay.get(), JblAutoPlay::state)
 
         /**
          * ⚠ **The reply to the set is an ACK, not the state** — `aa 00 02 35 <on>` — so
@@ -590,14 +572,14 @@ object Drivers {
         }
 
         override fun readBalance(t: Transport): Balance? =
-            ask(t, JblBalance.get(), JblBalance::state)
+            Bes.ask(t, JblBalance.get(), JblBalance::state)
 
         /** The level goes back as it was read — [Balance] says why it is not offered. */
         internal fun writeBalance(t: Transport, v: Balance): Balance? =
-            JblBalance.state(t.exchange(JblBalance.set(v)))
+            Bes.ask(t, JblBalance.set(v), JblBalance::state)
 
         /** ⚠ Read only, deliberately — see [JblPsap]. */
-        fun readPsap(t: Transport): Boolean? = ask(t, JblPsap.get(), JblPsap::state)
+        fun readPsap(t: Transport): Boolean? = Bes.ask(t, JblPsap.get(), JblPsap::state)
 
         /**
          * Bind [g] to [want], and put [was] back if the device refuses.
@@ -622,7 +604,7 @@ object Drivers {
             was: GestureAction,
         ): GestureWrite {
             val got =
-                JblGestures.changed(t.exchange(JblGestures.set(g, want)), g)
+                Bes.ask(t, JblGestures.set(g, want)) { JblGestures.changed(it, g) }
                     ?: return GestureWrite.Unanswered
             if (got == want) return GestureWrite.Took(got)
             // ⚠ Nothing to restore into an empty slot — and writing NONE over NONE would
@@ -631,7 +613,7 @@ object Drivers {
                 return GestureWrite.RefusedAndRestored(want, GestureAction.NONE)
             }
             val back =
-                JblGestures.changed(t.exchange(JblGestures.set(g, was)), g)
+                Bes.ask(t, JblGestures.set(g, was)) { JblGestures.changed(it, g) }
                     ?: return GestureWrite.RefusedAndLost(want, was)
             return if (back == was) {
                 GestureWrite.RefusedAndRestored(want, back)
@@ -642,11 +624,11 @@ object Drivers {
 
         /** Voice Prompts' switch. ⚠ Read only — [JblVoicePrompts] says why. */
         override fun readVoicePrompts(t: Transport): Boolean? =
-            ask(t, JblVoicePrompts.get(), JblVoicePrompts::state)
+            Bes.ask(t, JblVoicePrompts.get(), JblVoicePrompts::state)
 
         /** Customize ANC. ⚠ Read only — [JblAdvancedAnc] says why there is no writer. */
         override fun readAdvancedAnc(t: Transport): AdvancedAnc? =
-            ask(t, JblAdvancedAnc.get(), JblAdvancedAnc::state)
+            Bes.ask(t, JblAdvancedAnc.get(), JblAdvancedAnc::state)
 
         /**
          * One key out of the `aa b1` feature bag — [JblFeature.Key.LE_AUDIO] and
@@ -657,7 +639,7 @@ object Drivers {
          * vendor SDK's list form buys nothing on this firmware.
          */
         fun readFeature(t: Transport, key: JblFeature.Key): Boolean? =
-            ask(t, JblFeature.get(key)) { JblFeature.state(it, key) }
+            Bes.ask(t, JblFeature.get(key)) { JblFeature.state(it, key) }
 
         /**
          * Switch the pair off. ⚠ **Ends the session**; see [JblPowerOff].
@@ -670,7 +652,7 @@ object Drivers {
         }
 
         internal fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
-            JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
+            Bes.ask(t, JblSmartAv.set(v), JblSmartAv::state)
 
         /**
          * Read the curve, write [table] and [gains] into that frame, and read back.
@@ -776,8 +758,7 @@ object Drivers {
         private const val ON: Byte = 0x01
 
         override fun read(t: Transport): AncMode? {
-            val ask = byteArrayOf(Bes.HEADER, Bes.STATUS_GET, 0x01, ANC_STATUS)
-            val buffer = t.exchange(OutFrame(ask))
+            val buffer = t.exchange(Bes.encode(Bes.STATUS_GET, ANC_STATUS))
             // ⚠ The ANC field is the one asked for, so its absence means the reply is
             // not an answer to this — a battery notification, or nothing at all.
             val anc = field(buffer, ANC_STATUS) ?: return null
@@ -791,17 +772,17 @@ object Drivers {
         override fun write(t: Transport, mode: AncMode) {
             val frame =
                 when (mode) {
-                    AncMode.OFF -> byteArrayOf(Bes.HEADER, SET_ANC, 0x01, 0x00)
-                    AncMode.ANC -> byteArrayOf(Bes.HEADER, SET_ANC, 0x01, ON)
+                    AncMode.OFF -> Bes.encode(SET_ANC, 0x00)
+                    AncMode.ANC -> Bes.encode(SET_ANC, ON)
                     AncMode.AMBIENT -> advanced(ambient = ON, talkThru = 0)
                     AncMode.TALK_THRU -> advanced(ambient = 0, talkThru = ON)
                     AncMode.ANC_LOW -> throw IllegalArgumentException("the LIVE PRO 2 has no $mode")
                 }
-            t.exchange(OutFrame(frame))
+            t.exchange(frame)
         }
 
         /** `aa 11` asks; [Bes.name] decodes. Identical on this model and the M2. */
-        override fun name(t: Transport): String? = Bes.name(t.exchange(OutFrame(Bes.NAME_GET)))
+        override fun name(t: Transport): String? = Bes.ask(t, OutFrame(Bes.NAME_GET), Bes::name)
 
         /**
          * This model's Audio/Video payloads — see [JblSmartAv.TOUR_ONE_M2] for why they
@@ -840,7 +821,7 @@ object Drivers {
         }
 
         /** Which buds are being worn — the guard [findBud] needs, and much else. */
-        fun readInEar(t: Transport): InEar? = JblInEar.state(t.exchange(JblInEar.get()))
+        fun readInEar(t: Transport): InEar? = Bes.ask(t, JblInEar.get(), JblInEar::state)
 
         /**
          * Start or stop the locating tone on one bud.
@@ -860,7 +841,7 @@ object Drivers {
         /**
          * Charge, from the frame the vendor app asks with — see [JblBattery.getSdk].
          *
-         * ⚠ **Walks the buffer, for the reason [JblBes.ask] does.** A reply can begin
+         * ⚠ **Walks the buffer, for the reason [Bes.ask] does.** A reply can begin
          * with a frame nobody asked for, and every decoder here checks its command byte
          * and correctly returns null when handed the wrong offset. Reading this with a
          * bare `exchange` put no battery on the card at all while the device was
@@ -880,7 +861,7 @@ object Drivers {
          * decode. An empty list draws no band sliders; a made-up one would draw ten.
          */
         override fun readEq(t: Transport): EqSetting? =
-            JblEqPreset.state(t.exchange(JblEqPreset.get()))?.let { EqSetting(it, emptyList()) }
+            Bes.ask(t, JblEqPreset.get(), JblEqPreset::state)?.let { EqSetting(it, emptyList()) }
 
         /**
          * ⚠ **`aa 40` answers NOTHING — not an ack, not an echo.** So the write cannot
@@ -900,18 +881,7 @@ object Drivers {
          * Ambient, four reads over three seconds. [SET_ANC] is the route for ANC.
          */
         private fun advanced(ambient: Byte, talkThru: Byte) =
-            byteArrayOf(
-                Bes.HEADER,
-                0x91.toByte(),
-                0x07,
-                0x10,
-                0x01,
-                0x00,
-                0x02,
-                ambient,
-                0x03,
-                talkThru,
-            )
+            Bes.encode(0x91.toByte(), 0x10, 0x01, 0x00, 0x02, ambient, 0x03, talkThru)
 
         /**
          * One status field out of a reply that carries several, concatenated.
