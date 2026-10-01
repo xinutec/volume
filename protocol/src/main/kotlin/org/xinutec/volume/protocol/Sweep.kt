@@ -49,10 +49,23 @@ object Sweep {
             codes.map { c -> OutFrame(byteArrayOf(g.toByte(), c.toByte(), 0x00, 0x00)) }
         }
 
-    fun packets(protocol: String, blocks: IntRange, functions: IntRange): List<OutFrame> =
-        when (protocol.lowercase()) {
-            "bose" -> bose(blocks, functions)
-            "fastpair" -> fastPair(blocks, functions)
-            else -> throw IllegalArgumentException("unknown sweep protocol '$protocol'")
+    /** ⚠ Refuses a protocol with no sweep here: the Sony's tables are not walked. */
+    fun packets(
+        protocol: Channels.Protocol,
+        blocks: IntRange,
+        functions: IntRange,
+    ): List<OutFrame> =
+        when (protocol) {
+            Channels.Protocol.BOSE -> {
+                bose(blocks, functions)
+            }
+
+            Channels.Protocol.FAST_PAIR -> {
+                fastPair(blocks, functions)
+            }
+
+            Channels.Protocol.SONY_FRAMED, Channels.Protocol.NONE -> {
+                throw IllegalArgumentException("no sweep for $protocol")
+            }
         }
 }

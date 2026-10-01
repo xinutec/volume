@@ -14,12 +14,16 @@ import org.xinutec.volume.protocol.Transport
 import java.io.Closeable
 import java.util.UUID
 
+/** A channel to a device that stays open until closed. */
+interface Link :
+    Transport,
+    Closeable
+
 /** An open connection to a headphone, plus what it turned out to be. */
 class Session(
     val headphones: Headphones,
-    val transport: Transport,
-    private val closeable: Closeable,
-) : Closeable by closeable
+    val transport: Link,
+) : Closeable by transport
 
 /**
  * Getting from "a bonded device" to "a driver on an open channel".
@@ -108,7 +112,6 @@ object Control {
                 driver,
             ),
             t,
-            t,
         )
     }
 
@@ -156,7 +159,7 @@ object Control {
                     null
                 } else {
                     runCatching { h.driver.prepare(t) }
-                    Session(h, t, t)
+                    Session(h, t)
                 }
             }
 
@@ -182,7 +185,7 @@ object Control {
                         null
                     } else {
                         runCatching { h.driver.prepare(t) }
-                        Session(h, t, t)
+                        Session(h, t)
                     }
                 }
             }

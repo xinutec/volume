@@ -1136,8 +1136,8 @@ class DriversTest {
                 "aa b1 03 00 01 00" to "aa b1 04 02 01 01 00",
                 "aa b1 03 00 02 00" to "aa b1 04 02 02 01 01",
             )
-        assertEquals(false, Drivers.JblBes.readFeature(t, JblFeature.LE_AUDIO))
-        assertEquals(true, Drivers.JblBes.readFeature(t, JblFeature.AURACAST))
+        assertEquals(false, Drivers.JblBes.readFeature(t, JblFeature.Key.LE_AUDIO))
+        assertEquals(true, Drivers.JblBes.readFeature(t, JblFeature.Key.AURACAST))
         t.assertDrained()
     }
 
@@ -1149,7 +1149,7 @@ class DriversTest {
     @Test
     fun `jbl feature read returns null when the reply names a different key`() {
         val t = Replay("aa b1 03 00 02 00" to "aa b1 04 02 01 01 01")
-        assertNull(Drivers.JblBes.readFeature(t, JblFeature.AURACAST))
+        assertNull(Drivers.JblBes.readFeature(t, JblFeature.Key.AURACAST))
         t.assertDrained()
     }
 

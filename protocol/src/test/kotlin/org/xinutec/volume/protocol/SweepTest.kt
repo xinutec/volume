@@ -75,7 +75,7 @@ class SweepTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `an unknown protocol is refused rather than defaulted`() {
-        Sweep.packets("sony", 0..1, 0..1)
+    fun `a protocol with no sweep is refused rather than defaulted`() {
+        Sweep.packets(Channels.Protocol.SONY_FRAMED, 0..1, 0..1)
     }
 }

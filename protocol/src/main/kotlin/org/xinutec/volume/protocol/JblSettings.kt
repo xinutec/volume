@@ -704,23 +704,28 @@ object JblSmartAv {
 object JblFeature {
     const val CMD: Byte = 0xb1.toByte()
 
-    /** ⚠ Renegotiates the audio link when it changes — see [LeAudioRow]. */
-    const val LE_AUDIO: Byte = 0x01
-    const val AURACAST: Byte = 0x02
+    /** The keys in the bag that are named; the rest are walked past. */
+    enum class Key(
+        val code: Byte,
+    ) {
+        /** ⚠ Renegotiates the audio link when it changes — see [LeAudioRow]. */
+        LE_AUDIO(0x01),
+        AURACAST(0x02),
+    }
 
     private const val GET: Byte = 0x00
     private const val SET: Byte = 0x01
     private const val STATUS: Byte = 0x02
 
-    fun get(key: Byte): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x03, GET, key, 0x00))
+    fun get(key: Key): OutFrame = OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x03, GET, key.code, 0x00))
 
     /**
-     * ⚠ **Built and tested, never sent.** Flipping [LE_AUDIO] renegotiates the link
+     * ⚠ **Built and tested, never sent.** Flipping [Key.LE_AUDIO] renegotiates the link
      * this app is talking over, so it belongs behind a deliberate control rather than
      * in a settings read, and nothing wires it yet.
      */
-    fun set(key: Byte, on: Boolean): OutFrame =
-        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x04, SET, key, 0x01, if (on) 0x01 else 0x00))
+    fun set(key: Key, on: Boolean): OutFrame =
+        OutFrame(byteArrayOf(Bes.HEADER, CMD, 0x04, SET, key.code, 0x01, if (on) 0x01 else 0x00))
 
     /**
      * The value [key] carries in a status reply, or null if this frame has no such key.
@@ -729,7 +734,10 @@ object JblFeature {
      * several, and a reader that assumed one would silently return the wrong key's
      * value the first time the firmware sent two.
      */
-    fun state(reply: ByteArray, key: Byte): Boolean? {
+    fun state(reply: ByteArray, key: Key): Boolean? = state(reply, key.code)
+
+    /** [state] for any key byte, so a test can walk past ones that are not named. */
+    internal fun state(reply: ByteArray, key: Byte): Boolean? {
         if (reply.size < 4) return null
         if (reply[0] != Bes.HEADER || reply[1] != CMD || reply[3] != STATUS) return null
         val end = minOf(reply.size, 3 + (reply[2].toInt() and 0xff))

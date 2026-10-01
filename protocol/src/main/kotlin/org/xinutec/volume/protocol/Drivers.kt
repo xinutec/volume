@@ -662,14 +662,14 @@ object Drivers {
             ask(t, JblAdvancedAnc.get(), JblAdvancedAnc::state)
 
         /**
-         * One key out of the `aa b1` feature bag — [JblFeature.LE_AUDIO] and
-         * [JblFeature.AURACAST] are the two that are named.
+         * One key out of the `aa b1` feature bag — [JblFeature.Key.LE_AUDIO] and
+         * [JblFeature.Key.AURACAST] are the two that are named.
          *
          * ⚠ **One key per exchange, because a get answers about the FIRST key only** —
          * measured 2026-08-17: asking `01` and `02` together returned `01` alone. The
          * vendor SDK's list form buys nothing on this firmware.
          */
-        fun readFeature(t: Transport, key: Byte): Boolean? =
+        fun readFeature(t: Transport, key: JblFeature.Key): Boolean? =
             ask(t, JblFeature.get(key)) { JblFeature.state(it, key) }
 
         /**

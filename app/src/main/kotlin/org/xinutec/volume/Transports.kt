@@ -12,7 +12,6 @@ import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import org.xinutec.volume.protocol.OutFrame
 import org.xinutec.volume.protocol.Transport
-import java.io.Closeable
 import java.io.IOException
 import java.io.InputStream
 import java.util.UUID
@@ -42,8 +41,7 @@ class RfcommTransport private constructor(
      * be guessing at the one protocol here that has already punished guessing.
      */
     private var finished: ((sent: ByteArray, got: ByteArray) -> Boolean)? = null,
-) : Transport,
-    Closeable {
+) : Link {
     companion object {
         /**
          * Open [uuid] on [device], draining whatever it volunteers on connect.
@@ -198,8 +196,7 @@ class GattTransport private constructor(
     private val writes: WriteAcks,
     private val perMs: Long,
     private val quietMs: Long,
-) : Transport,
-    Closeable {
+) : Link {
     /** The outcome of the write in flight, as the GATT callback reports it. */
     private class WriteAcks {
         @Volatile private var pending = CountDownLatch(0)

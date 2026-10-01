@@ -125,22 +125,39 @@ object Channels {
     }
 
     /**
-     * @param channel the UUID to actually open, or null when there is nothing to talk to.
-     * @param basis how the vendor was decided — printed, because a name-based guess
-     *   and a UUID match deserve different amounts of trust from whoever reads it.
+     * What a device's advertisement says about how to talk to it.
+     *
+     * [basis] is how the vendor was decided — printed, because a name-based guess and
+     * a UUID match deserve different amounts of trust from whoever reads it.
      */
-    data class Detection(
-        val vendor: Vendor,
-        val channel: String?,
-        val protocol: Protocol,
-        val basis: String,
-    ) {
-        override fun toString(): String =
-            if (channel == null) {
-                "$vendor ($basis)"
-            } else {
-                "$vendor / $protocol via $channel ($basis)"
-            }
+    sealed interface Detection {
+        val vendor: Vendor
+        val basis: String
+
+        /** The UUID to open, or null when there is nothing to talk to. */
+        val channel: String?
+        val protocol: Protocol
+
+        /** A channel to open, and how to speak on it — [Protocol.NONE] when nothing here can. */
+        data class Open(
+            override val vendor: Vendor,
+            override val channel: String,
+            override val protocol: Protocol,
+            override val basis: String,
+        ) : Detection {
+            override fun toString(): String = "$vendor / $protocol via $channel ($basis)"
+        }
+
+        /** Nothing advertised that this repo can talk to. */
+        data class Silent(
+            override val vendor: Vendor,
+            override val basis: String,
+        ) : Detection {
+            override val channel: String? get() = null
+            override val protocol: Protocol get() = Protocol.NONE
+
+            override fun toString(): String = "$vendor ($basis)"
+        }
     }
 
     fun detect(name: String, uuids: Set<String>): Detection {
@@ -149,10 +166,10 @@ object Channels {
 
         // Unique markers first: a UUID match is the only evidence that cannot be
         // coincidence. Note the channel is not always the marker.
-        if (SONY in u) return Detection(Vendor.SONY, SONY, Protocol.SONY_FRAMED, "unique uuid")
+        if (SONY in u) return Detection.Open(Vendor.SONY, SONY, Protocol.SONY_FRAMED, "unique uuid")
         if (BOSE_MUSIC in u) {
             // Identified by 9b26d8c0, but talked to over SPP. Driven and confirmed.
-            return Detection(Vendor.BOSE, SPP, Protocol.BOSE, "unique uuid, speaks on spp")
+            return Detection.Open(Vendor.BOSE, SPP, Protocol.BOSE, "unique uuid, speaks on spp")
         }
 
         // Fast Pair. Every certified device has it, so it names no vendor — the name
@@ -166,25 +183,30 @@ object Channels {
                     else -> Vendor.UNKNOWN
                 }
             val basis = if (who == Vendor.UNKNOWN) "fast pair, vendor unnamed" else "name"
-            return Detection(who, FAST_PAIR, Protocol.FAST_PAIR, basis)
+            return Detection.Open(who, FAST_PAIR, Protocol.FAST_PAIR, basis)
         }
 
         // A JLab without Fast Pair: what is left is an OTA service and one unknown,
         // neither of which answers, so there is nothing to connect to.
         if (BES_OTA in u || JLAB_UNIDENTIFIED in u) {
-            return Detection(Vendor.JLAB, null, Protocol.NONE, "only silent uuids")
+            return Detection.Silent(Vendor.JLAB, "only silent uuids")
         }
 
         // A Bose QC35 advertises plain SPP and nothing else that identifies it, so
         // the name is all there is — and the answer says so.
         if (SPP in u) {
             return if ("bose" in n) {
-                Detection(Vendor.BOSE, SPP, Protocol.BOSE, "name, spp is ambiguous")
+                Detection.Open(Vendor.BOSE, SPP, Protocol.BOSE, "name, spp is ambiguous")
             } else {
-                Detection(Vendor.UNKNOWN, SPP, Protocol.NONE, "spp present, vendor unidentified")
+                Detection.Open(
+                    Vendor.UNKNOWN,
+                    SPP,
+                    Protocol.NONE,
+                    "spp present, vendor unidentified",
+                )
             }
         }
-        return Detection(Vendor.UNKNOWN, null, Protocol.NONE, "no control channel advertised")
+        return Detection.Silent(Vendor.UNKNOWN, "no control channel advertised")
     }
 
     /** A trailing note for the `list` output, so a reader is not left guessing. */

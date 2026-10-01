@@ -361,7 +361,12 @@ class Probes(
     private fun sweep(adapter: android.bluetooth.BluetoothAdapter, intent: Intent) {
         val mac = intent.getStringExtra("mac")
         val uuid = intent.getStringExtra("uuid")
-        val proto = intent.getStringExtra("proto")
+        val proto =
+            when (intent.getStringExtra("proto")?.lowercase()) {
+                "bose" -> Channels.Protocol.BOSE
+                "fastpair" -> Channels.Protocol.FAST_PAIR
+                else -> null
+            }
         if (mac == null || uuid == null || proto == null) {
             emit("sweep needs --es mac, --es uuid and --es proto (bose|fastpair)")
             return

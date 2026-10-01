@@ -491,8 +491,8 @@ class DeviceController(
                     val psap = Drivers.JblBes.readPsap(t)
                     val advancedAnc = Drivers.JblBes.readAdvancedAnc(t)
                     val prompts = Drivers.JblBes.readVoicePrompts(t)
-                    val leAudio = Drivers.JblBes.readFeature(t, JblFeature.LE_AUDIO)
-                    val auracast = Drivers.JblBes.readFeature(t, JblFeature.AURACAST)
+                    val leAudio = Drivers.JblBes.readFeature(t, JblFeature.Key.LE_AUDIO)
+                    val auracast = Drivers.JblBes.readFeature(t, JblFeature.Key.AURACAST)
                     listOf(
                         curve?.let(::CurveEqRow),
                         timer?.let(::IdleTimerRow),

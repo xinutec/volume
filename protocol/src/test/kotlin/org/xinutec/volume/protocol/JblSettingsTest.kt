@@ -322,8 +322,8 @@ class JblSettingsTest {
         // byte only — which is what makes them worth having as a pair.
         val leAudio = bytes(JblFrames.FEATURE_LE_AUDIO_OFF)
         val auracast = bytes(JblFrames.FEATURE_AURACAST_ON)
-        assertEquals(false, JblFeature.state(leAudio, JblFeature.LE_AUDIO))
-        assertEquals(true, JblFeature.state(auracast, JblFeature.AURACAST))
+        assertEquals(false, JblFeature.state(leAudio, JblFeature.Key.LE_AUDIO))
+        assertEquals(true, JblFeature.state(auracast, JblFeature.Key.AURACAST))
     }
 
     /**
@@ -336,8 +336,8 @@ class JblSettingsTest {
     fun `a key that is not in the frame is unknown, not false`() {
         val leAudio = bytes(JblFrames.FEATURE_LE_AUDIO_OFF)
         val auracast = bytes(JblFrames.FEATURE_AURACAST_ON)
-        assertNull(JblFeature.state(auracast, JblFeature.LE_AUDIO))
-        assertNull(JblFeature.state(leAudio, JblFeature.AURACAST))
+        assertNull(JblFeature.state(auracast, JblFeature.Key.LE_AUDIO))
+        assertNull(JblFeature.state(leAudio, JblFeature.Key.AURACAST))
     }
 
     /**
@@ -369,7 +369,7 @@ class JblSettingsTest {
     @Test
     fun `a trailing frame that parses as a triple is still out of bounds`() {
         val trap = bytes("aab10402010100050101")
-        assertEquals(false, JblFeature.state(trap, JblFeature.LE_AUDIO))
+        assertEquals(false, JblFeature.state(trap, JblFeature.Key.LE_AUDIO))
         assertNull(JblFeature.state(trap, 0x05))
     }
 
@@ -377,11 +377,11 @@ class JblSettingsTest {
     fun `the feature frames are the ones the vendor app builds`() {
         // Byte-identical to GetSetFeatureCmd.getLeAudioStatus / getAuracastStatus,
         // and getLeAudioStatus is the one confirmed against the device.
-        assertEquals("aab103000100", hex(JblFeature.get(JblFeature.LE_AUDIO).bytes))
-        assertEquals("aab103000200", hex(JblFeature.get(JblFeature.AURACAST).bytes))
+        assertEquals("aab103000100", hex(JblFeature.get(JblFeature.Key.LE_AUDIO).bytes))
+        assertEquals("aab103000200", hex(JblFeature.get(JblFeature.Key.AURACAST).bytes))
         // setLeAudioStatus(true) — built, never sent. See [JblFeature.set].
-        assertEquals("aab10401010101", hex(JblFeature.set(JblFeature.LE_AUDIO, true).bytes))
-        assertEquals("aab10401010100", hex(JblFeature.set(JblFeature.LE_AUDIO, false).bytes))
+        assertEquals("aab10401010101", hex(JblFeature.set(JblFeature.Key.LE_AUDIO, true).bytes))
+        assertEquals("aab10401010100", hex(JblFeature.set(JblFeature.Key.LE_AUDIO, false).bytes))
     }
 
     // ---- spatial sound -----------------------------------------------------
