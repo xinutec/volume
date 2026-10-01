@@ -29,7 +29,7 @@ interface ThothTransport {
  * The Mac answered, and the answer was no.
  *
  * ⚠ [reason] is the server's own words and is meant to be SHOWN — swallowing it turns
- * an explained refusal into a control that silently did nothing. ⚠ The volume ceiling
+ * an explained refusal into a control that silently did nothing. The volume ceiling
  * was the refusal this was written for and it was removed; what reaches
  * here now is a malformed body or an unknown cabinet.
  */
@@ -119,7 +119,7 @@ object ThothWire {
     fun cabinet(json: String): ThothCabinet = cabinet(JSONObject(json))
 
     /**
-     * ⚠ `raw` and `steps` are read through [JSONObject.has] rather than `optInt`, whose absent
+     * `raw` and `steps` are read through [JSONObject.has] rather than `optInt`, whose absent
      * value is 0 — which is also a real reading. A cabinet sitting at silence and a
      * cabinet that reported no level are not the same cabinet.
      */

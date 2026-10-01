@@ -8,7 +8,7 @@ package org.xinutec.volume.protocol
  * different action; "left button → next track" does not. #1038 asked for it as
  * dry-run-by-default, and the value is entirely in the reading, not in the sending.
  *
- * ⚠⚠ **An unknown command MUST read as unknown.** This text is consulted INSTEAD of the
+ * **An unknown command MUST read as unknown.** This text is consulted INSTEAD of the
  * bytes — that is the point of it — so a guessed name does not merely mislead, it sends
  * the wrong frame wearing a confident label. Every path here either names something it
  * can derive or says plainly that it cannot. There is no "probably".
@@ -17,7 +17,7 @@ object Frames {
     /**
      * The BES commands this repo has actually decoded.
      *
-     * ⚠ **Hand-maintained, and that is a known cost** — a new `JblXxx` object added
+     * **Hand-maintained, and that is a known cost** — a new `JblXxx` object added
      * without a line here reads as "unknown command", which is the SAFE direction: it
      * degrades to honest hex rather than to a wrong name. Deriving it would need
      * reflection over the objects, which this module deliberately does not use.
@@ -84,20 +84,20 @@ object Frames {
     }
 
     /**
-     * ⚠⚠ **DIRECTION IS DECIDED BY THE COMMAND BYTE, NEVER BY SHAPE.** A BES getter and its
+     * ⚠ **DIRECTION IS DECIDED BY THE COMMAND BYTE, NEVER BY SHAPE.** A BES getter and its
      * setter are the same size: `JblAutoPlay.get()` is `aa 21 01 38` and `set(true)` is
      * `aa 35 01 01` — both four bytes with `01` at index 2. **Reading that shape calls the
      * SETTER a "read"**, which is the worst thing this sentence can do: its whole job is to
      * make a wrong frame visible before it is sent.
      *
-     * ⚠ So "read" is claimed on POSITIVE evidence only, and there are exactly two kinds.
+     * So "read" is claimed on POSITIVE evidence only, and there are exactly two kinds.
      * `Bes.STATUS_GET`, which is always one. And `aa <named cmd> 01 01` — the other getter
      * convention — which is safe **because every setter built on a named command carries a
      * `SET` sub-command and a length of 2 or more**. The lone four-byte setter shape,
      * `aa <SET> 01 <v>`, uses a dedicated setter byte (`JblAutoPlay.SET` = `35`) that is
      * deliberately NOT in [BES_NAMES], so it cannot collide.
      *
-     * ⚠ Anything else reports its payload size and asserts no direction — a frame whose
+     * Anything else reports its payload size and asserts no direction — a frame whose
      * direction is unknown must READ as unknown, exactly like an unknown command. The
      * gesture path above is the third positive case: it says "write" because it has decoded
      * the binding being made.
@@ -144,20 +144,20 @@ object Frames {
     /**
      * True only when [payload] is POSITIVELY a read — never as a default.
      *
-     * ⚠⚠ **THE POINT IS WHAT THIS RETURNS FOR A FRAME IT CANNOT PLACE: false.** It gates
+     * ⚠ **THE POINT IS WHAT THIS RETURNS FOR A FRAME IT CANNOT PLACE: false.** It gates
      * the dry-run, so "I cannot tell" has to mean "do not send". Once `06 01 00`
      * was sent seven times as a probe and the device re-framed the STREAM into a SET to
      * block `06` that nobody typed; a classifier that guessed "probably a read" for
      * anything unfamiliar would have passed every one of them.
      *
-     * ⚠ Reads are not gated, because dry-running them would make this tool useless for the
+     * Reads are not gated, because dry-running them would make this tool useless for the
      * job it exists to do. The rule is about MUTATION, and a read mutates nothing.
      */
     fun reads(uuid: String?, payload: ByteArray): Boolean =
         when {
             payload.isEmpty() -> false
 
-            // ⚠ No Sony get/set rule here survives inspection, so every Sony frame counts
+            // No Sony get/set rule here survives inspection, so every Sony frame counts
             // as unknown. Fail closed rather than invent a convention.
             uuid.equals(Channels.SONY, ignoreCase = true) -> false
 

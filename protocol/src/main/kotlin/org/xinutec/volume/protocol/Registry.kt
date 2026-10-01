@@ -10,7 +10,7 @@ sealed interface Route {
     /**
      * A GATT connection: subscribe [notify], write [write].
      *
-     * ⚠ No address here on purpose. A GATT device is reached at an LE address that
+     * No address here on purpose. A GATT device is reached at an LE address that
      * **rotates**, so the address is a scan result, not a property of the model.
      */
     data class Gatt(
@@ -74,7 +74,7 @@ object Registry {
             // ⚠ **Before the QC35's own rule would ever see it**, and named by MODEL for
             // the same reason every other branch here is: `Drivers.BoseRevolve` has no ANC
             // and reports so, and handing a speaker the QC35's driver would offer chips
-            // for a control it does not have. ⚠ `identifyBose` cannot help — it separates
+            // for a control it does not have. `identifyBose` cannot help — it separates
             // the two headphones by asking `01 06`, which a Revolve answers "unsupported"
             // exactly as a QC45 does.
             d.vendor == Channels.Vendor.BOSE && "revolve" in n -> {
@@ -86,7 +86,7 @@ object Registry {
                 )
             }
 
-            // ⚠⚠ **Its own driver, and the reason is a whole day of measurement.** This
+            // **Its own driver, and the reason is a whole day of measurement.** This
             // pair answers on the same service as the M2, to the same name frame, and
             // then disagrees about ANC in both directions: `aa 91 01 11` reports a
             // confirmed TalkThru as ANC or as Ambient depending on when you ask, and
@@ -108,7 +108,7 @@ object Registry {
                 )
             }
 
-            // ⚠⚠ **The MODEL, not just the vendor — and this branch was once vendor-only**,
+            // ⚠ **The MODEL, not just the vendor — and this branch was once vendor-only**,
             // nine days after the identical fix went in
             // for JLab immediately below and did not get carried across. A LIVE PRO 2
             // TWS was named "JBL Tour One M2" on screen and sent the app hunting for
@@ -131,14 +131,14 @@ object Registry {
                 )
             }
 
-            // ⚠⚠ **The MODEL, not just the vendor — and this branch was once vendor-only.** It named every JLab "JBuds Sport ANC 4" and handed it
+            // ⚠ **The MODEL, not just the vendor — and this branch was once vendor-only.** It named every JLab "JBuds Sport ANC 4" and handed it
             // that driver, which is the mistake `the two bose models do not share a
             // driver` exists to forbid one vendor over. ⛔ It matters more here than
             // there: this protocol's id space is a Realtek SDK's and **holds a factory
             // reset**, and nothing measured says which id — so a second JLab model
             // driven by these frames is not a wrong reading, it is an unknown write.
             //
-            // ⚠ **The cost is that a RENAMED one stops being driven**, and unlike Bose
+            // **The cost is that a RENAMED one stops being driven**, and unlike Bose
             // there is no recovery: [identifyBose] has no JLab counterpart, so this
             // returns null and the device simply is not offered. That is the failure
             // worth having — undriven is visible and fixable, mis-driven is neither.
@@ -182,7 +182,7 @@ object Registry {
      * on one socket and a later, separate socket answered without a block-`00` of its own.
      * So this is sent once per session and the cost is one read, not one read per socket.
      *
-     * ⚠ What induces it is still unknown, and the two obvious answers are both spent.
+     * What induces it is still unknown, and the two obvious answers are both spent.
      * **Idle is out to 75 minutes** (one cold read after 4500 s untouched,
      * answered). **A Bluetooth stack restart does not induce it** either — though that
      * control moved two variables at once and so settles less than a clean one would. The
@@ -195,7 +195,7 @@ object Registry {
      * threshold is somewhere in 20 s … 20.9 min and was not chased, because this read is sent
      * unconditionally and no branch asks. #1232.
      *
-     * ⚠⚠ **Measured on a QC35, and it made the device unusable from this app.**
+     * **Measured on a QC35, and it made the device unusable from this app.**
      * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew
      * no reply at all — four in a row in one socket, then more across 28 minutes and two
      * reconnections. The snoop shows the frames leaving and nothing coming back, while the
@@ -203,11 +203,11 @@ object Registry {
      * broken headphones. Send any block-`00` read first and every one of those functions
      * answers immediately.
      *
-     * ⚠ **Block 00, not one magic frame**: `00 01` and `00 02` were each shown to work on a
+     * **Block 00, not one magic frame**: `00 01` and `00 02` were each shown to work on a
      * fresh socket. And it is not "the first frame is swallowed" — four consecutive reads
      * with no block-`00` among them drew nothing.
      *
-     * ⚠ **Harmless on a QC45**, which needs no waking and answers `00 01` with its protocol
+     * **Harmless on a QC45**, which needs no waking and answers `00 01` with its protocol
      * version (`1.1.0`, against the QC35's `1.0.4`). So it is sent unconditionally rather
      * than per model — a device that does not need it pays one cheap read.
      */
@@ -249,7 +249,7 @@ object Registry {
 /**
  * What `01 06` produced, which is THREE outcomes and was two.
  *
- * ⚠⚠ **"It answered in neither shape" was printed for SILENCE.** `identifyBose`
+ * **"It answered in neither shape" was printed for SILENCE.** `identifyBose`
  * returned null both when the operator byte was unrecognised and when there was no
  * reply to take one from, and the screen's one sentence claimed an answer either way.
  * That sentence once sat under a device which — measured eight different ways

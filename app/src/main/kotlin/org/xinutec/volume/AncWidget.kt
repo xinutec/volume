@@ -68,7 +68,7 @@ class AncWidget : AppWidgetProvider() {
         }
 
         /**
-         * ⚠ `FLAG_IMMUTABLE` is required from API 31 and is right anyway: nothing
+         * `FLAG_IMMUTABLE` is required from API 31 and is right anyway: nothing
          * outside should be able to retarget this at another component.
          */
         fun tapIntent(context: Context): PendingIntent =

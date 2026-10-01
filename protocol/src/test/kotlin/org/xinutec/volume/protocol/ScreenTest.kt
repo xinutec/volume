@@ -14,7 +14,7 @@ class ScreenTest {
      * A device with no control channel offers the media volume — but only when the
      * audio is going to it.
      *
-     * ⚠ **Both halves, because either alone is a bug.** Without the active check the
+     * **Both halves, because either alone is a bug.** Without the active check the
      * slider moves a level belonging to whatever IS playing, which the owner cannot see
      * from this card. Without the state check a driveable pair would get a second,
      * competing volume beside its own.
@@ -94,7 +94,7 @@ class ScreenTest {
     }
 
     /**
-     * ⚠ The case the type exists for. A device with no read command reports a null
+     * The case the type exists for. A device with no read command reports a null
      * mode forever, and a UI that treats null as "still loading" spins for ever.
      */
     @Test
@@ -141,7 +141,7 @@ class ScreenTest {
     }
 
     /**
-     * ⚠ A confirmed write says nothing: the selected control already carries it,
+     * A confirmed write says nothing: the selected control already carries it,
      * and a line repeating it is noise that teaches the eye to skip the line that
      * matters. This was wrong on the first render — it printed "ANC" in the colour
      * reserved for something being off.
@@ -352,7 +352,7 @@ class ScreenTest {
     }
 
     /**
-     * ⚠ The read takes seconds and the device can go in that time. Landing settings
+     * The read takes seconds and the device can go in that time. Landing settings
      * on a card that is no longer Ready would resurrect a dead one, fully furnished
      * with controls, over a socket that is gone.
      */
@@ -417,7 +417,7 @@ class ScreenTest {
     }
 
     /**
-     * ⚠ **Every kind of row is something to show, unless it is an action** — and this
+     * **Every kind of row is something to show, unless it is an action** — and this
      * fails when a kind is added without a sample here. `spatial` was once added to the
      * old union without reaching `any`, and nothing noticed.
      */
@@ -439,7 +439,7 @@ class ScreenTest {
                 SmartTalkRow(SmartTalk(true, TalkTimeout.SEC_5)),
                 LowVolumeEqRow(true),
                 SmartAvRow(SmartAv.AUDIO, SmartAv.entries),
-                // ⚠ Shows on its own: a bud that reports itself worn is offered no button.
+                // Shows on its own: a bud that reports itself worn is offered no button.
                 FindBudsRow(InEar(left = false, right = false)),
                 AutoPlayRow(true),
                 BalanceRow(Balance(on = false, level = 100)),
@@ -473,7 +473,7 @@ class ScreenTest {
                 CodecRow("LDAC"),
                 PowerOffRow,
                 BatteryRow(Battery(percent = 60, charging = false)),
-                // ⚠ A volume alone IS worth a card: a Revolve that answers nothing else
+                // A volume alone IS worth a card: a Revolve that answers nothing else
                 // still has a level worth seeing.
                 LoudnessRow(BoseLoudness(steps = 100, level = 36)),
                 BudBatteryRow(
@@ -519,7 +519,7 @@ class ScreenTest {
     }
 
     /**
-     * ⚠ **Reported and changeable are different questions**, and this is the whole
+     * **Reported and changeable are different questions**, and this is the whole
      * reason [Writability] exists. The XM4 answers `d6 d2` and then ignores
      * `d8 d2 01 01`; the QC45 accepts both. A screen that inferred "we can set it"
      * from "it told us" would offer a switch that springs back.
@@ -598,7 +598,7 @@ class ScreenTest {
     }
 
     /**
-     * ⚠ Nobody asked, and asked-but-silent, are different sentences.
+     * Nobody asked, and asked-but-silent, are different sentences.
      *
      * The second was rendered as "nothing is decoded for this pair yet" on a device
      * with six decoded settings, because every read had failed at once.

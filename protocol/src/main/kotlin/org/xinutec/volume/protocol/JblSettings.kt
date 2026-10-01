@@ -8,7 +8,7 @@ package org.xinutec.volume.protocol
  * "Auto Power Off", and a single type covering both would have to invent a state
  * neither device has: a Sony that counts minutes, or a JBL that senses wearing.
  *
- * ⚠ **[minutes] really is minutes** — the vendor app's own "30 min", "1 hr" and "2 hr"
+ * **[minutes] really is minutes** — the vendor app's own "30 min", "1 hr" and "2 hr"
  * sent `1e`, `3c` and `78`, so the unit is measured rather than a label
  * this repo chose. [JBL_IDLE_MINUTES] is what to offer; the field itself is a whole
  * byte and is carried as read, because nothing has probed its edges.
@@ -40,7 +40,7 @@ val JBL_IDLE_MINUTES = listOf(30, 60, 120)
  * → aa 33 03 <on> <minutes> <?>   ← aa 00 02 33 00     the ack, not the answer
  * ```
  *
- * ⚠ **The setter's shape was guessed from the status reply and worked first time**,
+ * **The setter's shape was guessed from the status reply and worked first time**,
  * as it does on all four vendors here — every one of them mirrors its getter. That is
  * the only kind of guess this repo has found reliable; value bytes have never been
  * guessable. Driven both ways and confirmed by read-back, never by the ack.
@@ -102,11 +102,11 @@ object JblAutoOff {
  * not a constant `01` — every band of a ten-band curve just happens to use Q 1, so
  * only a table with varying Q could have shown it, and `c9` did.
  *
- * ⚠ **The request's length is ONE byte and the reply's is two.** Every request on the
+ * **The request's length is ONE byte and the reply's is two.** Every request on the
  * wire is `aa a2 02 01 <id>`, five bytes; every reply's `[3]` has been `00`, which is
  * what makes the two readings agree on everything captured so far.
  *
- * ⚠ **`aa 21 01 34` is EQ_PRESET and does NOT reach this.** It read `00` before
+ * **`aa 21 01 34` is EQ_PRESET and does NOT reach this.** It read `00` before
  * selecting JAZZ in the app and `00` after — it is the legacy one-byte preset field,
  * inert on a model that carries its equaliser as a curve.
  */
@@ -142,7 +142,7 @@ object JblEq {
     /**
      * Decode a ten-band user curve, or null.
      *
-     * ⚠ **The band count and the declared length are BOTH checked**, and neither is
+     * **The band count and the declared length are BOTH checked**, and neither is
      * the size. The same `aa a2` answers `c9` with 18 bands and `ca` with 7 in this
      * exact record shape, and `c9` is PERSONIFY_EQ: a hearing profile, nine bands per
      * ear. It is LONGER than a curve, so a size-only guard reads ten bands of somebody
@@ -150,7 +150,7 @@ object JblEq {
      * device glues an unsolicited frame onto a reply — a curve with a battery frame
      * appended has the right low length byte and more than enough size.
      *
-     * ⚠⚠ **`EQSettings`, the same package's other class, maps the same ids
+     * **`EQSettings`, the same package's other class, maps the same ids
      * differently** — `PERSONIFY_EQ` is `0x66` there and `c9`/`ca` are absent. This
      * device answers `c9` and `ca`, so `EQSettings2` is the class that describes it.
      */
@@ -175,7 +175,7 @@ object JblEq {
      * Whether [frame] is a table reply whose declared length AND band count both
      * account for its size.
      *
-     * ⚠ **Two independent counts, because either alone can agree by accident.** The
+     * **Two independent counts, because either alone can agree by accident.** The
      * length catches a glued or truncated read; the band count catches a frame of the
      * right size that is not this record shape at all.
      */
@@ -224,17 +224,17 @@ val JBL_HZ = listOf(32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 /**
  * The table ids `EQSettings2` declares — the byte space this device answers in.
  *
- * ⚠⚠ **`EnumEqPresetIdx`, a different SDK in the same APK, numbers these differently
+ * ⚠ **`EnumEqPresetIdx`, a different SDK in the same APK, numbers these differently
  * from `04` up**, because it carries a `USER` entry that `EQSettings2` does not: it
  * reads `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO`. This table once said exactly that,
  * so a Rock curve would have rendered as "User". `EQSettings2` wins
  * for the reason it won over `EQSettings` on `c9`: it declares the ids this device has
  * answered with, and `EQCmd`, which parses the frame, is its sibling.
  *
- * ⚠ **Only `00` and `01` have been seen on the wire, and the two enums agree there**,
+ * **Only `00` and `01` have been seen on the wire, and the two enums agree there**,
  * so nothing measured separates them. The ground is which SDK owns the frame.
  *
- * ⚠ **Names only — no curve but `00` and `01` has been captured.** A write carries the
+ * **Names only — no curve but `00` and `01` has been captured.** A write carries the
  * ten gains as well as the id, so this cannot become a row of buttons; [JBL_CURVES]
  * still offers the two whose bytes exist. What it buys is that a curve set from the
  * vendor app renders as "Vocal" rather than "table 2".
@@ -267,7 +267,7 @@ val JBL_EQ_PRESETS: Map<JblCurveTable, String> =
  * whose bytes were captured — flat at 20:26:55 and JAZZ at 20:36:48. Naming the rest
  * from the menu would be putting a vendor's label on a curve nobody has measured.
  *
- * ⚠ A write carries **both** a table id and a full curve, so which of the two the
+ * A write carries **both** a table id and a full curve, so which of the two the
  * device honours is not established. Both are sent exactly as the app sent them,
  * which is the only combination known to work.
  */
@@ -312,7 +312,7 @@ private fun putFloat(b: ByteArray, at: Int, v: Float) {
  * getter came free from the vendor app's own connect-time sweep, so showing it costs
  * nothing and touching it is never necessary.
  *
- * ⚠ **The offset is the SDK's, not a guess.** `SafeSoundCmd` parses `setStatus` from
+ * **The offset is the SDK's, not a guess.** `SafeSoundCmd` parses `setStatus` from
  * frame index 5. That reading was calibrated on a command whose answer is already
  * known: `SpeakToChatCmd` takes `setOn` from index 4 and `setLatency` from index 5,
  * and those are exactly where Smart Talk's driven values sit. Both payload bytes here
@@ -338,7 +338,7 @@ object JblSafeSound {
 /**
  * Which spatial rendering the JBL is set to.
  *
- * ⚠ The wire values are the vendor's and are measured, one tap each: see [JblSpatial].
+ * The wire values are the vendor's and are measured, one tap each: see [JblSpatial].
  * They are not consecutive by accident — `01` is Music, the middle button, so the
  * numbering is not the on-screen order and cannot be derived from it.
  */
@@ -378,12 +378,12 @@ data class Spatial(
  * `mode` is `01` Music · `02` Movie · `03` Game, measured by picking each in turn and
  * diffing three replies that differ in that byte alone.
  *
- * ⚠⚠ **An empty capture window is not evidence the device sent nothing.** These tiles
+ * ⚠ **An empty capture window is not evidence the device sent nothing.** These tiles
  * have a `clickable="false"` label beside them, and a tap that lands on the label sends
  * no frame — which reads identically to a device that ignores its own buttons. Aim at
- * the tile. ⚠ The mode travels with the on/off write, which is why [set] sends both.
+ * the tile. The mode travels with the on/off write, which is why [set] sends both.
  *
- * ⚠ Unlike [JblAutoOff] this reply is not an ack — the device answers with the status
+ * Unlike [JblAutoOff] this reply is not an ack — the device answers with the status
  * frame itself, so a caller can trust [state] on the reply to a [set].
  */
 object JblSpatial {
@@ -452,7 +452,7 @@ data class VoiceAware(
  * done by hand: the control is a gradient bar, and two attempts to reach it by tapping
  * produced confident logs and no traffic. `docs/captures.md` has both.
  *
- * ⚠ Same shape as [JblSpatial] and the same consequence: the device takes level and
+ * Same shape as [JblSpatial] and the same consequence: the device takes level and
  * switch in one frame, so the vendor app's slider necessarily turns VoiceAware on.
  * Building the frame here means it need not.
  */
@@ -467,7 +467,7 @@ object JblVoiceAware {
     fun set(v: VoiceAware): OutFrame = Bes.encode(CMD, SET, v.level.wire, if (v.on) 0x01 else 0x00)
 
     /**
-     * ⚠ Checks the command byte. `aa 9d 03 02 01 01` — Spatial Sound, on, Music — has
+     * Checks the command byte. `aa 9d 03 02 01 01` — Spatial Sound, on, Music — has
      * this exact length and operator and a byte that is a valid level, so the command
      * is the only thing that tells them apart.
      */
@@ -513,7 +513,7 @@ data class SmartTalk(
  * → aa 9f 03 00 <on> <seconds>        ← aa 9f 03 02 <on> <seconds>
  * ```
  *
- * ⚠ **This is the frame that was driven for three minutes under the belief it was
+ * **This is the frame that was driven for three minutes under the belief it was
  * VoiceAware.** `aa 9f 03 02 00 05` and VoiceAware's `aa 98 03 02 02 00` have the same
  * length and operator, and a segmented tap meant for one card reached the other's
  * picker. Hence [state]'s command check, and hence the warning repeated on every
@@ -544,7 +544,7 @@ object JblSmartTalk {
  * → aa 9e 02 00 <on>       ← aa 9e 02 02 <on>
  * ```
  *
- * ⚠ **A plain switch, and the length byte is `02` rather than [JblSpatial]'s `03`** —
+ * **A plain switch, and the length byte is `02` rather than [JblSpatial]'s `03`** —
  * the operator plus one payload byte. Reusing a `03`-shaped reader here would find the
  * payload one byte past the end.
  */
@@ -573,11 +573,11 @@ object JblLowVolumeEq {
  * modelling it as the latter would invent a state — Video-and-off — that the device
  * never expresses.
  *
- * ⚠ The payload numbers are undecoded and look like DSP tuning. They are carried
+ * The payload numbers are undecoded and look like DSP tuning. They are carried
  * whole, exactly as [JblEq.set] echoes a header it cannot re-derive: what is
  * settled is which frame means which state, which is all that driving needs.
  *
- * ⚠ **A tidy prediction was refuted here.** Audio's third value moves `96` → `e6` when
+ * **A tidy prediction was refuted here.** Audio's third value moves `96` → `e6` when
  * switched off, a step of `0x50`, and Video's is `50` — so `a0` was written down in
  * advance as Video-off. It never appeared; the app sends a constant rather than
  * computing one. The arithmetic was neat enough to have been believed unchecked.
@@ -624,14 +624,14 @@ object JblSmartAv {
     /**
      * The payloads each mode carries, **per model**.
      *
-     * ⚠⚠ **The modes are shared and the BYTES are not.** A LIVE PRO 2 answers VIDEO with
+     * ⚠ **The modes are shared and the BYTES are not.** A LIVE PRO 2 answers VIDEO with
      * the M2's payload byte-for-byte and AUDIO with one of its own
      * (`00 01 2e 00 18 01 ff ff` against `00 01 35 00 96 00 ff ff`), so a single payload
      * per enum entry cannot describe both — and [set] writes exactly these bytes, so
      * getting it wrong does not mis-read, it mis-writes. Measured by switching
      * the vendor app's Audio/Video row and reading `aa 82` either side.
      *
-     * ⚠ The LIVE PRO 2 offers **two** modes; there is no OFF on its screen. A table that
+     * The LIVE PRO 2 offers **two** modes; there is no OFF on its screen. A table that
      * omits a mode is how that is said.
      */
     val TOUR_ONE_M2: Map<SmartAv, ByteArray> = SmartAv.entries.associateWith { it.bytes }
@@ -641,7 +641,7 @@ object JblSmartAv {
     fun set(payload: ByteArray): OutFrame = Bes.encode(SET, *payload)
 
     /**
-     * ⚠ Returns null for a payload nobody has captured rather than guessing the
+     * Returns null for a payload nobody has captured rather than guessing the
      * nearest. Three frames are known and the space is eight bytes wide; a reader
      * that fell back to [SmartAv.OFF] would report the headphones off whenever the
      * firmware said something new.
@@ -671,7 +671,7 @@ object JblSmartAv {
  * captured `aa b1 03 00 02 00` look like a *set* with operator `00` for a whole
  * session. It is a *get* of key `02`.
  *
- * ⚠ **A get answers about the FIRST key only** — measured: asking for
+ * **A get answers about the FIRST key only** — measured: asking for
  * `01` and `02` together returned `01` alone. So ask one at a time; the list form
  * the vendor's SDK offers buys nothing here.
  */
@@ -771,12 +771,12 @@ object JblBeeping {
 /**
  * Which buds are in an ear — `aa 21 01 41`, one byte each, `01` = in.
  *
- * ⚠⚠ **`41`, not the `3b` that `EnumDeviceStatusType`'s ordinal arithmetic suggests.**
+ * ⚠ **`41`, not the `3b` that `EnumDeviceStatusType`'s ordinal arithmetic suggests.**
  * `CmdGen.generateGetInEarStatusCmd` builds `0x41`, and `aa 21 01 3b` answers nothing on
  * either JBL here. The enum names the STATUS a device reports; it does not enumerate the
  * bytes you may ask for.
  *
- * ⚠ This is the most load-bearing read on the model. Ambient Sound Control switches
+ * This is the most load-bearing read on the model. Ambient Sound Control switches
  * itself on when both buds are in and off when they are not, every setter is refused
  * `aa 00 02 <cmd> 04` while they are out, and the vendor app greys out AND lists fewer
  * rows. A run that writes should read this at both ends.
@@ -817,7 +817,7 @@ enum class Bud(
 /**
  * The `EnumEqPresetIdx` namespace — `aa 40` writes it, status field `34` reports it.
  *
- * ⚠⚠ **NOT [JBL_EQ_PRESETS], which is a different field with colliding digits.** That
+ * ⚠ **NOT [JBL_EQ_PRESETS], which is a different field with colliding digits.** That
  * one names `aa a2` TABLE ids, where `04` is Rock and `c9` is Personi-Fi; here `04` is
  * USER and Rock is `05`. The two spaces overlap on every small integer, and the M2's
  * `aa a2` is silent on the LIVE PRO 2 — so nothing would catch a value read out of the
@@ -827,7 +827,7 @@ enum class Bud(
  * field `34` report the same number back. The write draws no ack at all, so [state] is
  * the only confirmation there is.
  *
- * ⚠ The vendor app's equaliser label is its CAROUSEL POSITION, not this field — it read
+ * The vendor app's equaliser label is its CAROUSEL POSITION, not this field — it read
  * "JAZZ" throughout while `34` said `04`. A label beside a picker is not a state read.
  */
 object JblEqPreset {
@@ -900,7 +900,7 @@ object Bes {
     /**
      * `aa 11` asks the device what it is; `aa 12 <len> <name…>` answers.
      *
-     * ⚠ Here rather than in a driver because **two JBL models share it and nothing
+     * Here rather than in a driver because **two JBL models share it and nothing
      * else** — the LIVE PRO 2 answers this identically to the Tour One M2 while
      * disagreeing with it about how ANC is read and written. The name is the one part
      * of the protocol that has been the same on every BES device measured, which is
@@ -928,12 +928,12 @@ object Bes {
      * FIRST, offset 0 is someone else's frame, every decoder here correctly returns null,
      * and the settings row silently vanishes — #1154.
      *
-     * ⚠ **Returns the tail from the match, not the frame's own length.** `aa a2`'s length
+     * **Returns the tail from the match, not the frame's own length.** `aa a2`'s length
      * byte undercounts its content by one, so slicing to it would clip the equaliser's
      * last byte. Decoders read by offset and ignore what follows, so handing them the rest
      * of the buffer is both safe and exactly what they got before this existed.
      *
-     * ⚠ **Skipping uses the length byte, so it cannot skip PAST an `aa a2`** — that same
+     * **Skipping uses the length byte, so it cannot skip PAST an `aa a2`** — that same
      * off-by-one would land one byte short. No curve has ever arrived unsolicited, so the
      * case does not occur; it would show up as a null, never as a wrong value.
      */
@@ -952,13 +952,13 @@ object Bes {
      * Send [request] and hand [decode] the frame it is looking for. Every BES read and
      * every write whose reply is the state goes through here.
      *
-     * ⚠ **This exists because the buffer can begin with someone ELSE's frame.** See
+     * **This exists because the buffer can begin with someone ELSE's frame.** See
      * [Bes.frame]: an unsolicited battery notification lands in 1 reply in 8, and when
      * it arrives first every decoder correctly returns null and a settings row silently
      * disappears. #1154. The decoders were never wrong; they were being handed the
      * wrong offset.
      *
-     * ⚠ [decode] is applied to the whole buffer FIRST, so a reply that already starts
+     * [decode] is applied to the whole buffer FIRST, so a reply that already starts
      * where it should behaves exactly as it did before this was added.
      */
     fun <T> ask(t: Transport, request: OutFrame, decode: (ByteArray) -> T?): T? {
@@ -969,7 +969,7 @@ object Bes {
     /**
      * The payload of `aa 22 <len> <field> …`, or null if this is another field.
      *
-     * ⚠ Checking the field byte matters: these arrive unsolicited as well as in
+     * Checking the field byte matters: these arrive unsolicited as well as in
      * answer, so the reply to `33` can be preceded by a `31` nobody asked for.
      */
     fun status(reply: ByteArray, field: Byte): ByteArray? {

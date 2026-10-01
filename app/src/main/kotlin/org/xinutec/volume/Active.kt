@@ -7,11 +7,11 @@ import android.media.AudioManager
 /**
  * Which connected pair the audio is actually going to.
  *
- * ⚠ Needed only because a one-tap control cannot ask. With two pairs connected, a
+ * Needed only because a one-tap control cannot ask. With two pairs connected, a
  * tile that guesses would change the ANC of the headphones NOT in your ears and
  * report success — there is no feedback that catches that.
  *
- * ⚠ **`BluetoothA2dp.getActiveDevice()` is exactly this answer and is `@hide`**, so
+ * **`BluetoothA2dp.getActiveDevice()` is exactly this answer and is `@hide`**, so
  * the public route is the audio framework's own output list. It reports what is
  * *available* to route to rather than what is routed, so a single A2DP output is a
  * confident answer and several are not — hence null rather than a guess.

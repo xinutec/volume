@@ -6,7 +6,7 @@ import org.junit.Test
 /**
  * Every BES request this repo builds, byte for byte.
  *
- * ⚠ **Pinned from the builders as they stood before the codec computed lengths**, so
+ * **Pinned from the builders as they stood before the codec computed lengths**, so
  * a builder moved onto [Bes] cannot change a byte unnoticed. These are the frames the
  * JBLs were driven with; `bes-frames.txt` holds them, one `name=hex` per line.
  */

@@ -18,7 +18,7 @@ class SonyEqDriverTest {
     private val sony = Drivers.SonyXm4()
 
     /**
-     * 10:58:21, the app's own read on connecting. ⚠ This is the frame that turns
+     * 10:58:21, the app's own read on connecting. This is the frame that turns
      * `56`/`57` from a prediction off the SDK's blocks-of-ten into a measurement.
      *
      * And the independent check on the whole decode: the owner had the XM4 on a
@@ -125,7 +125,7 @@ class SonyEqDriverTest {
 
     /**
      * 11:01:40–41, the app's real sequence: set a preset, then ask for the band
-     * table. ⚠ **Both sent frames are verbatim from the capture**, which is only
+     * table. **Both sent frames are verbatim from the capture**, which is only
      * possible because the sequence bit lands where the app's did — `00` then `01`.
      * Had the driver's counter been per subsystem rather than per session, the second
      * frame would not match, and on the device it would have been discarded silently.
@@ -148,7 +148,7 @@ class SonyEqDriverTest {
     }
 
     /**
-     * ⚠ A bare ACK is what an EQ read draws outside a session — the same failure that
+     * A bare ACK is what an EQ read draws outside a session — the same failure that
      * made `66 02` look like "this device has no ANC". It must decode to nothing
      * rather than to an empty or default setting.
      */

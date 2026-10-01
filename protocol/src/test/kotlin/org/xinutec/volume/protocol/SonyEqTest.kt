@@ -29,7 +29,7 @@ class SonyEqTest {
      * Captured at 18:57:24, the last frame of a band dragged back up
      * to +6 in Sony Headphones Connect.
      *
-     * ⚠ **The `ff` is the assertion.** Byte for byte this is what the driver had
+     * **The `ff` is the assertion.** Byte for byte this is what the driver had
      * been sending for a day except for that one field, where it put the slot's own
      * id — and the XM4 acked and dropped every one of those. If this test ever goes
      * green with a preset id there, the levels have stopped moving.
@@ -49,7 +49,7 @@ class SonyEqTest {
     }
 
     /**
-     * ⚠ Captured at 11:02:00, and the one that proves the offset. Raw
+     * Captured at 11:02:00, and the one that proves the offset. Raw
      * `00 0e 0d 0b 0c 00` is not a plausible dB curve; minus ten it is
      * −10, +4, +3, +1, +2, −10, which is.
      */
@@ -82,7 +82,7 @@ class SonyEqTest {
      * Captured at 11:01:41. The frequencies match the app's own axis labels, which
      * is the independent check — they were not read off this frame.
      *
-     * ⚠ **The UNESCAPED payload**, as [SonyFrame.decodeAll] returns it. This fixture
+     * **The UNESCAPED payload**, as [SonyFrame.decodeAll] returns it. This fixture
      * was originally the wire bytes, ending `01 3d 2e 80`, and asserted 15662 for the
      * top band — a number the driver could never produce, close enough to "16k" to
      * survive review. See [SonyFrameTest] for the frame it comes out of.
@@ -150,7 +150,7 @@ class SonyEqCapabilityTest {
     private val xm4 = "5101 0615 0c 0000 1000 1100 1200 1300 1400 1500 1600 1700 a000 a100 a200"
 
     /**
-     * The twelve the XM4 reports. ⚠ `0xa0`–`0xa2` are the three the card offered before
+     * The twelve the XM4 reports. `0xa0`–`0xa2` are the three the card offered before
      * this existed, so the eight named curves and Off were the missing rows.
      */
     @Test

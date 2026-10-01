@@ -107,7 +107,7 @@ object Probe {
      * *unchanged* state back, which reads like a wrong field rather than a missing
      * transaction.
      *
-     * ⚠ **Not every Bose write needs one**, and assuming so is its own trap: EQ,
+     * **Not every Bose write needs one**, and assuming so is its own trap: EQ,
      * multipoint and the Action button each took a plain operator-`02` Set and the
      * echoed state changed. `docs/bose-settings.md`.
      *
@@ -134,11 +134,11 @@ object Probe {
          * acknowledged, and a peer that never does eventually stops being told
          * anything — which reads as "that command returns no data".
          *
-         * ⚠ **A list, because a window can hold more than one frame and each wants its
+         * **A list, because a window can hold more than one frame and each wants its
          * own ack.** This once returned a single reply and acked only the
          * last DATA frame. `Drivers.SonyXm4` had the identical defect.
          *
-         * ⚠ **WHEN, not how many.** Acking every frame after the window closed still ran
+         * **WHEN, not how many.** Acking every frame after the window closed still ran
          * one behind, because the XM4 is **stop-and-wait**: it withholds its next DATA
          * frame until the current one is acknowledged. Measured — a
          * volunteered `13` battery notify arrived first, the device retransmitted it

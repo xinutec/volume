@@ -16,7 +16,7 @@ import android.util.Log
  * process-level executor and the service only reports on it: closing the shade
  * mid-tap loses the label update, never the write.
  *
- * ⚠ **Reinstalling the app removes this tile from the panel**, silently — the
+ * **Reinstalling the app removes this tile from the panel**, silently — the
  * `sysui_qs_tiles` setting drops it and nothing says so. Re-add with
  * `adb shell cmd statusbar add-tile org.xinutec.volume/.AncTileService`, and note
  * `cmd statusbar click-tile` only reaches a bound service, i.e. while the shade is

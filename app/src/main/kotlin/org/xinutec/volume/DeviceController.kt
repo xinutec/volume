@@ -121,7 +121,7 @@ import org.xinutec.volume.protocol.settingNote
  * Tag for the one thing about this app that cannot be established off-device:
  * whether the screen follows the radio, and **which** broadcast makes it do so.
  *
- * ⚠ Kept rather than deleted after the question was answered. The ACL and profile
+ * Kept rather than deleted after the question was answered. The ACL and profile
  * events race, the winner depends on the pair and on how the link came up, and a
  * reasoned answer about which one arrived first is exactly the kind that was wrong
  * before. `adb logcat -s VolumeLive` prints the chain; `scripts/watch-list.sh`
@@ -132,7 +132,7 @@ internal const val LIVE = "VolumeLive"
 /**
  * The screen's hands: everything that blocks, off the main thread.
  *
- * ⚠ **Connecting is slow and unevenly so.** An RFCOMM open is about a second; the
+ * **Connecting is slow and unevenly so.** An RFCOMM open is about a second; the
  * JBL needs an LE scan first and can take twenty-five, because its address rotates
  * and it advertises in bursts. So nothing here is done eagerly on load — a device
  * is opened when its owner asks for it, and the wait is shown rather than hidden.
@@ -154,7 +154,7 @@ class DeviceController(
     /**
      * The tile changed a mode; re-read that one card.
      *
-     * ⚠ Re-reads rather than trusting what the tile reported, because the tile's word
+     * Re-reads rather than trusting what the tile reported, because the tile's word
      * for it went through a [org.xinutec.volume.protocol.Confirmation] that may have
      * been `Unverifiable` — and copying that across would launder an unconfirmed
      * write into a selected chip. Cheap: the session is already open.
@@ -302,7 +302,7 @@ class DeviceController(
      * takes about three seconds; doing this while listing devices would hold every
      * card behind the slowest one, for settings most openings of the app do not want.
      *
-     * ⚠ **Reads only.** Nothing here writes, so it is safe to run against a pair
+     * **Reads only.** Nothing here writes, so it is safe to run against a pair
      * somebody is wearing — which is also why it is the thing the screen does first.
      */
     override fun loadSettings(address: String) =
@@ -339,7 +339,7 @@ class DeviceController(
      * and then ignores it, and Sony's own app fails identically — [RefusalReason.DEVICE].
      * The QC45 accepts the same write from this code.
      *
-     * ⚠ Each branch reads into locals in a fixed order before building rows, so the
+     * Each branch reads into locals in a fixed order before building rows, so the
      * exchanges on the wire are in the order the device has always been asked.
      */
     private fun readSettings(s: Session): Settings {
@@ -347,7 +347,7 @@ class DeviceController(
         val rows: List<Setting?> =
             when (val d = s.headphones.driver) {
                 is Drivers.SonyXm4 -> {
-                    // ⚠ ONE read for the value and whether it may move — see
+                    // ONE read for the value and whether it may move — see
                     // [Drivers.SonyXm4.readFocus].
                     val focus = d.readFocus(t)
                     val eq = d.readEq(t)
@@ -396,11 +396,11 @@ class DeviceController(
                 //
                 // ⚠ **Every read here was measured on this unit**, not inherited from the
                 // QC35: `01 04` standby, `01 02` name, `02 02` battery, `02 05` charger and
-                // `05 05` volume all answered. ⚠ `readAll` is deliberately NOT used —
+                // `05 05` volume all answered. `readAll` is deliberately NOT used —
                 // `01 01` was never driven on this unit.
                 Drivers.BoseRevolve -> {
                     val battery = BoseBattery.state(t.exchange(BoseBattery.get()))
-                    // ⚠ `01 03` read DIRECTLY: the Revolve answers it byte-identically to
+                    // `01 03` read DIRECTLY: the Revolve answers it byte-identically to
                     // the QC35, so the same decoder applies.
                     val prompts = BoseVoicePrompts.read(t)
                     val standby = Drivers.BoseRevolve.readStandby(t)
@@ -435,7 +435,7 @@ class DeviceController(
                     val all = Drivers.BoseQc35.readAll(t)
                     val devices = Drivers.BoseQc35.readDevices(t)
                     val pairing = Drivers.BoseQc35.readPairing(t)
-                    // ⚠ A second exchange: battery is block 02, and GET_ALL covers only
+                    // A second exchange: battery is block 02, and GET_ALL covers only
                     // the block it is asked about.
                     val battery = BoseBattery.state(t.exchange(BoseBattery.get()))
                     listOf(
@@ -453,12 +453,12 @@ class DeviceController(
                 }
 
                 Drivers.BoseQc45 -> {
-                    // ⚠ **ONE exchange for the whole of block 01** — the reply already
+                    // **ONE exchange for the whole of block 01** — the reply already
                     // carries the tone, the button and multipoint. The three payloads were
                     // compared byte-for-byte against their individual reads first: `01 05`
                     // and `01 06` mean different things on these two models.
                     val all = Drivers.BoseQc45.readAll(t)
-                    // ⚠ The device's own named modes, which AncMode cannot express — see
+                    // The device's own named modes, which AncMode cannot express — see
                     // CncModes. Read every time: the button on the headphones moves it.
                     val cnc = Drivers.BoseQc45.readModes(t)
                     listOf(
@@ -517,14 +517,14 @@ class DeviceController(
                 }
 
                 Drivers.JblLivePro2 -> {
-                    // ⚠⚠ **Exactly the reads this device answers, and no others.** All
+                    // ⚠ **Exactly the reads this device answers, and no others.** All
                     // sixteen of the M2's were tried; each silent one costs ~1.6 s of
                     // timeout. Decoders are [Drivers.JblBes]'s — the frames ARE the M2's,
                     // byte for byte, and only ANC differs.
                     //
-                    // ⚠ **Four reads that ANSWER are dropped**: a reply that decodes is not
+                    // **Four reads that ANSWER are dropped**: a reply that decodes is not
                     // evidence the field means here what it means on an over-ear, so a row
-                    // needs `jbl.stc.com` to offer it for THIS model. ⚠ No power-off row:
+                    // needs `jbl.stc.com` to offer it for THIS model. No power-off row:
                     // `aa 97` has never been sent here.
                     //
                     // Which reads were driven, against which instrument, is in
@@ -699,16 +699,16 @@ class DeviceController(
             // ⚠ Re-read rather than assume. `Confirmed` already means a read agreed,
             // but the other two do not, and the row must show what the device says.
             val settings = runCatching { readSettings(s) }.getOrNull() ?: return@holding
-            // ⚠ The write's own answer and the refresh's answer, side by side. Three
+            // The write's own answer and the refresh's answer, side by side. Three
             // hypotheses about #1107 were formed by reasoning about frames and none
             // survived contact; this prints the disagreement instead of predicting it.
-            // ⚠ **`eq` is in here because a bare `Confirmed` is not evidence about
+            // **`eq` is in here because a bare `Confirmed` is not evidence about
             // WHICH value landed.** A slider dragged too small rounds back to where it
             // started, writes the value already held, and confirms — indistinguishable
             // in the log from a drag that moved a band. Measured, and it
             // cost a re-run to notice the screen and the log did not disagree because
             // neither of them named a number.
-            // ⚠ **The JLab needs its SLOTS beside its curve, for the same reason.** `49`
+            // **The JLab needs its SLOTS beside its curve, for the same reason.** `49`
             // answers a preset index and ten bytes, and a measurement caught those two
             // disagreeing — the index moved to a preset whose stored curve is flat while
             // the bytes stayed cut. Neither the card nor this log could show which slot
@@ -775,7 +775,7 @@ class DeviceController(
         }
 
     /**
-     * ⚠ The Status echoes the byte written, unlike multipoint's flags word, so this
+     * The Status echoes the byte written, unlike multipoint's flags word, so this
      * compares directly — see [org.xinutec.volume.protocol.BoseCncPersistence].
      */
     override fun setCncPersistence(address: String, on: Boolean) =
@@ -965,7 +965,7 @@ class DeviceController(
         }
 
     /**
-     * ⚠⚠ **Raising this raises how loud the headphones can get.** Writable at the user's
+     * ⚠ **Raising this raises how loud the headphones can get.** Writable at the user's
      * explicit request. It re-reads rather than trusting the reply: `69`
      * answers `01` for every level, so it is an ack and says nothing about what the device
      * did — and reporting a hearing control as set when it was not is the worst version of
@@ -982,7 +982,7 @@ class DeviceController(
         }
 
     /**
-     * ⚠⚠ **Can RAISE band levels** — the JLab's stored presets are flat while its live
+     * ⚠ **Can RAISE band levels** — the JLab's stored presets are flat while its live
      * Custom curve is cut in two places. Writable at the user's explicit request.
      */
     override fun setJlabEq(address: String, curve: JLabCurve) =
@@ -1029,11 +1029,11 @@ class DeviceController(
      * The XM4's on/off settings, all through [SonyXm4.setSwitch], which writes and
      * then **reads back** — the reply is never the evidence on this device.
      *
-     * ⚠ [setTouchPanel] is one of these too and sits further down, past
+     * [setTouchPanel] is one of these too and sits further down, past
      * [setVoiceGuidance], out of sight of this block. Count the callers of [sonySwitch],
      * never this sentence.
      *
-     * ⚠ Only the Sony has them; any other device is told so and sent nothing.
+     * Only the Sony has them; any other device is told so and sent nothing.
      */
     override fun setDsee(address: String, on: Boolean) = sonySwitch(address, "dsee", SonyDsee, on)
 
@@ -1101,7 +1101,7 @@ class DeviceController(
                     }
 
                     ButtonWrite.Unchanged -> {
-                        // ⚠ No alert means nothing changed — including the ordinary
+                        // No alert means nothing changed — including the ordinary
                         // case of choosing the value already set. Re-read either way.
                         refresh(address, s)
                     }
@@ -1142,7 +1142,7 @@ class DeviceController(
                 // immediately with a session that cannot answer, no settings are emitted,
                 // and the card silently keeps the pre-change value.
                 //
-                // ⚠ A socket that opens is not a device that will answer. That is the
+                // A socket that opens is not a device that will answer. That is the
                 // shape of precondition this repo has been caught by before: it passes
                 // for the wrong reason and takes the question away.
                 repeat(RECONNECT_TRIES) {
@@ -1152,7 +1152,7 @@ class DeviceController(
                     // That session answers nothing; throw it away rather than reuse it.
                     drop(address)
                 }
-                // ⚠ Say so rather than leave the old value on screen. The write almost
+                // Say so rather than leave the old value on screen. The write almost
                 // certainly landed — that is what took the link down — and this app has
                 // no way to check until the pair is back.
                 update(
@@ -1375,10 +1375,10 @@ class DeviceController(
     /**
      * Let go of everything, now — the app is no longer on screen.
      *
-     * ⚠ **The screen's contents are kept**, so coming back shows the cards
+     * **The screen's contents are kept**, so coming back shows the cards
      * immediately rather than blinking through "connecting"; only the radio links go.
      *
-     * ⚠ **In split screen this never fires.** Both halves stay resumed, so `onStop`
+     * **In split screen this never fires.** Both halves stay resumed, so `onStop`
      * is not called and the lease sweep in [Sessions] is the only thing that lets go.
      * That is exactly the arrangement on this phone, which is why the tile could not
      * open a channel the app was holding — and why sessions are owned per-process
@@ -1401,13 +1401,13 @@ class DeviceController(
     /**
      * Re-stamp which card owns the media volume, from the audio framework's own event.
      *
-     * ⚠⚠ **Hanging this off state changes was wrong, and two fixes made the same day
+     * ⚠ **Hanging this off state changes was wrong, and two fixes made the same day
      * collided to prove it.** The first re-stamped on every [update]; the second
      * stopped re-probing a [DeviceState.NoControl] device, which removed its state
      * changes entirely. So when the other pair disconnected, the card that HAD become
      * the output never learned it, and showed no volume row until the app restarted.
      *
-     * ⚠ "Which device owns the media volume" is an audio-framework question, and
+     * "Which device owns the media volume" is an audio-framework question, and
      * `AudioDeviceCallback` is its event — it fires when outputs appear and disappear,
      * which is the fact itself rather than a proxy for it arriving late.
      */
@@ -1438,7 +1438,7 @@ class DeviceController(
          */
         const val RECONNECT_STEP_MS = 3_000L
 
-        /** ⚠ Bounded — `3 s × 8` is 24 s, after which the card says so rather than lying. */
+        /** Bounded — `3 s × 8` is 24 s, after which the card says so rather than lying. */
         const val RECONNECT_TRIES = 8
 
         /**
@@ -1448,7 +1448,7 @@ class DeviceController(
          * from `onStop`) is what actually stops this app squatting on the radio; this
          * only catches a screen left open and forgotten, holding links for an hour.
          *
-         * ⚠ **Deliberately long.** Letting go quickly only matters while the vendor
+         * **Deliberately long.** Letting go quickly only matters while the vendor
          * apps need the channel, and they are to be uninstalled once this app replaces
          * them. With nothing to yield to, an eager release only buys a reconnect on the
          * next tap — a second on RFCOMM, up to 25 on the JBL, whose rotating address

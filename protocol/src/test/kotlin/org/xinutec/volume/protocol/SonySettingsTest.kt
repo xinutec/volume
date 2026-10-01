@@ -48,7 +48,7 @@ class SonySettingsTest {
     }
 
     /**
-     * ⚠ Only `10` and `11` were ever exercised. A third value must read as "not
+     * Only `10` and `11` were ever exercised. A third value must read as "not
      * understood", not fall through to whichever branch is written last — the XM4's
      * menu had no timer, and a model that does would land here.
      */
@@ -74,13 +74,13 @@ class SonySettingsTest {
     }
 
     /**
-     * ⚠ **The whole point.** 11:06:34: the write goes out, and what comes back is
+     * **The whole point.** 11:06:34: the write goes out, and what comes back is
      * `99 01 06 01` — a `90`-block notification about a different parameter. It is
      * well-formed, prompt, and says nothing about `d2`. A driver reading its reply
      * would decode nothing and call the device silent; one reading it loosely would
      * call `06` the new value.
      *
-     * ⚠ The read-back `d7 d2 01 **01**` is the **one constructed frame in this
+     * The read-back `d7 d2 01 **01**` is the **one constructed frame in this
      * file** — the real one at 10:58:23 ends `00`, and multipoint was never read
      * while it was on. One value byte changed, checksum recomputed; nothing else
      * here is anything but captured.
@@ -162,7 +162,7 @@ class SonySettingsTest {
         t.assertDrained()
     }
 
-    /** 18:16:54 — and ⚠ its notify echoes the value, so this one confirms itself. */
+    /** 18:16:54 — and its notify echoes the value, so this one confirms itself. */
     @Test
     fun `sound quality is set to stable and echoed back`() {
         val t =
@@ -246,7 +246,7 @@ class SonySettingsTest {
             sony.beginButtonWrite(t, SonyButton.Action.GOOGLE_ASSISTANT),
         )
         t.assertDrained()
-        // ⚠ The subscription draws no reply, so it is a `send` and consumes no step —
+        // The subscription draws no reply, so it is a `send` and consumes no step —
         // it shows up only here. Its absence is exactly the bug this fixes, so assert it.
         assertTrue("94 01 00" in t.sent.joinToString(" "))
     }
@@ -293,7 +293,7 @@ class SonySettingsTest {
     }
 
     /**
-     * ⚠ The capability read answers us perfectly well — which is half of why the
+     * The capability read answers us perfectly well — which is half of why the
      * *write* being ignored is strange, and is the frame #965 starts from. Its reply
      * is deliberately **not** decoded: it plainly holds more action codes than the two
      * that were exercised, and turning that byte string into a list would be inventing

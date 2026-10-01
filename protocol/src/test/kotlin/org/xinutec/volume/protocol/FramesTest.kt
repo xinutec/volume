@@ -5,11 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * ⚠ **The point of [Frames.describe] is to be READ before a frame is sent**, so the
+ * **The point of [Frames.describe] is to be READ before a frame is sent**, so the
  * thing under test is whether it says something a person can check against what they
  * meant. Every case here therefore asserts the WORDS, not that a call returned.
  *
- * ⚠ **It must never invent a name it does not have.** Half of these pin the honest
+ * **It must never invent a name it does not have.** Half of these pin the honest
  * fallback: an unknown command has to read as unknown, because "aa 42: set" is a
  * sentence somebody will trust.
  */
@@ -107,7 +107,7 @@ class FramesTest {
      * phone, `aa 95` printed "unknown command" while being refused as a
      * factory reset: the guard knew and the sentence above it did not.
      *
-     * ⚠ This does NOT weaken "an unknown command must read as unknown" — that rule is
+     * This does NOT weaken "an unknown command must read as unknown" — that rule is
      * about commands nobody has established. These two are established and dangerous.
      */
     @Test
@@ -130,7 +130,7 @@ class FramesTest {
     }
 
     /**
-     * ⚠⚠ **A WRITE MUST NOT BE DESCRIBED AS A READ.** This sentence is printed before every
+     * ⚠ **A WRITE MUST NOT BE DESCRIBED AS A READ.** This sentence is printed before every
      * send so a wrong frame is visible while it can still be stopped — describing a write
      * as a read is the one error that makes it worse than printing nothing.
      *
@@ -165,7 +165,7 @@ class FramesTest {
     private fun hexOf(b: ByteArray) = b.joinToString(" ") { "%02x".format(it) }
 
     /**
-     * ⚠⚠ **THE FAIL-CLOSED HALF, and the reason this classifier exists.** `reads` gates the
+     * ⚠ **THE FAIL-CLOSED HALF, and the reason this classifier exists.** `reads` gates the
      * dry-run, so anything it cannot place must come back false. `06 01 00` is the
      * frame the QC45 re-framed into a SET nobody typed; a classifier that guessed would have
      * sent it.
@@ -193,7 +193,7 @@ class FramesTest {
     }
 
     /**
-     * ⚠⚠ **BES DIRECTION IS ONLY PARTLY DECIDABLE, AND THIS PINS THE PART THAT IS NOT.**
+     * ⚠ **BES DIRECTION IS ONLY PARTLY DECIDABLE, AND THIS PINS THE PART THAT IS NOT.**
      * `JblGestures.get()` is a genuine read that [Frames.reads] returns FALSE for, so it
      * costs an `--apply`. That is deliberate: its shape is `aa 77 02 <GET> <arg>`, where
      * the sub-command at index 3 says GET — but that byte has **no consistent meaning

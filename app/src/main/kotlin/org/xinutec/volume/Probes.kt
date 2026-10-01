@@ -121,7 +121,7 @@ class Probes(
      * [Channels.detect] already knows SPP is ambiguous and answers `NONE` for a device
      * it cannot name.
      *
-     * ⚠ Null on any failure, including a missing permission — this feeds a syntax check
+     * Null on any failure, including a missing permission — this feeds a syntax check
      * that must not fire without evidence, and an exception here would otherwise turn a
      * permissions problem into a refused frame.
      */
@@ -184,7 +184,7 @@ class Probes(
         // last point where a hand-typed payload is still just bytes on this side. The
         // Sony's `38` means different things per table, so the type byte goes in too.
         //
-        // ⚠ **The protocol comes from the DEVICE, not the uuid**, because SPP carries
+        // **The protocol comes from the DEVICE, not the uuid**, because SPP carries
         // both BMAP and the JLab's own framing — see `Hazards.boseLength`. Resolved
         // here rather than passed in, so a caller that goes straight to the service
         // cannot skip it. Null when nothing is bonded at that address, which keeps the
@@ -240,11 +240,11 @@ class Probes(
      * hand-typed bytes cannot become an [OutFrame] any other way, so the check is no
      * longer a call somebody remembers to make before the send — it is the send's input.
      *
-     * ⚠ **Refusing is the default and `force` is per-call.** The probe's job is to send
+     * **Refusing is the default and `force` is per-call.** The probe's job is to send
      * whatever it is given, so this cannot be a mode that gets left on: a session that
      * needs `aa 95` types it once, for that one packet, having read why.
      *
-     * ⚠ Prints the reason and the bytes together. "Refused" without the payload is not
+     * Prints the reason and the bytes together. "Refused" without the payload is not
      * checkable against the docs, and the docs are where the consequence is argued.
      */
     private fun admitted(
@@ -290,13 +290,13 @@ class Probes(
     /**
      * Every packet of a multi-packet run, checked before ANY of them is sent.
      *
-     * ⚠⚠ **FAIL CLOSED ACROSS THE WHOLE RUN.** `seq` exists because some writes are
+     * ⚠ **FAIL CLOSED ACROSS THE WHOLE RUN.** `seq` exists because some writes are
      * transactional — an operator-`05` Start and then the change — so sending the
      * allowed prefix of a refused run is worse than sending nothing: it leaves the
      * device half-way through a transaction nobody finished. Every packet is judged
      * first, then the run goes or does not.
      *
-     * ⚠ **Judged on the payloads, not the wire bytes**, exactly as [send] does: the
+     * **Judged on the payloads, not the wire bytes**, exactly as [send] does: the
      * Sony framing is applied afterwards, and a refusal has to name what was typed.
      */
     private fun admittedAll(
@@ -321,17 +321,17 @@ class Probes(
     /**
      * True if this run should STOP because it is a dry run.
      *
-     * ⚠⚠ **DRY RUN IS THE DEFAULT AND `--apply` IS WHAT SENDS.** A forgotten flag has to be
+     * ⚠ **DRY RUN IS THE DEFAULT AND `--apply` IS WHAT SENDS.** A forgotten flag has to be
      * the safe outcome, not the destructive one. The probe's
      * job is to send hand-typed bytes at speed, so the thing it must not do is send a frame
      * nobody meant.
      *
-     * ⚠ **Reads are exempt, and that is not a loophole.** The rule is about MUTATION, and a
+     * **Reads are exempt, and that is not a loophole.** The rule is about MUTATION, and a
      * read mutates nothing — gating reads would make this tool useless for the job it exists
      * to do. [Frames.reads] decides, and it answers false for anything it cannot place, so
      * "I am not sure" spends a flag rather than a device.
      *
-     * ⚠ **All-or-nothing across a run**, matching [admittedAll]: a `seq` may be a
+     * **All-or-nothing across a run**, matching [admittedAll]: a `seq` may be a
      * transaction, so sending its read-shaped prefix and stopping at the first write would
      * leave the device half way through one.
      */
@@ -440,7 +440,7 @@ class Probes(
         // ACK and nothing else, which reads exactly like "this command returns no
         // data". `--ez sony true` frames each payload and acks what comes back.
         val sony = intent.getBooleanExtra("sony", false)
-        // ⚠ Table 2 — see the note on the frame type below. Read-only ops only, for now.
+        // Table 2 — see the note on the frame type below. Read-only ops only, for now.
         // The adb boundary stays a boolean extra; it becomes a [SonyTable] here and
         // is a type from this line on.
         val sonyType =
@@ -459,7 +459,7 @@ class Probes(
                     // would have us talking to ourselves.
                     //
                     // ⚠ **EVERY data frame, not just the last** — the device asks for
-                    // one per frame. ⚠ This does NOT fix the one-behind transcript at
+                    // one per frame. This does NOT fix the one-behind transcript at
                     // the top of #1107: the run below was re-measured with this in
                     // place and still ran one behind. See `Probe.exchangeAll`.
                     SonyFrame
@@ -492,10 +492,10 @@ class Probes(
                 // sound-field write on one and a voice-prompt write on the other, and
                 // nothing in the payload distinguishes them.
                 //
-                // ⚠ Default stays `0c`, because that is what every frame this repo has
+                // Default stays `0c`, because that is what every frame this repo has
                 // driven used and what the XM4 answers device info on.
                 //
-                // ⚠ The hazard was judged on each PAYLOAD; this arm re-frames those
+                // The hazard was judged on each PAYLOAD; this arm re-frames those
                 // same payloads, so the envelope cannot smuggle different bytes past
                 // the check. The raw arm sends exactly what was admitted.
                 raw.mapIndexed { n, p -> SonyFrame.encode(sonyType, (n % 2).toByte(), p) }
@@ -644,7 +644,7 @@ class Probes(
     /**
      * Everything decoded that is not ANC: EQ, multipoint, auto-off, the Action button.
      *
-     * ⚠ **This op is how those drivers get proven.** They were written
+     * **This op is how those drivers get proven.** They were written
      * from a capture and replayed in tests; until something sends them to a headphone
      * they are a hypothesis with good spelling. Read first — with no write argument
      * this only asks questions.
@@ -657,7 +657,7 @@ class Probes(
      * --es op settings --es device "XM4" --es dsee on      DSEE Extreme
      * --es op settings --es device "XM4" --es pause off    pause when removed
      * --es op settings --es device "XM4" --es chat on      Speak-to-Chat
-     * --es op settings --es device "XM4" --es voice on     Focus on Voice ⚠ ambient only
+     * --es op settings --es device "XM4" --es voice on     Focus on Voice ambient only
      * --es op settings --es device "Bose" --es eq 8,0,0      Bose: bass,mid,treble dB
      * --es op settings --es device "Bose" --es button spotify
      * ```
@@ -747,7 +747,7 @@ class Probes(
             report(d.setMultipoint(t, on))
         }
         // The three whose reads were confirmed and whose writes had not
-        // been driven when this was written. ⚠ Each is reversible and each is the
+        // been driven when this was written. Each is reversible and each is the
         // owner's setting — put back what was there.
         val switches =
             listOf(
@@ -926,7 +926,7 @@ class Probes(
 
         emit("gatt: ${packets.size} writes to ${device.address}")
         emit("  service $service")
-        // ⚠⚠ **THIS is the path `aa 95` is typed on.** The JBL is driven over GATT, the
+        // ⚠ **THIS is the path `aa 95` is typed on.** The JBL is driven over GATT, the
         // BES factory reset lives there, and this subcommand once had no hazard check at all
         // — the one place the repo's loudest standing rule applies.
         // A null uuid falls through to the BES rules, which is what catches it.

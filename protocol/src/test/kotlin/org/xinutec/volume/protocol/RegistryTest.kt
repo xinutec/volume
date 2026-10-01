@@ -45,7 +45,7 @@ class RegistryTest {
         )
     }
 
-    /** ⚠ The JBL is the only one routed over GATT, and carries no address. */
+    /** The JBL is the only one routed over GATT, and carries no address. */
     @Test
     fun `the jbl routes to gatt and everyone else to rfcomm`() {
         val j = Registry.fromAdvertisement("JBL TOUR ONE M2", jbl)!!
@@ -79,7 +79,7 @@ class RegistryTest {
     /**
      * An unrecognised JBL is not driven as a Tour One M2.
      *
-     * ⚠⚠ **This is the JLab bug above, nine days later and one vendor over.** The JBL
+     * **This is the JLab bug above, nine days later and one vendor over.** The JBL
      * branch stayed vendor-only when that one was fixed, so a LIVE PRO 2
      * TWS was named "JBL Tour One M2" on the screen and the app went looking for the
      * wrong model over LE. The name is the only thing separating them: both answer to
@@ -118,7 +118,7 @@ class RegistryTest {
     }
 
     /**
-     * ⚠⚠ **The same rule as the Bose test below, for the vendor where breaking it is
+     * **The same rule as the Bose test below, for the vendor where breaking it is
      * worst.** Every JLab used to resolve to the JBuds Sport ANC 4 and its driver; the
      * phone has seen three `JLab JBuds Air Sport` — not bonded, so nothing
      * was ever mis-driven, but the branch would have done it the day one was paired.
@@ -126,7 +126,7 @@ class RegistryTest {
      * ⛔ The JLab id space is a Realtek SDK's and holds a factory reset, so replaying
      * these frames at an unverified model is an unknown WRITE, not a wrong read.
      *
-     * ⚠ An unrecognised JLab is not driven at all: there is no JLab counterpart to
+     * An unrecognised JLab is not driven at all: there is no JLab counterpart to
      * [Registry.identifyBose] to fall back on, and undriven is the failure worth having.
      */
     @Test
@@ -140,7 +140,7 @@ class RegistryTest {
     }
 
     /**
-     * ⚠ The QC45 and QC35 share a vendor, a channel and a protocol, and still need
+     * The QC45 and QC35 share a vendor, a channel and a protocol, and still need
      * different tables: `01 06` is ANC on one and unsupported on the other. A
      * registry keyed on vendor alone would drive one of them with the other's
      * commands.
@@ -192,7 +192,7 @@ class RegistryTest {
     }
 
     /**
-     * ⚠⚠ **This test used to assert both of these were the same outcome**, and the
+     * **This test used to assert both of these were the same outcome**, and the
      * screen printed "it answered 01 06 in neither shape" for both. One of them
      * answered nothing. See [BoseIdentity].
      */

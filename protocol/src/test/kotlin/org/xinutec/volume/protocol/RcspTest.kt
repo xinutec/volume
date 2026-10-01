@@ -31,7 +31,7 @@ class RcspTest {
         )
     }
 
-    /** ⚠ The length counts the sequence number, which lives in the param block. */
+    /** The length counts the sequence number, which lives in the param block. */
     @Test
     fun `the length counts the sequence number and the params`() {
         val f = Rcsp.command(RcspCommand.GET_SYS_INFO, sn = 1, params = byteArrayOf(1, 2, 3))
@@ -54,7 +54,7 @@ class RcspTest {
         assertEquals(0x80, f[3].toInt() and 0xff)
     }
 
-    /** ⚠ The head is `fe dc ba`, which is what the SIGNED smali constants decode to. */
+    /** The head is `fe dc ba`, which is what the SIGNED smali constants decode to. */
     @Test
     fun `a frame that is not RCSP has no opcode`() {
         assertEquals(RcspCommand.GET_SYS_INFO, Rcsp.opcode(Rcsp.command(0x07, 0)))
@@ -82,7 +82,7 @@ class RcspTest {
     /**
      * ⛔ The destructive opcodes are refused, and by name.
      *
-     * ⚠ The check is keyed on the payload's own head bytes rather than on a detected
+     * The check is keyed on the payload's own head bytes rather than on a detected
      * protocol, because the device this guards reads as `UNKNOWN / NONE` — an arm that
      * waited for detection would never run.
      */

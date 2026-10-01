@@ -17,7 +17,7 @@ class WearableTest {
     }
 
     /**
-     * ⚠ **The one that decides the design.** The renamed QC35 reports `0x001F00` —
+     * **The one that decides the design.** The renamed QC35 reports `0x001F00` —
      * uncategorised, byte-identical to a Fitbit. An allow-list of headphone classes
      * would silently drop a device this app drives today, and a missing card is
      * invisible in a way a spurious one is not.

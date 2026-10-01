@@ -12,7 +12,7 @@ package org.xinutec.volume.protocol
  * reopen is not free — a second on RFCOMM, and far more on a device that must be
  * found by an LE scan first, so a short lease taxes the next tap for nothing.
  *
- * ⚠ **This is NOT for coexisting with the vendors' apps.** That was the original
+ * **This is NOT for coexisting with the vendors' apps.** That was the original
  * reason and it no longer applies: those apps are to be uninstalled once this one
  * replaces them. Do not shorten the lease on their account — nothing is waiting for
  * the channel, so the only cost of holding it is power, and the only cost of

@@ -7,7 +7,7 @@ import kotlin.math.roundToInt
 /**
  * Where the Mac answers, unless it has been told otherwise.
  *
- * ⚠ A LAN address, so it moves when the lease does — a dead `192.168.1.133` in a
+ * A LAN address, so it moves when the lease does — a dead `192.168.1.133` in a
  * sibling repo's deploy script is what that looks like a year later. `:app` persists
  * an override and offers it exactly when this one has stopped working, which is the
  * only moment anybody wants to see it.
@@ -218,9 +218,9 @@ data class ThothScreen(
     /**
      * The last thing the server refused, in its own words, or null.
      *
-     * ⚠ On the screen rather than in a log. thoth refuses a request by saying why,
+     * On the screen rather than in a log. thoth refuses a request by saying why,
      * so a client that swallows the sentence turns an explained refusal into a
-     * control that silently did nothing. ⚠ The volume ceiling was the one refusal
+     * control that silently did nothing. The volume ceiling was the one refusal
      * that happened in ordinary use and it was removed; what is left
      * is malformed bodies and unknown cabinets.
      */

@@ -191,7 +191,7 @@ class ThothController(
         try {
             if (!patch.empty) {
                 val next = client.setPair(patch)
-                // ⚠ The reply is adopted for a STRUCTURAL change and dropped for a
+                // The reply is adopted for a STRUCTURAL change and dropped for a
                 // level one. Picking a speaker or flipping stereo wants to show at
                 // once, and nothing is being dragged; a volume reply landing
                 // mid-drag would re-seed the thumb from a value two frames old.

@@ -34,10 +34,10 @@ object JblFrames {
     /**
      * A `c9` table in the shape the device sends — **synthesised, not captured**.
      *
-     * ⚠ Kept because it is the frame a size-only guard decodes as an equaliser: 196
+     * Kept because it is the frame a size-only guard decodes as an equaliser: 196
      * bytes of records against a curve's 116, so "big enough" passes it.
      *
-     * ⚠⚠ **The captured frame was once here and must not come back.**
+     * **The captured frame was once here and must not come back.**
      * `c9` is PERSONIFY_EQ, so its gains are one person's hearing compensation, and
      * this repo is public. Every byte below is fixed by the protocol — the 18 bands
      * are 9 per ear on the test's own 250 Hz–12 kHz grid — and every gain is zero,
@@ -88,7 +88,7 @@ object JblFrames {
     /**
      * 2026-08-17 12:13:41 / :45 / :46 — Low, High, Mid, from the user dragging the bar.
      *
-     * ⚠ The only way these could be got: the bar takes a gesture, and two runs that
+     * The only way these could be got: the bar takes a gesture, and two runs that
      * tried to reach it by tapping produced clean logs and no level traffic.
      */
     const val VOICEAWARE_LOW_ON = "aa9803020101"
@@ -101,7 +101,7 @@ object JblFrames {
     /**
      * 2026-08-17 09:20 and 10:40 — the same frame twice: Smart Talk off, hold 5 s.
      *
-     * ⚠ This is the frame a whole session mistook for VoiceAware's. It is why every
+     * This is the frame a whole session mistook for VoiceAware's. It is why every
      * decoder in `JblSettings.kt` checks the command byte rather than the shape.
      */
     const val SMART_TALK_OFF_5S = "aa9f03020005"

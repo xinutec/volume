@@ -97,7 +97,7 @@ class HazardsTest {
     @Test
     fun `Bose CLEAR_DEVICE_LIST is refused`() {
         assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 02 00"), SonyTable.TABLE_1, null))
-        // ⚠ Whatever the operator. `04 01 05` turned out to mean "this is a Start
+        // Whatever the operator. `04 01 05` turned out to mean "this is a Start
         // transaction, ask again with 05" rather than "this is a Set" — which is an
         // invitation to try `05` on a function that answered it, and 04 07 did.
         assertNotNull(Hazards.check(Channels.SPP, bytes("04 07 05 00"), SonyTable.TABLE_1, null))
@@ -132,7 +132,7 @@ class HazardsTest {
                 null,
             ),
         )
-        // ⚠ And nothing outside block 04 is touched by the block check.
+        // And nothing outside block 04 is touched by the block check.
         assertNull(Hazards.check(Channels.SPP, bytes("01 03 02 01 21"), SonyTable.TABLE_1, null))
     }
 
@@ -275,7 +275,7 @@ class HazardsTest {
     }
 
     /**
-     * ⚠⚠ **THE REGRESSION THIS RULE EXISTS TO NOT CAUSE.** The JLab JBuds is routed over
+     * ⚠ **THE REGRESSION THIS RULE EXISTS TO NOT CAUSE.** The JLab JBuds is routed over
      * the SAME SPP uuid as the QC45 and QC35 ([Registry]), and its ordinary ANC read is
      * `c0 ff 00 44 …` — byte 2 is `00`, a valid BMAP operator, and byte 3 is `0x44`, so a
      * BMAP length rule reads it as declaring 68 payload bytes while carrying 5.

@@ -177,7 +177,7 @@ data class PresetEqRow(
 }
 
 /**
- * The QC45's three signed bands. ⚠ **No preset on the wire at all**: Bose Music's
+ * The QC45's three signed bands. **No preset on the wire at all**: Bose Music's
  * preset buttons are the app writing three numbers.
  */
 data class ToneRow(
@@ -203,7 +203,7 @@ data class IdleTimerRow(
 /**
  * Spatial sound — the switch and the mode it renders for.
  *
- * ⚠ One value, because the JBL takes both in one frame. ⚠⚠ **The JLab is the
+ * One value, because the JBL takes both in one frame. **The JLab is the
  * opposite** — `74` and `52` are separate writes — and shares this row because the
  * card is the same two questions; `DeviceController.setSpatial` issues two writes.
  */
@@ -271,7 +271,7 @@ data class AutoPlayRow(
     override val kind get() = SettingKind.AUTO_PLAY
 }
 
-/** Left/right balance; ⚠ the switch is offered, the level only carried. */
+/** Left/right balance; the switch is offered, the level only carried. */
 data class BalanceRow(
     val value: Balance,
 ) : Setting {
@@ -291,7 +291,7 @@ data class PsapRow(
 /**
  * Voice prompts' switch, and the language they are spoken in.
  *
- * ⚠ **Writable on Bose, [Writability.NoWriter] on the JBL.** Its neighbouring
+ * **Writable on Bose, [Writability.NoWriter] on the JBL.** Its neighbouring
  * sub-commands of `aa 93` reach the language, which that vendor pushes as a file over
  * its DFU path, and this repo does no OTA work.
  */
@@ -311,7 +311,7 @@ data class VoicePromptsRow(
 /**
  * Rename, offered on a device whose name this repo can write.
  *
- * ⚠⚠ [held] is the name the **headphones** hold, not [DeviceCard.name]. That one is
+ * ⚠ [held] is the name the **headphones** hold, not [DeviceCard.name]. That one is
  * Android's bonded record, which a rename over this protocol does not touch: without
  * this, a rename that works and one that does nothing look identical. Null when the
  * device would not say; the card then falls back to the bonded name.
@@ -431,7 +431,7 @@ data class BatteryRow(
 /**
  * How loud it is, on the device's own scale — see [BoseVolume].
  *
- * ⚠⚠ **Shown, never written.** A volume is never raised above where it was found, so
+ * ⚠ **Shown, never written.** A volume is never raised above where it was found, so
  * a writer would be a decision.
  */
 data class LoudnessRow(
@@ -453,7 +453,7 @@ data class BudBatteryRow(
 /**
  * The JLab's equaliser, and its four stored curves so a chip knows what to send.
  *
- * ⚠⚠ **`4a` moves the PRESET INDEX and the ten level bytes do NOT land.** `49`'s
+ * ⚠ **`4a` moves the PRESET INDEX and the ten level bytes do NOT land.** `49`'s
  * levels are the CUSTOM slot's, not the selected preset's, so [presets] is what a
  * caller must read to know what a chip will send — see [JLabEq]. Its stored presets are
  * flat while the live curve has two bands cut, so selecting one may RAISE those bands.
@@ -468,7 +468,7 @@ data class JLabEqRow(
 /**
  * The JLab's Safe Hearing ceiling — written, at the owner's explicit request.
  *
- * ⚠⚠ [JLabSafeHearing.Level.DEFAULT] is the LEAST protective, so a caller that sorts
+ * ⚠ [JLabSafeHearing.Level.DEFAULT] is the LEAST protective, so a caller that sorts
  * these as loudness has them backwards.
  */
 data class SafeHearingRow(
@@ -511,7 +511,7 @@ data class VolumeLimitRow(
 }
 
 /**
- * Bose `01 0e`, named for keeping the noise setting. ⚠ The name is the vendor's and
+ * Bose `01 0e`, named for keeping the noise setting. The name is the vendor's and
  * power-cycling showed mode and level return either way; the card says so.
  */
 data class CncPersistenceRow(

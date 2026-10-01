@@ -8,11 +8,11 @@ package org.xinutec.volume.protocol
  * button — so they are not modelled here. Their wire values are in `docs/protocols.md`
  * if a different JBL ever needs them.
  *
- * ⚠ **LEFT_TAP is a physical BUTTON.** The M2's left cup has no touch surface at all,
+ * **LEFT_TAP is a physical BUTTON.** The M2's left cup has no touch surface at all,
  * which cost two rounds of "the write is dead" before the button was pressed. Only the
  * right cup is a touch panel.
  *
- * ⚠ **"Every right-cup gesture refuses writes" was WRONG and stood here for a week.**
+ * **"Every right-cup gesture refuses writes" was WRONG and stood here for a week.**
  * `aa 77 03 00 0a 06` was accepted at 23:26. Refusals are per ACTION and
  * per gesture, not per cup: `09` wants `0a`, not the `08` play/pause that was tried, and
  * a whole side was written off on the strength of one badly chosen action.
@@ -45,10 +45,10 @@ enum class Gesture(
  * `01`/`02` pair, and it only became visible once the array was read. [volume] marks
  * all three and [offerable] is what any UI may show — see the test that holds it.
  *
- * ⚠ **The ordinal is NOT the wire value past `0x0d`.** `values_Action` is the identity
+ * **The ordinal is NOT the wire value past `0x0d`.** `values_Action` is the identity
  * up to there and then runs *downward* from `0x60`.
  *
- * ⚠ **AND THE ARRAY IS NOT THE WHOLE SPACE.** This file's docs have now published three
+ * **AND THE ARRAY IS NOT THE WHOLE SPACE.** This file's docs have now published three
  * wrong tails: `a0…ac`, then `0e`–`16` correcting it, then `54`–`60` correcting that
  * from the SDK array. The device then used **`a1`** for the voice assistant, which is
  * in none of them — and the vendor's own `product_gesture_config.json` lists
@@ -127,7 +127,7 @@ enum class GestureAction(
  * button accepts eight actions and refuses `03`, `07`, `08` and every assistant — a
  * subset with no pattern, since `07` ANC is refused where `0c` ANC-off is taken.
  *
- * ⚠ `ff` is a read sentinel with no place in the gesture table, and `aa 71`/`aa 72` are
+ * `ff` is a read sentinel with no place in the gesture table, and `aa 71`/`aa 72` are
  * the SDK's *old* single-gesture pair. `aa 77` does both jobs here.
  */
 object JblGestures {
@@ -147,7 +147,7 @@ object JblGestures {
     /**
      * Every binding in a status frame, or null if this is not one.
      *
-     * ⚠ Pairs whose gesture or action is unknown are DROPPED rather than guessed, and
+     * Pairs whose gesture or action is unknown are DROPPED rather than guessed, and
      * an odd trailing byte makes the whole frame null: a map with a bogus row in it is
      * worse than no map, because it renders as a fact.
      */

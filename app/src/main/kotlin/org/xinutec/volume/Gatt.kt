@@ -49,7 +49,7 @@ object Gatt {
      * Properties matter as much as UUIDs: a characteristic with no NOTIFY cannot be
      * a reply path however plausible its name.
      *
-     * ⚠ No service is opened and nothing is written, so this is safe against anything.
+     * No service is opened and nothing is written, so this is safe against anything.
      */
     fun map(
         context: Context,

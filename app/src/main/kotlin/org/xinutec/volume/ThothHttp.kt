@@ -13,7 +13,7 @@ import java.net.URL
  * over four endpoints, and a client library would be a dependency carried for the
  * request-building that `:protocol` already does.
  *
- * ⚠ **Cleartext, deliberately.** thoth has no TLS and no auth — it is a control panel
+ * **Cleartext, deliberately.** thoth has no TLS and no auth — it is a control panel
  * for the speakers in one room, on one LAN, and the threat model there is destruction
  * rather than observation. The manifest permits cleartext for that reason and this
  * traffic is the only reason it does.
@@ -28,7 +28,7 @@ class ThothHttp(
         val c = URL(thothOrigin(host()) + path).openConnection() as HttpURLConnection
         return try {
             c.requestMethod = method
-            // ⚠ Short, and the connect timeout is the one that matters. Off this
+            // Short, and the connect timeout is the one that matters. Off this
             // network the address is usually unroutable rather than refused, so
             // without a bound the poll would stack up one stalled socket every 3 s.
             c.connectTimeout = CONNECT_MS

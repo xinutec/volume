@@ -64,7 +64,7 @@ object BoseFrame {
      * refuses to decode past its own length byte, so a single-frame decoder was safe;
      * it just could not see anything after the first frame.
      *
-     * ⚠ **Length-driven, and it stops rather than guessing.** A frame is
+     * **Length-driven, and it stops rather than guessing.** A frame is
      * `4 + payload[3]` bytes; if the buffer is too short for the frame it announces,
      * the walk ends and returns what it has. Skipping ahead to the next plausible
      * header would invent frames out of payload bytes — the JBL's [Bes.frame] has the
@@ -92,7 +92,7 @@ object BoseFrame {
      * says when it is finished; asking it is both faster and more correct than guessing
      * from silence.
      *
-     * ⚠ **Stopping at the first frame that matches block and function would TRUNCATE.**
+     * **Stopping at the first frame that matches block and function would TRUNCATE.**
      * A `05` START answers `07` PROCESSING, then one Status frame per item, then `06`
      * RESULT — `01 01` GET_ALL returns eight frames that way. The terminator depends on
      * the operator that was sent:
@@ -103,7 +103,7 @@ object BoseFrame {
      * sent 05 START    ends at 06 RESULT    (or 04 ERROR)
      * ```
      *
-     * ⚠ **Returns false for anything else**, which means the caller falls back to its
+     * **Returns false for anything else**, which means the caller falls back to its
      * timeout rather than to a guess. Several functions on this device answer nothing at
      * all (`01 07`, `01 08`), and a rule that claimed those were complete would turn a
      * silence worth noticing into an empty buffer that looks like a decode failure.
@@ -161,7 +161,7 @@ object BoseFrame {
 /**
  * The three Bose tone controls, in dB.
  *
- * ⚠ **There is no preset id on the wire.** Bose Music's four preset buttons (Bass
+ * **There is no preset id on the wire.** Bose Music's four preset buttons (Bass
  * Boost, Bass Reducer, Treble Boost, Treble Reducer) are the app writing three band
  * values, so the presets are the app's, not the device's — the opposite of Sony,
  * where the preset is opaque and the levels follow it. Anything named here would be
@@ -262,19 +262,19 @@ object BoseEq {
  * → 01 0e 02 01 01     ← 01 0e 03 01 01
  * ```
  *
- * ⚠ **A plain boolean, unlike its neighbour [BoseMultipoint]** — the Status echoes the
+ * **A plain boolean, unlike its neighbour [BoseMultipoint]** — the Status echoes the
  * byte that was written rather than a flags word, so a straight comparison is right here
  * and wrong one function along. Driven both ways and restored on a QC45.
  *
  * The name is the vendor's: `SettingsCncPersistenceResponse` parses payload `[0] == 1`
  * into an `isEnabled: Z`, and its SetGet packet takes a boolean into a one-byte payload.
  *
- * ⚠⚠ **The name was tested against the device and the obvious reading did NOT survive.**
+ * **The name was tested against the device and the obvious reading did NOT survive.**
  * Power-cycled with this ON (Home, level 0) and again with it OFF (Commute, level 7) — on
  * hardware — and the slot AND the level came back both times. So whatever this
  * flag governs, it is not whether the ANC selection persists across a power cycle.
  *
- * ⚠ That is a refutation, not a decode: one trial per arm, and "off and on" was the owner
+ * That is a refutation, not a decode: one trial per arm, and "off and on" was the owner
  * switching the headphones rather than a measured full power-down. It says what this byte
  * is NOT for. Nothing here knows what it IS for, and the card says so rather than
  * repeating the vendor's word back at the owner.
@@ -303,7 +303,7 @@ object BoseCncPersistence {
  * the same *setting* behaves completely differently on the two vendors, so neither
  * one's result may be carried across to the other.
  *
- * ⚠ The read sweep did not record `01 0a` among block `01`'s readable
+ * The read sweep did not record `01 0a` among block `01`'s readable
  * functions, though it plainly answers a Get. Either the sweep's function range
  * stopped short of it or the device answered differently then; re-sweep before
  * treating that list as complete.
@@ -339,7 +339,7 @@ object BoseMultipoint {
  * ✅ **Driven on hardware**: Spotify and back to Hear Battery Level, each
  * confirmed by read-back and restored.
  *
- * ⚠ **Only two of the app's options were exercised**, so this enum is two entries
+ * **Only two of the app's options were exercised**, so this enum is two entries
  * and everything else decodes to null rather than to a guess. The QC45's own menu
  * offers more.
  */
@@ -348,7 +348,7 @@ object BoseButton {
     const val FN: Byte = 0x09
 
     /**
-     * ⚠ Unexplained, and carried verbatim because it was in both directions of every
+     * Unexplained, and carried verbatim because it was in both directions of every
      * frame seen. Not knowing what `80 09` selects is survivable; inventing a meaning
      * for it and building on that is not.
      */
@@ -396,7 +396,7 @@ object BoseButton {
  * looks like "not gettable, i.e. a Set" and is neither: `05` opens a transaction and the
  * device streams `07` Processing, one Status frame per setting, then `06` Result.
  *
- * ⚠ **The reply is SEVEN BMAP frames in one read**, which is why [Bose.frames] exists.
+ * **The reply is SEVEN BMAP frames in one read**, which is why [Bose.frames] exists.
  * Every other Bose decoder here takes a fixed offset off the front of one frame, and
  * that is right only while a request draws exactly one reply.
  */
@@ -430,7 +430,7 @@ data class BoseAll(
     /**
      * Whether the noise setting persists — `01 0e`.
      *
-     * ⚠ The NAME is the vendor's; the behaviour behind it is untested — see
+     * The NAME is the vendor's; the behaviour behind it is untested — see
      * [BoseCncPersistence].
      */
     val cncPersistence: Boolean? = null,
@@ -453,10 +453,10 @@ data class BoseAll(
  * `b4` = 180, which read as a Kotlin `Byte` is −76. Driven across the vendor app's whole
  * picker: Never `00` · 5 min `05` · 20 `14` · 40 `28` · 1 h `3c` · 3 h `b4`.
  *
- * ⚠ **Zero means NEVER, not "off in zero minutes".** Bose Connect offers it as its own
+ * **Zero means NEVER, not "off in zero minutes".** Bose Connect offers it as its own
  * row, so it is a real setting rather than a degenerate value.
  *
- * ⚠ **`01 04` carries a second, different message.** When the payload is two bytes or
+ * **`01 04` carries a second, different message.** When the payload is two bytes or
  * more with `payload[1] & 1` set, Bose Connect's own parser reads it as an auto-power-down
  * *boolean* instead. Nothing here has seen that shape; a decoder that took `payload[0]`
  * unconditionally would report it as a one-minute timer.
@@ -472,7 +472,7 @@ data class BoseStandby(
  * How much of your own voice you hear on a call — `01 0b` SIDETONE, which Bose Connect
  * calls **Self Voice**.
  *
- * ⚠ Named from `SidetoneMode` in `com.bose.monet`, and confirmed on the device: the app
+ * Named from `SidetoneMode` in `com.bose.monet`, and confirmed on the device: the app
  * showed Medium while the wire read `02`, then Low while it read `03`.
  */
 enum class SidetoneLevel(
@@ -490,7 +490,7 @@ enum class SidetoneLevel(
  * ⚠ **Operator START, and the reply is several frames.** See [BoseAll] for why a Get
  * is refused here, and [BoseFrame.frames] for why the buffer has to be split.
  *
- * ⚠ **What comes back is the device's own enumeration of what it has**, which is
+ * **What comes back is the device's own enumeration of what it has**, which is
  * stronger evidence than a sweep: on the QC35 it lists exactly `01 02`, `01 03`,
  * `01 04`, `01 06`, `01 09` and `01 0b`. `01 07` BASS_CONTROL and `01 08` ALERTS are
  * absent from it, and those are the two functions that answer nothing at all when
@@ -574,7 +574,7 @@ object BoseStandbyTimer {
     /**
      * ⚠ **Unsigned**, because "3 hours" is `b4` = 180 and a Kotlin `Byte` makes that −76.
      *
-     * ⚠ **Refuses the auto-power-down shape rather than misreading it.** Bose Connect's
+     * **Refuses the auto-power-down shape rather than misreading it.** Bose Connect's
      * parser treats a payload of two-or-more bytes whose `[1]` has bit 0 set as a
      * *boolean*, not a duration; taking `[0]` regardless would report it as a one-minute
      * timer. Nothing here has seen that shape, which is exactly why it must not be
@@ -599,7 +599,7 @@ object BoseSidetone {
      * second is the one turned into a `SidetoneMode`. Confirmed on the device: Medium
      * read `01 02 0f` and Low read `01 03 0f`, so `[0]` held still while `[1]` moved.
      *
-     * ⚠ **The trailing `0f` is NOT decoded as a supported-modes mask**, tempting as four
+     * **The trailing `0f` is NOT decoded as a supported-modes mask**, tempting as four
      * bits for four modes is. Bose Connect hands `payload[1…]` to its
      * `SupportedSidetoneModes`, which would swallow the level byte too — so either that
      * offset is wrong for a three-byte payload or the field means something else. It is
@@ -641,7 +641,7 @@ object BoseVoicePrompts {
      * that read-modify-write is two places for the carried field to be dropped.
      * Null for either argument means "leave it as it is".
      *
-     * ⚠⚠ **On a QC45, a write that CHANGES something draws no reply at all.**
+     * ⚠ **On a QC45, a write that CHANGES something draws no reply at all.**
      * Discriminated over one socket, 7/7 across two sittings: writing the byte the device
      * already holds answers a Status in about a millisecond, and writing a different one
      * answers nothing while applying the change. `01 04` and `01 0b` changed state and
@@ -650,7 +650,7 @@ object BoseVoicePrompts {
      * has no terminator and would sit out the transport's whole window on every switch
      * press, and the reply it eventually failed to get would be worth nothing anyway.
      *
-     * ⚠ **The QC35 does the OPPOSITE, and it is the same function.** Measured,
+     * **The QC35 does the OPPOSITE, and it is the same function.** Measured,
      * same seven-step discrimination: every write answers a Status at once, carrying the
      * new byte, and a Get immediately after agrees. No silence and no settle delay. So
      * "`01 03` is asynchronous" is a fact about one model, not about the protocol — which
@@ -663,7 +663,7 @@ object BoseVoicePrompts {
      *
      * So the write is **sent, not exchanged**, and the truth comes from the Get after it.
      *
-     * ⚠⚠ **And that Get has to WAIT, or it reads the state from before the write.** The
+     * **And that Get has to WAIT, or it reads the state from before the write.** The
      * first build of this sent the write and asked immediately; the device answered with
      * the byte it had held a millisecond earlier, so a toggle that worked was reported to
      * the owner as *"this pair refused that"* — twice, once in each direction, while the
@@ -675,11 +675,11 @@ object BoseVoicePrompts {
      * by a number invented here, and it also carries off anything the device volunteered
      * instead of leaving it in the socket for the next exchange to adopt.
      *
-     * ⚠ **Two attempts, not a loop until it changes.** A device that genuinely refuses
+     * **Two attempts, not a loop until it changes.** A device that genuinely refuses
      * the write looks exactly like one that is still applying it, so an unbounded wait
      * would hang on the one case that most needs reporting.
      *
-     * ⚠ **A no-op is not written at all**, which is what keeps the send-and-do-not-wait
+     * **A no-op is not written at all**, which is what keeps the send-and-do-not-wait
      * safe: the one case that does answer is the one that never happens here, so nothing
      * is left in the socket for the next exchange to mistake for its own answer. If a
      * firmware ever does reply to a real change, its Status lands in a Get's window and
@@ -713,7 +713,7 @@ object BoseVoicePrompts {
     }
 
     /**
-     * ⚠ **Bit 5 of byte 0**, from `SettingsBmapPacketParser`: it shifts right by five
+     * **Bit 5 of byte 0**, from `SettingsBmapPacketParser`: it shifts right by five
      * and masks one, and hands that to `VoicePromptEvent`'s first argument, which is
      * what `getVoicePromptsEnabled()` returns. Bit 7 is a second flag the SDK exposes
      * only as `c()`, and the low five bits are the language.
@@ -750,7 +750,7 @@ object BoseVoicePrompts {
  * own socket — level set to 3, read back, restored. See `docs/bose-read-surface.md`,
  * "The mode-edit write, captured and replayed".
  *
- * ⚠ **The device has FOUR slots**, two built in (Quiet, Aware) and two the owner makes.
+ * **The device has FOUR slots**, two built in (Quiet, Aware) and two the owner makes.
  * The names are the device's own — this repo does not supply them.
  */
 object BoseCncModes {
@@ -768,7 +768,7 @@ object BoseCncModes {
     /** `1f 08` — `<capacity> <bitmask of occupied slots>`. */
     const val SLOTS: Byte = 0x08
 
-    // ⚠⚠ **`04 01 04` here means NOT ON THIS DEVICE, not "no such function".** `1f 09`
+    // ⚠ **`04 01 04` here means NOT ON THIS DEVICE, not "no such function".** `1f 09`
     // and `1f 0a` were read as not-supported and written up as "the block ends at 08";
     // a capture of Bose Music the same evening shows it sending `1f 09 05 01 <slot>` as
     // its DELETE, three times, taking the error, and falling back — and probing `1f 0b`
@@ -786,7 +786,7 @@ object BoseCncModes {
     //   1f 05  01                     constant across a selection change
     //   1f 07  00 01 02 03            the four slot INDICES — see the correction below
     //
-    // ⚠ **`1f 07` is NOT an occupancy list.** It was written up here as "the shape a
+    // **`1f 07` is NOT an occupancy list.** It was written up here as "the shape a
     // delete must change"; deleting a mode later the same day left it at `00 01 02 03`
     // while [SLOTS] went `04 0f` -> `04 0b`. It is a static index list and the occupancy
     // lives in [SLOTS]'s bitmask alone. Measured by deleting slot 2 and
@@ -807,7 +807,7 @@ object BoseCncModes {
      * Where the wind-block byte sits in each direction — `[38]` going out, `[46]` coming
      * back, the same asymmetry [LEVEL_WRITE] and [LEVEL_READ] have.
      *
-     * ⚠ Read off Bose Music's parser: `AudioModesModeConfigResponse.createFromPacket`
+     * Read off Bose Music's parser: `AudioModesModeConfigResponse.createFromPacket`
      * indexes `0x2e` into `WindBlockEnabledTypes`, and the write builder's parameter order
      * puts it last in a 39-byte record. Then driven — `[38]` set to `01` came back at
      * `[46]` as `01`, and was put back.
@@ -826,7 +826,7 @@ object BoseCncModes {
     /**
      * One slot as the device describes it.
      *
-     * ⚠ [nameId] is **undecoded** — `01` Quiet, `02` Aware, and whatever the owner's
+     * [nameId] is **undecoded** — `01` Quiet, `02` Aware, and whatever the owner's
      * modes were made with. It is constant across every edit of a given mode, so it
      * belongs to the mode's identity rather than its level; it looked like the level on
      * one mode where `07` happened to land in both bytes. It is carried through an edit
@@ -841,11 +841,11 @@ object BoseCncModes {
         /**
          * `[46]` — Bose Music's `windBlockToggleEnabled`.
          *
-         * ⚠⚠ **Turning this ON takes the level over.** Written `01` alongside level `07`
+         * ⚠ **Turning this ON takes the level over.** Written `01` alongside level `07`
          * in one frame, the device read back level `00`; the same frame with `00` and
          * level `07` took the level fine, so a level beside a wind-block change is not
          * ignored in general — the zero came from wind block. The vendor's own screen
-         * says it "automatically adjusts noise cancellation". ⚠ Whether the device FORCES
+         * says it "automatically adjusts noise cancellation". Whether the device FORCES
          * `0` or merely reports `0` while it manages the level is NOT separated.
          */
         val windBlock: Boolean = false,
@@ -923,13 +923,13 @@ object BoseCncModes {
      * Fill an empty slot. **Both frames, in order** — captured off Bose Music creating a
      * mode and replayed from this repo's own socket the same evening.
      *
-     * ⚠⚠ **The record write ALONE does not create anything.** Sent on its own it stores
+     * ⚠ **The record write ALONE does not create anything.** Sent on its own it stores
      * the name and level and leaves `[5]` at `00`, so the mode is invisible to every
      * reader including the vendor app — measured, not reasoned about: this repo sent
      * exactly that frame and read the record back still unoccupied. The `1f 08` write is
      * what brings it into existence, and [delete] is the same two frames inverted.
      *
-     * ⚠ [nameId] is an index into a vendor name table this repo has NOT decoded — Home is
+     * [nameId] is an index into a vendor name table this repo has NOT decoded — Home is
      * `0a`, Commute `07`. Creating a mode with a nameId nothing has observed is a guess at
      * a byte the device may use for its icon or its ordering, so pass one that has been
      * seen on this device.
@@ -942,11 +942,11 @@ object BoseCncModes {
     /**
      * Empty a slot. **Both frames, in order.**
      *
-     * ⚠ The blanked record carries level `05`, which is what Bose Music writes and what
+     * The blanked record carries level `05`, which is what Bose Music writes and what
      * the device then reports at `[42]` for an unoccupied slot. It is a leftover, not a
      * level — read `[5]`, or [Slots.holds], before believing any of it.
      *
-     * ⚠⚠ **`1f 09 05 01 <slot>` is the protocol's own delete and this device REFUSES it**
+     * **`1f 09 05 01 <slot>` is the protocol's own delete and this device REFUSES it**
      * (`04 01 04`), which is why the operation is two writes rather than one. Bose Music
      * tries `1f 09` three times, takes the error, and falls back to exactly this pair.
      */
@@ -984,7 +984,7 @@ object BoseCncModes {
     /**
      * Every occupied slot in a `1f 01` transaction's reply, or in one slot's Status.
      *
-     * ⚠ The reply arrives as ONE batched buffer holding a dozen frames, so it has to be
+     * The reply arrives as ONE batched buffer holding a dozen frames, so it has to be
      * split before anything is read out of it — see [BoseFrame.frames].
      */
     fun modes(buffer: ByteArray): List<Mode> =
@@ -1025,7 +1025,7 @@ object BoseCncModes {
  * device, so there is nowhere for a charging state to come from; the QC45's four-byte
  * `5a ff ff 00` may carry one, and nothing here has established that either.
  *
- * ⚠ **Measured against the vendor app**: Bose Connect showed 100 while this read `64`.
+ * **Measured against the vendor app**: Bose Connect showed 100 while this read `64`.
  * And against itself over time — `46` (70), `64` after charging — which is
  * what proved this is the battery and `01 04` is not.
  */
@@ -1061,10 +1061,10 @@ object BoseBattery {
  * SoundLink Revolve to 100 (`64 24` — 100 steps, sitting at 36). A caller that renders
  * [BoseLoudness.level] as a percent is right on one of them by accident.
  *
- * ⚠ **Read as `<steps> <level>`, and the other order was ruled OUT rather than not
+ * **Read as `<steps> <level>`, and the other order was ruled OUT rather than not
  * considered**: `19 12` the other way round is a device at 25 with a maximum of 18.
  *
- * ⚠⚠ **NO WRITER HERE, AND THE ABSENCE IS DELIBERATE.** This is a loudness control and
+ * ⚠ **NO WRITER HERE, AND THE ABSENCE IS DELIBERATE.** This is a loudness control and
  * this repo's rule is that a volume is never raised above where it was found. It ships
  * read-only first so that adding a writer has to be a decision rather than a refactor —
  * exactly how [JLabSafeHearing] was handled before the user asked for it explicitly.
@@ -1108,7 +1108,7 @@ data class BoseLoudness(
  * `adjustedOrdinal()`, so the byte matches the position only after that shift. The same
  * trap as Sony's `Command` and the JBL's gesture table.
  *
- * ⚠ **`00` is UK English and `01` is US English** — one bit apart, and this unit reads
+ * **`00` is UK English and `01` is US English** — one bit apart, and this unit reads
  * `01`, which Bose Connect renders as "English (U.S.)". A decoder off by one here is
  * wrong in a way nobody would notice.
  */
@@ -1140,7 +1140,7 @@ enum class BoseVoicePromptLanguage(
     ;
 
     companion object {
-        /** ⚠ Five bits, so a value outside the table is possible and returns null. */
+        /** Five bits, so a value outside the table is possible and returns null. */
         fun of(payload: ByteArray): BoseVoicePromptLanguage? =
             payload
                 .getOrNull(0)
@@ -1164,13 +1164,13 @@ object BoseWrites {
     /**
      * `01 03 02 01 <current bits 7–6 | (on ? 0x20 : 0) | language>`.
      *
-     * ⚠ **[current] is carried because one byte holds four fields**, two of them
+     * **[current] is carried because one byte holds four fields**, two of them
      * undecoded. This function used to build the byte from [on] and [language] alone, on
      * the reasoning that the vendor app writes `21` where the device reads `a1` — so the
      * high bits were the device's to maintain. That is right about bit 7, which the
      * device restores by itself, and unestablished about bit 6.
      *
-     * ⚠ **A QC45's bit 6 was set before any write to this function and has been clear
+     * **A QC45's bit 6 was set before any write to this function and has been clear
      * ever since one**, across a re-enable and a power cycle. **Whether carrying it would
      * have saved it cannot now be tested**: a deliberate `61` to that unit read back `a1`,
      * so the bit cannot be set from zero, and the only device that could answer the
@@ -1180,7 +1180,7 @@ object BoseWrites {
      * ✅ **Writing the high bits back is accepted, and that IS measured**: `a1` written to
      * a QC45 holding `a1` read back `a1`, and `81` likewise.
      *
-     * ⚠ **The language rides in the same byte**, so "turn prompts on" without carrying
+     * **The language rides in the same byte**, so "turn prompts on" without carrying
      * the current language across silently resets it to `00` — UK English, one bit from
      * the US English this unit uses.
      */
@@ -1228,12 +1228,12 @@ object BoseWrites {
  * `04 08 02 01 01`, and by now that guess has been wrong twice on this protocol
  * (sidetone's payload length, and `01 01` GET_ALL refusing a plain Get).
  *
- * ⚠ **A Get answers with operator `06` RESULT rather than `03` STATUS**, payload
+ * **A Get answers with operator `06` RESULT rather than `03` STATUS**, payload
  * `<on> <?>`: `00 01` read while idle and `01 01` immediately after entering pairing
- * mode, so byte 0 is the mode. ⚠ Byte 1 has been seen as both `00` and `01` with no
+ * mode, so byte 0 is the mode. Byte 1 has been seen as both `00` and `01` with no
  * account of why, so it is carried and not interpreted.
  *
- * ⚠ **Only ENTERING is implemented.** Leaving is presumably payload `00`, and
+ * **Only ENTERING is implemented.** Leaving is presumably payload `00`, and
  * presumably is not a word this file gets to use about an untested frame — the mode
  * times out on its own, so nothing needs it yet.
  *
@@ -1251,7 +1251,7 @@ object BosePairing {
     /** Put the headphones in pairing mode so a new device can find them. */
     fun enter() = BoseFrame.encode(BLOCK, FN, BoseOperator.START, byteArrayOf(0x01))
 
-    /** ⚠ The reply is a RESULT, so [BoseFrame.payload] is asked for that operator. */
+    /** The reply is a RESULT, so [BoseFrame.payload] is asked for that operator. */
     fun on(buffer: ByteArray): Boolean? {
         val frame =
             BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == FN } ?: return null
@@ -1302,7 +1302,7 @@ object BoseDevices {
     /**
      * The addresses, and which are connected.
      *
-     * ⚠ **Byte 0 is a bitmask over the list's own positions.** Measured:
+     * **Byte 0 is a bitmask over the list's own positions.** Measured:
      * one paired device `01`; two, both connected, `03`; then `01` again when one was
      * disconnected **while both stayed in the list**. A count would have said `02`.
      */
@@ -1325,7 +1325,7 @@ object BoseDevices {
         return out
     }
 
-    /** The friendly name out of an `04 05` reply. ⚠ Three status bytes precede it. */
+    /** The friendly name out of an `04 05` reply. Three status bytes precede it. */
     fun name(buffer: ByteArray): String? {
         val frame = BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == INFO }
         val payload = frame?.let { BoseFrame.payload(it, BLOCK, INFO) } ?: return null
@@ -1378,16 +1378,16 @@ sealed interface Forget {
  * dies too and no Processing or Result can arrive. This is attested by its EFFECT — ACL
  * went 1 → 0 on the device it named — not by an answer, and no reply shape is known.
  *
- * ⚠⚠ **The phone does NOT come back on its own.** Measured: twelve seconds at
+ * **The phone does NOT come back on its own.** Measured: twelve seconds at
  * ACL 0, then Android Settings → the device's gear → Connect brought it back and the BMAP
  * channel answered normally. So this is recoverable, but only by an explicit reconnect.
  *
- * ⚠ **Deliberately NOT offered on the card.** The QC45's `04 04` list holds exactly one
+ * **Deliberately NOT offered on the card.** The QC45's `04 04` list holds exactly one
  * entry — the phone running this app — so the only link it can drop is the app's own, and
  * with no auto-reconnect a tap would strand the owner in Settings with no way back from
  * this screen. The frame belongs here; the button does not.
  *
- * ⚠ Block `04` again, so the same rule as [BosePairing]: block and function are FIXED
+ * Block `04` again, so the same rule as [BosePairing]: block and function are FIXED
  * here. `04 03` REMOVE_DEVICE and `04 07` CLEAR_DEVICE_LIST are neighbours and a writer
  * that took either as a parameter must not exist.
  */
@@ -1423,7 +1423,7 @@ object BoseForget {
  * no such byte**: the payload is the UTF-8 name and nothing else. Captured from the
  * vendor app in both directions, renaming and renaming back.
  *
- * ⚠ `docs/captures.md` says "every vendor here mirrors its getter", and for the *frame*
+ * `docs/captures.md` says "every vendor here mirrors its getter", and for the *frame*
  * that holds. For the *payload* it does not, here. A setter built by mirroring would have
  * prepended a NUL to the owner's device name — visible on every phone it pairs with, and
  * not obviously this app's fault.
@@ -1465,14 +1465,14 @@ object BoseName {
  * Block `01` as **both Bose models speak it** — everything in the settings block that is
  * not ANC: the name, the voice prompts, the standby timer, self voice.
  *
- * ⚠ **This exists because these writes lived on the QC35's driver and were being called
+ * **This exists because these writes lived on the QC35's driver and were being called
  * with a QC45's transport.** They worked — the drivers are stateless and the frames are
  * identical — so nothing ever failed and nothing could. What was wrong was quieter: the
  * code said "QC35" about a QC45, and the QC45's own read branch had never been given
  * these settings at all, so its card simply had no rows for them. Four settings the repo
  * could already speak were absent from one device's screen for that reason alone.
  *
- * ⚠ **Sharing a block number is NOT sharing a meaning**, and this interface is the
+ * **Sharing a block number is NOT sharing a meaning**, and this interface is the
  * exception rather than the rule — `01 05` and `01 06` are different functions on these
  * two models. What justifies it here is that each function below appears in *both*
  * devices' own `01 01` enumeration, in the same shape, and was read from each.
@@ -1596,19 +1596,19 @@ interface BoseSettingsDriver : Driver {
 /**
  * The vendor's table of mode names, and the byte `[2]` of a slot record indexes it.
  *
- * ⚠ **This is a DECOMPILE, checked against the wire.** Read out of Bose Music's
+ * **This is a DECOMPILE, checked against the wire.** Read out of Bose Music's
  * `AudioModesPrompt` `<clinit>` by tracking registers — its constructor is
  * `(BBLjava/lang/String;)`, and the two bytes are exactly the record's `[1]` and `[2]`,
  * with `[1]` zero for all 37 entries. Four of these were measured independently on a
  * QC45 before the decompile was read: Quiet `01`, Aware `02`, Commute `07`, Home `0a`.
  * They all agree, which is what makes the other 33 worth having.
  *
- * ⚠⚠ **The table is NOT alphabetical — the PICKER is.** Commute `07` and Home `0a` are
+ * **The table is NOT alphabetical — the PICKER is.** Commute `07` and Home `0a` are
  * three apart while the picker shows only Focus between them, because the picker is a
  * product-specific subset in display order. Inferring wire values from its ordering is
  * wrong every time the subset skips an entry.
  *
- * ⚠ [OFFERED] is the subset Bose Music offers for the QC45, read off its own picker.
+ * [OFFERED] is the subset Bose Music offers for the QC45, read off its own picker.
  * The other entries are decoded but unattested ON THIS PRODUCT: nothing here has seen
  * what the headphones do with a name their vendor app never sends them.
  */

@@ -8,7 +8,7 @@ import org.junit.Test
 /**
  * The QC45's mode table, against bytes the device actually sent.
  *
- * ⚠ **Every buffer here is a real reply**, copied from one sitting — the
+ * **Every buffer here is a real reply**, copied from one sitting — the
  * `1f 01 05 00` transaction and the Status that came back from an edit. A hand-written
  * fixture would agree with whatever this file happened to implement.
  */
@@ -205,7 +205,7 @@ class BoseCncModesTest {
     }
 
     /**
-     * ⚠ **The four the WIRE gave, before the decompile was read.** These are the check on
+     * **The four the WIRE gave, before the decompile was read.** These are the check on
      * the other 33 names: they were measured off a QC45's own slot records
      * on two days, and if the decompiled table disagreed with any of them the table
      * would be the thing that is wrong.

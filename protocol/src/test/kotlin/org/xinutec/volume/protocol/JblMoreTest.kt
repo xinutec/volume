@@ -76,7 +76,7 @@ class JblMoreTest {
         assertEquals("aaa00101", hex(JblPsap.get().bytes))
     }
 
-    /** ⚠ There is no writer, and that is the design — [JblPsap] says why. */
+    /** There is no writer, and that is the design — [JblPsap] says why. */
     @Test
     fun `another command is not read as psap`() {
         assertNull(JblPsap.state(bytes("aaa80702010002640300")))

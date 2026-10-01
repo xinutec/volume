@@ -88,7 +88,7 @@ class SonyFrameTest {
      * The frame that settled the framing: the XM4's band table,
      * copied whole off the wire.
      *
-     * ⚠ **It decides escaping, length and checksum at once, and only one reading of
+     * **It decides escaping, length and checksum at once, and only one reading of
      * all three is consistent.** Twenty-two bytes arrive but the header declares
      * twenty-one; the checksum `54` holds over the unescaped body and not the escaped
      * one. So `3d 2e` is an escaped `3e`, the length counts the payload after

@@ -68,7 +68,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠ **The guard on the whole framing claim.** If anything here ever starts reading
+     * **The guard on the whole framing claim.** If anything here ever starts reading
      * the byte after the command as a length, this fixture decodes differently from its
      * `b1 = 01` twin — and they carry identical battery levels on the wire.
      */
@@ -117,7 +117,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠⚠ **The regression this shipped once.** These are the two payloads exactly as the
+     * ⚠ **The regression this shipped once.** These are the two payloads exactly as the
      * earbuds sent them, in order: `44`'s answer arrived 20 ms after its
      * own window closed, so the NEXT read — `76` — was handed both. A decoder testing
      * offset 3 sees `45`, returns null, and the card silently loses its Spatial Audio row
@@ -129,7 +129,7 @@ class JLabTest {
         assertEquals(true, JLabSpatial.state(misaligned))
     }
 
-    /** ⚠ And the battery broadcast, which arrives every ten seconds unasked. */
+    /** And the battery broadcast, which arrives every ten seconds unasked. */
     @Test
     fun `a reply is found behind an unsolicited battery broadcast`() {
         val misaligned = bytes("$battery80x80 ${spatialOff.substring(0)}")
@@ -199,7 +199,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠⚠ **The direction, asserted so a refactor cannot quietly invert it.** `02` is the
+     * **The direction, asserted so a refactor cannot quietly invert it.** `02` is the
      * MOST protective setting and `00` the least, so anything treating these numbers as
      * loudness has the control backwards — on the one row where backwards is harmful.
      */
@@ -221,7 +221,7 @@ class JLabTest {
     /**
      * ✅ **The three writes exactly as the vendor app sent them**.
      *
-     * ⚠ This test replaced one asserting that no writer existed. That guard did its job:
+     * This test replaced one asserting that no writer existed. That guard did its job:
      * shipping read-only first meant adding the writer was a decision the user took
      * explicitly, rather than something that appeared in a refactor.
      */
@@ -293,7 +293,7 @@ class JLabTest {
     }
 
     // ---- the writer ------------------------------------------------------------
-    // ⚠ **The write once had no test at all**, while shipping and being
+    // **The write once had no test at all**, while shipping and being
     // driven against the earbuds. These pin the bytes; what the DEVICE does with them
     // is a separate question and [JLabEq] carries the answer.
 
@@ -314,7 +314,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠⚠ **What a `eq 1` tap actually puts on the wire**, and the frame behind the
+     * **What a `eq 1` tap actually puts on the wire**, and the frame behind the
      * The finding: the card sends slot 0's OWN contents, which [eqPresets] shows
      * are flat, and the device answered with the CUT curve still in place. So this frame
      * is established and the device's response to it is not — see [JLabEq].
@@ -376,7 +376,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠ **Both sides carry the same map, which is why neither is called left or right.**
+     * **Both sides carry the same map, which is why neither is called left or right.**
      * This asserts the sameness rather than an assignment: if a future capture ever
      * differs between sides, this fails and the naming question becomes answerable.
      */
@@ -436,7 +436,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠⚠ **The strongest evidence that a reply's last byte is not a checksum at all**:
+     * ⚠ **The strongest evidence that a reply's last byte is not a checksum at all**:
      * across `74`'s two writes, `75`'s two acks and `76`'s two states — six frames whose
      * payload byte takes both values — the trailing byte is `6b` every time. A checksum
      * over the content cannot be constant while the content changes.
@@ -449,7 +449,7 @@ class JLabTest {
     }
 
     /**
-     * ⚠⚠ **The reply checksum has NO rule, and this records which way each command
+     * **The reply checksum has NO rule, and this records which way each command
      * falls** so nobody re-derives it. Seven close at Σ−2; five close at no offset over
      * any prefix. A commit claimed the −2 held universally — it had been
      * checked frame-by-frame on a capture where the `31` broadcast repeats sixty times.

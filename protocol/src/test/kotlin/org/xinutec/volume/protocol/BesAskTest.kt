@@ -6,7 +6,7 @@ import org.junit.Test
 /**
  * Every JBL reply is found wherever it lands in the buffer.
  *
- * ⚠ The chip volunteers `aa 25` battery every ten seconds, and when it arrives before
+ * The chip volunteers `aa 25` battery every ten seconds, and when it arrives before
  * the answer a decoder reading offset 0 returns null and the row vanishes (#1154). These
  * were the reads and writes that still decoded at offset 0.
  */

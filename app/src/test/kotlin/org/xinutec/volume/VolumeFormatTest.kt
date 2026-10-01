@@ -6,7 +6,7 @@ import org.junit.Test
 /**
  * The two number formatters on the settings screen.
  *
- * ⚠ **Written because [hz] shipped rendering `2.5kk`**, and was caught by looking at
+ * **Written because [hz] shipped rendering `2.5kk`**, and was caught by looking at
  * the screen rather than by anything here. The bug only touched the bands that are
  * not exact multiples of 1000, so a test naming just `1k` and `16k` would have passed
  * — which is the reason the case below is the XM4's five real band centres, taken
@@ -21,7 +21,7 @@ class VolumeFormatTest {
         )
     }
 
-    /** ⚠ The failing shape had a doubled unit, so assert the suffix appears once. */
+    /** The failing shape had a doubled unit, so assert the suffix appears once. */
     @Test
     fun `a band never gets two k`() {
         listOf(1000, 2500, 6300, 16000).forEach {

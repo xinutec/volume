@@ -36,7 +36,7 @@ class Replay(
      * A list someone has to remember to extend is the wrong shape for this. Validating
      * here catches every fixture, including ones not yet written.
      *
-     * ⚠ Only frames that look Sony-framed — `3e … 3c`. The JBL and Bose fixtures are
+     * Only frames that look Sony-framed — `3e … 3c`. The JBL and Bose fixtures are
      * bare payloads with no checksum to check, and must pass through untouched.
      */
     private fun validate(hex: String) {

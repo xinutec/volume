@@ -10,13 +10,13 @@ import java.util.concurrent.TimeUnit
 /**
  * The process's control channels — **one owner, because there is one radio**.
  *
- * ⚠ **This exists because the app and the tile fought each other.** They ran in the
+ * **This exists because the app and the tile fought each other.** They ran in the
  * same process with separate session maps, so with the screen up and the app holding
  * the JBL's GATT client, a tile or widget tap opened a *second* client to the same
  * device and got `GATT would not open`. The phone kept Volume in a split screen, so
  * the app was permanently resumed and the tile was permanently broken.
  *
- * ⚠ **`mCurrentFocus` naming another app does NOT mean this one is stopped.** In
+ * **`mCurrentFocus` naming another app does NOT mean this one is stopped.** In
  * split screen both halves are resumed and only one has focus, so `onStop` never
  * fires and nothing is ever released. That misreading cost the wrong diagnosis
  * first: the app was blamed for holding nothing while it held an open connection.
@@ -47,11 +47,11 @@ object Sessions {
     /**
      * Anyone who wants telling when a device's mode was changed from elsewhere.
      *
-     * ⚠ Exists because the tile and the screen are now two views of one device. A
+     * Exists because the tile and the screen are now two views of one device. A
      * tap from the shade drove the JBL between ANC and Ambient while the card still
      * read "Noise cancelling" — the surfaces shared a session but not the news.
      *
-     * ⚠ A *notification*, not a poll. Nothing here may go and ask a device what it
+     * A *notification*, not a poll. Nothing here may go and ask a device what it
      * is doing; re-reading a headphone nobody is looking at is exactly what
      * `onStop`'s release exists to prevent.
      */
@@ -84,7 +84,7 @@ object Sessions {
      * the channel would be held until the process died, which is the bug this whole
      * mechanism exists to prevent, rebuilt one level down.
      *
-     * ⚠ Not reentrant. Callers bracket; the thing they call must not bracket again.
+     * Not reentrant. Callers bracket; the thing they call must not bracket again.
      */
     fun <T> holding(address: String, body: () -> T): T {
         leases.begin(address)

@@ -44,7 +44,7 @@ object Wearable {
     /**
      * False only when the class positively says this is something else.
      *
-     * ⚠ A speaker is the case that matters. `Crowley` and the SoundLink both offer
+     * A speaker is the case that matters. `Crowley` and the SoundLink both offer
      * SPP and are always in the room, so without this they list as drivable
      * headphones with a Connect button that can only fail slowly.
      */

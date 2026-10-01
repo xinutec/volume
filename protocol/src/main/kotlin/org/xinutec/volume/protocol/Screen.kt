@@ -59,7 +59,7 @@ data class Focus(
  * third enum entry was the obvious move and would have been wrong: "Home" is not a
  * kind of ANC, it is a level with a name on it.
  *
- * ⚠ [active] can change **without this app doing anything** — the hardware button
+ * [active] can change **without this app doing anything** — the hardware button
  * cycles the slots. So it is read, never remembered.
  */
 data class CncModes(
@@ -85,14 +85,14 @@ sealed interface DeviceState {
     /**
      * Whether a link is OPEN — [Ready], or [Busy] doing something to it.
      *
-     * ⚠⚠ **A property here rather than a disjunction at the call site, and #973 is
+     * **A property here rather than a disjunction at the call site, and #973 is
      * exactly why.** The card's settings section was gated on `is Ready` alone. A write
      * runs [Ready] → [Busy] → [Ready], so mid-write the section vanished, the card
      * shrank from a screenful to one spinner line, `LazyColumn` clamped the scroll
      * offset to 0 because there was no longer that much to scroll, and growing back did
      * not restore it. Stable keys were not the cause; the content height was.
      *
-     * ⚠ Written out by hand, [Busy] is the arm a reader forgets — it is the transient
+     * Written out by hand, [Busy] is the arm a reader forgets — it is the transient
      * one, and everything looks right until a write is in flight. So it is written once,
      * here, beside the states themselves, and a caller cannot omit it.
      */
@@ -110,7 +110,7 @@ sealed interface DeviceState {
      * Connected and driving.
      *
      * @param mode null when the mode cannot be read, which is a real state and not
-     *   "unknown yet" — a spinner there would wait forever. ⚠ The JLab was the
+     *   "unknown yet" — a spinner there would wait forever. The JLab was the
      *   example until its read was found; no device here is in that
      *   state now, so null means "nobody has found the read yet".
      */
@@ -136,12 +136,12 @@ sealed interface DeviceState {
      * M2 is driven through. The wording says "over SPP" for that reason; widening it
      * to "no control channel" claims a property of the device that was never measured.
      *
-     * ⚠⚠ **The distinction from [Unavailable] is RETRY, and one label once carried both.** "Would not connect" is a fact about this attempt — the pair
+     * **The distinction from [Unavailable] is RETRY, and one label once carried both.** "Would not connect" is a fact about this attempt — the pair
      * was asleep, the radio was busy, another app held the channel — and the right
      * offer is a Connect button. "SPP opened and it said nothing" is a fact about the
      * DEVICE, and the same button re-runs a probe that cannot succeed.
      *
-     * ⚠ It is not merely a wasted tap: the probe WRITES. Identifying a Bose sends
+     * It is not merely a wasted tap: the probe WRITES. Identifying a Bose sends
      * `00 01 01 00` then `01 06 01 00`, and `refresh()` calls it for every listed
      * device on every connect broadcast — so a device in this state was being sent
      * unsolicited vendor frames on a timer, which is exactly the class of action this
@@ -203,7 +203,7 @@ data class Screen(
     /**
      * Why [cards] is empty — required exactly when it is.
      *
-     * ⚠ The invariant is enforced rather than documented, because the defect this
+     * The invariant is enforced rather than documented, because the defect this
      * replaces was a caller emitting an empty list and leaving the reason to be
      * guessed downstream. There is no default: a default is how one of these
      * becomes a lie about the other five.
@@ -231,12 +231,12 @@ data class Screen(
     /**
      * The phone's media volume IS this card's volume, so a slider on it is real.
      *
-     * ⚠ **Asked of the screen, because it is a question about both.** Which device
+     * **Asked of the screen, because it is a question about both.** Which device
      * the audio framework is routing to is one global fact, and whether a card may
      * offer a slider is that fact AND the card's own state. Only the screen holds
      * both, so no caller can pair a card with the wrong routing.
      *
-     * ⚠ **The condition is [DeviceState.NoControl] AND the audio is going here, and
+     * **The condition is [DeviceState.NoControl] AND the audio is going here, and
      * both halves matter.** A merely-[DeviceState.Unavailable] device is one that
      * failed an attempt; it may well have its own volume commands, so a media slider on
      * it is the wrong control offered on a guess. A device with a driver has its own
@@ -434,7 +434,7 @@ fun GestureWrite.note(describe: (GestureAction) -> String): Note? =
 /**
  * The same rule as [note], for a setting that is not a mode.
  *
- * ⚠ Separate from [note] rather than made generic over it, because the *wording*
+ * Separate from [note] rather than made generic over it, because the *wording*
  * differs where it matters: a contradicted ANC write means the headphones are in a
  * mode you did not ask for, and a contradicted settings write on these devices means
  * the device refused outright — what [Writability.Refused] records.

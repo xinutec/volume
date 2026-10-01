@@ -34,7 +34,7 @@ class DriversTest {
     private val sonyWriteAnc = "3e 0c 00 00 00 00 08 68 02 01 02 02 01 00 00 84 3c"
     private val sonyAck = "3e 01 00 00 00 00 00 01 3c"
 
-    // The three on/off settings. ⚠ The `Reply` fixtures are the payloads the XM4
+    // The three on/off settings. The `Reply` fixtures are the payloads the XM4
     // actually returned — `e7 02 00 00`, `f7 03 00 01`, `f7 05 00 00`,
     // each cross-checked against Sound Connect's own screen the same minute. The
     // request and SET frames are this repo's, and the framing of all of them was
@@ -257,7 +257,7 @@ class DriversTest {
         // ⚠ an unknown byte refuses the WHOLE frame rather than defaulting one field
         assertNull(SonyChatDetail.state(Hex.parse("fb0500ff0001")))
         assertNull(SonyChatDetail.state(Hex.parse("fb050000ff01")))
-        // ⚠ and so does a frame one byte short, rather than reading past it
+        // and so does a frame one byte short, rather than reading past it
         assertNull(SonyChatDetail.state(Hex.parse("fb05000000")))
     }
 
@@ -323,7 +323,7 @@ class DriversTest {
      * and the read comes out null, where selecting the frame that answers the question
      * returns the `e7`.
      *
-     * ⚠ **The first fixture written for this had the two the other way round**, where
+     * **The first fixture written for this had the two the other way round**, where
      * taking the last DATA frame already lands on the answer — so it passed with the
      * fix removed and proved nothing. The ablation is what caught that, not review.
      */
@@ -391,7 +391,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **One read, both facts.** The controller asked twice at first — once for the
+     * **One read, both facts.** The controller asked twice at first — once for the
      * value and once for the mode — which is a wasted `66 02` on a device where every
      * extra exchange is another chance to end up one window behind (#1107).
      */
@@ -461,7 +461,7 @@ class DriversTest {
      * frame; the old code acked only its chosen reply, so a volunteered notification
      * sharing the window was left unacknowledged.
      *
-     * ⚠ **This does NOT fix the desync**, tempting as the connection is: the probe got
+     * **This does NOT fix the desync**, tempting as the connection is: the probe got
      * the identical fix and still ran one behind (#1107). Acking every frame is correct
      * because the device asks for it, and for no other reason.
      */
@@ -501,7 +501,7 @@ class DriversTest {
         assertEquals(Confirmation.Confirmed, d.setSwitch(t, SonyDsee, true))
         t.assertDrained()
         // ⚠ The stray is ACKED, not merely swallowed — the device asks for one ack per
-        // DATA frame. ⚠ It is NOT what fixes the desync; see the note above.
+        // DATA frame. It is NOT what fixes the desync; see the note above.
         assertEquals(sonyAck, t.sent.last())
     }
 
@@ -585,7 +585,7 @@ class DriversTest {
     /**
      * Every mode this pair reports, from the bytes it sent.
      *
-     * ⚠⚠ **The TalkThru case is the reason this driver exists.** The device was
+     * **The TalkThru case is the reason this driver exists.** The device was
      * genuinely in TalkThru — confirmed by its owner's ears, after the wire had stopped
      * being able to tell us — and it answered `31 01` *and* `32 01` together. The M2's
      * read would have called that ANC.
@@ -826,7 +826,7 @@ class DriversTest {
         )
     }
 
-    /** ⚠ Off is `00` and was measured only once a read existed to check it with. */
+    /** Off is `00` and was measured only once a read existed to check it with. */
     @Test
     fun `jlab off is a real mode now that it can be read back`() {
         assertTrue(AncMode.OFF in Drivers.JLabQcy.modes)
@@ -882,7 +882,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **Both Bose models open one too.** This test asserted that
+     * **Both Bose models open one too.** This test asserted that
      * nobody but Sony did, on the reasoning that an opener costs a round trip nothing
      * needs — and a QC35 spent an afternoon reporting itself unreadable because of it.
      * That afternoon a fresh socket answered no `01 xx` read at all until a block-`00`
@@ -912,7 +912,7 @@ class DriversTest {
     // ---- the name the device holds ---------------------------------------------
 
     /**
-     * ⚠ The point of asking at all. Android's bonded record for this phone's QC35
+     * The point of asking at all. Android's bonded record for this phone's QC35
      * is "LE-the user Headphon" — the LE advertisement's truncation — while the
      * headphones report the name their owner actually set.
      */
@@ -963,7 +963,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **TALK_THRU is claimed by exactly one driver, and only since it was driven.**
+     * **TALK_THRU is claimed by exactly one driver, and only since it was driven.**
      * This test used to assert that *nobody* claimed it, as a guard against naming a
      * mode from a vendor's UI without ever sending it. It was then sent to
      * the JBL and confirmed against that app's own selector, so the guard is now
@@ -995,7 +995,7 @@ class DriversTest {
      * whole time, so the card could draw "off" as the current state with no chip to
      * return to it.
      *
-     * ⚠ **The obvious test is the wrong one**, and writing it is how this arrived at
+     * **The obvious test is the wrong one**, and writing it is how this arrived at
      * the right one: *"every driver offers OFF"* fails on the **QC45**, which
      * genuinely has none — its ANC is a slot table of Quiet and Aware, and Bose Music
      * offers no way to stop it either. That test would have asserted a claim about
@@ -1003,7 +1003,7 @@ class DriversTest {
      *
      * So the invariant is the asymmetry itself, over every state each device is known
      * to report. It holds for the QC45 (whose [Drivers.BoseQc45.read] cannot return
-     * OFF) and would have failed on the JBL. ⚠ The fixtures are the captured ones
+     * OFF) and would have failed on the JBL. The fixtures are the captured ones
      * used above; a mode reachable only by a reply nobody has seen is out of scope
      * here, as it is everywhere else in this file.
      */
@@ -1035,7 +1035,7 @@ class DriversTest {
                     "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 01",
                     AncMode.TALK_THRU,
                 ),
-                // ⚠ The state that once had nothing to return to it.
+                // The state that once had nothing to return to it.
                 Triple(
                     Drivers.JblBes,
                     "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 00",
@@ -1075,10 +1075,10 @@ class DriversTest {
     /**
      * The frame that will go on the wire for OFF, asserted before it is sent.
      *
-     * ⚠ **There are two candidate writers and this is the cheaper one.** The vendor
+     * **There are two candidate writers and this is the cheaper one.** The vendor
      * app sends `aa 91 01 13` (`genSetANCModeOFF`, named in the SDK); ours sets all
      * three TLV slots to zero through the same sub-op `10` every other mode uses.
-     * Both are plausible and only the device settles it — ⚠ and a refusal here looks
+     * Both are plausible and only the device settles it — and a refusal here looks
      * like every other refusal on this protocol: an ack, and the old state on
      * read-back. Which is why [Drivers.JblBes.write] confirms with a real `aa 91 01 11`
      * rather than with the reply.
@@ -1095,7 +1095,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **The JBL once reported TalkThru as OFF.** [Drivers.JblBes.read]
+     * **The JBL once reported TalkThru as OFF.** [Drivers.JblBes.read]
      * checked the first two TLV slots and fell through to OFF, so a mode the device
      * was really in rendered as the one state it cannot be put into from here — and
      * nothing noticed, because nothing had ever set the third slot.
@@ -1154,14 +1154,14 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **#1154: a reply preceded by an unsolicited battery frame.**
+     * **#1154: a reply preceded by an unsolicited battery frame.**
      *
      * `Gatt.collect` concatenates everything in the window, and this device volunteers
      * `aa 25` every ten seconds — 8 of 64 getters carried one. Those all
      * decoded because it arrived AFTER. This is the same event arriving FIRST, which put
      * offset 0 on someone else's frame and made a settings row vanish.
      *
-     * ⚠ The decoder is unchanged and still returns null for that buffer — correctly. What
+     * The decoder is unchanged and still returns null for that buffer — correctly. What
      * changed is that the driver no longer hands it the wrong offset.
      */
     @Test
@@ -1413,7 +1413,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **The three the card used to ask for again, one exchange each.**
+     * **The three the card used to ask for again, one exchange each.**
      *
      * Every value here was read individually from the same device minutes before the
      * capture above and came back byte-for-byte identical — `01 07 03 0c f6 0a 00 00 …`,
@@ -1453,7 +1453,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠⚠ **A real `01 03` change draws no reply, so the write is SENT and never awaited.**
+     * ⚠ **A real `01 03` change draws no reply, so the write is SENT and never awaited.**
      * Measured on the QC45 over one socket: the byte it already holds answers a Status in
      * about a millisecond, a different byte answers nothing and applies the change. An
      * `exchange` here would sit out the transport's entire window on every switch press
@@ -1503,7 +1503,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠⚠ **The confirming Get is not instant, and asking at once reads the state from
+     * ⚠ **The confirming Get is not instant, and asking at once reads the state from
      * BEFORE the write.** Driven through the app on a QC45: both directions came back
      * with the byte held a millisecond earlier, so a toggle that had worked was reported
      * to the owner as "this pair refused that" — while the card's own later refresh drew

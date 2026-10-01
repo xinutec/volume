@@ -162,7 +162,7 @@ class ThothUi(
 }
 
 /**
- * This card's entry in the screen's open-section list. ⚠ A literal rather than an
+ * This card's entry in the screen's open-section list. A literal rather than an
  * address, because this card has no device behind it — it shares the list so that the
  * Mac card and the headphone cards remember their open state the same way and through
  * the same `rememberSaveable`.
@@ -172,12 +172,12 @@ private const val THOTH_SECTION = "thoth"
 /**
  * The Mac's audio: the stereo pair, the microphone pin, and the arcade cabinets.
  *
- * ⚠ **First in the list, above the headphones.** It is the control that is wanted
+ * **First in the list, above the headphones.** It is the control that is wanted
  * while sitting in the room the speakers are in, and it is one card; the headphones
  * below it are the ones that travel. When the Mac is not reachable this collapses to
  * a single line, so off the home network it costs a row rather than a screenful.
  *
- * ⚠ **Collapsed by default**, to the title and [VolumeLevel] — being first in the list
+ * **Collapsed by default**, to the title and [VolumeLevel] — being first in the list
  * meant its full height was the price of reaching anything below it. Speakers, balance,
  * the mic pin and the cabinets are behind the same `Settings` button the headphone cards
  * use, sharing their `openSections`, so the gesture is one gesture on this screen.
@@ -211,7 +211,7 @@ fun ThothCard(ui: ThothUi, actions: ThothActions, openSections: MutableList<Stri
                 return@Column
             }
             VolumeLevel(ui, actions)
-            // ⚠ Same mechanism and the same words as a headphone card's section, because
+            // Same mechanism and the same words as a headphone card's section, because
             // it is the same gesture — the card was the one thing on this screen that
             // could not be put away, and it is the tallest.
             TextButton(
@@ -245,7 +245,7 @@ fun ThothCard(ui: ThothUi, actions: ThothActions, openSections: MutableList<Stri
 /**
  * The card with nothing in it, plus the one thing worth offering there.
  *
- * ⚠ The address field appears HERE and nowhere else. A LAN address is not a setting
+ * The address field appears HERE and nowhere else. A LAN address is not a setting
  * anybody wants to look at; it is the answer to exactly one question, and this is the
  * only screen on which that question has been asked.
  */
@@ -337,7 +337,7 @@ private fun MicControls(ui: ThothUi, actions: ThothActions) {
     Picked("Mic", name) { picking = true }
     Toggle(
         title = "Pinned",
-        // ⚠ Says what the pin DOES, because the failure it prevents is invisible:
+        // Says what the pin DOES, because the failure it prevents is invisible:
         // macOS re-points the default input at whatever connects, and a Bluetooth
         // speaker's hands-free mic taking it sounds like a broken microphone.
         value =

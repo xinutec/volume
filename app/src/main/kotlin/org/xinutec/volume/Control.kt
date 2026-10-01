@@ -130,7 +130,7 @@ object Control {
                 // has no operator byte to read a terminator out of — handing it Bose's
                 // rule would end its reads on a coincidence.
                 //
-                // ⚠ **This once asked for `Drivers.BoseQc35`, and an `object`
+                // **This once asked for `Drivers.BoseQc35`, and an `object`
                 // matches only itself** — so a QC45 got no terminator and waited out the
                 // quiet timer on every single exchange. It was invisible on the hardware
                 // here because both of these headphones are renamed: a renamed device

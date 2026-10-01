@@ -3,7 +3,7 @@ package org.xinutec.volume.protocol
 /**
  * Why a payload was refused, in the owner's terms.
  *
- * ⚠ [what] names the command, [why] names the consequence. Both, because "refused
+ * [what] names the command, [why] names the consequence. Both, because "refused
  * `aa 95`" tells nobody anything and "this erases the pairing" without the bytes cannot
  * be checked against the docs.
  */
@@ -26,7 +26,7 @@ data class Refusal(
  * that have been *found*; the BES table has hundreds and most are unread. Refusing to
  * sweep remains the rule, and this does not license one.
  *
- * ⚠ **Nothing here is silent.** A refusal returns a [Refusal] to be shown and the send
+ * **Nothing here is silent.** A refusal returns a [Refusal] to be shown and the send
  * does not happen; it is never downgraded to a no-op or a warning that scrolls past.
  * Overriding is deliberate and per-call — see the probe's `force` extra.
  */
@@ -61,7 +61,7 @@ object Hazards {
      * it as a parameter. So the natural way to write a "forget this device" button is
      * also the way to unpair the device the app is talking over.
      *
-     * ⚠ Found while asking whether the vendor app's **Connections** screen could be
+     * Found while asking whether the vendor app's **Connections** screen could be
      * built here. It could — and the first thing that screen wants is a remove button.
      * Guarding it before anything is built is the point; a refusal added after a
      * writer exists is a refusal added after the mistake is reachable.
@@ -160,7 +160,7 @@ object Hazards {
     /**
      * Jieli RCSP — the destructive opcodes, refused by name.
      *
-     * ⚠ **Written before anything was ever sent to an RCSP device**, which is the only
+     * **Written before anything was ever sent to an RCSP device**, which is the only
      * order in which a deny-list is worth anything. `com/jieli/bluetooth/constant/
      * Command.smali` names all of these; the table has ~60 entries and the rest are
      * unread, so this is a floor and not a licence to sweep the remainder.
@@ -251,7 +251,7 @@ object Hazards {
      * nothing downstream can catch it — the device re-frames it and answers `04 01 01`
      * bad-argument, which reads as a fact about the protocol rather than a typo.
      *
-     * ⚠⚠ **A UUID DOES NOT DETERMINE THE PROTOCOL HERE, so this needs [protocol].** The
+     * ⚠ **A UUID DOES NOT DETERMINE THE PROTOCOL HERE, so this needs [protocol].** The
      * JLab JBuds is routed over the same SPP channel as the QC45 and QC35, and its
      * ordinary ANC read `c0 ff 00 44 00 00 01 00 04` has `00` in byte 2 — a valid BMAP
      * operator — and `0x44` in byte 3. Read as BMAP it declares 68 payload bytes and
@@ -259,12 +259,12 @@ object Hazards {
      * READ. The shell guard in `probe.sh` does exactly that; it was harmless only
      * because it was wired to one subcommand out of four.
      *
-     * ⚠ So this fires on positive evidence and nothing else — **wide for a hazard,
+     * So this fires on positive evidence and nothing else — **wide for a hazard,
      * narrow for a syntax rule**. An unbonded or unidentified device keeps the old
      * behaviour, which is a deliberate hole: refusing frames on a device nobody could
      * identify would break the probing this tool exists for.
      *
-     * ⚠ **A byte that is not a valid operator means this is not a BMAP frame at all**,
+     * **A byte that is not a valid operator means this is not a BMAP frame at all**,
      * so byte 3 is not a length and must not be read as one.
      */
     private fun boseLength(payload: ByteArray, protocol: Channels.Protocol?): Refusal? {
@@ -310,12 +310,12 @@ object Hazards {
      * frames were mistyped by hand in one session; a length check would
      * have caught the ones that changed the payload size.
      *
-     * ⚠ **Only frames that actually look like BES are checked.** The caller's fall-through
+     * **Only frames that actually look like BES are checked.** The caller's fall-through
      * is BES for anything unrecognised, and applying a validity rule that widely would
      * refuse ordinary GATT probing — which is the probe's whole job. Guessing wide is
      * right for a hazard and wrong for a syntax rule.
      *
-     * ⚠ **`aa a2` is exempt**: its length byte undercounts its content by one. That is
+     * **`aa a2` is exempt**: its length byte undercounts its content by one. That is
      * documented in `docs/protocols.md` and is the reason [Bes.frame] cannot skip past
      * one. Enforcing the invariant on it would refuse the EQ curve this app reads on
      * every card open.

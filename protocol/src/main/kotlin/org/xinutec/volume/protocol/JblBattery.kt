@@ -42,7 +42,7 @@ data class Battery(
  * The difference is that SafeSound could be driven until one moved; a battery cannot.
  * So this reads index 7 because `parseBatteryInfo` does, and that is the whole warrant.
  *
- * ⚠ One calibration point exists and it does not settle the above: `5a` = 90 matched
+ * One calibration point exists and it does not settle the above: `5a` = 90 matched
  * the vendor app's "90%" — but *both* bytes read `5a`, so it confirms the
  * scale and says nothing about which slot is which.
  */
@@ -50,7 +50,7 @@ object JblBattery {
     const val CMD: Byte = 0x25
 
     /**
-     * ⚠ It is volunteered every ten seconds, but it can also be ASKED — measured:
+     * It is volunteered every ten seconds, but it can also be ASKED — measured:
      * `aa 25 01 01` answers immediately with the same frame. Worth having:
      * waiting for a notification means a card that is blank for up to ten seconds.
      */
@@ -60,7 +60,7 @@ object JblBattery {
      * `aa 25 00` — the frame the vendor app itself sends, and the ONLY one a LIVE PRO 2
      * answers.
      *
-     * ⚠⚠ **Two frames rather than one corrected frame, deliberately.** `CmdGen`'s
+     * **Two frames rather than one corrected frame, deliberately.** `CmdGen`'s
      * `generateGetBatteryInfoCmd` takes no argument, so this is the app's own shape and
      * [get]'s sub-command byte is this repo's. But **the Tour One M2 answers [get]** —
      * that is measured, and every M2 battery reading in this repo came through it. So
@@ -68,7 +68,7 @@ object JblBattery {
      * that is not connected to test against. The day someone can put an M2 in front of
      * this, try [get] and this one on it: if it answers both, these collapse into one.
      *
-     * ⚠ [state] and [charge] decode BOTH replies unchanged — the difference is only in
+     * [state] and [charge] decode BOTH replies unchanged — the difference is only in
      * the asking. Measured: `aa 25 0d 01 …` came back with `5a` in both cup
      * slots, 90%, agreeing with what `jbl.stc.com` drew for the same moment.
      */

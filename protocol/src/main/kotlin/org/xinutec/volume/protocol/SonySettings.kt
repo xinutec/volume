@@ -3,7 +3,7 @@ package org.xinutec.volume.protocol
 /**
  * When the headphones switch themselves off.
  *
- * ⚠ Two values, because two is all the XM4's menu offered. A timed option — which
+ * Two values, because two is all the XM4's menu offered. A timed option — which
  * other Sony models have — would be a third encoding, and nothing here says what it
  * would be. Named from the app's own words.
  */
@@ -57,7 +57,7 @@ object SonyAutoOff {
         )
 
     /**
-     * ⚠ Accepts [RET] and [NOTIFY] alike, and **nothing else**. An unknown value byte
+     * Accepts [RET] and [NOTIFY] alike, and **nothing else**. An unknown value byte
      * yields null rather than a default — a timed setting, if this model ever learns
      * one, must read as "not understood" instead of silently as "never".
      */
@@ -90,14 +90,14 @@ object SonyAutoOff {
  * device is refusing it, and the vendor app has no more luck. Not the codec — it was
  * refused in both Sound Quality Modes.
  *
- * ⚠ **Do not confirm a multipoint write from the reply**, which names whichever
+ * **Do not confirm a multipoint write from the reply**, which names whichever
  * parameter the device considers changed. Sometimes that is this one — today's
  * `d9 d2 01 00` — and sometimes another: in the morning capture the same SET drew
  * `99 01 06 01`, a `90`-block notification. An earlier note here said the reply is
  * *always* about a different setting, which was one capture generalised too far.
  * Either way [setMultipoint] reads back with [get].
  *
- * ⚠ **`d8 d2 01 00` has never been sent**, because multipoint has never been on for
+ * **`d8 d2 01 00` has never been sent**, because multipoint has never been on for
  * this code to turn off. The value `00` is known to be this field's off value only
  * because [get] and the notification both report it.
  */
@@ -209,9 +209,9 @@ object SonySoundQuality {
  * and a session that read [capabilities] first. Sony Headphones Connect sending the
  * identical bytes gets `99 01 02 01` back within 400 ms and the change sticks. So
  * something about *its* session is the difference, and what that is has not been
- * found. ⚠ Do not present this as a working setting.
+ * found. Do not present this as a working setting.
  *
- * ⚠ **This is NOT the same failure as multipoint.** There the vendor app fails too;
+ * **This is NOT the same failure as multipoint.** There the vendor app fails too;
  * here it succeeds and we do not. Merging the two would lose the one asymmetry that
  * says where to look next.
  */
@@ -230,11 +230,11 @@ object SonyButton {
      *
      * ⚠ **Naming every code is safe; OFFERING every code is not.** The list a device
      * actually allows comes from [presets], parsed out of its own `f0 06` reply — the
-     * XM4 allows three of these. ⚠ `VOLUME_CONTROL` is why that distinction is a rule
+     * XM4 allows three of these. `VOLUME_CONTROL` is why that distinction is a rule
      * rather than a preference: a button editor built from this enum would put a volume
      * control on a device that never offered one.
      *
-     * ⚠ This enum said "two of the three the menu offers" and called `31`
+     * This enum said "two of the three the menu offers" and called `31`
      * `DIGITAL_ASSISTANT` until the capability grammar was decoded from
      * Sony's own parser and the reply turned out to name its values exactly.
      */
@@ -360,7 +360,7 @@ object SonyButton {
  * `CONNECTION_QUALITY_PRIOR`. Both were decoded from captures long before the SDK was
  * read, and the SDK agrees with both.
  *
- * ⚠ It is still the APK's word about the *app*. The three instances below have had their
+ * It is still the APK's word about the *app*. The three instances below have had their
  * **reads** confirmed against the XM4 and against Sound Connect's screens; their **writes**
  * are marked at each instance and must not be described as working until one lands.
  */
@@ -404,7 +404,7 @@ class SonySwitch(
      * chooses the expected one from the command rather than checking a single field.
      * The vendor app has two separate parser classes for exactly this reason.
      *
-     * ⚠ The type byte is checked at all because an extended-parameter reply carries a
+     * The type byte is checked at all because an extended-parameter reply carries a
      * different table in that position — a decoder that skipped straight to byte 3
      * would read a Speak-to-Chat *sensitivity* as an on/off.
      */
@@ -505,15 +505,15 @@ data class ChatDetail(
  * → fc 05 00 00 00 01  ← fd 05 00 00 00 01   restored
  * ```
  *
- * ⚠ **This is the first `fa`/`fc` frame family this repo sends**, and it behaves like the
+ * **This is the first `fa`/`fc` frame family this repo sends**, and it behaves like the
  * ordinary param frames: the notify echoes the value, so a write is confirmable from its
  * own reply as well as by re-reading.
  *
- * ⚠ **They take while Speak-to-Chat itself is OFF.** Unlike Focus on Voice, which is
+ * **They take while Speak-to-Chat itself is OFF.** Unlike Focus on Voice, which is
  * silently ignored outside ambient mode, these are not gated on the feature being on — so
  * a write that appears to do nothing here is a real failure, not a mode problem.
  *
- * ⚠ The leading `00` is `SmartTalkingModeDetailSettingType.TYPE_1`, the only value there
+ * The leading `00` is `SmartTalkingModeDetailSettingType.TYPE_1`, the only value there
  * is. It is a payload selector, not a setting.
  */
 object SonyChatDetail {
@@ -540,7 +540,7 @@ object SonyChatDetail {
         )
 
     /**
-     * ⚠ Unknown bytes yield null, field by field. A sensitivity this build has no name
+     * Unknown bytes yield null, field by field. A sensitivity this build has no name
      * for must not read as [ChatSensitivity.AUTO] — the whole frame is refused instead,
      * because a partly-understood value would be written back whole.
      */
@@ -588,10 +588,10 @@ private fun generalSwitch(type: Byte) =
  * volume, receive/end phone calls, and more" — so **on means enabled**, and this pair
  * reads `00`, meaning the panel is currently off.
  *
- * ⚠ **This is NOT the CUSTOM button and must not be merged with it.** That one is
+ * **This is NOT the CUSTOM button and must not be merged with it.** That one is
  * `f8 06` and is refused for us alone (#965). This is the whole panel on or off.
  *
- * ⚠ **Nor is it multipoint, which shares the `d8 <type> 01 <v>` frame family and is
+ * **Nor is it multipoint, which shares the `d8 <type> 01 <v>` frame family and is
  * refused by the device for everyone.** They differ only in the type byte — `d1` here,
  * `d2` there — and one being refused says nothing about the other. Measured: `d8 d1 01 01`
  * is accepted and takes effect, so the `d8` family is not blanket-refused.
@@ -615,7 +615,7 @@ val SonyTouchPanel = generalSwitch(type = 0xd1.toByte())
  * exactly `00 OFF` and `01 AUTO`, so the switch is two-state and the app draws it as a
  * toggle, but the name it is toggling to is AUTO.
  *
- * ⚠ **Do not read DSEE's state from `14`/`15` UPSCALING_INDICATOR.** That answered
+ * **Do not read DSEE's state from `14`/`15` UPSCALING_INDICATOR.** That answered
  * `15 00 02 00` — `UpscalingEffectStatus` INVALID — in the same session, which is about
  * whether upscaling is *doing anything to the current stream*, not whether the setting
  * is on. Two fields, one switch.
@@ -648,38 +648,38 @@ val SonyPauseOnRemoval = systemSwitch(type = 0x03, readType = 0x00, writeType = 
  * → f6 05              read
  * ← f7 05 00 00        SettingType.ON_OFF,      SmartTalkingModeSettingValue.OFF
  * → f8 05 01 01        write ON
- * ← f9 05 01 01        ParameterType.MODE_ON_OFF ⚠ a DIFFERENT table in the same slot
+ * ← f9 05 01 01        ParameterType.MODE_ON_OFF a DIFFERENT table in the same slot
  * ```
  *
  * ✅ **Driven both ways on the XM4, worn**, and restored to Off.
  *
- * ⚠ **THE READ AND THE WRITE USE DIFFERENT TYPE TABLES, and this is the only setting
+ * **THE READ AND THE WRITE USE DIFFERENT TYPE TABLES, and this is the only setting
  * here that does.** The reply to a [get] carries `SmartTalkingModeSettingType.ON_OFF`
  * = `00`; a [set] must carry `SmartTalkingModeParameterType.MODE_ON_OFF` = `01`. Sony's
  * app has two separate payload classes for it — `ve0.c` parses the RET with SettingType,
  * `ve0.d` builds the SET with ParameterType — which is the shape this file now mirrors.
  *
- * ⚠ **`f8 05 00 01` — the same byte as the read — is accepted, acked, and silently does
+ * **`f8 05 00 01` — the same byte as the read — is accepted, acked, and silently does
  * nothing.** That is what was sent first, and for an hour this file said the XM4 refused
  * Speak-to-Chat, next to multipoint and the CUSTOM button. It does not. The device even
  * said so: it answered the bad SET with `f9 05 01 00`, echoing a `01` where a `00` had
  * been sent, and that transposition was read as a malformed echo rather than as the
  * device naming the table it actually wanted.
  *
- * ⚠ **The generalisation is what failed, not the byte.** [SonySwitch] was built from
+ * **The generalisation is what failed, not the byte.** [SonySwitch] was built from
  * three settings that all happened to use one type byte in both directions, and a fourth
  * was then assumed to. Two agreeing samples are not a rule.
  *
- * ⚠ **The sensitivity and mode-out time are NOT reachable through this.** They live on
+ * **The sensitivity and mode-out time are NOT reachable through this.** They live on
  * `fa`/`fc` SYSTEM_*_EXTENDED_PARAM with their own tables — `DetectionSensitivity`
  * (`00` AUTO, `01` HIGH, `02` LOW) and `ModeOutTime` (`00` FAST, `01` MID, `02` SLOW,
  * `03` NONE). Nothing here has sent an extended-parameter frame, and [SonySwitch.state] rejects one
  * rather than decoding its first byte as an on/off.
  *
- * ⚠ **Turning this ON changes what the headphones do to audio when you talk**, which is
+ * **Turning this ON changes what the headphones do to audio when you talk**, which is
  * the one setting in this file with an effect the wearer cannot miss. Restore it.
  *
- * ⚠ **It also needs the headphones ON A HEAD to be worth testing** — not because the
+ * **It also needs the headphones ON A HEAD to be worth testing** — not because the
  * write is refused off-head, which was checked and is false, but because the XM4 powers
  * itself off shortly after removal when auto-off is WHEN_REMOVED.
  */
@@ -697,12 +697,12 @@ val SonySpeakToChat = systemSwitch(type = 0x05, readType = 0x00, writeType = 0x0
  * Sound Connect's own card read **80%** at the same moment. Every byte lands on a named
  * SDK enum, so this is not a scale inferred from one sample.
  *
- * ⚠ **`00` is BatteryInquiredType.BATTERY, the single-cell question**, and it is the
+ * **`00` is BatteryInquiredType.BATTERY, the single-cell question**, and it is the
  * only one this model answers. `01` LEFT_RIGHT_BATTERY and `02` CRADLE_BATTERY are for
  * earbuds and a case; the XM4 declares neither — `15`/`17`/`18` are absent from the 22
  * functions it lists. Asking for them here would be inventing cells.
  *
- * ⚠ **Unlike the JBL's, this has to be ASKED.** [JblBattery] arrives unbidden every ten
+ * **Unlike the JBL's, this has to be ASKED.** [JblBattery] arrives unbidden every ten
  * seconds; nothing here has seen a `13` NTFY from the XM4, so a card that waited for one
  * would stay blank. That is why [get] exists and why the driver reads it per refresh.
  */
@@ -752,7 +752,7 @@ interface MultipointDriver {
 /**
  * Write it, read it back, and say which happened.
  *
- * ⚠ **Always a real read**, on both devices, for the same reason from two different
+ * **Always a real read**, on both devices, for the same reason from two different
  * causes: the Sony's reply may describe a *different* parameter than the one written,
  * and the Bose answers with a flags byte whose value never equals the one written.
  * Either would report every write as failed — or every write as fine — if the reply
@@ -783,17 +783,17 @@ fun MultipointDriver.setMultipoint(t: Transport, on: Boolean): Confirmation<Bool
  * which was meant. The XM4 has no VPT so the collision is inert *here*; on a model that
  * does, the identical bytes would write something else entirely.
  *
- * ⚠ **The enums live in `v1/table2`, and there is a `v2/table2` with the same names and
+ * **The enums live in `v1/table2`, and there is a `v2/table2` with the same names and
  * DIFFERENT values.** `v2`'s `VoiceGuidanceStatusType` is `00 ON_OFF · 01 LANGUAGE`; the
  * one this device speaks is `v1`'s `01 ON_OFF · 02 LANGUAGE`. Reading the wrong package
  * makes a correct capture look like a misdecode.
  *
- * ⚠ **`42` GET_STATUS disagrees with `46` GET_PARAM about on/off** — status said `00`
+ * **`42` GET_STATUS disagrees with `46` GET_PARAM about on/off** — status said `00`
  * while param said `01` and the vendor app showed the switch on. The write moves what
  * `46` reports, so `46`/`48` is the control; `43` is something else and is still not
  * decoded. Do not treat it as the switch.
  *
- * ⚠ Language is `02` where on/off is `01`, on both the read and the write. Not exercised:
+ * Language is `02` where on/off is `01`, on both the read and the write. Not exercised:
  * changing it would speak a language its owner did not ask for.
  */
 object SonyVoiceGuidance {
@@ -816,7 +816,7 @@ object SonyVoiceGuidance {
     /**
      * Decode `47 01 01 <v>` or `49 01 01 <v>`.
      *
-     * ⚠ Accepts both opcodes for the reason [SonyEq.state] does: the same payload
+     * Accepts both opcodes for the reason [SonyEq.state] does: the same payload
      * arrives under RET when asked for and NOTIFY when volunteered, and taking only one
      * makes a device that has just answered look silent.
      */
@@ -843,7 +843,7 @@ object SonyVoiceGuidance {
  * ends settled on. "Prioritize Sound Quality" is *consistent* with LDAC; it is not the
  * same claim, and reading one off the other is how a preference gets reported as a fact.
  *
- * ⚠ **Read only, and not because the write is undiscovered** — a codec is negotiated, not
+ * **Read only, and not because the write is undiscovered** — a codec is negotiated, not
  * set. The preference that influences it is [SonySoundQuality], which is driven.
  */
 object SonyCodec {
@@ -864,7 +864,7 @@ object SonyCodec {
     fun state(payload: ByteArray): String? {
         if (payload.size < 3) return null
         if (payload[0] != RET || payload[1] != TYPE) return null
-        // ⚠ `ff` is OTHER in Sony's own enum — a codec its app cannot name either, so
+        // `ff` is OTHER in Sony's own enum — a codec its app cannot name either, so
         // this says as little as the device did rather than guessing at one.
         return when (payload[2]) {
             0x01.toByte() -> "SBC"
@@ -886,7 +886,7 @@ object SonyCodec {
  * back only by hand, on the device. So it is not a setting and is deliberately not on
  * the settings list: callers ask for it explicitly and the screen confirms first.
  *
- * ⚠ **There is no reply and there cannot be one.** The device acts on the frame and the
+ * **There is no reply and there cannot be one.** The device acts on the frame and the
  * link drops, so a read-back is not merely unavailable — it is a contradiction. This is
  * the one write in the Sony driver that [Confirmation] does not apply to, and calling it
  * unverifiable would suggest a check was attempted.

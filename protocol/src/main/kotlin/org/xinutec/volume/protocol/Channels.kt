@@ -8,7 +8,7 @@ package org.xinutec.volume.protocol
  * `docs/protocols.md` for the bytes. **Re-measure before trusting it**; a firmware
  * update can change what a device advertises.
  *
- * ⚠ **"Which vendor is this?" and "which channel do I open?" have DIFFERENT
+ * **"Which vendor is this?" and "which channel do I open?" have DIFFERENT
  * answers, and conflating them is what cost the most time here.** Two independent
  * traps, in opposite directions:
  *

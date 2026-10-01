@@ -65,7 +65,7 @@ object Tap {
     /**
      * Open, read, move to the next mode, report what the device says.
      *
-     * ⚠ The session is closed immediately rather than leased. Neither surface has a
+     * The session is closed immediately rather than leased. Neither surface has a
      * screen to come back to, so nothing would reuse the channel, and holding it
      * would leave a live link owned by something already gone.
      */
@@ -129,13 +129,13 @@ object Tap {
         val to = OneButton.next(driver.modes.toList(), current)
         val confirmation = runCatching { driver.set(s.transport, to) }.getOrNull()
         Log.i(LIVE, "tap: $target $current -> $to ($confirmation)")
-        // ⚠ Tell the screen. It shares the session but would otherwise keep showing
+        // Tell the screen. It shares the session but would otherwise keep showing
         // the mode it last read, while the shade changed it underneath.
         Sessions.changed(target)
         return State(
             available = true,
             label = s.headphones.model,
-            // ⚠ Says what was CONFIRMED. An unconfirmable write (the JLab cannot
+            // Says what was CONFIRMED. An unconfirmable write (the JLab cannot
             // read back) must not print the mode as though it had been read —
             // that is the laundering `Confirmation` exists to stop.
             detail = confirmation?.resulting(to)?.let(::label) ?: "${label(to)} sent",

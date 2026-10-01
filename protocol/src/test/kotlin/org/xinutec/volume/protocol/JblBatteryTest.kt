@@ -48,7 +48,7 @@ class JblBatteryTest {
     }
 
     /**
-     * ⚠ The two cup slots have been equal in every frame seen, which is exactly why
+     * The two cup slots have been equal in every frame seen, which is exactly why
      * this repo cannot say which is which — the same shape as SafeSound's two `01`
      * bytes. [JblBattery.cupsDiffer] exists so the day they disagree is visible rather
      * than silently resolved in the master's favour.
@@ -85,7 +85,7 @@ class JblBatteryTest {
     }
 
     /**
-     * ⚠ This frame arrives unsolicited and glued to other replies, so the command byte
+     * This frame arrives unsolicited and glued to other replies, so the command byte
      * is the only thing separating it from an answer to something else. It was once
      * read as the reply to a question about status field `3b`.
      */

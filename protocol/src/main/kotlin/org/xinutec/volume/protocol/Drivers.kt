@@ -50,7 +50,7 @@ object Drivers {
         MultipointDriver {
         override val modes = setOf(AncMode.ANC, AncMode.AMBIENT)
 
-        /** ⚠ Quiet · Aware · Home · Commute — see [AncDriver.namesOwnModes]. */
+        /** Quiet · Aware · Home · Commute — see [AncDriver.namesOwnModes]. */
         override val namesOwnModes = true
 
         override fun readMultipoint(t: Transport): Boolean? =
@@ -70,7 +70,7 @@ object Drivers {
         fun readEq(t: Transport): BoseBands? = BoseEq.state(t.exchange(BoseEq.get()))
 
         /**
-         * ⚠ **Three frames, one per band**, because that is what the vendor app
+         * **Three frames, one per band**, because that is what the vendor app
          * sends — and each draws the full state back, so the last reply is the whole
          * answer. Sending fewer is untested: nothing says a band left alone keeps its
          * value across a partial write.
@@ -104,7 +104,7 @@ object Drivers {
             val buffer = t.exchange(BoseCncModes.list())
             val modes = BoseCncModes.modes(buffer)
             if (modes.isEmpty()) return null
-            // ⚠ `1f 08` rides along in the same transaction, so occupancy costs no extra
+            // `1f 08` rides along in the same transaction, so occupancy costs no extra
             // round trip — and without it a free slot cannot be told from a full one.
             return CncModes(modes, BoseCncModes.activeSlot(buffer), BoseCncModes.slotsOf(buffer))
         }
@@ -149,7 +149,7 @@ object Drivers {
          * device reports as not editable: Quiet and Aware are built in, and a blanked
          * record in one of those is not something this repo can put back.
          *
-         * ⚠ **Confirmed by the OCCUPANCY bit, not by the record.** A blanked slot still
+         * **Confirmed by the OCCUPANCY bit, not by the record.** A blanked slot still
          * answers with a full-length record, so reading the name back would report
          * success for a delete whose `1f 08` write never landed.
          */
@@ -188,7 +188,7 @@ object Drivers {
          * NAME and its undecoded [BoseCncModes.Mode.nameId], and a stale copy of those
          * would rename the mode as a side effect of moving a slider.
          *
-         * ⚠ **Only a mode the device marks editable.** Quiet and Aware report
+         * **Only a mode the device marks editable.** Quiet and Aware report
          * [BoseCncModes.Mode.editable] false, and nothing here has established what the
          * firmware does with a write to one of them.
          */
@@ -239,7 +239,7 @@ object Drivers {
          * `01 02` is the device name, as the owner set it — see [BoseName.of] for the
          * leading byte that is not part of it.
          *
-         * ⚠ **A separate exchange, and usually an unnecessary one.** The same frame comes
+         * **A separate exchange, and usually an unnecessary one.** The same frame comes
          * back inside `01 01` GET_ALL, so a caller that is reading the settings anyway
          * should take [BoseAll.name] instead of asking twice. This exists for the paths
          * that have no settings read: identifying a renamed device, where the answer is
@@ -263,7 +263,7 @@ object Drivers {
      * noisy place did the opposite, which is a state somebody might answer by
      * turning the volume up.
      *
-     * ⚠ **The wrong table was self-consistent, so nothing on this side could catch
+     * **The wrong table was self-consistent, so nothing on this side could catch
      * it.** [read] and [write] shared it, so a write read back as the mode it had
      * asked for, the card drew that mode, and `DriversTest` asserted the same three
      * pairs. Every check agreed with every other and all of them were wrong
@@ -272,7 +272,7 @@ object Drivers {
      * this side gave three labelled bytes that no amount of internal consistency
      * could have produced.
      *
-     * ⚠ **The QC35 has no pass-through at all** — see [AncMode.ANC_LOW]. The
+     * **The QC35 has no pass-through at all** — see [AncMode.ANC_LOW]. The
      * earlier table's `AMBIENT` was a mode this device does not have, which is the
      * detail that should have looked wrong on paper before any of it was driven.
      */
@@ -301,7 +301,7 @@ object Drivers {
          * the connected bits both move, so a decision taken from a stale list is a
          * decision about a different device. See [BoseDevices] for the ordering.
          *
-         * ⚠ **This is narrower than the vendor app on purpose.** Bose Connect will
+         * **This is narrower than the vendor app on purpose.** Bose Connect will
          * disconnect-and-forget a live device; refusing that costs the ability to evict
          * the phone you are holding, which is not a loss.
          */
@@ -323,7 +323,7 @@ object Drivers {
         /**
          * The paired devices, with their names.
          *
-         * ⚠ **One exchange for the list, then one per device for the name** — `04 05`
+         * **One exchange for the list, then one per device for the name** — `04 05`
          * INFO is keyed by the address, so there is no batch form. The names are what
          * make the list mean anything: the addresses alone are unreadable, and this is
          * the phone the app is talking over sitting next to a laptop.
@@ -339,7 +339,7 @@ object Drivers {
         /**
          * Bose Connect's **CONNECT NEW**.
          *
-         * ⚠ **Read back with a separate Get.** The START's own Result says what the
+         * **Read back with a separate Get.** The START's own Result says what the
          * transaction did; only an independent read says the device is still in that
          * mode by the time anyone looks.
          */
@@ -363,7 +363,7 @@ object Drivers {
      * ⚠ **No ANC**, so not an [AncDriver]: `01 06` ANR answers `04 01 04`, function not
      * supported — a speaker has nothing to cancel.
      *
-     * ⚠ Also absent, measured rather than assumed: `01 09` BUTTONS and `01 0a` MULTIPOINT
+     * Also absent, measured rather than assumed: `01 09` BUTTONS and `01 0a` MULTIPOINT
      * both answer `04 01 04`. What it does have that the QC35 does not is `02 05`
      * CHARGER_DETECT and a whole block `07` CONTROL.
      */
@@ -441,10 +441,10 @@ object Drivers {
         /**
          * `aa 91 07 12 01 <anc> 02 <amb> 03 <talkthru>`.
          *
-         * ⚠ **This used to report TalkThru as OFF**, because it only looked at the
+         * **This used to report TalkThru as OFF**, because it only looked at the
          * first two slots and fell through to OFF — so a real mode the device was
          * actually in rendered as the one state the JBL cannot be put into from
-         * here. Found the moment TalkThru was first driven. ⚠ The length guard was
+         * here. Found the moment TalkThru was first driven. The length guard was
          * `< 9` while the byte it now reads is index 9, which needs 10.
          */
         override fun read(t: Transport): AncMode? {
@@ -472,7 +472,7 @@ object Drivers {
         override fun write(t: Transport, mode: AncMode) {
             val anc = if (mode == AncMode.ANC) 1 else 0
             val amb = if (mode == AncMode.AMBIENT) 1 else 0
-            // ⚠ Exactly one slot is set; OFF is all three zero, which is how the
+            // Exactly one slot is set; OFF is all three zero, which is how the
             // device reports the state and how its app writes it.
             val talk = if (mode == AncMode.TALK_THRU) 1 else 0
             t.exchange(
@@ -506,7 +506,7 @@ object Drivers {
 
         fun readCurve(t: Transport): EqCurve? = Bes.ask(t, JblEq.get(), JblEq::curve)
 
-        /** ⚠ Read only, deliberately — [JblSafeSound] says why there is no writer. */
+        /** Read only, deliberately — [JblSafeSound] says why there is no writer. */
         fun readVolumeLimit(t: Transport): Boolean? =
             Bes.ask(t, JblSafeSound.get(), JblSafeSound::state)
 
@@ -515,13 +515,13 @@ object Drivers {
         /**
          * Write both the switch and the mode, and return what the device then reports.
          *
-         * ⚠ **Unlike [writeAutoOff] this can return the new state**, because `aa 9d`
+         * **Unlike [writeAutoOff] this can return the new state**, because `aa 9d`
          * answers with the status frame rather than an ack — so the read-back is the
          * reply itself and costs no extra round trip. Still a read-back and not an
          * assumption: [JblSpatial.state] returns null if the device answered something
          * else, and a null here means *unknown*, never *it worked*.
          *
-         * ⚠ The mode goes with every write because the device takes both in one frame;
+         * The mode goes with every write because the device takes both in one frame;
          * there is no way to change the switch alone, which is also why the vendor
          * app's mode buttons switch the feature on.
          */
@@ -555,7 +555,7 @@ object Drivers {
             Bes.ask(t, JblGestures.get(), JblGestures::state)
 
         /**
-         * ⚠ **Returns the charge AND whether the cups agreed**, because both come off the
+         * **Returns the charge AND whether the cups agreed**, because both come off the
          * same frame. [JblBattery.cupsDiffer] is the warrant for reading one byte as the
          * pair's charge, and a caller that never sees it prints an unattributable number.
          */
@@ -580,7 +580,7 @@ object Drivers {
         internal fun writeBalance(t: Transport, v: Balance): Balance? =
             Bes.ask(t, JblBalance.set(v), JblBalance::state)
 
-        /** ⚠ Read only, deliberately — see [JblPsap]. */
+        /** Read only, deliberately — see [JblPsap]. */
         fun readPsap(t: Transport): Boolean? = Bes.ask(t, JblPsap.get(), JblPsap::state)
 
         /**
@@ -591,12 +591,12 @@ object Drivers {
          * the headphones as they were found is to write the old value again. There is no
          * "undo" frame and no error to catch.
          *
-         * ⚠ **[was] is the caller's, not re-read here.** Re-reading first would cost a
+         * **[was] is the caller's, not re-read here.** Re-reading first would cost a
          * round trip and still be a guess about the instant between the two frames; the
          * card already holds what the last read said, and that is what the owner is
          * looking at when they tap.
          *
-         * ⚠ **The restore is believed from its own status frame**, never assumed. It goes
+         * **The restore is believed from its own status frame**, never assumed. It goes
          * down the same path that just refused a write.
          */
         override fun writeGesture(
@@ -624,11 +624,11 @@ object Drivers {
             }
         }
 
-        /** Voice Prompts' switch. ⚠ Read only — [JblVoicePrompts] says why. */
+        /** Voice Prompts' switch. Read only — [JblVoicePrompts] says why. */
         override fun readVoicePrompts(t: Transport): Boolean? =
             Bes.ask(t, JblVoicePrompts.get(), JblVoicePrompts::state)
 
-        /** Customize ANC. ⚠ Read only — [JblAdvancedAnc] says why there is no writer. */
+        /** Customize ANC. Read only — [JblAdvancedAnc] says why there is no writer. */
         override fun readAdvancedAnc(t: Transport): AdvancedAnc? =
             Bes.ask(t, JblAdvancedAnc.get(), JblAdvancedAnc::state)
 
@@ -669,7 +669,7 @@ object Drivers {
             return readCurve(t)
         }
 
-        /** ⚠ The reply is an ack, so the truth is a re-read — see [writeAutoOff]. */
+        /** The reply is an ack, so the truth is a re-read — see [writeAutoOff]. */
         override fun setAutoOff(t: Transport, v: TimedOff): Confirmation<TimedOff> {
             writeAutoOff(t, v)
             return confirm(v, readAutoOff(t))
@@ -705,7 +705,7 @@ object Drivers {
      * JBL LIVE PRO 2 TWS — the same chip and the same service as [JblBes], and a
      * different ANC protocol.
      *
-     * ⚠⚠ **A second driver rather than a branch inside [JblBes], because the two
+     * **A second driver rather than a branch inside [JblBes], because the two
      * disagree about both halves.** Measured against this device, with
      * every mode confirmed by read-back and TalkThru confirmed by its owner's ears:
      *
@@ -716,7 +716,7 @@ object Drivers {
      * TALK_THRU  aa 91 07 10 01 00 02 00 03 01      ← echoed
      * ```
      *
-     * ⚠⚠ **[JblBes.read]'s `aa 91 01 11` is WRONG on this model and must not be used
+     * **[JblBes.read]'s `aa 91 01 11` is WRONG on this model and must not be used
      * here.** In a confirmed TalkThru it answered `01 01 02 00 03 00` ("ANC") at 11:12
      * and `01 00 02 01 03 00` ("Ambient") at 11:14 — two different wrong answers for
      * one real state. The status fields are right every time, and the device returns
@@ -729,11 +729,11 @@ object Drivers {
      * Ambient Aware — and it **outranks** `31`: a confirmed TalkThru reads `31 01`
      * *and* `32 01` together, so a decoder that tested ANC first would call it ANC.
      *
-     * ⚠ **`aa 32 01 <mode>`, which the SDK builds for exactly this, is refused** —
+     * **`aa 32 01 <mode>`, which the SDK builds for exactly this, is refused** —
      * `aa 00 02 32 04` — while `aa 32 01 00` (off) is accepted. So the SDK's own
      * generator is not the route on this firmware, and the M2's frame is.
      *
-     * ⚠ **Writes are refused with status `04` unless BOTH buds are in ears.** With
+     * **Writes are refused with status `04` unless BOTH buds are in ears.** With
      * `aa 21 01 41` reading `00 00` or `00 01`, every setter answered `aa 00 02 <cmd>
      * 04` and nothing moved; with `01 01` the same bytes took. That is the device's
      * own guard, not a protocol fault, and it is why [read] is the confirmation.
@@ -790,7 +790,7 @@ object Drivers {
          * This model's Audio/Video payloads — see [JblSmartAv.TOUR_ONE_M2] for why they
          * are a table rather than a constant.
          *
-         * ⚠ VIDEO is the M2's byte-for-byte; only AUDIO differs. ⚠ Two entries, not
+         * ⚠ VIDEO is the M2's byte-for-byte; only AUDIO differs. Two entries, not
          * three: the vendor app offers no OFF on this model, and a mode we cannot name
          * a payload for must not appear as a chip.
          */
@@ -800,11 +800,11 @@ object Drivers {
                 SmartAv.VIDEO to Hex.parse("c5002e005000ffff"),
             )
 
-        /** ⚠ Walks the buffer, for the reason [readCharge] does. */
+        /** Walks the buffer, for the reason [readCharge] does. */
         override fun readSmartAv(t: Transport): SmartAv? = smartAv(t.exchange(JblSmartAv.get()))
 
         /**
-         * ⚠ **The write's own reply is an `aa 83` status frame**, so this reads the
+         * **The write's own reply is an `aa 83` status frame**, so this reads the
          * outcome out of it rather than spending a second round trip — measured:
          * `aa 81 08 …` came back `aa 83 08 …` carrying the new mode.
          */
@@ -843,7 +843,7 @@ object Drivers {
         /**
          * Charge, from the frame the vendor app asks with — see [JblBattery.getSdk].
          *
-         * ⚠ **Walks the buffer, for the reason [Bes.ask] does.** A reply can begin
+         * **Walks the buffer, for the reason [Bes.ask] does.** A reply can begin
          * with a frame nobody asked for, and every decoder here checks its command byte
          * and correctly returns null when handed the wrong offset. Reading this with a
          * bare `exchange` put no battery on the card at all while the device was
@@ -858,7 +858,7 @@ object Drivers {
         /**
          * The equaliser is a PRESET INDEX here, not the M2's ten-band curve.
          *
-         * ⚠ [EqSetting.levels] is empty and that is honest: `aa a2` is silent on this
+         * [EqSetting.levels] is empty and that is honest: `aa a2` is silent on this
          * model, and `aa 42`'s custom-curve reply is four bytes this repo cannot yet
          * decode. An empty list draws no band sliders; a made-up one would draw ten.
          */
@@ -962,7 +962,7 @@ object Drivers {
             /**
              * How many extra reads to spend looking for a displaced answer.
              *
-             * ⚠ Two, because two is what the measurement showed: one volunteered frame
+             * Two, because two is what the measurement showed: one volunteered frame
              * ahead of the reply. A larger number would turn a device that has stopped
              * answering into a long stall, and this runs on the settings path where the
              * user is waiting.
@@ -1011,10 +1011,10 @@ object Drivers {
                 ?.let(SonyVoiceGuidance::state)
 
         /**
-         * ⚠ Its notify echoes the value, so this one is confirmable from its own reply —
+         * Its notify echoes the value, so this one is confirmable from its own reply —
          * but [setVoiceGuidance] re-reads anyway, for the reason [setMultipoint] does.
          *
-         * ⚠ **Turning it ON can make the headphones speak.** That is the device doing what
+         * **Turning it ON can make the headphones speak.** That is the device doing what
          * the setting is for, not a side effect to be suppressed; it is noted because it
          * is the one write here that is audible to whoever is wearing them.
          */
@@ -1116,7 +1116,7 @@ object Drivers {
             exchangeFramed(t, SonyEq.get())?.let(SonyEq::state)
 
         /**
-         * ⚠ The reply window holds **two** frames: the ack, then a `NTFY_PARAM`
+         * The reply window holds **two** frames: the ack, then a `NTFY_PARAM`
          * carrying the resulting state. [exchangeFramed] takes the last DATA frame,
          * so the ack does not shadow it — and the state comes back for [setEq] to
          * compare, which is the only thing that makes it evidence.
@@ -1127,12 +1127,12 @@ object Drivers {
         /**
          * Move the band levels of the selected preset, and say whether they moved.
          *
-         * ⚠ **A levels write draws no state back — only an ack**, unlike [writeEq],
+         * **A levels write draws no state back — only an ack**, unlike [writeEq],
          * whose notify carries the result. So the read is not an optional second
          * opinion here, it is the only evidence there is, and Sony's own app does
          * exactly the same thing: `58 01 ff …` then `56 01`, after every drag.
          *
-         * ⚠ Compares **levels, not preset**. The preset byte sent is `ff`, and the
+         * Compares **levels, not preset**. The preset byte sent is `ff`, and the
          * device goes on reporting the real slot — so a preset comparison would
          * contradict every correct write.
          *
@@ -1157,7 +1157,7 @@ object Drivers {
          * ⚠ **Empty means "it would not say", not "it has none"** — a caller must fall
          * back to what it already offers rather than emptying its menu.
          *
-         * ⚠ Goes through [exchangeFramed] like every other read here, and that is the
+         * Goes through [exchangeFramed] like every other read here, and that is the
          * point: the frame this decodes was first seen from a ONE-SHOT socket that then
          * refused to repeat it, and a one-shot `56 01` on the same evening drew an
          * unsolicited `a9` playback notification instead of an answer.
@@ -1178,7 +1178,7 @@ object Drivers {
             exchangeFramed(t, SonyPowerOff.off())
         }
 
-        /** The codec the link settled on. ⚠ Read only — see [SonyCodec]. */
+        /** The codec the link settled on. Read only — see [SonyCodec]. */
         fun readCodec(t: Transport): String? =
             exchangeFramed(t, SonyCodec.get(), SonyCodec.RET)?.let(SonyCodec::state)
 
@@ -1186,7 +1186,7 @@ object Drivers {
             exchangeFramed(t, SonyAutoOff.get())?.let(SonyAutoOff::state)
 
         /**
-         * ⚠ Its notify echoes the value set, so this one really is confirmable.
+         * Its notify echoes the value set, so this one really is confirmable.
          * ✅ Driven on hardware, both directions, and restored.
          */
         internal fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
@@ -1199,7 +1199,7 @@ object Drivers {
         /**
          * Speak-to-Chat's three detail settings, which travel as one frame.
          *
-         * ⚠ **`expect` names both `fb` and `fd`** because a write's own notify is a
+         * **`expect` names both `fb` and `fd`** because a write's own notify is a
          * legitimate answer to a read that raced it. Leaving it out would take the last
          * DATA frame in the window whatever it said — the defect that made a working
          * DSEE write report as unconfirmable.
@@ -1272,7 +1272,7 @@ object Drivers {
          * both answers. **The caller must reopen and re-read to learn the
          * outcome; nothing here can tell it.**
          *
-         * ⚠ A no is orderly: no disconnect, an `f9` echo, and the value unchanged.
+         * A no is orderly: no disconnect, an `f9` echo, and the value unchanged.
          */
         fun answerButtonAlert(t: Transport, yes: Boolean) {
             runCatching {
@@ -1318,7 +1318,7 @@ object Drivers {
          * in the socket waiting for the next request — and the next request, on the
          * settings path, is a nine-read refresh whose FIRST exchange collects it.
          *
-         * ⚠ **This did NOT fix the symptom it was written for, and is kept on its own
+         * **This did NOT fix the symptom it was written for, and is kept on its own
          * merits.** The symptom: one tap leaves the XM4 on, the switch drawn on, and the
          * row's own label reading "off". It was reproduced again *with* this in place,
          * in a clean run with nothing else touching the channel — so a leftover frame on
@@ -1328,7 +1328,7 @@ object Drivers {
          * anybody wanted its contents, and leaving one unacked is the defect that put
          * sessions permanently one behind. Retiring them politely is correct in itself.
          *
-         * ⚠ **This belongs to the driver and not to [Transport].** A transport that
+         * **This belongs to the driver and not to [Transport].** A transport that
          * dropped pending bytes would discard Sony DATA frames without acknowledging
          * them, which is the very thing that put sessions permanently one behind. Only
          * something that can parse a frame can retire one politely.
@@ -1356,7 +1356,7 @@ object Drivers {
             exchangeFramed(t, SonyMultipoint.get())?.let(SonyMultipoint::state)
 
         /**
-         * ⚠ Returns nothing on purpose. The reply to this write is a notification
+         * Returns nothing on purpose. The reply to this write is a notification
          * about a *different* parameter, so handing it back would invite exactly the
          * comparison it cannot support — see [SonyMultipoint].
          */
@@ -1375,13 +1375,13 @@ object Drivers {
          * rightly refused to decode it, and the write — **which had worked** — was
          * reported as unverifiable.
          *
-         * ⚠ **This narrows the wrong answer to no answer; it does not resynchronise.**
+         * **This narrows the wrong answer to no answer; it does not resynchronise.**
          * When the extra notification arrives *before* the real reply, every subsequent
          * exchange in that session is one window behind — measured on Speak-to-Chat,
          * where six consecutive exchanges each returned the previous one's answer. The
          * cause is stop-and-wait acking, see below; this only limits the damage.
          *
-         * ⚠ Callers that pass nothing keep the old behaviour. The ANC, EQ and multipoint
+         * Callers that pass nothing keep the old behaviour. The ANC, EQ and multipoint
          * paths were driven and confirmed against hardware with it, and changing what
          * they select is not free just because it looks safer.
          */
@@ -1417,7 +1417,7 @@ object Drivers {
                         frames.lastOrNull { it.payload.firstOrNull() in expect }
                     }
                 if (answer != null) return answer.payload
-                // ⚠ Bounded, and small. Nothing here waits for a device to become
+                // Bounded, and small. Nothing here waits for a device to become
                 // agreeable — this covers "the answer was behind one volunteered
                 // frame", which is what was measured. A caller that gets null still
                 // reports honestly rather than retrying forever.
@@ -1467,7 +1467,7 @@ object Drivers {
      * ⚠ **Its `47` reply is not a success signal** — a mode that does not exist draws
      * the identical one — so confirmation comes from [read], never from the reply.
      *
-     * ⚠ **"The vendor app tracks the mode locally" is false, and testable in minutes**:
+     * **"The vendor app tracks the mode locally" is false, and testable in minutes**:
      * set a mode from here, launch `com.jlab.app` cold, and its UI draws the mode the
      * device is actually in, both ways round. That is how the read was found, and it is
      * the method to reach for whenever a device is believed to have none.
@@ -1488,14 +1488,14 @@ object Drivers {
          * `04 04` in either ANC mode and `00 00` when ANC is off, so a decoder keying on
          * them would be reading something else's field.
          *
-         * ⚠⚠ **The reply does not reliably start at `r[3]`, and testing that offset
+         * **The reply does not reliably start at `r[3]`, and testing that offset
          * drops it.** The first read after an idle link can answer ~20 ms after its own
          * window closes: this read then gets nothing, the NEXT one gets `45`, and the
          * card says "could not read it" while the device answered perfectly. [ask] and
          * [JLabFrame.replyTo] find the reply wherever it landed and ask again when the
          * window closed empty.
          *
-         * ⚠ The reply's checksum does not follow the requests' sum-mod-256 rule, and has
+         * The reply's checksum does not follow the requests' sum-mod-256 rule, and has
          * no rule of its own that anyone here has found: seven reply commands come out
          * exactly 2 less than that sum and five close at no offset at all. So it stays
          * unchecked, and it cannot delimit a reply either.
@@ -1506,10 +1506,10 @@ object Drivers {
             }
 
         /**
-         * ⚠ **`00` is Off, and that is now measured rather than assumed.** It was
+         * **`00` is Off, and that is now measured rather than assumed.** It was
          * written down as "untested" for as long as there was no read to check it
          * with; with [read] in hand it was driven and read back, and the whole
-         * payload came back `00 00 00`. ⚠ The trailing `04 04` is still sent for
+         * payload came back `00 00 00`. The trailing `04 04` is still sent for
          * Off, because that is what was driven — the device normalises it.
          */
         override fun write(t: Transport, mode: AncMode) {
@@ -1518,7 +1518,7 @@ object Drivers {
         }
 
         /**
-         * ⚠ **One implementation, in [JLabFrame]**, which is where the framing is
+         * **One implementation, in [JLabFrame]**, which is where the framing is
          * documented. This stayed as a name here because the ANC read and write above
          * were written against it before the rest of the protocol was decoded.
          */
@@ -1527,17 +1527,17 @@ object Drivers {
         /**
          * Ask, and read again if the window closed before the answer arrived.
          *
-         * ⚠⚠ **Both halves are measured, not defensive.** Once, the first read
+         * ⚠ **Both halves are measured, not defensive.** Once, the first read
          * after an idle link took 420 ms against a window of about 400: `44`'s window
          * closed empty and `76` was handed `45`, after which every read ran one behind.
          * [JLabFrame.replyTo] scanning the buffer fixes the second half; this retry fixes
          * the first, because a window that closed empty has nothing to scan.
          *
-         * ⚠ **One extra read, not a loop.** [Transport.receive] returning empty is an
+         * **One extra read, not a loop.** [Transport.receive] returning empty is an
          * ordinary outcome and its own doc says a caller must bound its retries — so this
          * gives the device exactly one more chance and then reports failure honestly.
          *
-         * ⚠ It also drains the `31` battery frame the device broadcasts every ten
+         * It also drains the `31` battery frame the device broadcasts every ten
          * seconds unasked, which is the other thing that can be sitting in a window.
          */
         private fun <T> ask(t: Transport, request: OutFrame, decode: (ByteArray) -> T?): T? =
@@ -1573,7 +1573,7 @@ object Drivers {
         }
 
         /**
-         * ⚠ Re-reads, and here the reply is worse than an echo: `52`'s answer `53` came
+         * Re-reads, and here the reply is worse than an echo: `52`'s answer `53` came
          * back **`01` for both** the Music and the Movie write, so it is a bare
          * acknowledgement carrying no state at all.
          */
@@ -1586,7 +1586,7 @@ object Drivers {
         fun readEq(t: Transport): JLabCurve? = ask(t, JLabEq.get(), JLabEq::state)
 
         /**
-         * The four stored curves. ⚠ **This came back** — it was deleted as
+         * The four stored curves. **This came back** — it was deleted as
          * unreferenced when the EQ was read-only, and the writer is what gives it a
          * caller: the card cannot offer a preset without knowing the curve to send for it.
          */
@@ -1594,9 +1594,9 @@ object Drivers {
             ask(t, JLabEq.presets(), JLabEq::allPresets)
 
         /**
-         * ⚠⚠ **Can RAISE band levels.** Writable at the user's explicit request.
+         * ⚠ **Can RAISE band levels.** Writable at the user's explicit request.
          *
-         * ⚠ Re-reads: `4b` came back with preset `01` and a flat curve after a write of
+         * Re-reads: `4b` came back with preset `01` and a flat curve after a write of
          * preset `03`, so it reports neither the request nor the state.
          */
         fun setEq(t: Transport, curve: JLabCurve): Confirmation<JLabCurve> {

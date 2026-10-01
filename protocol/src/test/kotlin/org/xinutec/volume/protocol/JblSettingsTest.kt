@@ -8,7 +8,7 @@ import org.junit.Test
 /**
  * The JBL's auto power off and equaliser, replayed from the capture.
  *
- * ⚠ **Every hex string here is a whole frame off the wire**, taken with
+ * **Every hex string here is a whole frame off the wire**, taken with
  * `tshark -e btatt.value` — the JBL is GATT, so `data.data` is empty for it and a
  * filter written for the Sony returns nothing at all. Times are in the timeline in
  * `docs/captures.md`.
@@ -93,7 +93,7 @@ class JblSettingsTest {
     /**
      * Customize ANC, read twice a week apart, byte-identically.
      *
-     * ⚠ **`a1` is the assertion that matters.** It is the only key outside `01`–`08` and
+     * **`a1` is the assertion that matters.** It is the only key outside `01`–`08` and
      * it arrives LAST, so a reader that walks fixed offsets, stops at a contiguous key
      * range, or treats a high byte as a terminator loses the ambient level — and loses it
      * while returning a perfectly well-formed object for the other three.
@@ -223,7 +223,7 @@ class JblSettingsTest {
     /**
      * A curve with an unsolicited battery frame glued on is rejected.
      *
-     * ⚠ **This device really does glue frames** — [JblFrames.FEATURE_03_OFF_THEN_BATTERY]
+     * **This device really does glue frames** — [JblFrames.FEATURE_03_OFF_THEN_BATTERY]
      * is one off the wire. The old guard checked the low length byte and the size
      * floor, so a glued curve passed both and decoded as if nothing were appended. The
      * declared length now has to account for the whole buffer.
@@ -282,7 +282,7 @@ class JblSettingsTest {
     /**
      * 22:14:26 — from the vendor app's OWN connect sweep, never driven by us.
      *
-     * ⚠ **Both payload bytes are `01`, so this frame alone cannot say which is the
+     * **Both payload bytes are `01`, so this frame alone cannot say which is the
      * status.** The offset comes from the SDK's `SafeSoundCmd`, calibrated against
      * `SpeakToChatCmd` whose two offsets match Smart Talk's driven values. Reading a
      * single agreeing byte as a mapping is what made `38` look like Auto Play & Pause
@@ -300,7 +300,7 @@ class JblSettingsTest {
         assertEquals("aaa50101", hex(JblSafeSound.get().bytes))
     }
 
-    /** ⚠ There is no writer, and that is the design — see [JblSafeSound]. */
+    /** There is no writer, and that is the design — see [JblSafeSound]. */
     @Test
     fun `a foreign frame is not a volume limit`() {
         assertNull(JblSafeSound.state(bytes("aaa00702010002640300")))
@@ -359,7 +359,7 @@ class JblSettingsTest {
     }
 
     /**
-     * ⚠ **The length bound, measured by ablation.**
+     * **The length bound, measured by ablation.**
      *
      * `05 01 01` behind a complete `aa b1` status is a well-formed key/size/value
      * triple in its own right. Walk to the end of the buffer and key `05` "exists"
@@ -425,7 +425,7 @@ class JblSettingsTest {
     /**
      * ⚠ A frame for another command must not be read as a spatial one.
      *
-     * ⚠ **The obvious version of this test proved nothing and was replaced.** It used
+     * **The obvious version of this test proved nothing and was replaced.** It used
      * the real Smart Talk reply `aa 9f 03 02 00 05`, which has the same length and
      * shape and differs in the command byte — but deleting the command check from
      * [JblSpatial.state] left it passing, because `05` is not a mode and the *mode*
@@ -497,7 +497,7 @@ class JblSettingsTest {
     }
 
     /**
-     * ⚠ Same discipline as the spatial one, and for the same reason.
+     * Same discipline as the spatial one, and for the same reason.
      *
      * `aa 9d 03 02 01 01` is Spatial Sound: same length, same operator, and its bytes
      * are a VALID level and a valid on — so only the command byte separates them. A
@@ -593,7 +593,7 @@ class JblSettingsTest {
     }
 
     /**
-     * ⚠ Same discipline again: `aa 9f 02 02 01` is Smart Talk's command in this
+     * Same discipline again: `aa 9f 02 02 01` is Smart Talk's command in this
      * command's shape, and every byte but the command is one this reader accepts.
      *
      * The length check earns its place separately — `aa 9e 03 02 01` would put the
@@ -626,7 +626,7 @@ class JblSettingsTest {
     }
 
     /**
-     * ⚠ **Off and Audio differ in ONE byte**, `e6` against `96`, and they are otherwise
+     * **Off and Audio differ in ONE byte**, `e6` against `96`, and they are otherwise
      * the same six numbers. A reader matching a prefix, or any byte but the third pair,
      * cannot tell them apart — so the whole payload is compared.
      */

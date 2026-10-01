@@ -166,7 +166,7 @@ enum class AncTuning(
  * `autoCompensation = 0` for a key that was never mentioned, which is a claim the frame
  * does not make.
  *
- * ⚠ **The LEVELS are numbers, not scales.** Nothing here establishes what `7` is out of —
+ * **The LEVELS are numbers, not scales.** Nothing here establishes what `7` is out of —
  * the SDK declares constants for [tuning] alone, and the app's slider bounds were not
  * found. So they are carried and shown as read, the same discipline as [Balance.level].
  */
@@ -191,15 +191,15 @@ data class AdvancedAnc(
  * whose keys are sparse and non-consecutive. Same command byte, different shape, selected
  * by the sub-command — so the mode readers in [Drivers] cannot be pointed at it.
  *
- * ⚠ **The pair count comes from the LENGTH byte, `(len - 1) / 2`**, which is
+ * **The pair count comes from the LENGTH byte, `(len - 1) / 2`**, which is
  * `AdvancedAncCmd.parse`'s own arithmetic rather than a guess from one frame: key at
  * `i * 2 + 4`, value at `i * 2 + 5`. `09` gives four pairs, and four is what arrived.
  *
- * ⚠ **`a1` is a key, not a command byte or a level.** It is the one key outside `01`–`08`,
+ * **`a1` is a key, not a command byte or a level.** It is the one key outside `01`–`08`,
  * it appears last, and a reader walking fixed offsets or assuming a contiguous key space
  * drops it — losing the ambient level while looking entirely healthy.
  *
- * ⚠ **No writer.** Sub-command `20` is named and has never been sent; the levels' meaning
+ * **No writer.** Sub-command `20` is named and has never been sent; the levels' meaning
  * is unestablished, so a setter here would be writing numbers nobody can check.
  */
 object JblAdvancedAnc {
@@ -273,7 +273,7 @@ object JblAdvancedAnc {
  * sub-commands in that space is the sweep this repo forbids, on the one command family
  * where a wrong guess starts a file transfer.
  *
- * ⚠ **The length byte bounds the read, and this frame proved why**: the restore's reply
+ * **The length byte bounds the read, and this frame proved why**: the restore's reply
  * arrived as `aa 93 02 05 01 aa 25 0d …` — an unsolicited battery notification glued on.
  * A reader that scanned to the end of the buffer would take `aa` as the payload.
  */

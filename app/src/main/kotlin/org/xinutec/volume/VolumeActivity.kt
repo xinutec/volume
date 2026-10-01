@@ -166,7 +166,7 @@ import kotlin.math.roundToInt
  * working, which matters because it is the only tool that can investigate a device
  * this screen cannot drive.
  *
- * ⚠ Everything here renders [Screen]; none of it decides. Which sentence a device
+ * Everything here renders [Screen]; none of it decides. Which sentence a device
  * deserves — unreachable, unidentified, driven-but-unconfirmable — is worked out in
  * `:protocol` where it is tested, because those distinctions are exactly what a
  * look at the screen would not catch.
@@ -234,7 +234,7 @@ class VolumeActivity : ComponentActivity() {
                 // way the profile events lead ACL_DISCONNECTED by 414 ms, so they are
                 // the earlier signal in both directions, not a late repair to ACL.
                 //
-                // ⚠ Do not conclude from that four-minute note that this receiver
+                // Do not conclude from that four-minute note that this receiver
                 // fixes a COLD start: nothing broadcasts for a pair that was already
                 // connected when the app launched. `onStart`'s refresh below is what
                 // covers that, and it is a separate mechanism. `adb logcat -s
@@ -355,7 +355,7 @@ class VolumeActivity : ComponentActivity() {
                         BluetoothDevice.EXTRA_DEVICE,
                         BluetoothDevice::class.java,
                     )
-                // ⚠ Logged because the ordering is the whole question. Each refresh
+                // Logged because the ordering is the whole question. Each refresh
                 // logs what the profile proxies then said, so the pair of lines shows
                 // whether an ACL event alone would have found anything.
                 Log.i(LIVE, "broadcast: ${intent.action?.substringAfterLast('.')}")
@@ -398,7 +398,7 @@ interface SettingActions {
 
     fun setAutoOff(address: String, mode: AutoOff)
 
-    /** ⚠ Only the switch moves; the timeout is sent back as it was read. */
+    /** Only the switch moves; the timeout is sent back as it was read. */
     fun setTimedOff(address: String, v: TimedOff)
 
     /** Bose's standby timer, in minutes; ⚠ `0` is the device's "never". */
@@ -417,7 +417,7 @@ interface SettingActions {
     /**
      * Bose `01 0e` — whether the noise setting persists.
      *
-     * ⚠ The name is the vendor's; what it does is untested here.
+     * The name is the vendor's; what it does is untested here.
      */
     fun setCncPersistence(address: String, on: Boolean)
 
@@ -467,11 +467,11 @@ interface SettingActions {
 
     fun setCurve(address: String, curve: EqCurve)
 
-    /** ⚠ Switch and mode together — [Spatial] says why they cannot be sent apart. */
+    /** Switch and mode together — [Spatial] says why they cannot be sent apart. */
     fun setSpatial(address: String, v: Spatial)
 
     /**
-     * ⚠⚠ **This CAN RAISE an exposure ceiling** — `DEFAULT` is the least protective of the
+     * ⚠ **This CAN RAISE an exposure ceiling** — `DEFAULT` is the least protective of the
      * JLab's three. Writable at the user's explicit request; it shipped
      * read-only first so that adding it had to be a decision. The JBL's Max Volume Limiter
      * and PSAP are the same class of control and remain read-only.
@@ -479,7 +479,7 @@ interface SettingActions {
     fun setSafeHearing(address: String, level: JLabSafeHearing.Level)
 
     /**
-     * ⚠⚠ **Can RAISE band levels** — this device's stored presets are flat while its live
+     * ⚠ **Can RAISE band levels** — this device's stored presets are flat while its live
      * Custom curve is cut in two places. Writable at the user's explicit request.
      */
     fun setJlabEq(address: String, curve: JLabCurve)
@@ -490,7 +490,7 @@ interface SettingActions {
     /** Likewise switch and hold; see [SmartTalk]. */
     fun setSmartTalk(address: String, v: SmartTalk)
 
-    /** ⚠ A plain switch — the only JBL row here that carries nothing alongside it. */
+    /** A plain switch — the only JBL row here that carries nothing alongside it. */
     fun setLowVolumeEq(address: String, on: Boolean)
 
     /** DSEE Extreme; `true` is `AUTO`. */
@@ -522,10 +522,10 @@ interface SettingActions {
 
     fun answerButton(address: String, yes: Boolean)
 
-    /** ⚠ Ambient mode only — the UI offers it only when the device is there. */
+    /** Ambient mode only — the UI offers it only when the device is there. */
     fun setFocusOnVoice(address: String, on: Boolean)
 
-    /** ⚠ Three states and no switch; [SmartAv] says why off is one of them. */
+    /** Three states and no switch; [SmartAv] says why off is one of them. */
     fun setSmartAv(address: String, v: SmartAv)
 
     /**
@@ -539,7 +539,7 @@ interface SettingActions {
 
     fun setAutoPlay(address: String, on: Boolean)
 
-    /** ⚠ Only the switch moves; the level is sent back as it was read. */
+    /** Only the switch moves; the level is sent back as it was read. */
     fun setBalance(address: String, v: Balance)
 
     fun setSoundQuality(address: String, mode: SoundQuality)
@@ -563,18 +563,18 @@ fun VolumeScreen(
     //  - the ITEM is removed when a card leaves `screen.cards`, taking any `remember`
     //    with it however it is keyed;
     //  - the LIST used to go entirely when [Screen.emptiness] took an early return —
-    //    which is what happens when the only headphone disconnects. ⚠ That early
+    //    which is what happens when the only headphone disconnects. That early
     //    return is GONE: the list is now unconditional, because the Mac card at the
     //    top of it has to draw whether or not a headphone is connected, and "no
     //    headphones" is exactly when somebody is listening on the speakers instead.
     //    The emptiness message is an item in the list now, and only that changed;
     //  - so only state outside both survives a device going away and coming back.
     //
-    // ⚠ Not hypothetical, and the first fix for it was put inside the list and did NOT
+    // Not hypothetical, and the first fix for it was put inside the list and did NOT
     // work: committing a [CUSTOM] button change drops the link on purpose, and the
     // section still shut itself the moment the card vanished. #1136.
     //
-    // ⚠ Distinct from #973, which was the card SHRINKING so the scroll offset was
+    // Distinct from #973, which was the card SHRINKING so the scroll offset was
     // clamped. Keeping the card the same height fixed that and does nothing here, where
     // the card is gone entirely.
     val openSections = rememberSaveable { mutableStateListOf<String>() }
@@ -645,7 +645,7 @@ private fun DeviceRow(
     actions: SettingActions,
     openSections: MutableList<String>,
 ) {
-    // ⚠ Owned by the caller, for the reason given where it is declared: a card that
+    // Owned by the caller, for the reason given where it is declared: a card that
     // disconnects leaves the list, and anything remembered in here goes with it.
     val expanded = card.address in openSections
     // ⚠ **The DEVICE is asking, and this forwards the question rather than answering it.**
@@ -689,7 +689,7 @@ private fun DeviceRow(
     }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // ⚠ The bonded name, and it may be anything: this phone's QC35 is called
+            // The bonded name, and it may be anything: this phone's QC35 is called
             // "LE-the user Headphon". The model we worked out goes underneath rather
             // than replacing it, so the owner can still tell which pair this is.
             Text(
@@ -708,7 +708,7 @@ private fun DeviceRow(
                 }
 
                 is DeviceState.Busy -> {
-                    // ⚠⚠ **The spinner is sized to the TEXT LINE, and that is load-bearing
+                    // ⚠ **The spinner is sized to the TEXT LINE, and that is load-bearing
                     // — it is the whole of #1203.** A default CircularProgressIndicator is
                     // 40.dp where the Ready branch below is one `bodySmall` line, so going
                     // Busy made this row ~24.dp taller and pushed EVERY control under it
@@ -723,7 +723,7 @@ private fun DeviceRow(
                     // composition identity, a pointer block) each changed nothing, because
                     // none of them was ever the cause.
                     //
-                    // ⚠ So the rule is a HEIGHT rule, not a spinner rule: whatever this
+                    // So the rule is a HEIGHT rule, not a spinner rule: whatever this
                     // branch draws must occupy the same height as the Ready branch's first
                     // line, or the bug comes straight back.
                     Row(
@@ -817,7 +817,7 @@ private fun DeviceRow(
             // condition and the reason it includes Busy — do not spell it out here
             // again; #973 was this line written by hand with the Busy arm missing.
             //
-            // ⚠ What belongs HERE is the other half: the section renders from
+            // What belongs HERE is the other half: the section renders from
             // [DeviceCard.settings], which survives Busy for the same reason, so the
             // values shown mid-write are the pre-write ones. That is honest — the new
             // value is not known until the refresh lands — and it is what keeps the
@@ -850,12 +850,12 @@ private fun DeviceRow(
                     // moment, so it was never a net. It covers strictly more paths than
                     // the button did, so it is the one that stayed.
                     //
-                    // ⚠ Keyed on `settings == null` so a completed read stops it and a
+                    // Keyed on `settings == null` so a completed read stops it and a
                     // failed one does not retry in a loop.
                     LaunchedEffect(card.address, card.settings == null) {
                         if (card.settings == null) actions.loadSettings(card.address)
                     }
-                    // ⚠ **Dimmed while busy, because the spinner is at the TOP of the
+                    // **Dimmed while busy, because the spinner is at the TOP of the
                     // card and the row you tapped may be a screen below it.** Keeping
                     // the section rendered through a write took away the only feedback
                     // a tap used to give — the section vanishing. Without this a tap
@@ -912,7 +912,7 @@ private fun SettingsSection(
         return
     }
     if (!settings.any) {
-        // ⚠ **Two sentences, because empty means two different things.** This was one,
+        // **Two sentences, because empty means two different things.** This was one,
         // and it claimed the repo had decoded nothing for the pair — shown on a JBL
         // with six decoded settings whose reads had every one failed on a stale link.
         // `attempted` is what separates "nobody asked" from "nothing answered".
@@ -998,7 +998,7 @@ private fun SettingRowFor(
             val c = row.curve
             // ⚠ The name is looked up, not stored: the device sends back ten numbers
             // and a table id, and "Jazz" is only true if both still match what the app
-            // sent for it. ⚠ **The table id is part of that, and it caught something**
+            // sent for it. **The table id is part of that, and it caught something**
             // — the JBL was found holding flat gains under a table neither chip
             // writes, so "custom" is shown with the id rather than a bare word that
             // would look like a rendering fault above ten zeroes.
@@ -1071,7 +1071,7 @@ private fun SettingRowFor(
             // should render for is not also a decision to turn it on. The mode is
             // offered while off for the same reason the device keeps it: it is
             // remembered, and `off` is not `no mode`.
-            // ⚠ [SpatialRow.modes], not [SpatialMode.entries]: the JLab has no Game,
+            // [SpatialRow.modes], not [SpatialMode.entries]: the JLab has no Game,
             // and a chip whose write this repo refuses is worse than no chip.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (m in row.modes) {
@@ -1093,7 +1093,7 @@ private fun SettingRowFor(
                 checked = v.on,
                 onChange = { actions.setVoiceAware(address, v.copy(on = it)) },
             )
-            // ⚠ Chips where the vendor app has a slider — deliberately. The device
+            // Chips where the vendor app has a slider — deliberately. The device
             // takes three values, so a continuous bar offers a precision the wire does
             // not have, and it is the reason this level went undecoded for weeks: a
             // drag is the one gesture that cannot be automated, and reading the bar
@@ -1145,7 +1145,7 @@ private fun SettingRowFor(
 
         is SmartAvRow -> {
             val v = row.value
-            // ⚠ No switch, deliberately — the device has no enable byte, so `off` is
+            // No switch, deliberately — the device has no enable byte, so `off` is
             // one of three choices rather than the absence of the other two. The
             // vendor app draws a switch and a mode here and can therefore show
             // Video-and-off, a state the headphones never actually hold.
@@ -1169,10 +1169,10 @@ private fun SettingRowFor(
             // reports state: [JblBeeping.status] answers `00` while a bud is audibly
             // sounding, so a "beeping now" indicator would be invented.
             //
-            // ⚠⚠ **A bud that reports itself IN AN EAR is not offered**, and the
+            // **A bud that reports itself IN AN EAR is not offered**, and the
             // subtitle SAYS WHICH. The vendor app guards the same tone with a modal
             // asking its owner to confirm the buds are out; this device answers that
-            // directly, so it is asked instead. ⚠ But a control that silently vanishes
+            // directly, so it is asked instead. But a control that silently vanishes
             // reads as a bug — naming the skipped side is the difference between a
             // guard and a glitch.
             val skipped =
@@ -1199,7 +1199,7 @@ private fun SettingRowFor(
                             // ⚠ **What was last ASKED FOR, never what the device says** —
                             // it will not say. One chip that alternates, like the vendor's,
                             // instead of a `sound`/`stop` pair per bud spelling out the
-                            // wire. ⚠ It can go stale if the tone stops on its own; a
+                            // wire. It can go stale if the tone stops on its own; a
                             // second `stop` costs nothing, and the label never claims to
                             // be a reading.
                             var asked by remember(address) { mutableStateOf(false) }
@@ -1367,7 +1367,7 @@ private fun SettingRowFor(
                                 FilterChip(
                                     selected = false,
                                     onClick = {
-                                        // ⚠ Created at the midpoint the vendor app starts a new
+                                        // Created at the midpoint the vendor app starts a new
                                         // mode at; the slider then moves it.
                                         actions.createCncMode(address, slot, n, NEW_MODE_LEVEL)
                                         addingAt = null
@@ -1383,7 +1383,7 @@ private fun SettingRowFor(
                     },
                 )
             }
-            // ⚠ The device's OWN names — "Quiet", "Aware", and whatever the owner
+            // The device's OWN names — "Quiet", "Aware", and whatever the owner
             // called the ones they made. Nothing here supplies a label.
             SettingLabel("Noise control", cnc.current?.name ?: "unknown mode")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1417,7 +1417,7 @@ private fun SettingRowFor(
                             BoseCncModes.QUIETEST.toFloat()..BoseCncModes.MOST_AWARE.toFloat(),
                         steps = BoseCncModes.MOST_AWARE - 1,
                     )
-                    // ⚠ Offered only where the device says the toggle is mutable —
+                    // Offered only where the device says the toggle is mutable —
                     // `[41]` bit 3, which is clear on Quiet and Aware.
                     if (m.windBlockMutable) {
                         Row(
@@ -1445,7 +1445,7 @@ private fun SettingRowFor(
                             )
                         }
                     }
-                    // ⚠ Only for a mode the DEVICE calls editable, which is the same
+                    // Only for a mode the DEVICE calls editable, which is the same
                     // guard the driver applies again on the list it reads in the call.
                     // Two independent refusals, because the order of this list moves.
                     TextButton(onClick = { confirmDelete = m }) {
@@ -1544,7 +1544,7 @@ private fun SettingRowFor(
             // ⚠ **Last, and separated, because it is not a setting.** Everything above
             // reports something the device holds; this ends the session. Putting it in
             // the flow of switches would make it one more thing to flick past.
-            // ⚠ Zero content padding, as the "Settings" link above does. A TextButton's
+            // Zero content padding, as the "Settings" link above does. A TextButton's
             // own inset pushed this one label past every other row's left edge — visible
             // only in a render, and the reason the card is looked at rather than reasoned
             // about.
@@ -1575,7 +1575,7 @@ private fun SettingRowFor(
         // and 18 of 25 on a QC35 are both "quite loud"; rendering either as a percent is
         // right on one device by accident. [BoseVolume] has the decode.
         //
-        // ⚠⚠ **A LABEL, not a control.** A volume is never raised above where it was
+        // ⚠ **A LABEL, not a control.** A volume is never raised above where it was
         // found, so this shows and does not set — the same treatment Safe Hearing had
         // before the user asked for a writer explicitly.
         is LoudnessRow -> {
@@ -1583,7 +1583,7 @@ private fun SettingRowFor(
             SettingLabel("Volume", "${v.level} of ${v.steps}")
         }
 
-        // ⚠ **Two cells, and they really do differ** — watched drifting 90/90 → 90/80 →
+        // **Two cells, and they really do differ** — watched drifting 90/90 → 90/80 →
         // 80/80, then 70/60. ✅ Left and right are the right way round: at 70/60 the
         // vendor app's own two icons were measured off the render and the `L` one is the
         // fuller. [JLabBattery] has the numbers.
@@ -1798,14 +1798,14 @@ private fun SettingRowFor(
             // ⚠ **Three controls, one frame.** Each chip sends the whole [ChatDetail]
             // with one field changed — see [SonyChatDetail], where the payload has no
             // field selector, so a partial write would reset the other two.
-            // ⚠ **Sony's own titles, and that is not pedantry here.** "Voice focus" was
+            // **Sony's own titles, and that is not pedantry here.** "Voice focus" was
             // the first label for [ChatDetail.voiceFocus] and it sat four rows above
             // "Focus on Voice", which is a DIFFERENT setting — `AsmId`, in ambient mode.
             // Two near-identical names for unrelated controls, on one screen. The source
             // read fine; only the render showed it. Sony calls this one "Voice
             // passthrough".
             //
-            // ⚠⚠ **"Which collides with nothing" WAS the reason for that name and is no
+            // **"Which collides with nothing" WAS the reason for that name and is no
             // longer true — measured.** Sony now titles the `AsmId` checkbox
             // "Voice passthrough" as well, with a byte-identical description, so the two
             // controls share a label in the vendor app and differ only by which screen
@@ -1815,7 +1815,7 @@ private fun SettingRowFor(
             // below still says "Focus on Voice"; a reader comparing the card against the
             // app will not find that title there, and this is why.
             //
-            // ⚠ The TITLES are Sony's verbatim; the chip labels deliberately are not.
+            // The TITLES are Sony's verbatim; the chip labels deliberately are not.
             // Sony's own options read "Automatic", "H Sensitivity", "L Sensitivity" —
             // upstream taxonomy is worth following for the name of a thing, not for a
             // three-way choice its own words make harder to read.
@@ -1859,7 +1859,7 @@ private fun SettingRowFor(
 
         is TouchPanelRow -> {
             val on = row.on
-            // ⚠ **Sony's own words, shortened**: "control playback, adjust volume,
+            // **Sony's own words, shortened**: "control playback, adjust volume,
             // receive/end phone calls". The note is there because "Touch panel: off" does
             // not tell an owner that their taps are being ignored on purpose.
             SettingRow(
@@ -1888,7 +1888,7 @@ private fun SettingRowFor(
 
         is FocusOnVoiceRow -> {
             val on = row.on
-            // ⚠ Shown always, switchable only in ambient. The fourth distinct reason a
+            // Shown always, switchable only in ambient. The fourth distinct reason a
             // control is absent on this screen, and the sentence says which one it is —
             // a missing switch with no explanation reads as a missing feature.
             SettingRow(
@@ -1982,12 +1982,12 @@ private fun SettingRowFor(
  * onward, which is why the names are built with clear bass prepended rather than by
  * indexing one list with the other's position.
  *
- * ⚠ **A drag sends nothing until it is released.** The frame carries the whole curve,
+ * **A drag sends nothing until it is released.** The frame carries the whole curve,
  * so every intermediate position would be a full six-band write down a channel that
  * takes about a second per exchange — Sony's own app emits ten for one gesture. The
  * value under the finger is local until [Slider.onValueChangeFinished].
  *
- * ⚠ **The scale is the vendor app's, not the device's.** No frame declares a range;
+ * **The scale is the vendor app's, not the device's.** No frame declares a range;
  * [SonyEq.RANGE] is read off Sound Connect's axis. It bounds what this offers, and it
  * is not evidence about what the headphones would refuse.
  */
@@ -2031,7 +2031,7 @@ private fun EqBands(address: String, eq: EqSetting, bands: List<Int>, actions: S
     }
 }
 
-/** ⚠ Names the direction, which the device's own word "Default" hides. */
+/** Names the direction, which the device's own word "Default" hides. */
 private fun safeHearingLabel(l: JLabSafeHearing.Level): String =
     when (l) {
         JLabSafeHearing.Level.DEFAULT -> "default — no limit"
@@ -2105,7 +2105,7 @@ private fun SettingRow(
  * somebody touched the hardware, and this is precisely the kind of device whose owner
  * reaches for the hardware.
  *
- * ⚠ The slider steps in whole stream steps (25 on a Pixel 9), so the number shown is
+ * The slider steps in whole stream steps (25 on a Pixel 9), so the number shown is
  * one the device can actually sit at rather than a percentage it will round away.
  */
 @Composable
@@ -2158,7 +2158,7 @@ private val Writability.open get() = this == Writability.Writable
 /** Why the row has no control, when the device refuses it. */
 private val Writability.refusal get() = (this as? Writability.Refused)?.reason
 
-/** ⚠ The one sentence that keeps a missing control from reading as a missing feature. */
+/** The one sentence that keeps a missing control from reading as a missing feature. */
 @Composable
 private fun RefusedNote(reason: RefusalReason?) {
     // ⚠ Two sentences because there are two facts, and saying either about both is
@@ -2211,7 +2211,7 @@ internal fun db(v: Float): String {
 /**
  * A band centre as the vendor app labels it: `400`, `1k`, `2.5k`, `16k`.
  *
- * ⚠ **This rendered `2.5kk` on the first look at it**, from a `removeSuffix(".0k")`
+ * **This rendered `2.5kk` on the first look at it**, from a `removeSuffix(".0k")`
  * that only fired on whole thousands followed by an unconditional `+ "k"`. Every
  * exact multiple came out right and the two in between did not, which is why the
  * arithmetic is now integer and why [VolumeFormatTest] names all five real bands.
@@ -2254,7 +2254,7 @@ private fun idleLabel(minutes: Int) =
  * change the volume and one of them — `0x56` VOLUME_CONTROL — sits nowhere near the other
  * two. Listing them here by hand is the mistake that list was built to prevent.
  *
- * ⚠ **"nothing" is offered on purpose.** Clearing a control is a thing an owner may want,
+ * **"nothing" is offered on purpose.** Clearing a control is a thing an owner may want,
  * and it is the one write that cannot fail destructively: the refusal case *is* NONE.
  */
 @Composable
@@ -2269,7 +2269,7 @@ private fun GesturePicker(
         title = { Text(gesture.label) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                // ⚠ Says what it COSTS. The vendor app cannot reach this case at all —
+                // Says what it COSTS. The vendor app cannot reach this case at all —
                 // it only ever offers actions the device accepts — so an owner has no
                 // prior experience of a control being declined.
                 Text(
@@ -2285,7 +2285,7 @@ private fun GesturePicker(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { onPick(a) }
-                                // ⚠ Roomier than the list behind it, on purpose: this is
+                                // Roomier than the list behind it, on purpose: this is
                                 // a target being aimed at, and a mis-tap here writes to
                                 // the headphones.
                                 .padding(vertical = 12.dp),
@@ -2361,7 +2361,7 @@ fun label(m: AncMode): String =
  * empty field invites retyping something already correct — which on this device means
  * writing a name the owner did not intend to change.
  *
- * ⚠ **Confirm is disabled for an empty name.** `BoseName.set` refuses one anyway, but a
+ * **Confirm is disabled for an empty name.** `BoseName.set` refuses one anyway, but a
  * refusal that only happens at the wire shows up as a write that did nothing.
  */
 @Composable

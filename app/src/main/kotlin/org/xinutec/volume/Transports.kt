@@ -118,7 +118,7 @@ class RfcommTransport private constructor(
     }
 
     /**
-     * ⚠ A **shorter** window than [exchange] uses. Nothing was sent, so there is no
+     * A **shorter** window than [exchange] uses. Nothing was sent, so there is no
      * round trip to wait out — this is only asking whether the device has since said
      * anything, and paying the full 1.5 s for "no" on every settings read would be felt.
      */
@@ -381,7 +381,7 @@ class GattTransport private constructor(
         // reads back to back gave `OFF then AMBIENT` — the device was never wrong,
         // the queue was one frame behind.
         //
-        // ⚠ The greeting drained at [open] is the same trap, once. This is it
+        // The greeting drained at [open] is the same trap, once. This is it
         // recurring inside a session that stays open, which only became possible
         // when sessions started being reused rather than closed after each use.
         notifications.clear()

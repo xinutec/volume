@@ -19,7 +19,7 @@ class LeasesTest {
     }
 
     /**
-     * ⚠ **The edge this class exists for.** A read can take twenty-five seconds when
+     * **The edge this class exists for.** A read can take twenty-five seconds when
      * the device has to be found by an LE scan first. Sweeping on wall-clock alone
      * would close the channel underneath it, and the resulting failure would read as
      * the headphones misbehaving rather than as us hanging up on them.

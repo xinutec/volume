@@ -24,7 +24,7 @@ data class EqSetting(
 /**
  * One point on a drawn equaliser curve: a band centre, and its gain.
  *
- * ⚠ **Gain is a float here because it is a float on the wire.** The JBL sends IEEE
+ * **Gain is a float here because it is a float on the wire.** The JBL sends IEEE
  * singles and its app's own curves land on halves (`+2.5`), so rounding to the
  * integer dB that [EqSetting] uses would quietly move a band. Exact equality is
  * therefore meaningful: a write is echoed back bit for bit, so a difference is the
@@ -43,7 +43,7 @@ data class EqBand(
  * sent a full curve *and* an id together, so which of the two it honours is not
  * established — nothing captured varies one without the other.
  *
- * ⚠ [table] is measured, not named: `00` was the flat curve and `01` was what the app
+ * [table] is measured, not named: `00` was the flat curve and `01` was what the app
  * sent for JAZZ. Two values, so this is not evidence for an ordering of the menu.
  */
 data class EqCurve(
@@ -54,7 +54,7 @@ data class EqCurve(
 /**
  * An `aa a2` table id — [JBL_EQ_PRESETS] names them.
  *
- * ⚠ **A type of its own because the LIVE PRO 2's `aa 40` preset ids use the same small
+ * **A type of its own because the LIVE PRO 2's `aa 40` preset ids use the same small
  * integers for other things**: `04` is Rock here and User there. [JblEqPreset.NAMES]
  * cannot be asked about one of these, nor this table about one of those.
  */
@@ -71,7 +71,7 @@ value class JblCurveTable(
  * than frames written to match the code.
  */
 object SonyEq {
-    /** ⚠ `0a` is 0 dB. The wire is unsigned; the domain is signed. */
+    /** `0a` is 0 dB. The wire is unsigned; the domain is signed. */
     const val ZERO = 0x0a
 
     /**
@@ -139,7 +139,7 @@ object SonyEq {
      * Sony Headphones Connect, and confirmed in the SDK, where `sendEqBandSteps`
      * hardcodes `UNSPECIFIED` and **ignores the preset it was passed**.
      *
-     * ⚠ Which is why there is no preset parameter here. Taking one and discarding it
+     * Which is why there is no preset parameter here. Taking one and discarding it
      * would let a caller believe it had chosen a slot to write into.
      */
     fun setLevels(levels: List<Int>): SonyPayload {
@@ -156,11 +156,11 @@ object SonyEq {
     /**
      * Decode `59 01 <preset> <count> <levels…>`, or null if it is not that.
      *
-     * ⚠ Accepts [RET] as well as [NOTIFY] — the same payload arrives under two
+     * Accepts [RET] as well as [NOTIFY] — the same payload arrives under two
      * opcodes depending on whether it was asked for. Accepting only the notify made
      * a read of a device that had just answered look like silence.
      *
-     * ⚠ Returns null rather than guessing on a short or foreign frame. A capture is
+     * Returns null rather than guessing on a short or foreign frame. A capture is
      * full of frames that are not the answer to the question just asked — acks,
      * unsolicited status — and one decoded optimistically becomes a confident wrong
      * reading.
@@ -184,7 +184,7 @@ object SonyEq {
      * frequency and wrong. It was caught only because the real answer, 400 Hz, is
      * printed on the app's own axis. The last header byte is unexplained.
      *
-     * ⚠ **Feed this the UNESCAPED payload**, which is what [SonyFrame.decodeAll]
+     * **Feed this the UNESCAPED payload**, which is what [SonyFrame.decodeAll]
      * hands back. The top band is `01 3e 80` = 16000, carried on the wire as
      * `01 3d 2e 80`; read at the wire layer it comes out 15662, which is close enough
      * to the app's "16k" label to look right.
@@ -212,32 +212,32 @@ object SonyEq {
 /**
  * `50 01 <language>` — ask the device WHICH presets it has, instead of guessing.
  *
- * ⚠⚠ **The device is the authority, and the SDK is not.** Sony's `EqPresetId` names
+ * ⚠ **The device is the authority, and the SDK is not.** Sony's `EqPresetId` names
  * twenty-three ids across every MDR product; this frame is the subset one pair actually
  * accepts. Reading the enum and offering all of it would repeat the mistake
  * `docs/bose-read-surface.md` records one vendor over, where Bose Music's SDK named a
  * mode-preset function the QC45 does not have.
  *
- * ⚠ **Three bytes, not two.** The vendor's request class takes `(EqEbbInquiredType,
+ * **Three bytes, not two.** The vendor's request class takes `(EqEbbInquiredType,
  * DisplayLanguage)`, so a language byte follows the type — the device may answer with
  * name text in it. The XM4 does not: it returns a zero length for every name, which is
  * why [SonyEqPresets] and not this is where names come from.
  *
- * ⚠ **Bytes 2 and 3 are read past, not decoded.** They are the level count and the
+ * **Bytes 2 and 3 are read past, not decoded.** They are the level count and the
  * per-band step count — `06` and `15` on the XM4, agreeing with the six levels
  * [EqSetting] carries and the 21 stops in [SonyEq.RANGE], which is the reason to trust
  * the rest of the frame. Nothing draws from them: the card sizes itself from the levels
  * it already has, so accessors for them would exist only to be asserted in a test.
  * `docs/sony-settings.md` records the agreement.
  *
- * ⚠⚠ **The COMMAND byte follows v2 and the TYPE byte does NOT. Do not "correct"
+ * **The COMMAND byte follows v2 and the TYPE byte does NOT. Do not "correct"
  * either.** Commands are v2's: `EQEBB_GET_PARAM` is `0x2d` in v1 and `0x56` here, and
  * `0x56` is what this repo has on the wire. But v2's `EqEbbInquiredType` numbers
  * `PRESET_EQ` as `00` and calls `01` `EBB`, while `01` is demonstrably what returns
  * preset ids on this device — which is **v1's** numbering. Measured, not
  * reconciled: the two tables are mixed here, so neither may be applied wholesale.
  *
- * ⚠ **`00`, `02` and `03` drew no answer** from a one-shot socket, and
+ * **`00`, `02` and `03` drew no answer** from a one-shot socket, and
  * that is NOT evidence they are unsupported: the same socket answered `01` once and
  * then fell silent to a repeat of it. Type `02` appeared to reply and did not — the
  * frame was `17 00 02 00`, v1's `COMMON_NTFY_UPSCALING_EFFECT`, volunteered. Settling
@@ -246,7 +246,7 @@ object SonyEq {
 object SonyEqCapability {
     private const val GET: Byte = 0x50
 
-    /** ⚠ Public because the DRIVER matches on it — see the `a9` incident in the tests. */
+    /** Public because the DRIVER matches on it — see the `a9` incident in the tests. */
     const val RET: Byte = 0x51
 
     /** `EqEbbInquiredType.PRESET_EQ`. The same `01` [SonyEq] uses. */
@@ -287,17 +287,17 @@ object SonyEqCapability {
  * Sony's own names for its preset ids, read out of `EqPresetId` in the vendor APK
  * (`com.sony.songpal.mdr`).
  *
- * ⚠⚠ **A NAME, never a claim that a device HAS the preset.** This enum is the SDK's
+ * ⚠ **A NAME, never a claim that a device HAS the preset.** This enum is the SDK's
  * and is shared across every MDR product, and an SDK naming a thing is not a device
  * offering it — `docs/bose-read-surface.md` records the same lesson one vendor over,
  * where Bose Music's SDK named a mode-preset function the QC45 does not have. Which
  * ids the XM4 accepts is a question for the XM4.
  *
- * ⚠ **The ids are SIGNED bytes in the smali**: `0xa0` is written `-0x60` there, so a
+ * **The ids are SIGNED bytes in the smali**: `0xa0` is written `-0x60` there, so a
  * parser reading them as unsigned finds nothing above `0x7f` and the whole user
  * range — the only range this card actually offers — silently goes missing.
  *
- * ⚠ `0xff` UNSPECIFIED is deliberately absent: it is the write-time "leave the
+ * `0xff` UNSPECIFIED is deliberately absent: it is the write-time "leave the
  * selection alone" byte, not a slot, and naming it would put it on a menu.
  */
 object SonyEqPresets {
@@ -345,11 +345,11 @@ object SonyEqPresets {
  * every driver claim a capability it has to then refuse. The registry composes: a
  * driver may implement both, one, or neither.
  *
- * ⚠ **No shared preset vocabulary, on purpose.** Sony sends an opaque preset id and
+ * **No shared preset vocabulary, on purpose.** Sony sends an opaque preset id and
  * the device answers with the curve; Bose has no preset on the wire at all, only
  * three signed band values its app happens to name. A common enum would be a fiction.
  *
- * ⚠ **Naming an id and knowing a device HAS it are different questions, and only the
+ * **Naming an id and knowing a device HAS it are different questions, and only the
  * first is answered.** [SonyEqPresets] gives Sony's own name for an id, so a card need
  * not show a bare number. It says nothing about which ids the XM4 accepts, and no
  * list-of-presets call is implemented here because nothing captured enumerates what a
@@ -369,7 +369,7 @@ interface EqDriver {
      * same reply window. Throwing that away and asking again would be a round trip
      * spent re-learning what has already been said.
      *
-     * ⚠ **This is still not a confirmation.** It is a state report; it becomes
+     * **This is still not a confirmation.** It is a state report; it becomes
      * evidence only in [setEq], which compares it with what was asked for. A device
      * that ignored the write reports the *old* preset here, and that is precisely
      * the case a reply-means-success reading would get wrong.

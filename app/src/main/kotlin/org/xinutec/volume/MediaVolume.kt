@@ -10,7 +10,7 @@ import android.media.AudioManager
  * is why a card with no control channel can still carry a real slider. The two numbers
  * are one number: the headset's buttons move this, and moving this moves the headset.
  *
- * ⚠ **The scale is the phone's, not 0…100.** `STREAM_MUSIC` has 25 steps on a Pixel 9,
+ * **The scale is the phone's, not 0…100.** `STREAM_MUSIC` has 25 steps on a Pixel 9,
  * so a percentage has to be converted in both directions and cannot round-trip exactly
  * — 62% comes back as 60%. The slider shows steps, so the number the owner sees is one
  * the device can actually sit at.

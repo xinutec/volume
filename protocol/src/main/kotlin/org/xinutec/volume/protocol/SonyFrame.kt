@@ -52,7 +52,7 @@ object SonyFrame {
      * `0x3c`→`0x2c`, `0x3d`→`0x2d`) behind an `0x3d` lead byte, so the escaped form
      * can never itself be mistaken for a marker.
      *
-     * ⚠ Verified against the capture — see the class note. It went unexercised for a
+     * Verified against the capture — see the class note. It went unexercised for a
      * long time because the first probe command carries no escapable byte, so a green
      * round-trip said nothing about this path.
      */

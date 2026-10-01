@@ -60,11 +60,11 @@ class BoseSettingsTest {
     }
 
     /**
-     * ⚠⚠ **THE ABSENCE OF A VOLUME WRITER IS A DECISION AND THIS TEST IS ITS RECORD.**
+     * ⚠ **THE ABSENCE OF A VOLUME WRITER IS A DECISION AND THIS TEST IS ITS RECORD.**
      * The rule is that a volume is never raised above where it was found, so it ships
      * read-only first and adding a writer has to be a deliberate act rather than a
      * refactor — exactly how `JLabSafeHearing` was handled before the user asked for it.
-     * ⚠ If this test is deleted, say who asked and when, in the commit.
+     * If this test is deleted, say who asked and when, in the commit.
      */
     @Test
     fun `there is no volume writer`() {
@@ -86,7 +86,7 @@ class BoseSettingsTest {
         )
     }
 
-    /** 11:25:41. ⚠ Treble Boost is +6 where Bass Boost is +8; that is what was sent. */
+    /** 11:25:41. Treble Boost is +6 where Bass Boost is +8; that is what was sent. */
     @Test
     fun `treble boost is plus six, and it is not symmetric with bass boost`() {
         assertEquals(
@@ -170,7 +170,7 @@ class BoseSettingsTest {
     }
 
     /**
-     * ⚠ 11:27:36 and 11:27:46. The status is `07` on and `06` off — **neither equals
+     * 11:27:36 and 11:27:46. The status is `07` on and `06` off — **neither equals
      * the byte that was written**, so a driver that compared them would report every
      * write as having failed.
      */
@@ -181,7 +181,7 @@ class BoseSettingsTest {
     }
 
     /**
-     * 11:28:43, verbatim: two frames arrived in one reply window. ⚠ The trailing
+     * 11:28:43, verbatim: two frames arrived in one reply window. The trailing
      * `04 04 …` is a paired-device record, and a decoder that ran to the end of the
      * buffer would fold it into the multipoint payload.
      */
@@ -215,7 +215,7 @@ class BoseSettingsTest {
     }
 
     /**
-     * ⚠ The QC45 offers more shortcuts than the two that were driven. An unexercised
+     * The QC45 offers more shortcuts than the two that were driven. An unexercised
      * code must read as unknown, not as the nearest thing in the enum — this repo has
      * already once decoded a device's silence into a confident answer.
      */
@@ -228,7 +228,7 @@ class BoseSettingsTest {
 
     /**
      * 11:25:33 end to end — the three writes Bose Music sent for Bass Boost, and the
-     * three statuses it drew, in order. ⚠ The first two replies still read flat; only
+     * three statuses it drew, in order. The first two replies still read flat; only
      * the last carries the change, which is why the driver takes the last one.
      */
     @Test
@@ -298,7 +298,7 @@ class BoseSettingsTest {
 /**
  * The QC35's settings block, all of it read by one `01 01` GET_ALL.
  *
- * ⚠ **The bytes here are the ones the device actually sent**, captured from Bose
+ * **The bytes here are the ones the device actually sent**, captured from Bose
  * Connect's own connect and reproduced from this repo's probe. The values
  * are labelled by the vendor app's screens, not by this repo — which is the discipline
  * the QC35's ANC table lacked when all three of its mode bytes turned out inverted.
@@ -410,7 +410,7 @@ class BoseBatteryAndLanguageTest {
 
     @Test
     fun `battery is found inside a batched reply, not just at the front`() {
-        // ⚠ The whole reason for the splitter: this arrived glued behind another frame.
+        // The whole reason for the splitter: this arrived glued behind another frame.
         val b = BoseBattery.state(Hex.parse("01 01 06 00 02 02 03 01 64"))
         assertEquals(100, b?.percent)
     }
@@ -496,7 +496,7 @@ class BoseWritesTest {
         // by itself. Bit 6 it does not restore: a QC45 read e1 before any write to this
         // function and a1 after one, through a re-enable and a power cycle.
         //
-        // ⚠ **This is not a proof that carrying the bit would have saved it.** That
+        // **This is not a proof that carrying the bit would have saved it.** That
         // experiment died with the bit — the same unit refuses to set bit 6 from zero.
         // What is asserted here is only that the write no longer discards a field whose
         // meaning nobody knows.
@@ -597,7 +597,7 @@ class BoseDevicesTest {
 
     @Test
     fun `pairing mode is a START transaction and its reply is a RESULT`() {
-        // ⚠ Captured from Bose Connect's CONNECT NEW. The Set-shaped guess would have
+        // Captured from Bose Connect's CONNECT NEW. The Set-shaped guess would have
         // been 04 08 02 01 01.
         assertEquals("04 08 05 01 01", Hex.format(BosePairing.enter().bytes))
         // A RESULT, not a STATUS — asking for the wrong operator returns nothing.
@@ -634,7 +634,7 @@ class BoseForgetTest {
         val t =
             replay(
                 "04 04 01 00" to "04 04 03 0d 03 aa aa aa aa aa aa dd dd dd dd dd dd",
-                // ⚠ Length 0f = 6 address + 3 status + 6 name. Written as 10 first,
+                // Length 0f = 6 address + 3 status + 6 name. Written as 10 first,
                 // and BoseFrame.payload refused the frame rather than decoding a name
                 // out of it — the length-vs-size check catching a bad FIXTURE, which is
                 // the same guard that stops a real reply being read into the next frame.
@@ -643,13 +643,13 @@ class BoseForgetTest {
             )
         val out = Drivers.BoseQc35.forget(t, BoseAddress("dd dd dd dd dd dd"))
         assertEquals(Forget.Connected("Laptop"), out)
-        // ⚠ The load-bearing assertion: no 04 03 left the app.
+        // The load-bearing assertion: no 04 03 left the app.
         assertTrue(t.sent.none { it.startsWith("04 03") })
     }
 
     @Test
     fun `a disconnected device is forgotten and confirmed by re-reading`() {
-        // ⚠ THREE exchanges: list, write, list again. The third is the point — the
+        // THREE exchanges: list, write, list again. The third is the point — the
         // Result echo repeats the address it was handed whether or not the entry went,
         // so only a fresh list says anything.
         val t =
@@ -718,7 +718,7 @@ class BoseTerminatesTest {
 
     @Test
     fun `a START does NOT end at the Processing frame`() {
-        // ⚠ The truncation this rule exists to avoid: 01 01 GET_ALL opens with 07
+        // The truncation this rule exists to avoid: 01 01 GET_ALL opens with 07
         // PROCESSING and only finishes at 06 RESULT, eight frames later. Ending on the
         // first block-and-function match would return the header and nothing else.
         val sent = Hex.parse("01 01 05 00")
@@ -830,7 +830,7 @@ class BoseNameTest {
     }
 
     /**
-     * ⚠ The exact exchange driven on a QC45 and restored: read `01`, write
+     * The exact exchange driven on a QC45 and restored: read `01`, write
      * `00`, read `00`, write `01`, read `01`.
      */
     @Test
@@ -849,9 +849,9 @@ class BoseNameTest {
 
     @Test
     fun `cnc persistence compares the whole byte, unlike multipoint's flags`() {
-        // ⚠ Multipoint reads 06 off and 07 on, so it MASKS bit 0. This one tests the whole
+        // Multipoint reads 06 off and 07 on, so it MASKS bit 0. This one tests the whole
         // byte for 1, which is what Bose Music's own parser does, so a hypothetical 03
-        // reads false here and would read true under a mask. ⚠ 03 has never been seen from
+        // reads false here and would read true under a mask. 03 has never been seen from
         // this device — the row exists to pin the difference between the two functions,
         // not to claim anything about what 03 would mean.
         assertEquals(false, BoseCncPersistence.state(Hex.parse("01 0e 03 01 03")))

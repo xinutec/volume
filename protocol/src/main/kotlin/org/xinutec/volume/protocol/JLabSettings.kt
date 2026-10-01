@@ -11,11 +11,11 @@ package org.xinutec.volume.protocol
  *
  * ```
  * request  c0 ff 00 <cmd> 00 00 01 00 <sum>          sum = Σ preceding, mod 256
- * reply    00 ff 01 <cmd> <b1> 00 <payload…> <tail>  ⚠ no rule found for <tail>
+ * reply    00 ff 01 <cmd> <b1> 00 <payload…> <tail>  no rule found for <tail>
  * write    c0 ff 00 <cmd+2> …                        each writer is its reader + 2
  * ```
  *
- * ⚠⚠ **A REPLY CANNOT BE DELIMITED, so nothing here tries.** The byte after the command
+ * **A REPLY CANNOT BE DELIMITED, so nothing here tries.** The byte after the command
  * is not a length — `31` carries the same nine-byte body under `b1 = 01` and under
  * `b1 = 03`, so one of the two would have to be wrong; `4d` declares `1b` (27) and
  * carries 36; `71` declares `1e` (30) and carries 40. Nor does the checksum close: seven
@@ -24,7 +24,7 @@ package org.xinutec.volume.protocol
  * arrives whole**, which each of these does — a weaker guarantee than a parse, stated
  * rather than dressed up.
  *
- * ⚠ **The REQUEST rule is real and is needed**: the vendor app packs up to three
+ * **The REQUEST rule is real and is needed**: the vendor app packs up to three
  * requests into one payload, and walking forward until Σ matches splits every such
  * packet in four captures with nothing left over.
  */
@@ -62,7 +62,7 @@ object JLabFrame {
      * read answers `cmd + 1`. That is measured and is left as measured rather than
      * tidied into the pattern, so callers name the reply id they expect.
      *
-     * ⚠⚠ **It SCANS rather than checking offset 0, and that is not tidiness.** Measured
+     * **It SCANS rather than checking offset 0, and that is not tidiness.** Measured
      * against the real earbuds: the first read after an idle link took 420 ms
      * against a reply window of about 400, so its answer landed in the *next* read's
      * window and every read after it ran one behind — `44` returned nothing and `76` was
@@ -70,7 +70,7 @@ object JLabFrame {
      * Spatial Audio row. This is the same "one behind" failure [Transport.receive]
      * documents for the XM4, on a second device.
      *
-     * ⚠ Shape is not proof: a payload byte could in principle spell `00 ff 01 <cmd>`.
+     * Shape is not proof: a payload byte could in principle spell `00 ff 01 <cmd>`.
      * Requiring the header AND the command id makes that unlikely rather than
      * impossible, which is the same bargain `scripts/btsnoop.py` strikes.
      */
@@ -110,16 +110,16 @@ object JLabFrame {
  * direction, so byte 6 is [BudBattery.left]. ⚠ That fixes the ORDER only — the icon fill is not
  * linear in the percentage (34/30 px for 70/60) and nothing here calibrates it.
  *
- * ⚠ This is the question [JblBattery]'s master/slave note still cannot answer, and the
+ * This is the question [JblBattery]'s master/slave note still cannot answer, and the
  * difference is worth keeping in view: that device's two bytes have been equal in every
  * frame ever captured, so no render can separate them. These drifted apart on their own.
  *
- * ⚠ **Byte 8 is not decoded and is not the case.** It read `04` in every frame, through
+ * **Byte 8 is not decoded and is not the case.** It read `04` in every frame, through
  * three different level pairs, so nothing here has varied it. `docs/protocols.md` records
  * a *different* channel — Fast Pair `03 03` — carrying three values including a case; do
  * not read that decode onto this frame.
  *
- * ⚠ **Charging is unknown on this device**, so [Battery.charging] is null rather than
+ * **Charging is unknown on this device**, so [Battery.charging] is null rather than
  * false: no captured frame changes with the buds on the cable.
  */
 object JLabBattery {
@@ -166,7 +166,7 @@ data class BudBattery(
  *
  * ⚠ **`76` answers with its own id, not `77`.** See [JLabFrame.replyTo].
  *
- * ⚠ **The switch and the mode are SEPARATE frames here**, unlike the JBL's `aa 9d`
+ * **The switch and the mode are SEPARATE frames here**, unlike the JBL's `aa 9d`
  * which carries both and therefore cannot be written apart. Setting both on a JLab is
  * two writes, and either can land without the other.
  */
@@ -198,12 +198,12 @@ object JLabSpatial {
  *
  * `00` Music · `01` Movie, both driven from the app's own tiles and read back.
  *
- * ⚠⚠ **These are NOT [SpatialMode]'s wire values.** The JBL numbers the same idea
+ * ⚠ **These are NOT [SpatialMode]'s wire values.** The JBL numbers the same idea
  * `01` Music · `02` Movie · `03` Game; this device starts at zero and has no Game. A
  * table shared between the two would be wrong on every value, so the mapping is spelled
  * out here and [SpatialMode] is used only as the vocabulary.
  *
- * ⚠ **GAME is unreachable on this device** — its app offers two tiles. [of] returns null
+ * **GAME is unreachable on this device** — its app offers two tiles. [of] returns null
  * for anything else rather than inventing a third.
  */
 object JLabSpatialMode {
@@ -252,23 +252,23 @@ object JLabSpatialMode {
  * answered `03` while the app had **Custom** — the fourth of EQ1/EQ2/EQ3/Custom — ticked,
  * and preset 3's ten bytes inside `71` are byte-identical to `49`'s curve.
  *
- * ⚠⚠ **WRITABLE AT THE USER'S EXPLICIT REQUEST.** It shipped read-only first,
+ * ⚠ **WRITABLE AT THE USER'S EXPLICIT REQUEST.** It shipped read-only first,
  * because selecting any of EQ1/EQ2/EQ3 — all flat `78` — RAISES the two bands the live
  * Custom curve cuts to `5a`. That is still true and the card says so; what changed is that
  * he asked for the control.
  *
  * ```
  * → c0 ff 00 4a 0b 00 <preset> <10 levels> 01 00 <sum>
- * ← 00 ff 01 4b 0b 00 …    ⚠ does NOT echo what was written
+ * ← 00 ff 01 4b 0b 00 …    does NOT echo what was written
  * ```
  *
  * ✅ **The frame was CAPTURED, not composed.** The SDK named it `P(B,[B)` — preset plus a
  * byte array — and a capture then confirmed the layout exactly, taken in the safe
  * direction by dragging one band DOWN in the vendor app rather than by tapping a preset:
  * `4a 0b 00 03 78 78 5a 78 78 78 5a 78 78 50 01 00`, with 16k moved from `78` to `50`.
- * ⚠ `0b` is 11 — preset plus ten levels — and it agrees with the read's own length prefix.
+ * `0b` is 11 — preset plus ten levels — and it agrees with the read's own length prefix.
  *
- * ⚠ **`4b` answered preset `01` and a flat curve after a write of preset `03`**, so it
+ * **`4b` answered preset `01` and a flat curve after a write of preset `03`**, so it
  * reports neither the request nor the state. [Drivers.JLabQcy.setEq] re-reads `48`.
  *
  * ✅ **A SECOND PRESET INDEX IS MEASURED.** `eq 1` was selected on our
@@ -276,7 +276,7 @@ object JLabSpatialMode {
  * writing an index is no longer an extension of a single capture. The original selection
  * was restored in the same step and the device ended byte-identical to where it started.
  *
- * ⚠⚠ **BUT THE TEN LEVEL BYTES DID NOT LAND, and that is the finding.** The card sends a
+ * **BUT THE TEN LEVEL BYTES DID NOT LAND, and that is the finding.** The card sends a
  * slot's OWN stored curve, so `eq 1` carried slot 0's flat `78`s — and `49` answered
  * preset `0` still holding the CUT curve, `78 78 5a 78 78 78 5a 78 78 78`.
  * `DeviceController` reported `Contradicted`, naming the disagreement instead of
@@ -297,17 +297,17 @@ object JLabSpatialMode {
  * do not follow the index. `71` itself came back unchanged by both writes — a preset write
  * does not clobber the stored curves.
  *
- * ⚠⚠ **What that still does NOT settle is whether the SOUND changed.** The device may be
+ * **What that still does NOT settle is whether the SOUND changed.** The device may be
  * loading the flat curve and merely misreporting it here, or declining the selection
  * outright; no read this protocol offers separates those, and only a listener or the
  * vendor app's own screen could. **Assume the two cut bands WERE raised** for the seconds
  * each selection stood — that is the safe direction and it is what the card warns.
  *
- * ⚠ **Restoring by tapping `custom` CONFIRMS for free and proves nothing.** It sends slot
+ * **Restoring by tapping `custom` CONFIRMS for free and proves nothing.** It sends slot
  * 3 its own contents, so the re-read agrees whether or not the levels were applied. The
  * restore is sound; the `Confirmed` beside it is not evidence.
  *
- * ⚠ **The levels are RAW DEVICE UNITS and this deliberately does not convert them.** No
+ * **The levels are RAW DEVICE UNITS and this deliberately does not convert them.** No
  * capture establishes what `78` and `5a` mean in dB, nor what the endpoints are. Calling
  * them gains would put a number on a card that nothing measured supports — the same
  * invention [SonyEq.RANGE] is careful to attribute to the vendor's own axis.
@@ -318,7 +318,7 @@ object JLabEq {
     const val ASK_PRESETS: Byte = 0x70
     const val REPLY_PRESETS: Byte = 0x71
 
-    /** ⚠ Read off the vendor app's own axis labels, so it names the app's bands. */
+    /** Read off the vendor app's own axis labels, so it names the app's bands. */
     val HZ = listOf(32, 64, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000)
 
     const val BANDS = 10
@@ -382,11 +382,11 @@ data class JLabCurve(
  * slider sat on `Default`, then `02` in a third taken with it on `85 dB Limit`. One
  * variable, one byte.
  *
- * ⚠⚠ **A HIGHER VALUE IS A LOWER CEILING, and reading it the other way round is the
+ * ⚠ **A HIGHER VALUE IS A LOWER CEILING, and reading it the other way round is the
  * mistake this control punishes.** `02` is the most protective setting and `00` is the
  * least. Anything that sorts or compares these numbers as "loudness" has them backwards.
  *
- * ⚠⚠ **THE WRITER EXISTS BECAUSE THE USER ASKED FOR IT — explicitly.** It was
+ * **THE WRITER EXISTS BECAUSE THE USER ASKED FOR IT — explicitly.** It was
  * shipped read-only first, with a test asserting the absence, precisely so that adding one
  * had to be a decision rather than a refactor. That decision was taken; this comment is
  * the record of it, and nothing here should be read as the default for a control of this
@@ -396,11 +396,11 @@ data class JLabCurve(
  * → c0 ff 00 68 01 00 <level> 01 00 <sum>     ← 00 ff 01 69 01 00 01 00 00 <sum>
  * ```
  *
- * ⚠ **`69` answers `01` whichever level was written**, so it is a bare acknowledgement
+ * **`69` answers `01` whichever level was written**, so it is a bare acknowledgement
  * carrying no state. A caller that believes it reports success for a write the device
  * declined — [Drivers.JLabQcy.setSafeHearing] re-reads instead.
  *
- * ⚠ The three values were identified **downward from `Default` and back**, so the ceiling
+ * The three values were identified **downward from `Default` and back**, so the ceiling
  * was never above where it started at any point in the identification.
  */
 object JLabSafeHearing {
@@ -451,16 +451,16 @@ object JLabSafeHearing {
  * decode rather than a shape: the twelve triples are exactly the two sides × six gestures
  * the Touch Controls screen draws, in its order, and the actions it names against them.
  *
- * ⚠⚠ **WHICH SIDE IS WHICH IS NOT ESTABLISHED.** Both sides carried identical maps in
+ * ⚠ **WHICH SIDE IS WHICH IS NOT ESTABLISHED.** Both sides carried identical maps in
  * every capture, so nothing distinguishes `01` from `02`. [Side] says so in its own name
  * rather than claiming left and right. **The test:** change one side in the vendor app and
  * see which byte moves — it needs a writer this does not have.
  *
- * ⚠ **Six actions of an unknown set.** Only the values the device was already using have
+ * **Six actions of an unknown set.** Only the values the device was already using have
  * been seen; the gaps are not evidence that nothing lives there. [Action.of] returns null
  * rather than guessing.
  *
- * ⚠ **READ ONLY.** `4e` follows from reader+2 and has never been captured, and the vendor
+ * **READ ONLY.** `4e` follows from reader+2 and has never been captured, and the vendor
  * app itself draws this screen with no editable control — every row is inert, so there was
  * nothing to capture even with the app driving.
  */
@@ -475,7 +475,7 @@ object JLabTouch {
     enum class Side(
         val wire: Byte,
     ) {
-        /** ⚠ Named by wire value on purpose — see the class note. */
+        /** Named by wire value on purpose — see the class note. */
         FIRST(0x01),
         SECOND(0x02),
         ;
@@ -485,7 +485,7 @@ object JLabTouch {
         }
     }
 
-    /** ⚠ The app's own order, top to bottom, and the device numbers them the same way. */
+    /** The app's own order, top to bottom, and the device numbers them the same way. */
     enum class Tap(
         val wire: Byte,
     ) {

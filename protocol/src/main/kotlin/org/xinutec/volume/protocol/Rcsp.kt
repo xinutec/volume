@@ -20,7 +20,7 @@ package org.xinutec.volume.protocol
  * `PREFIX_FLAG_FIRST` reads `-0x2t` and is `0xfe`. A parser that took them unsigned
  * would find none of them.
  *
- * ⚠⚠ **No device here has answered this yet.** The JLab's APK carries Jieli's SDK
+ * **No device here has answered this yet.** The JLab's APK carries Jieli's SDK
  * because it is a rebranded QCY app bundling six chip SDKs; the NewPie 32 advertises
  * `JL_SPP` and is silent until asked. Those are two separate facts and neither is a
  * reply. Until one arrives this is a description of the SDK, not of a device.

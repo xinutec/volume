@@ -14,7 +14,7 @@ import java.io.IOException
  * the refusal text is the one it returned to an over-ceiling request. ⚠ **That
  * particular refusal can no longer happen** — thoth dropped its volume ceiling on
  * 2026-09-12 — but the body is kept because what it tests is that ANY 400 reaches the
- * caller in the server's own words, and a real one beats an invented one. ⚠ **The
+ * caller in the server's own words, and a real one beats an invented one. **The
  * substitution is confined to device identifiers** — the two speakers' Bluetooth
  * addresses, the microphone's serial, and the two opaque UUIDs — because this
  * repository is public and those name hardware that is not its subject. Field names,
