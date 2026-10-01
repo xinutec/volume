@@ -1,6 +1,6 @@
 # Bose QC45 — EQ, multipoint, Action button
 
-Decoded from the 2026-08-16 snoop capture of Bose Music (`docs/captures.md` has the
+Decoded from the snoop capture of Bose Music (`docs/captures.md` has the
 action log), by pairing each Set with the Status it drew. Encoded in
 `BoseSettings.kt`, whose tests replay these frames.
 
@@ -32,7 +32,7 @@ is unlike Sony, where the byte is unsigned and offset by 10. Each group is
 `<min> <max> <level> <band>`; the band is the group's own fourth byte, so the groups
 are self-describing and must not be read positionally.
 
-✅ **`f6`/`0a` ARE the −10/+10 limits — settled on hardware 2026-08-16 evening**, and
+✅ **`f6`/`0a` ARE the −10/+10 limits — settled on hardware**, and
 by two independent routes. The device declares them: a flat QC45 answers
 `01 07 03 0c  f6 0a 00 00  f6 0a 00 01  f6 0a 00 02`, so each group's first two bytes
 are that band's own min and max. And both ends were then driven — bass −10 and bass
@@ -54,7 +54,7 @@ not to assume the other two buttons (Bass/Treble Reducer) are the negatives of t
 
 The app writes all three bands on every press, in the order treble, mid, bass.
 
-**Cross-checked**: the 2026-08-15 read sweep recorded `01 07` answering
+**Cross-checked**: the read sweep recorded `01 07` answering
 `f60a0000/0001/0002` with the EQ flat (`docs/bose-read-surface.md`) — this exact
 layout at rest, written down before anyone knew what it meant.
 
@@ -68,7 +68,7 @@ layout at rest, written down before anyone knew what it meant.
 is bit 0, and bits 1–2 were set throughout. A driver comparing the status to the
 value it sent would report every write as failed.
 
-✅ **Driven on hardware 2026-08-16**, on and off, each confirmed by read-back and
+✅ **Driven on hardware**, on and off, each confirmed by read-back and
 restored. ⚠ **The XM4 refuses the same setting outright** (`docs/sony-settings.md`) —
 so "multipoint works" is true of this device and false of that one, and neither
 result transfers.
@@ -86,7 +86,7 @@ the device answered differently then — do not treat that list as complete.
 menu offers more, and an unexercised code decodes to unknown rather than the nearest
 match.
 
-✅ **Driven on hardware 2026-08-16** by this repo's own driver: Spotify, then back to
+✅ **Driven on hardware** by this repo's own driver: Spotify, then back to
 Hear Battery Level, each confirmed by read-back. ⚠ It took eight days longer to reach
 the XM4's equivalent [CUSTOM] button, which needs an alert subscribed and answered
 before the device will commit — the same kind of setting, reached two entirely
@@ -169,7 +169,7 @@ and 0x3c being a believable battery percentage is what let the wrong one stand.
 "#966 — the standby timer is measured now, not inferred": `02 02` moved with the battery
 across two days while `01 04` did not, and the SDK names the unit minutes.
 
-✅ **The QC45's, 2026-08-26**: `01 04 01 00` → `01 04 03 01 00`. Supported, a Status
+✅ **The QC45's**: `01 04 01 00` → `01 04 03 01 00`. Supported, a Status
 rather than `04 01 04`, and the payload is **one byte**, which is the length that sends
 the SDK parser down `StandbyTimerEvent(payload[0] minutes)` rather than the two-byte
 `AutoPowerDownEvent` arm. So `00` is **zero minutes** by the vendor parser's own reading,

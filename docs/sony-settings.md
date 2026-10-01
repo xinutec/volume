@@ -11,21 +11,21 @@ the dated section it points at; treat anything undated as older than everything 
 | ANC / ambient | `66 02` / `68 02 <on> 02 <nc> 01 <AsmId> <amb>` | ✅ driven |
 | Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** — ⚠⚠ the app now labels it **`Voice passthrough`**, colliding with Speak-to-Chat's own row of that name |
 | EQ preset | `56 01` / `58 01 <preset> 00` | ✅ driven |
-| EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven 2026-08-24, six sliders on the card — ⚠ `ff` UNSPECIFIED, never the slot's id |
+| EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven, six sliders on the card — ⚠ `ff` UNSPECIFIED, never the slot's id |
 | Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
 | Auto power off | `f6 04` / `f8 04 01 <v> 00` | ✅ driven, **complete** — `f0 04` declares 2 |
 | DSEE Extreme | `e6 02` / `e8 02 00 <v>` | ✅ driven |
 | Pause on removal | `f6 03` / `f8 03 00 <v>` | ✅ driven |
 | Speak-to-Chat | `f6 05` / `f8 05 **01** <v>` | ✅ driven ⚠ **reads and writes different type tables** |
-| Speak-to-Chat detail | `fa 05` / `fc 05 00 <s> <f> <t>` | ✅ driven 2026-08-24 — sensitivity · voice focus · mode-out |
+| Speak-to-Chat detail | `fa 05` / `fc 05 00 <s> <f> <t>` | ✅ driven — sensitivity · voice focus · mode-out |
 | Battery | `10 00` / `11 00 <pct> <chg>` | ✅ read, on the card |
-| Power off | `22 00 01` | ✅ driven 2026-08-24 — confirmed dialog; the link drops and the card goes |
+| Power off | `22 00 01` | ✅ driven — confirmed dialog; the link drops and the card goes |
 | BLE setup | `1c 00` / `1c 01` | 👁 read — identifiers, ⚠ **values withheld, public repo** |
 | Concierge data | `28 00` / `29 00 <JSON>` | ⛔ diagnostics for the vendor, like `c1` |
 | Codec | `18 00` / `19 00 <AudioCodec>` | ✅ read, on the card — ⚠ negotiated, not settable |
 | Upscaling effect | `14 00` / `15 00 02 00` | 👁 read; ⚠ **not shown** — it is not the DSEE switch |
-| Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven 2026-08-24 |
-| Voice guidance | `46 01 01` / `48 01 01 <v>` on type **`0e`** | ✅ driven 2026-08-24 — ⚠ **second command table**; `48` is VPT on table 1 |
+| Touch sensor control panel | `d6 d1` / `d8 d1 01 <v>` | ✅ driven |
+| Voice guidance | `46 01 01` / `48 01 01 <v>` on type **`0e`** | ✅ driven — ⚠ **second command table**; `48` is VPT on table 1 |
 | Multipoint | `d6 d2` | ⛔ device refuses everyone, its own app too |
 | [CUSTOM] button | `f6 06` / `f8 06 01 <v>` | ✅ **solved** — needs `94 01 00` first, then answer the `99` alert |
 | Adaptive Sound Control | `70 01` → supported | ⛔ app-side — ✅ **confirmed by capture 2026-08-24**: off writes an ordinary `68 02`, on writes nothing |
@@ -36,12 +36,12 @@ the dated section it points at; treat anything undated as older than everything 
 the ranges overlap: `40`–`49` is VPT on one and VOICE_GUIDANCE on the other. `probe.sh`
 has `SONY_TABLE2=1`; default stays `0c`.
 
-⚠ **Decoded is not reachable.** Battery was decoded and cross-checked on 2026-08-16 and
+⚠ **Decoded is not reachable.** Battery was decoded and cross-checked and
 sat unused for a week because no driver method existed. Three separate features have now
 been "known" and invisible. A ✅ above means driven **and** on the card.
 
 ⚠⚠ **This table was INCOMPLETE until 2026-09-01, and the cause is NOT that anybody missed
-the feature.** `NC Optimizer` was identified AND consciously excluded on 2026-08-24 — it is
+the feature.** `NC Optimizer` was identified AND consciously excluded — it is
 in task #1097's "6 excluded, each for its own reason", with the right reason. What went
 wrong is that **this table only carried rows for things with a driver or a read; the
 exclusions lived in the task and never crossed over.** So the doc and the task disagreed
@@ -54,7 +54,7 @@ implement" while reading as "everything the device has". The parity table below 
 the other way round — off the app's screens rather than off the wire — which is why both
 exist.
 
-## ⚠ What Sound Connect has, and what we have — 2026-09-01
+## ⚠ What Sound Connect has, and what we have
 
 Every row of the vendor app's own screens, read by walking `All device settings` and each
 of its six categories to the end. ⚠ **Read-only: only category headers and the settings
@@ -123,7 +123,7 @@ by the reasoning above is not something to start blind. ⚠ **"Not opened" is no
 
 ## The original capture — EQ, auto-off, multipoint
 
-Decoded from a snoop capture on 2026-08-16 of Sony Headphones Connect
+Decoded from a snoop capture of Sony Headphones Connect
 (`com.sony.songpal.mdr`) driven through each setting, with the change and its
 inverse performed so the differing byte is the field.
 
@@ -186,7 +186,7 @@ CLEAR BASS and the remaining five are the graphic bands. ⚠ **Levels are offset
 10**: `0a` is 0 dB, so the range −10…+10 maps to `00`…`14`. A flat preset reads
 `0a 0a 0a 0a 0a 0a`; one measured preset read `00 0e 0d 0b 0c 00`.
 
-✅ **Driven on hardware 2026-08-16 evening.** `56 01` read back
+✅ **Driven on hardware.** `56 01` read back
 `preset=a2, levels=[3, 0, 0, 2, 4, 6]` — byte-identical to the morning capture's
 `57 01 a2 06 0d 0a 0a 0c 0e 10`, reached by this repo's own driver rather than by
 replay. Presets `a1` and `a2` were then each written and confirmed by read-back, and
@@ -209,7 +209,7 @@ Length counts the unescaped payload; the sum is taken before escaping.
 its band table returns `[400, 1000, 2500, 6300, 16000]`. A wrong unescape would put
 15662 at the end, so the reading is what the escape rules predict.
 
-## ✅ THE DEVICE LISTS ITS OWN PRESETS — `50 01`, measured 2026-09-10
+## ✅ THE DEVICE LISTS ITS OWN PRESETS — `50 01`, measured
 
 `EQEBB_GET_CAPABILITY`. The card used to offer three hardcoded ids; this asks the pair
 which it has, and the XM4 answers **twelve**.
@@ -248,7 +248,7 @@ trap that nearly landed.
 on the wire, so v2 is the table that describes these headphones. Read enums with
 `scripts/smali_enum.py`, never by counting: the ordinal is not the wire byte.
 
-## ✅ Selecting a preset does NOT destroy a user slot — measured 2026-09-10
+## ✅ Selecting a preset does NOT destroy a user slot — measured
 
 Asked before offering the named curves, because the answer decides whether a tap is
 reversible. Drove `a2 → 00 → a2` and read back each time:
@@ -275,7 +275,7 @@ band moved DOWN from the curve in place, and the check could not raise anything.
 One byte, `10` vs `11`, and its notify **does** echo the value set — so unlike
 multipoint, this one is confirmable from its own reply. ✅ **Driven on hardware
 2026-08-16 evening**, both directions, each confirmed by read-back and restored.
-✅ **And these are ALL the values, settled 2026-08-24 by asking rather than inferring**:
+✅ **And these are ALL the values, settled by asking rather than inferring**:
 
     → f0 04        ← f1 04 02 10 11     two elements, and these two
 
@@ -291,7 +291,7 @@ one capability read was available the whole time.
     ← d7 d2 01 <on>      RET_PARAM — read at connect, 10:58:23, value 00
     → d8 d2 01 01        SET_PARAM
 
-⚠ **THE XM4 REFUSES TO ENABLE MULTIPOINT.** Driven on hardware 2026-08-16 evening:
+⚠ **THE XM4 REFUSES TO ENABLE MULTIPOINT.** Driven on hardware:
 
     → d8 d2 01 01        SET_PARAM, multipoint on
     ← (ack) then d9 d2 01 00     NTFY_PARAM — still OFF
@@ -340,7 +340,7 @@ guess out of this paragraph.
 The shape is `<GsStringFormat 02 ENUM_NAME> <len><titleKey> <len><summaryKey> <GsSettingType
 01 BOOLEAN_TYPE> <00>`. GENERAL_SETTING1 has no summary, hence its `00`.
 
-✅ **`d1` is the touch panel and it TAKES WRITES**, driven 2026-08-24 through the probe and
+✅ **`d1` is the touch panel and it TAKES WRITES**, driven through the probe and
 then through the driver:
 
     → d6 d1        ← d7 d1 01 00     off
@@ -701,7 +701,7 @@ then `02`, `04`, `06`, then the SET.
 ### The rows this names, and what has since been asked
 
 ⚠ **A wire identity is not a decode**, which is why this table was written. ⚠ **It is no
-longer true that "none of them has been asked"** — six were driven or read on 2026-08-23
+longer true that "none of them has been asked"** — six were driven or read
 and are marked below. Anything still unmarked is a name, not a measurement.
 
 | frame | feature | note |
@@ -722,7 +722,7 @@ and are marked below. Anything still unmarked is a name, not a measurement.
 | `46`–`49` | VPT `01`, SOUND_POSITION `02` | ⚠ **only on frame type `0c`.** On `0e` these bytes are VOICE_GUIDANCE — see the second-table section |
 | `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
 | `d6 d1` | GENERAL_SETTING1 | ✅ **driven** — names itself `TOUCH_PANEL_SETTING`; `d8 d1 01 <v>` takes |
-| `d6 d3`, `d6 d4` | GENERAL_SETTING3 and 4 | ⚠ both absent from the 22; not on this unit. ⚠ `d4` was missing from this page until the 2026-08-23 audit |
+| `d6 d3`, `d6 d4` | GENERAL_SETTING3 and 4 | ⚠ both absent from the 22; not on this unit. ⚠ `d4` was missing from this page until the audit |
 | `22` | COMMON_SET_POWER_OFF | ⚠ ends the session, like the JBL's `aa 97 00` |
 | `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | ⚠ telemetry, see below |
 
@@ -736,7 +736,7 @@ name. Flipping Focus on Voice in the vendor app for one capture settles it, and 
 add the switch.
 
 ⚠ **`a0`–`a9` PLAY includes the volume, and `a8` is its SET.** The 110 unsolicited
-`a9 01 20 12` frames in the 2026-08-16 capture are this block notifying. Whatever the
+`a9 01 20 12` frames in the capture are this block notifying. Whatever the
 `20 12` is, `PLAY_SET_PARAM` is the one command family on this device that could raise a
 level, and it is out of scope for the same reason the JBL's `56` VOLUME_CONTROL is.
 
@@ -992,7 +992,7 @@ that is *unsupported*.
 
 ✅ **Three independent sources agree**, which is why this is not another theory:
 
-- the wire, captured 2026-08-24 while a band was dragged in Sound Connect;
+- the wire, captured while a band was dragged in Sound Connect;
 - the enum, where `ff` is the only non-slot name in `EqPresetId`;
 - the writer, `l20/c.o()` — logging `"in sendEqBandSteps"` — which hardcodes
   `UNSPECIFIED` and **discards the `EqPresetId` it was passed**. The preset-change path
@@ -1067,7 +1067,7 @@ why the card can print seconds instead of Sony's adjectives. ⚠ `0f 1e 3c` was 
 15/30/60 by eye first; that is a guess until the parser says where the array starts and how
 long it is, and it does — `new-array` of 4, read from index 8.
 
-## ✅ POWER OFF — driven 2026-08-24, and the only write with no reply
+## ✅ POWER OFF — driven, and the only write with no reply
 
     → 22 00 01     COMMON_SET_POWER_OFF · FIXED_VALUE · USER_POWER_OFF
 
@@ -1090,7 +1090,7 @@ their headphones off is obvious from the button; that this app cannot undo it is
 ⚠ `PowerOffSettingValue` also has `00 NO_USE`. It is the enum's absent value, not an "on" —
 nothing switches a headphone on over a link that requires it to be on.
 
-## ✅ THE LAST THREE UNASKED FUNCTIONS — read 2026-08-24, and none is a setting
+## ✅ THE LAST THREE UNASKED FUNCTIONS — read, and none is a setting
 
 `14` BLE_SETUP and `22` CONCIERGE_DATA were the only entries in the device's own
 22-function list that nothing had ever asked. Both answer, and neither is something an
@@ -1188,7 +1188,7 @@ vendor app failing identically as its control.
 distinction above is the reusable part, not because "not found yet" is still the state.
 The answer is in the next subsection.
 
-### ✅ RESOLVED FROM THE SDK, 2026-08-24: THE ON/OFF IS APP-SIDE
+### ✅ RESOLVED FROM THE SDK: THE ON/OFF IS APP-SIDE
 
 ⚠ **First, this page had the frame wrong.** It said `74 01 01`, three bytes. The payload
 writer emits **four**:
@@ -1348,7 +1348,7 @@ values and the third means the device does not know. Defaulting it to `false` wo
 confident percentage on screen on the strength of a shrug — the same rule `SonyAutoOff`
 applies to an unrecognised value byte.
 
-⚠ **This was decoded and confirmed on 2026-08-16 and sat unused for a week.** The read
+⚠ **This was decoded and confirmed and sat unused for a week.** The read
 worked, the cross-check passed, and no driver method existed — so the Sony card showed no
 charge while the JBL's did. The same shape as #1041 and #1112: the wire was never the
 problem.
@@ -1405,7 +1405,7 @@ read). So thirteen of the fifteen are languages and two are something else. What
 known: no enum in `table2/voiceguidance/param` has a `10`, and `f0` is the shape of an
 "unknown" sentinel elsewhere in this SDK but is not one here.
 
-✅ **SETTLED 2026-08-24 by moving it: `46`/`48` is the control.**
+✅ **SETTLED by moving it: `46`/`48` is the control.**
 
     → 48 01 01 00   ← 49 01 01 00   off
     → 46 01 01      ← 47 01 01 00   agrees

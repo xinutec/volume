@@ -11,7 +11,7 @@ and it is the thing that was got wrong.
 on one clock). `adb logcat -s VolumeLive` reads it from inside: every broadcast the
 app receives, and what the profile proxies said at that instant.
 
-Pixel 9, Android 16, 2026-08-16, Sony WH-1000XM4, Volume in the foreground.
+Pixel 9, Android 16, Sony WH-1000XM4, Volume in the foreground.
 
 ### Connecting — ACL is 1.24 s too early
 

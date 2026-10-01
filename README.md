@@ -15,15 +15,15 @@ consequences, and both change what counts as done:
   responsiveness to leave a channel free: nothing is waiting for it, so the only cost of
   holding a channel is power and the only cost of dropping it is a reconnect its owner
   feels. See `Leases`.
-- ⚠⚠ **THE SPEAKERS HANG OFF BOSE CONNECT, NOT BOSE MUSIC** — corrected 2026-09-03, having
-  been written the wrong way round here that morning. `com.bose.monet` (Bose **Connect**)
+- ⚠⚠ **THE SPEAKERS HANG OFF BOSE CONNECT, NOT BOSE MUSIC** — corrected, having
+  first been written the wrong way round here. `com.bose.monet` (Bose **Connect**)
   ships asset packages for `soundlink-revolve`, `soundlink-revolve-plus`,
   `soundlink-micro` and `soundlink-color-ii`, and drives the QC35; `com.bose.bosemusic`
   (Bose **Music**) drives the QC45 and knows the Revolve only through the shared
   `BoseProductId` enum. ⚠ So **Bose Music is not what the speakers depend on** — Bose
   Connect is, and it is the one to walk for a speaker's rows.
-- ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — the user,
-  2026-09-03. Scope is **headphones**: the five in the table below. A speaker absent from
+- ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — the user's
+  call. Scope is **headphones**: the five in the table below. A speaker absent from
   that table is a DECISION, not an omission — the distinction `docs/sony-settings.md` had
   to learn one level down.
 - **Anything they still do exclusively is a gap in THIS app** — and the vendor app is the
@@ -92,7 +92,7 @@ from *session* behaviour — greetings answering questions never asked, writes t
 need a transaction, reads that need an ack. So the fixtures are real captures, and
 `Confirmation` exists so a caller cannot mistake a reply for a result.
 
-⚠ Repo is PUBLIC and carries the headphones' MACs — the user's call, 2026-08-15.
+⚠ Repo is PUBLIC and carries the headphones' MACs — the user's call.
 
 ## ANC driven on all five. Two transports.
 
@@ -113,7 +113,7 @@ JLab   c0 ff 00 46 03 00 <mode> 04 04 01 00 <sum>      00=off 01=NC on 02=Be Awa
        read with c0 ff 00 44 00 00 01 00 04 → 45 03 00 <mode> …
 ```
 ✅ **The QC45's slot names are the DEVICE's** — `1f 01 05 00` returns all four with
-their names, checked 2026-08-26. The QC35's line beneath it was invented and inverted
+their names, checked. The QC35's line beneath it was invented and inverted
 until that same day, so on these two the provenance of a label matters more than the frame.
 
 All driven from our own socket. The Bose announced each mode aloud; the JBL and
@@ -179,9 +179,9 @@ from a refusal until you look at the vendor SDK. `docs/sony-settings.md` has it.
 XM4's [CUSTOM] button is not refused — Sony's app changes it and we cannot, which is #965
 and is an asymmetry, not a wall. Adaptive Sound Control is not refused either: its on/off
 turns out to be **app-side**, so there is no device toggle to refuse. ⚠ Calling either of
-them device-blocked was an overclaim made on 2026-08-23 and corrected the same evening.
+them device-blocked was an overclaim made and corrected the same evening.
 
-⚠ **The QC35 column was five rows short until 2026-08-26**, having been "ANC only" since it
+⚠ **The QC35 column was once five rows short**, having been "ANC only" since it
 was written. Everything above was decoded and driven that day, each label checked against
 Bose Connect's own screens rather than against this repo's reading of the bytes — which is
 how the ANC row came to be wrong at **all three** of its values for months. Only Music
@@ -192,7 +192,7 @@ twenty-three device controls and twenty are in the app — thirteen writable, se
 read-only. ⚠ Not all twenty are rows above: this table lists what is driven, so the
 read-only ones live in `docs/protocols.md`'s inventory instead. The gap is #974.
 
-✅ **The XM4 has now been ASKED, 2026-08-23.** `06 00` returns its own supported-function
+✅ **The XM4 has now been ASKED.** `06 00` returns its own supported-function
 list — 22 entries, count byte matching, every one a legal `FunctionType`. Six new rows
 were read from it and **six were confirmed against Sound Connect's own screens**; the
 absences retired six leads #1097 had listed as worth trying. `docs/sony-settings.md`.
@@ -201,7 +201,7 @@ Sony's codec. Nothing writes them, and for the codec nothing can: it is negotiat
 the two ends, so what an owner actually chooses is sound quality.
 
 ⚠ **The Bose pair has a NAMED surface and no audit**, which are different things.
-As of 2026-08-23 the Sony and Bose command spaces are read out of the vendor APKs —
+The Sony and Bose command spaces are read out of the vendor APKs —
 every block, function and value enum, in `docs/sony-settings.md` and
 `docs/bose-settings.md` — so the rows below "EQ / tone" are no longer unknown, they are
 unasked. ⚠ Nothing there has been met on the wire; a name from an APK is a claim about
@@ -219,12 +219,12 @@ carry a *table id* beside the ten gains, but it is sent together with them and n
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
 
-**Closed 2026-08-28:** #1202 modes can now be created and deleted (both are a record write
+**Closed:** #1202 modes can now be created and deleted (both are a record write
 AND a `1f 08` write) · #1203 the chip tap was never dropped — the busy card grew 73 px and
 the chip moved out from under it · #935 disconnect is `04 02`, sent and attested · #1242
 the 47-byte mode record is decoded from the vendor's own parser.
 
-**Closed 2026-08-29:** #1154 the settings-read dropout — nine live card reads all rendered
+**Closed:** #1154 the settings-read dropout — nine live card reads all rendered
 17 of 17 rows, and instrumenting `ask` caught the failure happening once in 85 reads and
 recovering, so it is now demonstrated rather than argued.
 
@@ -235,21 +235,21 @@ decode-and-print and its Python port · #1232 why the QC35 started needing a wak
 `docs/bose-read-surface.md`, "Where this stands", which is the current state; the rest of
 that page is a discovery log whose early sections later ones correct.
 
-**Closed 2026-08-28 on the QC45**: #1193 the four settings the QC35 code already spoke —
+**Closed on the QC45**: #1193 the four settings the QC35 code already spoke —
 all wired, all driven from the app's own card and restored, and three things found only by
 driving them: `01 03` applies asynchronously so a Get sent at once reads the state from
 before the write, a confirmed rename showed the old name because both name displays were
 Android's bonded record, and a factory-named QC45 never got the protocol's early-stop rule
 because the test named one model instead of the framing.
 
-**#1232, 2026-08-28 — a QC35 answered NOTHING on a fresh socket until block `00` was read.**
+**#1232 — a QC35 answered NOTHING on a fresh socket until block `00` was read.**
 The QC35 was bonded, connected, the active audio device and completely unreadable; the app
 said "it answered `01 06` in neither shape". The snoop showed every frame going out and
 nothing coming back, while the device's protobuf channel answered normally in the same log.
-Send `00 01` first and everything answers. ⚠ **2026-08-29 refuted the general rule**: on a
+Send `00 01` first and everything answers. ⚠ **A later session refuted the general rule**: on a
 virgin session after a power cycle the same device answered `01 06` cold four times, so this
 is a state it gets into and not how a fresh socket behaves. **Idle is not it either** — 75
-minutes untouched, one cold read, answered. ⚠ **2026-08-30 refuted the phone reboot too** and
+minutes untouched, one cold read, answered. ⚠ **A third refuted the phone reboot too** and
 caught the whole thing live: silent on `01 06`, `01 01` AND `04 04`, then all three answering
 after one `00 01`, at **26.3 hours** since boot and 13 s since reconnect. So the silence is
 every block except `00`, not block `01`, and neither clock causes it. **Isolated the same evening by a
@@ -257,7 +257,7 @@ matched control**: 20 min 51 s POWERED OFF was silent, 20 min 30 s of no contact
 headset on and awake answered. Being powered off is the cause; the contact gap is a
 bystander. ~20 s off answers, so it is the duration off, not the act.
 
-**#1191, on the QC45, 2026-08-28 — 18 requests → 4, 946 ms → 292 ms** for one card open,
+**#1191, on the QC45 — 18 requests → 4, 946 ms → 292 ms** for one card open,
 measured on the wire across three builds. Three causes, none of them the ones the task had
 guessed at: the card asked again for the tone, the button and multipoint, all three of which
 arrive inside the GET_ALL it had just made; **one tap called `loadSettings` twice**, because
@@ -271,7 +271,7 @@ once** — 7 requests, 419 ms, where this task had recorded it running two or th
 ⚠ The first framing of that comparison spanned the whole window and read as *no
 improvement*; 4.84 s of it was the `sleep` in the driving script.
 
-**Closed 2026-08-26 on the QC45**: #1185 the ANC labels are right and the device said so
+**Closed on the QC45**: #1185 the ANC labels are right and the device said so
 itself · #966 auto power off is `01 04`, reading `00` · #1098 the BMAP inventory, whose
 four-byte answer was predicted the day before · #1196 what a settings write permanently
 cleared · #1192 the seven unasked blocks · #1194 the mode card, built and driven · #992 the
@@ -300,7 +300,7 @@ useless for the job it exists to do.
 
 ⚠ **"Not recognised as a read" is not the same as "is a write."** `Frames.reads` answers
 false for anything it cannot place, so an unfamiliar frame costs one flag. That is
-deliberate: on 2026-08-26 `06 01 00` was sent seven times as a probe and the device
+deliberate: `06 01 00` was sent seven times as a probe and the device
 re-framed the stream into a SET to a block nobody typed. BES direction in particular is only
 partly decidable — the GET/SET sub-command byte means **opposite things in different
 drivers** (`JblGestures` has `GET = 01`, one in `JblSettings` has `GET = 00`), so it is
@@ -310,7 +310,7 @@ The app's own stack, end to end — registry → transport → driver → read-b
 ```bash
 ./probe.sh anc "JBL TOUR" [ANC|AMBIENT|OFF]
 ```
-Verified on all five, 2026-08-15: Sony and JLab over RFCOMM, JBL over GATT with an
+Verified on all five: Sony and JLab over RFCOMM, JBL over GATT with an
 LE scan, and a **renamed QC35 identified by asking it** — its record carries
 nothing but standard and shared UUIDs, so `Registry.identifyBose` reads `01 06`,
 which is ANC on the QC35 and unsupported on the QC45.
