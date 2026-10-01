@@ -83,8 +83,8 @@ object ThothWire {
     fun pair(json: String): ThothPair {
         val o = JSONObject(json)
         return ThothPair(
-            left = o.optString("left", ""),
-            right = o.optString("right", ""),
+            left = o.uidOrNull("left"),
+            right = o.uidOrNull("right"),
             stereo = o.getBoolean("stereo"),
             balance = o.getDouble("balance"),
             volume = o.getDouble("volume"),
@@ -108,8 +108,8 @@ object ThothWire {
                 each(o.getJSONArray("devices")) {
                     ThothInputDevice(name = it.getString("name"), uid = it.getString("uid"))
                 },
-            current = o.optString("current", ""),
-            pinned = o.optString("pinned", ""),
+            current = o.uidOrNull("current"),
+            pinned = o.uidOrNull("pinned"),
         )
     }
 
@@ -149,6 +149,9 @@ object ThothWire {
     fun picade(host: String, volume: Double): String =
         JSONObject().put("host", host).put("volume", volume).toString()
 
+    /** thoth says "none" with `""`, or by leaving the key out. */
+    private fun JSONObject.uidOrNull(key: String): String? = optString(key, "").ifEmpty { null }
+
     private fun <T> each(a: JSONArray, one: (JSONObject) -> T): List<T> =
         (0 until a.length()).map { one(a.getJSONObject(it)) }
 }
@@ -179,9 +182,9 @@ class ThothClient(
     /** Switch the default input now, leaving any standing pin alone. */
     fun setInput(uid: String): ThothInput = ThothWire.input(post("/api/input", ThothWire.uid(uid)))
 
-    /** Move the pin, or clear it with `""`. */
-    fun setInputPin(uid: String): ThothInput =
-        ThothWire.input(post("/api/input/pin", ThothWire.uid(uid)))
+    /** Move the pin, or clear it with null — `""` on the wire. */
+    fun setInputPin(uid: String?): ThothInput =
+        ThothWire.input(post("/api/input/pin", ThothWire.uid(uid ?: "")))
 
     fun setCabinet(host: String, volume: Double): ThothCabinet =
         ThothWire.cabinet(post("/api/picades", ThothWire.picade(host, volume)))

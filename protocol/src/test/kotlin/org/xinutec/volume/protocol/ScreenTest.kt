@@ -446,7 +446,10 @@ class ScreenTest {
                 PsapRow(false),
                 VoicePromptsRow(true, Writability.NoWriter),
                 NameRow("Example"),
-                ConnectionsRow(listOf(BoseDevice(address = "aa bb cc dd ee ff")), pairing = null),
+                ConnectionsRow(
+                    listOf(BoseDevice(address = BoseAddress("aa bb cc dd ee ff"))),
+                    pairing = null,
+                ),
                 CncRow(
                     CncModes(
                         modes =

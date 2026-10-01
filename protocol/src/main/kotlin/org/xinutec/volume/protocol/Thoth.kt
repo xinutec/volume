@@ -50,10 +50,10 @@ data class ThothInputDevice(
  */
 data class ThothInput(
     val devices: List<ThothInputDevice>,
-    /** UID of the live default, or `""` when there is none. */
-    val current: String,
-    /** UID the server re-asserts, or `""` for no pin. */
-    val pinned: String,
+    /** UID of the live default, or null when there is none. */
+    val current: String?,
+    /** UID the server re-asserts, or null for no pin. */
+    val pinned: String?,
 )
 
 /** Which call a pick of a new input device has to make. */
@@ -72,9 +72,9 @@ enum class InputPick {
 
 /** The stereo pair: two speakers driven as one output. */
 data class ThothPair(
-    /** UID of the left speaker, or `""` when unset. */
-    val left: String,
-    val right: String,
+    /** UID of the left speaker, or null when unset. */
+    val left: String?,
+    val right: String?,
     /** True = the pair is split L/R; false = both speakers play everything. */
     val stereo: Boolean,
     /** −1 hard left … 0 centre … +1 hard right. */
@@ -196,7 +196,7 @@ val ThothPair.balancePercent: Int
 fun balanceOf(coarse: Int, fine: Int): Double = max(-1.0, min(1.0, (coarse + fine) / 100.0))
 
 /** Which call a pick of a new input device has to make, given the standing pin. */
-fun ThothInput.pickIs(): InputPick = if (pinned.isEmpty()) InputPick.SET else InputPick.REPIN
+fun ThothInput.pickIs(): InputPick = if (pinned == null) InputPick.SET else InputPick.REPIN
 
 /**
  * Everything the Mac card draws, and every decision behind it.

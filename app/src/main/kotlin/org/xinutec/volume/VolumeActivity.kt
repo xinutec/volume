@@ -73,6 +73,7 @@ import org.xinutec.volume.protocol.AutoPlayRow
 import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BalanceRow
 import org.xinutec.volume.protocol.BatteryRow
+import org.xinutec.volume.protocol.BoseAddress
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
 import org.xinutec.volume.protocol.BoseButtonRow
@@ -448,7 +449,7 @@ interface SettingActions {
     fun startPairing(address: String)
 
     /** ⚠ Refused for a CONNECTED device — see [Forget.Connected]. */
-    fun forgetDevice(address: String, device: String)
+    fun forgetDevice(address: String, device: BoseAddress)
 
     /** Rename the headphones — Bose Connect's "Nickname It". */
     fun setName(address: String, name: String)
@@ -1305,7 +1306,7 @@ private fun SettingRowFor(
                 // The NAME, with the address only as a fallback: a list of six-byte
                 // addresses tells nobody which entry is their laptop.
                 SettingLabel(
-                    "  ${d.name ?: d.address}",
+                    "  ${d.name ?: d.address.hex}",
                     if (d.connected) "connected" else "paired",
                 )
                 // ⚠ Offered ONLY when it is not connected. Forgetting a live device

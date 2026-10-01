@@ -641,7 +641,7 @@ class BoseForgetTest {
                 "04 05 01 06 dd dd dd dd dd dd" to
                     "04 05 03 0f dd dd dd dd dd dd 01 01 01 4c 61 70 74 6f 70",
             )
-        val out = Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd")
+        val out = Drivers.BoseQc35.forget(t, BoseAddress("dd dd dd dd dd dd"))
         assertEquals(Forget.Connected("Laptop"), out)
         // ⚠ The load-bearing assertion: no 04 03 left the app.
         assertTrue(t.sent.none { it.startsWith("04 03") })
@@ -658,7 +658,7 @@ class BoseForgetTest {
                 "04 03 05 06 dd dd dd dd dd dd" to "04 03 06 06 dd dd dd dd dd dd",
                 "04 04 01 00" to "04 04 03 07 01 aa aa aa aa aa aa",
             )
-        assertEquals(Forget.Forgot, Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd"))
+        assertEquals(Forget.Forgot, Drivers.BoseQc35.forget(t, BoseAddress("dd dd dd dd dd dd")))
         assertTrue(t.sent.any { it.startsWith("04 03") })
     }
 
@@ -672,13 +672,19 @@ class BoseForgetTest {
                 "04 03 05 06 dd dd dd dd dd dd" to "04 03 06 06 dd dd dd dd dd dd",
                 "04 04 01 00" to "04 04 03 0d 01 aa aa aa aa aa aa dd dd dd dd dd dd",
             )
-        assertEquals(Forget.StillThere, Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd"))
+        assertEquals(
+            Forget.StillThere,
+            Drivers.BoseQc35.forget(t, BoseAddress("dd dd dd dd dd dd")),
+        )
     }
 
     @Test
     fun `an address that is not in the list is never sent`() {
         val t = replay("04 04 01 00" to "04 04 03 07 01 aa aa aa aa aa aa")
-        assertEquals(Forget.Unverifiable, Drivers.BoseQc35.forget(t, "dd dd dd dd dd dd"))
+        assertEquals(
+            Forget.Unverifiable,
+            Drivers.BoseQc35.forget(t, BoseAddress("dd dd dd dd dd dd")),
+        )
         assertTrue(t.sent.none { it.startsWith("04 03") })
     }
 }

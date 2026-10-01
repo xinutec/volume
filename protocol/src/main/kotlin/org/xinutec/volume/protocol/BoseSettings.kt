@@ -1252,10 +1252,21 @@ object BosePairing {
  * same byte.
  */
 data class BoseDevice(
-    val address: String,
+    val address: BoseAddress,
     val name: String? = null,
     val connected: Boolean = false,
 )
+
+/**
+ * A device address as a Bose's paired list holds it, not this phone's address for the
+ * headphones — the two sit side by side wherever a device is forgotten.
+ */
+@JvmInline
+value class BoseAddress(
+    val hex: String,
+) {
+    val bytes: ByteArray get() = Hex.parse(hex)
+}
 
 /** `04 04` LIST_DEVICES + `04 05` INFO. */
 object BoseDevices {
@@ -1287,7 +1298,7 @@ object BoseDevices {
         while (at + 6 <= payload.size) {
             out +=
                 BoseDevice(
-                    address = Hex.format(payload, at, at + 6),
+                    address = BoseAddress(Hex.format(payload, at, at + 6)),
                     connected = (mask shr slot) and 1 == 1,
                 )
             at += 6

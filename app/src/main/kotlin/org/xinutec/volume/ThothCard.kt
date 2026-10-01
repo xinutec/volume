@@ -287,7 +287,7 @@ private fun PairControls(ui: ThothUi, actions: ThothActions) {
     val screen = ui.screen
     val pair = screen.pair ?: return
     var picking by remember { mutableStateOf<Side?>(null) }
-    val name = { uid: String -> screen.outputs.firstOrNull { it.uid == uid }?.name ?: "—" }
+    val name = { uid: String? -> screen.outputs.firstOrNull { it.uid == uid }?.name ?: "—" }
 
     Picked("Left", name(pair.left)) { picking = Side.LEFT }
     Picked("Right", name(pair.right)) { picking = Side.RIGHT }
@@ -341,12 +341,12 @@ private fun MicControls(ui: ThothUi, actions: ThothActions) {
         // macOS re-points the default input at whatever connects, and a Bluetooth
         // speaker's hands-free mic taking it sounds like a broken microphone.
         value =
-            if (input.pinned.isEmpty()) {
+            if (input.pinned == null) {
                 "macOS picks the default input"
             } else {
                 "put back whenever macOS switches it"
             },
-        checked = input.pinned.isNotEmpty(),
+        checked = input.pinned != null,
         onChange = actions::pinInput,
     )
     if (picking) {
@@ -511,7 +511,7 @@ private fun Level(
 private fun ThothPicker(
     title: String,
     options: List<Pair<String, String>>,
-    current: String,
+    current: String?,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {

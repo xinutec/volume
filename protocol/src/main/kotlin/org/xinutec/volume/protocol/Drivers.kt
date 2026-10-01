@@ -315,14 +315,14 @@ object Drivers {
          * disconnect-and-forget a live device; refusing that costs the ability to evict
          * the phone you are holding, which is not a loss.
          */
-        fun forget(t: Transport, address: String): Forget {
+        fun forget(t: Transport, address: BoseAddress): Forget {
             val before = BoseDevices.state(t.exchange(BoseDevices.list()))
             val target = before.firstOrNull { it.address == address } ?: return Forget.Unverifiable
             if (target.connected) {
-                val name = BoseDevices.name(t.exchange(BoseDevices.info(Hex.parse(address))))
+                val name = BoseDevices.name(t.exchange(BoseDevices.info(address.bytes)))
                 return Forget.Connected(name)
             }
-            t.exchange(BoseForget.frame(Hex.parse(address)))
+            t.exchange(BoseForget.frame(address.bytes))
             // ⚠ Re-read rather than trust the Result echo: the echo repeats the address
             // it was given, which it would do whether or not the entry went.
             val after = BoseDevices.state(t.exchange(BoseDevices.list()))
@@ -340,8 +340,7 @@ object Drivers {
          */
         fun readDevices(t: Transport): List<BoseDevice> =
             BoseDevices.state(t.exchange(BoseDevices.list())).map { d ->
-                val raw = Hex.parse(d.address)
-                d.copy(name = BoseDevices.name(t.exchange(BoseDevices.info(raw))))
+                d.copy(name = BoseDevices.name(t.exchange(BoseDevices.info(d.address.bytes))))
             }
 
         /** Whether the headphones are advertising for a new device right now. */

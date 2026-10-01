@@ -250,7 +250,8 @@ class ThothController(
         }
 
     /** Pin the live default, or clear the pin. */
-    fun pinInput(on: Boolean) = write { input -> client.setInputPin(if (on) input.current else "") }
+    fun pinInput(on: Boolean) =
+        write { input -> client.setInputPin(if (on) input.current else null) }
 
     private fun write(call: (ThothInput) -> ThothInput) =
         work.execute {

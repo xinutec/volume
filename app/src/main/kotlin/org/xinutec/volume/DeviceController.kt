@@ -14,6 +14,7 @@ import org.xinutec.volume.protocol.AutoPlayRow
 import org.xinutec.volume.protocol.Balance
 import org.xinutec.volume.protocol.BalanceRow
 import org.xinutec.volume.protocol.BatteryRow
+import org.xinutec.volume.protocol.BoseAddress
 import org.xinutec.volume.protocol.BoseAll
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseBattery
@@ -896,7 +897,7 @@ class DeviceController(
             d.setName(it.transport, name)
         }
 
-    override fun forgetDevice(address: String, device: String) =
+    override fun forgetDevice(address: String, device: BoseAddress) =
         driven<Forget>(address, "forgetting a device", { outcome ->
             when (outcome) {
                 is Forget.Connected -> {
