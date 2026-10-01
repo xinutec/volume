@@ -9,7 +9,7 @@ the dated section it points at; treat anything undated as older than everything 
 | | frame | where |
 | --- | --- | --- |
 | ANC / ambient | `66 02` / `68 02 <on> 02 <nc> 01 <AsmId> <amb>` | ✅ driven |
-| Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** — ⚠⚠ the app now labels it **`Voice passthrough`**, colliding with Speak-to-Chat's own row of that name |
+| Focus on Voice | the `AsmId` byte above | ✅ driven ⚠ **ambient mode only** — the app now labels it **`Voice passthrough`**, colliding with Speak-to-Chat's own row of that name |
 | EQ preset | `56 01` / `58 01 <preset> 00` | ✅ driven |
 | EQ band levels | `58 01 **ff** <count> <levels>` | ✅ driven, six sliders on the card — ⚠ `ff` UNSPECIFIED, never the slot's id |
 | Sound Quality | `e6 01` / `e8 01 00 <v>` | ✅ driven |
@@ -40,7 +40,7 @@ has `SONY_TABLE2=1`; default stays `0c`.
 sat unused for a week because no driver method existed. Three separate features have now
 been "known" and invisible. A ✅ above means driven **and** on the card.
 
-⚠⚠ **This table was INCOMPLETE until 2026-09-01, and the cause is NOT that anybody missed
+⚠ **This table was INCOMPLETE until 2026-09-01, and the cause is NOT that anybody missed
 the feature.** `NC Optimizer` was identified AND consciously excluded — it is
 in task #1097's "6 excluded, each for its own reason", with the right reason. What went
 wrong is that **this table only carried rows for things with a driver or a read; the
@@ -54,7 +54,7 @@ implement" while reading as "everything the device has". The parity table below 
 the other way round — off the app's screens rather than off the wire — which is why both
 exist.
 
-## ⚠ What Sound Connect has, and what we have
+## What Sound Connect has, and what we have
 
 Every row of the vendor app's own screens, read by walking `All device settings` and each
 of its six categories to the end. ⚠ **Read-only: only category headers and the settings
@@ -65,7 +65,7 @@ undriven.** This was the standing gap in the survey's scope; it is closed.
 
 - **`Ambient Sound Control`** — a master on/off switch, the NC↔Ambient `slider`, the
   Focus-on-Voice checkbox, and an "Add shortcut to the top screen" switch that is app-side.
-  ⚠ It also carries a `caution_text`, "Set automatically by Adaptive Sound Control", so the
+  It also carries a `caution_text`, "Set automatically by Adaptive Sound Control", so the
   mode has an owner other than whoever last wrote it.
 - **`Equalizer`** — a preset carousel (`horizontal_slider`, a custom view drawing no text),
   `CLEAR BASS`, the five band handles, an `Edit` button onto the same six values, and the
@@ -110,7 +110,7 @@ reason rather than for want of effort:
 It **plays test tones into headphones that must be worn** while it measures wearing
 condition and atmospheric pressure. That is the same class as the JBL's Personi-Fi hearing
 test and it gets the same treatment: the frame is recorded, and nothing here starts it.
-⚠ It is also the row that proves the point above — decoded on the wire, absent from the
+It is also the row that proves the point above — decoded on the wire, absent from the
 STATE table for a week, and only a survey of the app's screens surfaced it.
 
 ⚪ **`Find Your Equalizer` and `360 Reality Audio Setup` were not opened**, so their wire
@@ -131,7 +131,7 @@ Capture: `~/.cache/volume-captures/2026-08-16-sony/` (kept outside the repo).
 Framing is the one in `docs/protocols.md`: `3e | type | seq | len(4 BE) | payload
 | sum | 3c`, every DATA frame acked, sequence byte alternating.
 
-⚠ **Payloads below are the part between `len` and `sum`.** The `3e0c00…` /
+**Payloads below are the part between `len` and `sum`.** The `3e0c00…` /
 `3e0c01…` prefix is framing, and the bare `3e01xx00000000…3c` frames are acks —
 not commands. Reading an ack as a reply is the mistake this repo has already made
 three times.
@@ -169,12 +169,12 @@ once, at 10:58:21 when the app connected: `→ 56 01` drew
 `← 57 01 a2 06 0d 0a 0a 0c 0e 10`. So the read command is measured, not inferred —
 and its first level, `0d` = +3, is the CLEAR BASS +3 the owner had actually set.
 
-⚠ **A SET's own reply carries the resulting state.** The device acks, then sends an
+**A SET's own reply carries the resulting state.** The device acks, then sends an
 unsolicited `59` with the whole state, in the same window. That is a state report,
 not a confirmation — it becomes evidence only by comparing its preset with the one
 asked for, because a device that ignored the write reports the *old* preset there.
 
-⚠ **The trailing `00` of a SET is a level COUNT**, sitting where `59`'s `06` sits. The
+**The trailing `00` of a SET is a level COUNT**, sitting where `59`'s `06` sits. The
 shape guessed here — `58 01 <preset> 06 <6 levels>` — was **wrong in one byte and cost a
 day**: a levels write carries `ff`, never the slot's id. See the EQ band levels section.
 
@@ -234,7 +234,7 @@ Against those names the twelve are `00` Off, `10` Bright, `11` Excited, `12` Mel
 User Setting 1 and 2. **So the three that were hardcoded were the user slots**, and the
 eight named curves plus Off were missing from the card, not from the device.
 
-⚠⚠ **The first read of this was a ONE-SHOT and it did not repeat.** `probe.sh send` got
+⚠ **The first read of this was a ONE-SHOT and it did not repeat.** `probe.sh send` got
 the frame above; the identical call a minute later drew `nothing in 3000ms`, and a
 one-shot `56 01` the same hour drew `a9 01 00` — `PLAY_NTFY_PARAM`, an unsolicited
 playback notification that looks exactly like a reply if you do not check the command
@@ -281,7 +281,7 @@ multipoint, this one is confirmable from its own reply. ✅ **Driven on hardware
 
 `AutoPowerOffElementId` has six — `00` 5 min, `01` 30 min, `02` 60 min, `03` 180 min, `10`
 when removed, `11` disable. **The XM4 declares only the last two.** So the timed encodings
-are in Sony's enum and not on this unit, and this row is complete rather than partial. ⚠ It
+are in Sony's enum and not on this unit, and this row is complete rather than partial. It
 had been carried as "2 of 6, menu offers 2" — an inference from the vendor app's UI, where
 one capability read was available the whole time.
 
@@ -321,7 +321,7 @@ reply, which is why [`setMultipoint`] always does a real read.
 code to turn off. That `00` is this field's off value is known only because the GET
 and the notification both report it.
 
-⚠ The `90` block answers **no reads at all**: `90 01`, `92 01`, `94 01`, `96 01`,
+The `90` block answers **no reads at all**: `90 01`, `92 01`, `94 01`, `96 01`,
 `96 02` and `96 06` each drew a bare ack and no DATA frame. A hand-built
 `98 01 06 01` — guessed from the notification's shape — also drew only an ack and
 changed nothing. The block's payload shape is **not** established; do not copy that
@@ -352,7 +352,7 @@ accepted; `d8 d2` is refused for everyone including Sony's app. **So the `d8` fa
 blanket-refused, and a refusal is per setting, not per peer.** That is a real narrowing of
 #965: this repo can write a GENERAL_SETTING the vendor app can write.
 
-⚠ **No `99` alert was involved**, even though the app's string table has
+**No `99` alert was involved**, even though the app's string table has
 `ENABLE_TOUCH_PANEL_AND_RECONNECTION_CONFIRMATION` next to this setting. So an alert-shaped
 name in the resources does not mean the device gates the write behind one.
 
@@ -382,7 +382,7 @@ f2/f3 03..06  status             f6/f7 03..06, f8/f9 04  SYSTEM       ← auto-o
 fa 05 → fb 05 00 00 00 01
 ```
 
-⚠ `a9 01 20 12` arrives **110 times** and `a5 01 00 03` 54 times, unasked. Anything
+`a9 01 20 12` arrives **110 times** and `a5 01 00 03` 54 times, unasked. Anything
 that reads a Sony session has to expect unsolicited traffic between its question and
 its answer — which is exactly why `SonyEq.state` refuses a frame that is not its own
 opcode rather than decoding whatever turned up.
@@ -398,7 +398,7 @@ opcode rather than decoding whatever turned up.
 echo and by `e6 01`, and restored. Found by accident: changing it was a step in
 testing multipoint, and the frames were in the capture.
 
-⚠ **The third byte is `00` here and `01` in every other setting on this page.**
+**The third byte is `00` here and `01` in every other setting on this page.**
 Auto-off sends `f8 04 01 <v> 00`, multipoint `d8 d2 01 <v>`, the button
 `f8 06 01 <v>`; this one sends `e8 01 00 <v>`. Whatever that byte is, it is not one
 thing — carried verbatim rather than tidied into a "count".
@@ -464,7 +464,7 @@ unprovisioned.
     → 98 01 02 00   ← f9 06 01 00    answered NEGATIVE: declined
     → f6 06         ← f7 06 01 00    unchanged, as intended
 
-⚠ **The alert fires only on a REAL change.** With the subscription in place,
+**The alert fires only on a REAL change.** With the subscription in place,
 `f8 06 01 00` — the value already set — draws no `99` and no `f9`. So a no-op write is
 silent for a second reason, and silence from this type still cannot be read as refusal.
 
@@ -491,7 +491,7 @@ disconnect, no broken pipe, an orderly `f9 06 01 00`, and the value unchanged. S
 answer byte is what decides, not a timeout — which was the alternative reading of a commit
 that arrived alongside a dropped link.
 
-### ⚠ Two dead ends recorded so nobody re-walks them
+### Two dead ends recorded so nobody re-walks them
 
 - **"`90 01` ALERT_GET_CAPABILITY is never answered"** was published as the lead and is
   worthless: `ALERT_GET_CAPABILITY` exists **only in the two `Command` enums** — no payload
@@ -516,7 +516,7 @@ that this probe does not reproduce, and *that* is the thing to look for. The rea
 
 ## Method notes that cost something
 
-⚠ **The snoop log flushes lazily.** The morning bugreport's log ended at 11:06:44
+**The snoop log flushes lazily.** The morning bugreport's log ended at 11:06:44
 though its mtime was 11:10 — the last minutes were still in memory. Wait a few
 minutes before pulling, and check the LAST FRAME's timestamp against what you did;
 size and mtime both lie.
@@ -605,16 +605,16 @@ f3 CONTROL_BY_WEARING  f4 AUTO_POWER_OFF        f5 SMART_TALKING_MODE f6 ASSIGNA
 all five already driven from this repo, at those bytes. So the table is cross-validated
 five ways before it is used for anything new.
 
-⚠ **This is the Sony answer to "what does this device actually have", and it is ONE
+**This is the Sony answer to "what does this device actually have", and it is ONE
 READ.** The JBL needed twenty-three rows read off a screen by hand (`docs/protocols.md`)
 because its SDK has no such list; Sony's device declares it. Asking is safe — a Get on
 an established session — and it replaces guessing about which of the rows below the XM4
-supports. ⚠ **Nothing here has asked it yet**, and until it does, every row below is a
+supports. **Nothing here has asked it yet**, and until it does, every row below is a
 thing the *protocol* has, not a thing this *unit* has.
 
 ### ✅ The value enums, and the four questions they answer
 
-⚠ Each of these is a claim about the vendor's APK. They are what makes a command
+Each of these is a claim about the vendor's APK. They are what makes a command
 usable, and none is a measurement — see the caveat at the end.
 
 **`EqPresetId` — the whole preset menu**, which this page said "the menu holds more and
@@ -695,12 +695,12 @@ app answers it. That is the "Reconnects to the headphones" prompt, on the wire.
 a bare ack. So the question in #965 is no longer "what does `98 01 02 01` do"; it is
 **why the device raises no alert for us**. The obvious candidate is now named: the app
 declares itself with `CONNECT_GET_SUPPORT_FUNCTION` (`06`) and this repo never has.
-⚠ Labelled a hypothesis. The test is cheap and read-only up to the last frame: `00 00`,
+Labelled a hypothesis. The test is cheap and read-only up to the last frame: `00 00`,
 then `02`, `04`, `06`, then the SET.
 
 ### The rows this names, and what has since been asked
 
-⚠ **A wire identity is not a decode**, which is why this table was written. ⚠ **It is no
+⚠ **A wire identity is not a decode**, which is why this table was written. **It is no
 longer true that "none of them has been asked"** — six were driven or read
 and are marked below. Anything still unmarked is a name, not a measurement.
 
@@ -722,9 +722,9 @@ and are marked below. Anything still unmarked is a name, not a measurement.
 | `46`–`49` | VPT `01`, SOUND_POSITION `02` | ⚠ **only on frame type `0c`.** On `0e` these bytes are VOICE_GUIDANCE — see the second-table section |
 | `66 01`, `66 03` | NC alone, ambient alone | this repo drives `66 02` |
 | `d6 d1` | GENERAL_SETTING1 | ✅ **driven** — names itself `TOUCH_PANEL_SETTING`; `d8 d1 01 <v>` takes |
-| `d6 d3`, `d6 d4` | GENERAL_SETTING3 and 4 | ⚠ both absent from the 22; not on this unit. ⚠ `d4` was missing from this page until the audit |
+| `d6 d3`, `d6 d4` | GENERAL_SETTING3 and 4 | ⚠ both absent from the 22; not on this unit. `d4` was missing from this page until the audit |
 | `22` | COMMON_SET_POWER_OFF | ⚠ ends the session, like the JBL's `aa 97 00` |
-| `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | ⚠ telemetry, see below |
+| `c4`/`c9` | LOG — ACTION_LOG_NOTIFIER | telemetry, see below |
 
 ✅ **`AsmId` names a byte this repo carries without understanding.** The ANC write is
 `68 02 <on> 02 <nc> 01 00 <ambient>`, and this page says bytes 1, 3 and 4 "held `02 01
@@ -735,17 +735,17 @@ is that a byte constant across every captured state is not attributed by a plaus
 name. Flipping Focus on Voice in the vendor app for one capture settles it, and would
 add the switch.
 
-⚠ **`a0`–`a9` PLAY includes the volume, and `a8` is its SET.** The 110 unsolicited
+**`a0`–`a9` PLAY includes the volume, and `a8` is its SET.** The 110 unsolicited
 `a9 01 20 12` frames in the capture are this block notifying. Whatever the
 `20 12` is, `PLAY_SET_PARAM` is the one command family on this device that could raise a
 level, and it is out of scope for the same reason the JBL's `56` VOLUME_CONTROL is.
 
-⚠ **Sony's headphones keep usage telemetry too**, and the app uploads it: `c4 01 00` →
+**Sony's headphones keep usage telemetry too**, and the app uploads it: `c4 01 00` →
 `c9 01 {"v":"M6","logs":[…]}`, already visible in the capture. The same note as the
 JBL's `aa 13` — nothing here reads it, and nothing should start without a better reason
 than the frame being understood.
 
-⚠ **All of the above is the APK's word.** Every row is a claim about Sony's app until it
+**All of the above is the APK's word.** Every row is a claim about Sony's app until it
 is met on the wire; `docs/captures.md` is why that distinction has its own paragraph.
 The five cross-checks above are what make it worth acting on, not what make it true.
 
@@ -780,7 +780,7 @@ SOUND_POSITION, `52` EBB, `f1` VIBRATOR, `f2` POWER_SAVING_MODE, `d3` GENERAL_SE
 earbud batteries `15`/`17`/`18`. Six of those were named in #1097 as things to go and
 try. **One read retired them**, at no risk and no capture.
 
-⚠ **This is what the JBL has no equivalent of.** That device's twenty-three rows were
+**This is what the JBL has no equivalent of.** That device's twenty-three rows were
 counted off a screen by hand, which is why its Ambient Sound Control master switch hid
 inside another row for a week (#1041). Ask the device, where the device will answer.
 
@@ -808,13 +808,13 @@ shows *Sound Quality Mode*, which is `e1` CONNECTION_MODE — a different field 
 CODEC_INDICATOR, which is what was actually negotiated. "Prioritize Sound Quality" is
 **consistent** with LDAC and is not the same claim. Left as a decode.
 
-⚠ **`15 00 02 00` reads INVALID rather than OFF** while `e6 02` says the setting is off,
+**`15 00 02 00` reads INVALID rather than OFF** while `e6 02` says the setting is off,
 and the app has no row for it. Two fields, and only one of them is the switch: a decoder
 must not report "DSEE is off" from the effect status, which is about whether it is
 *doing* anything right now.
 
 ⚠ **Nothing was written to reach any of this** — the vendor app was navigated by tapping
-category headers only, never a control. ⚠ And the header labels are `clickable="false"`
+category headers only, never a control. And the header labels are `clickable="false"`
 with the tap landing on an enclosing container, which is the JBL's inert-label trap in a
 second app; here the label sits *inside* the clickable row rather than beside it, so the
 coordinates work. Check the geometry rather than assuming either shape.
@@ -852,7 +852,7 @@ already driven and whose third byte differed: `SonySoundQuality` sends `00`
 This page used to say only that the byte "is not the same thing in both". It is the same
 kind of thing in both.
 
-### ⚠ THE DEVICE VOLUNTEERS NOTIFICATIONS, AND IT COST A WORKING WRITE
+### THE DEVICE VOLUNTEERS NOTIFICATIONS, AND IT COST A WORKING WRITE
 
 `e8 02 00 01` was reported by the driver as **unverifiable**. It had worked. What happened
 is that the XM4 answered the write with its `e9` NTFY_PARAM *and then* emitted `17`
@@ -924,7 +924,7 @@ uses one table in both directions.
 just does not happen. That is the whole trap: an ack is not an outcome, and this device
 will ack a frame it has no intention of acting on.
 
-⚠ **The device named the right table and it was read as noise.** The bad SET drew
+**The device named the right table and it was read as noise.** The bad SET drew
 `f9 05 01 00` — a `01` in a slot where `00` had been sent. That transposition was written
 up here as "the notify shape is unexplained, possibly a malformed echo". It was not
 malformed. It was the answer.
@@ -1006,14 +1006,14 @@ them:
 | choose a preset | `58 01 <preset> 00` |
 | move the bands | `58 01 ff <count> <levels…>` |
 
-⚠ **A levels write draws no notify, only an ack** — unlike a preset change, whose
+**A levels write draws no notify, only an ack** — unlike a preset change, whose
 `59 01` carries the result. Sony's own app re-reads with `56 01` after every drag, and so
 does this driver: the read-back is the only evidence a levels write has.
 
-⚠ Levels are offset-encoded: the byte is `level + 0x0a`, so `0d 0a 0a 0c 0e 10` is
+Levels are offset-encoded: the byte is `level + 0x0a`, so `0d 0a 0a 0c 0e 10` is
 `[3, 0, 0, 2, 4, 6]` — six values for five bands, the first being clear bass.
 
-⚠ **The slider emits while it travels.** One drag produced ten `58 01` frames in nine
+**The slider emits while it travels.** One drag produced ten `58 01` frames in nine
 seconds, each a waypoint; only the last is the setting. Counting frames would read a
 single gesture as ten changes.
 
@@ -1044,7 +1044,7 @@ sending the voice focus and the mode-out time too. So they are modelled as a sin
 to invent the other two fields, and the caller changing one chip would silently rewrite the
 other two.
 
-⚠ **They take while Speak-to-Chat itself is OFF**, which was the case throughout the run
+**They take while Speak-to-Chat itself is OFF**, which was the case throughout the run
 above. Unlike Focus on Voice, which is accepted and silently ignored outside ambient mode,
 these are not gated on the feature being on. So a write here that appears to do nothing is
 a real failure, not a mode problem.
@@ -1063,7 +1063,7 @@ fixed offsets:
     [8..] 0f 1e 3c 00   a four-int array, indexed by ModeOutTime's ordinal
 
 So **FAST = 15 s, MID = 30 s, SLOW = 60 s, NONE = 0** — the device's own numbers, which is
-why the card can print seconds instead of Sony's adjectives. ⚠ `0f 1e 3c` was spotted as
+why the card can print seconds instead of Sony's adjectives. `0f 1e 3c` was spotted as
 15/30/60 by eye first; that is a guess until the parser says where the array starts and how
 long it is, and it does — `new-array` of 4, read from index 8.
 
@@ -1083,11 +1083,11 @@ read-back is not unavailable, it is a contradiction. This is the one Sony write 
 and the card left the list, replaced by "No headphones switched on" — the right one of the
 five [Emptiness] reasons, reached without anything special being written for this case.
 
-⚠ **The screen confirms first, and the dialog names the COST rather than the action**:
+**The screen confirms first, and the dialog names the COST rather than the action**:
 "They can only be switched back on by hand, on the headphones." That someone is switching
 their headphones off is obvious from the button; that this app cannot undo it is not.
 
-⚠ `PowerOffSettingValue` also has `00 NO_USE`. It is the enum's absent value, not an "on" —
+`PowerOffSettingValue` also has `00 NO_USE`. It is the enum's absent value, not an "on" —
 nothing switches a headphone on over a link that requires it to be on.
 
 ## ✅ THE LAST THREE UNASKED FUNCTIONS — read, and none is a setting
@@ -1125,7 +1125,7 @@ absent from it may still reply.
 
 ## ⛔ ADAPTIVE SOUND CONTROL — ITS ON/OFF IS APP-SIDE, so there is none here (#1113)
 
-The XM4's headline feature. ⚠ **Read the resolution at the end of this section first** —
+The XM4's headline feature. **Read the resolution at the end of this section first** —
 the on/off turned out to live in the phone, so there is no device setting to find, and that
 is different from the two wrong answers this section carried before it.
 
@@ -1147,7 +1147,7 @@ the value back, and that is not an implementation choice — it is the rule that
 XM4 refusing multipoint and caught Speak-to-Chat being written with the wrong byte. A
 setting with no getter cannot be confirmed by this codebase's own standard.
 
-⚠ **And there is nothing to switch off.** `SenseSettingControl` has exactly two entries,
+**And there is nothing to switch off.** `SenseSettingControl` has exactly two entries,
 `00 NO_USE` and `01 START`. The vendor app's whole Adaptive Sound Control class is one
 method that sends the START and nothing else — no stop, no toggle, no query. Checked by
 reading every method on it, not by grepping for "stop" and finding none.
@@ -1209,7 +1209,7 @@ with its own `enabled` flag, in the phone, not the headphones.
 
 So the mechanism is: the app tells the device **once** to start sensing, then decides what
 the setting should be and writes it with `68 02 …` — the ordinary NCASM_SET_PARAM this repo
-already drives. ⚠ Confirmed by exclusion on the other side too: `NcAsmEffect` is
+already drives. Confirmed by exclusion on the other side too: `NcAsmEffect` is
 `00 OFF · 01 ON · 10 ADJUSTMENT_IN_PROGRESS · 11 ADJUSTMENT_COMPLETION`. **There is no
 adaptive mode in the NCASM block**, so nothing else on the device could be holding it.
 
@@ -1267,17 +1267,17 @@ The lengths check out — `12` = 18 = `len("MULTIPOINT_SETTING")`, `13` = 19 =
 `GsSettingType.BOOLEAN_TYPE` in both. `d7 d2 01 00` reading false is the check that the
 byte positions are right, because that answer is already known to be true.
 
-⚠ **These settings are self-describing, which is new here.** Every other setting in this
+**These settings are self-describing, which is new here.** Every other setting in this
 file is a fixed byte with a meaning learned from a capture. `d1`/`d2`/`d3` carry their own
 names, so a model that reports "GENERAL_SETTING1" is throwing away a string the device
-sent. ⚠ `d3` GENERAL_SETTING3 is **not** on this unit — it is absent from the 22.
+sent. `d3` GENERAL_SETTING3 is **not** on this unit — it is absent from the 22.
 
 ⚠ **Nothing has been written to `d1`, and it should not be assumed writable.** Its
 neighbour `d2` is the one setting the XM4 flatly refuses, using the identical `d8 <type>
 01 <v>` frame. Sharing a frame family with a refused setting is a reason to test, not a
 reason to expect success.
 
-⚠ **The touch panel currently reads OFF.** That is the owner's setting, whatever it is for,
+**The touch panel currently reads OFF.** That is the owner's setting, whatever it is for,
 and nothing here changed it.
 
 ## ✅ THE THREE UNIDENTIFIED BYTES IN THE ANC FRAME ARE NAMED
@@ -1335,7 +1335,7 @@ knows will be dropped, and returns the value that is actually there.
 and it was checked twice against the vendor app: `50` = 80 % on the afternoon's reading
 when Sound Connect showed 80, and `46` = 70 % this evening with the card agreeing.
 
-⚠ **`00` BATTERY is the only cell this model has.** `01` LEFT_RIGHT_BATTERY and `02`
+**`00` BATTERY is the only cell this model has.** `01` LEFT_RIGHT_BATTERY and `02`
 CRADLE_BATTERY belong to earbuds and a case, and the XM4 declares neither — `15`/`17`/`18`
 are absent from the 22 functions it lists. Asking for them would be inventing cells.
 
@@ -1348,7 +1348,7 @@ values and the third means the device does not know. Defaulting it to `false` wo
 confident percentage on screen on the strength of a shrug — the same rule `SonyAutoOff`
 applies to an unrecognised value byte.
 
-⚠ **This was decoded and confirmed and sat unused for a week.** The read
+**This was decoded and confirmed and sat unused for a week.** The read
 worked, the cross-check passed, and no driver method existed — so the Sony card showed no
 charge while the JBL's did. The same shape as #1041 and #1112: the wire was never the
 problem.
@@ -1390,7 +1390,7 @@ mistake shape as calling Adaptive Sound Control "device-blocked" earlier the sam
 | sent | reply | reads as |
 | --- | --- | --- |
 | `40 01` | `41 01 01 01 0f …` | supported; `SupportsSwitch.SUPPORT` |
-| `42 01 01` | `43 01 01 00` | ⚠ status ON_OFF = `00` |
+| `42 01 01` | `43 01 01 00` | status ON_OFF = `00` |
 | `46 01 01` | `47 01 01 01` | param ON_OFF = `01` **ON** |
 | `42 01 02` | `43 01 02 01` | language = `01` ENGLISH |
 | `46 01 02` | `47 01 02 01` | language = `01` ENGLISH |

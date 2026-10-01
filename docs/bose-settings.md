@@ -17,7 +17,7 @@ friends get a payload back. Plain `00` SET has never been sent from here.
 ⚠ **Direction below is from `hci_h4.direction`**, not inferred: `0x00` sent,
 `0x01` received.
 
-⚠ **A plain `02` SET_GET was enough for all three of these.** Only the ANC mode table
+**A plain `02` SET_GET was enough for all three of these.** Only the ANC mode table
 (`1f 03`) needs operator `05` Start. "Bose edits are transactional" was written from
 that one function and is not true of the protocol — believing it would have added a
 Start packet these three would then have answered wrongly.
@@ -39,7 +39,7 @@ are that band's own min and max. And both ends were then driven — bass −10 a
 +10, each accepted and read back, then restored to flat. Until that evening the whole
 evidence was that those bytes led every group, with nothing outside 0…+8 exercised.
 
-⚠ **There is no preset id on the wire.** Bose Music's four preset buttons are the app
+**There is no preset id on the wire.** Bose Music's four preset buttons are the app
 writing three band values, so the presets belong to the app — the opposite of Sony,
 where the preset is opaque and the levels follow it. What the vendor app sent:
 
@@ -82,17 +82,17 @@ the device answered differently then — do not treat that list as complete.
     → 01 09 02 03 80 09 <action>
     ← 01 09 03 0b 80 09 <action> 00 01 40 08 00 00 00 80
 
-`03` Hear Battery Level, `10` Spotify. ⚠ **Only those two were driven**; the QC45's
+`03` Hear Battery Level, `10` Spotify. **Only those two were driven**; the QC45's
 menu offers more, and an unexercised code decodes to unknown rather than the nearest
 match.
 
 ✅ **Driven on hardware** by this repo's own driver: Spotify, then back to
-Hear Battery Level, each confirmed by read-back. ⚠ It took eight days longer to reach
+Hear Battery Level, each confirmed by read-back. It took eight days longer to reach
 the XM4's equivalent [CUSTOM] button, which needs an alert subscribed and answered
 before the device will commit — the same kind of setting, reached two entirely
 different ways. #965, solved 2026-08-24.
 
-⚠ `80 09` is unexplained and is carried verbatim. The eight-byte trailer is static —
+`80 09` is unexplained and is carried verbatim. The eight-byte trailer is static —
 identical for both actions here and in the 08-15 sweep — and is **not** a mask of
 available actions: read in either byte order it has four bits set, and under neither
 do both `03` and `10` fall on one.
@@ -108,7 +108,7 @@ but there is no capture to be had this way.
 ⚠ **`com.bose.monet` is NOT obfuscated.** Bose Connect ships `io.intrepid.bose_bmap`
 with every class and enum named — `BmapPacket$FUNCTION_BLOCK`, `SettingsPackets`,
 `StatusPackets` — so the block/function map this page and `bose-read-surface.md` built
-by sweeping is simply *written down* in the APK. ⚠ Bose **Music** (`com.bose.bosemusic`,
+by sweeping is simply *written down* in the APK. Bose **Music** (`com.bose.bosemusic`,
 the QC45's app) is the opposite: its protocol layer is obfuscated to `BX`, `Og0`, `cC5`,
 and the JBL trick does not transfer there. So the older app is the better reference for
 both devices, which is not the order anyone would guess.
@@ -158,7 +158,7 @@ the QC45's eleven-level one, `01 02` PRODUCT_NAME is the device name. And in
 That task says Bose auto power off is "not on the QC45's device page in Bose Music at
 all, so there was nothing to drive". The device has it regardless, and the SDK names it.
 
-⚠ **And this corrects a reading in `bose-read-surface.md`.** That page lists, under QC35
+**And this corrects a reading in `bose-read-surface.md`.** That page lists, under QC35
 reads, `01 04  3c  ← battery 60% (QC45 keeps it at 02 02)`. Under this map `01 04` is
 **SETTINGS/STANDBY_TIMER** and `3c` = 60 is **sixty minutes**, which is Bose Connect's
 own default. The QC35's battery is at `02 02` like the QC45's — the sweep recorded
@@ -196,12 +196,12 @@ gap as `1f`, so they are QC45-era functions and stay unattributed.
 
 ### The rows this names — most of which have now been touched
 
-⚠ **Heading kept, contents overtaken.** As of 2026-08-26 the QC35 half of this table is
+**Heading kept, contents overtaken.** As of 2026-08-26 the QC35 half of this table is
 largely done and several entries below are marked with what was found; `04 03`
 REMOVE_DEVICE and `01 02` PRODUCT_NAME are not in it at all and are both built. The
 QC45's half is untouched, which is what #1098 is for.
 
-⚠ **Most of these have now been asked on the QC35** — see "The QC35 answers step 0" at
+**Most of these have now been asked on the QC35** — see "The QC35 answers step 0" at
 the end of `bose-read-surface.md`, which supersedes the "none has been asked" this
 section was written with. Four of them came back *absent* on that device, so the caution
 below turned out to be the important sentence rather than a formality.
@@ -225,7 +225,7 @@ function present on one of these two need not exist on the other.
 | `05 01`/`05 06` | SOURCE, NOW_PLAYING | read; ⚠ `05 06` needs operator `05` START, and the device volunteers `05 01` unasked |
 | `07 02` | CHIRP | ⚠ block `07` is absent on the QC35 — nothing to try there |
 | ⚠ `01 15` | IMU_VOLUME_CONTROL | **a volume control**; the hearing rule, in a third place |
-| ⚠ `0d` | DATA_COLLECTION | usage telemetry, as on the JBL and the Sony |
+| `0d` | DATA_COLLECTION | usage telemetry, as on the JBL and the Sony |
 
 ⚠ **All of the above is the APK's word**, and Bose Connect's at that — the QC45 runs a
 newer firmware whose `1f` block this SDK has never heard of. Every row is a claim about

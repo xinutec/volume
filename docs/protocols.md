@@ -110,7 +110,7 @@ byte answers:
 appearance of one trap: **a one-shot exchange cannot hold a protocol that has
 state.** The Bose ANC write needs it, Sony reads need it.
 
-⚠ **The framing itself is settled** — escaping, length and checksum — by one
+**The framing itself is settled** — escaping, length and checksum — by one
 captured frame; `docs/sony-settings.md`. It is no longer a hypothesis to blame when
 a device stays quiet.
 
@@ -226,7 +226,7 @@ reply  aa 91 07 12  01 <anc>  02 <ambient>  03 <talkthru>
 observed against the app's own screen. Driven from our socket and confirmed by a
 separate read-back, not by the echo. Sub-op `10` sets, `11` gets, `12` returns.
 ✅ **TalkThru is the third slot**, driven and confirmed against the app's
-own selector. ⚠ `read` used to fall through to OFF for it, reporting a mode the device
+own selector. `read` used to fall through to OFF for it, reporting a mode the device
 was really in as the one state it cannot be put into.
 
 `aa 21 01 30` (all status) moves with it — `30 01 00 …` under ANC, `30 00 02 …`
@@ -266,14 +266,14 @@ reads are unambiguous and cheaper, so nothing depends on decoding the bundle.
 Eight of those were already measured and agree, which is what makes the other six
 trustworthy.
 
-⚠⚠ **The `ordinal + 0x30` rule does NOT give the request byte for in-ear — measured
+⚠ **The `ordinal + 0x30` rule does NOT give the request byte for in-ear — measured
 2026-09-13 on a LIVE PRO 2.** The enum says `3b IN_EAR_STATUS`, and `aa 21 01 3b`
 answers nothing on either JBL here. The SDK asks with `41`:
 `CmdGen.generateGetInEarStatusCmd` builds a one-byte payload `0x41`, and
 `aa 21 01 41` answers `aa 22 03 41 <left> <right>` — one byte per bud, `01` = in an
 ear. `generateGetTwsConnectStatus` does send `0x39`, which is why `39` worked and this
 was not noticed. So the enum names the STATUS this device reports; it does not
-enumerate the bytes you may ask for. Ask the generator, not the ordinal. ⚠ **Six names here were abbreviated when this was written** — `IN_EAR`,
+enumerate the bytes you may ask for. Ask the generator, not the ordinal. **Six names here were abbreviated when this was written** — `IN_EAR`,
 `SEAL_CHECK`, `BT_CONNECTION`, `OTA_UPGRADE`, `TWS_CONNECTION`, `ANC_TUNING`. The SDK
 spells all six with a `_STATUS` suffix, and they are written out above now: a future
 session grepping the APK for the name in this table would not have found it.
@@ -287,7 +287,7 @@ right *observation*: this device carries its equaliser as a ten-band curve under
 sequence is worth keeping: it was published on one agreeing byte (too little),
 retracted when the setter turned out to be `aa 35 01 <on>` (reasonable, but an
 argument from a rule rather than from evidence), and the SDK's own enum now settles
-it. ⚠ **So setter and status field do NOT always mirror on this protocol** — `31`,
+it. **So setter and status field do NOT always mirror on this protocol** — `31`,
 `32` and `33` do, and this one does not. The mirror is a useful guess, not a law.
 
 ⚠ **`3a` is ANC_TUNING_STATUS, not PersoniFi** — PersoniFi is `3d`. This file said
@@ -309,7 +309,7 @@ command byte rather than the leading `aa`.
 options and reading the frames: `1e`/`3c`/`78` = 30/60/120 for "30 min"/"1 hr"/"2 hr".
 This replaces a note that had said "minutes, unverified" since the field was found.
 
-Driven both ways from this code and confirmed by read-back. ⚠ **The shape was
+Driven both ways from this code and confirmed by read-back. **The shape was
 guessed from the status reply and worked first time** — the setter mirrors the
 getter here, as it does on all four vendors.
 
@@ -372,10 +372,10 @@ answers with and whose sibling `EQCmd` parses the frame:
 c8 MAX_PRESET_EQ_1   c9 PERSONIFY_EQ   ca DESIGN_EQ   e6 CUSTOMIZED_EQ
 ```
 
-⚠⚠ **This page said `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO` until 2026-09-11**,
+**This page said `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO` until 2026-09-11**,
 from `EnumEqPresetIdx` — a different SDK in the same APK, whose `USER` entry pushes
 everything from `04` up one place. Both `EQSettings` and `EQSettings2` disagree with it
-and agree with each other. ⚠ **Only `00` and `01` have been seen on the wire and the
+and agree with each other. **Only `00` and `01` have been seen on the wire and the
 two enums agree there**, so nothing measured separates them; the ground is which SDK
 owns the frame. Third instance of one APK carrying two tables for one byte.
 
@@ -402,14 +402,14 @@ Three independent sources say nine-per-ear, left first:
 frequency differ between the ears. So the per-band types and Qs are part of the fit,
 not fixed furniture, and they stay out of this repo along with the gains.
 
-⚠⚠ **The gains, the types and the Qs of a real `c9` are health data and this repo is
+⚠ **The gains, the types and the Qs of a real `c9` are health data and this repo is
 public.** A captured `c9` frame was committed as a test fixture, before
 anyone knew what `c9` was, and was removed from the history. The fixture
 that replaced it is synthesised: same 196 bytes, same 18 bands, same grid, every gain
 zero. **Command shape goes in, values do not** — and "shape" here stops at the band
 count and the frequency axis.
 
-⚠ **`ca` (DESIGN_EQ) is seven bands** with a sample rate of `00` and both master gains
+**`ca` (DESIGN_EQ) is seven bands** with a sample rate of `00` and both master gains
 at `−1.0`, where every other table reads `48` and `0.0`. Unexplained, and it is not on
 the serving path.
 
@@ -426,7 +426,7 @@ the vendor app does, asking `ff`, `c9` and `ca` one after another.
 measured is that enabled-with-a-stored-profile still reports a curve. A state where `ff`
 answers `c9` has not been shown impossible, only never seen in two captures.
 
-⚠ **So `c9` being present says the profile is STORED**, and `aa a1` key `01` says
+**So `c9` being present says the profile is STORED**, and `aa a1` key `01` says
 whether it is applied. Two different questions, two different commands.
 
 ⚠ **The named curves are the APP's**, as on the Bose and unlike Sony: selecting JAZZ
@@ -436,10 +436,10 @@ sends ten numbers, not a name.
 and `00` after: it is the legacy one-byte preset field, inert on a model that carries its
 equaliser as a curve. See the status-field list above, where it is named.
 
-⚠ **`aa 40 01 01` drew nothing and changed nothing.** `aa 40`/`aa 41`/`aa 42` are
+**`aa 40 01 01` drew nothing and changed nothing.** `aa 40`/`aa 41`/`aa 42` are
 named in the SDK tables but none of them is the path the app uses; `aa a2` is.
 
-### ⚠ What the app has, and what we have — 2026-08-16, app column 2026-08-17
+### What the app has, and what we have — 2026-08-16, app column 2026-08-17
 
 Every row of the vendor app's device screen, read off it top to bottom, against the
 status sweep taken minutes later. **All twenty-three rows have a wire identity and twenty
@@ -478,7 +478,7 @@ show that, which is the limit of counting them.
 | Smart Talk + 5/15/20 s | ✅ `aa 9f`, seconds | ✅ r/w |
 | VoiceAware + Low/Mid/High | ✅ `aa 98`, level decoded | ✅ r/w |
 | Smart Audio & Video + Audio/Video | ✅ `aa 81`/`82`/`83`, 3 params | ✅ r/w, 3-way |
-| SilentNow | ⚠ opening it sends nothing | — |
+| SilentNow | opening it sends nothing | — |
 | Auracast | ✅ `aa b0` session, `aa b1` key `02` switch | ✅ read-only |
 | LE Audio | ✅ `aa b1` key `01`, measured | ✅ read-only, ⚠ link |
 | Auto Play & Pause | ✅ set `aa 35`, status `38`, DRIVEN | ✅ r/w |
@@ -493,7 +493,7 @@ show that, which is the limit of counting them.
 2026-08-17 — `aa b1` is where it was guessed to live, and the guess was right for the
 same reason it was cheap: `GetSetFeatureCmd` names its own keys.
 
-### ⚠ What Bose Connect has, and what we have — QC35, 2026-08-30
+### What Bose Connect has, and what we have — QC35, 2026-08-30
 
 The same exercise for the QC35, which had never had one. Rows read off Bose Connect with
 `scripts/drive_bose.py --survey` (which taps nothing), against the driver's own surface.
@@ -507,7 +507,7 @@ app with different rows — so it needs its own survey and does not inherit this
 | Name | ✅ `01 02` | ✅ r/w, rename driven |
 | Connections | ✅ multipoint `01 0a`, pairing `04 08`, forget `04 03` | ✅ r/w |
 | Product Tour | ⚪ app content, no wire | n/a |
-| **Music Share** | ⚠ `04 0a` PrepareP2p · `04 0b` P2pMode · `04 0d` P2pFeatures | ⛔ **ABSENT** |
+| **Music Share** | `04 0a` PrepareP2p · `04 0b` P2pMode · `04 0d` P2pFeatures | ⛔ **ABSENT** |
 | Noise Cancellation | ✅ `01 06` | ✅ r/w |
 | Action Button | ✅ `01 09` | ✅ r/w |
 | Self Voice | ✅ `01 0b` sidetone | ✅ r/w |
@@ -543,7 +543,7 @@ worth keeping whether or not anything calls them: deleting them costs the one ca
 showed this block answering operator `07` PROCESSING first, which is itself a correction to
 #935's "the silence IS the reply".
 
-#### ⚠ What Bose Music has, and what we have — QC45, 2026-08-30
+#### What Bose Music has, and what we have — QC45, 2026-08-30
 
 Every row of the QC45's Settings screen, read top to bottom, scrolled to the end (confirmed:
 two consecutive screenshots byte-identical).
@@ -572,12 +572,12 @@ assertion — which it was not before 2026-08-30.
 `CdmPermissionsSettingsActivity`, i.e. Android's **CompanionDeviceManager** association
 ("enables widget access, improves product updates, and enhances the connections"). A
 phone-side OS permission with no wire identity, the same kind of thing `SilentNow` turned out
-to be on the JBL. ⚠ Recorded rather than dropped: an unexplained row invites a re-survey.
+to be on the JBL. Recorded rather than dropped: an unexplained row invites a re-survey.
 
-⚠ **There is no Music Share row here**, which supports the generation split: Music Share is a
+**There is no Music Share row here**, which supports the generation split: Music Share is a
 Bose CONNECT feature and Bose Music offers `Source` instead.
 
-### ⚠⚠ THE ACCESSIBILITY TREE IS NOT THE SCREEN — and this survey needed both
+### ⚠ THE ACCESSIBILITY TREE IS NOT THE SCREEN — and this survey needed both
 
 `uiautomator` returned **six tiles and nothing else** for the QC45's home screen. The render
 showed a title, a settings **gear**, and `60%` battery in the same region — none of which
@@ -589,13 +589,13 @@ entry point to every setting above was invisible to it. Survey with the dump for
 and bounds, and with a screenshot for what the dump cannot see. `docs/captures.md`'s drive
 loop uses the dump; that is correct for driving, and wrong for enumerating.
 
-⚠⚠ **Music Share was found by ACCIDENT, and that is the argument for these tables.** It
+**Music Share was found by ACCIDENT, and that is the argument for these tables.** It
 surfaced only because a survey was run for an unrelated reason; nothing in the repo had ever
-named it. ⚠ It is a QC35 row, and **neither Bose model had a parity table until 2026-08-30**
+named it. It is a QC35 row, and **neither Bose model had a parity table until 2026-08-30**
 — so no completeness claim about either was checkable against anything. The JBL table exists
 for exactly this reason and Bose had gone without one.
 
-⚠ **The two gaps are different in kind.** Music Share is undecoded work (`04 0b` reads, its
+**The two gaps are different in kind.** Music Share is undecoded work (`04 0b` reads, its
 meaning unconfirmed). `04 02` DISCONNECT is fully decoded and deliberately unsent — three
 independent readings agree on the frame, and agreement is not the same as having sent it.
 
@@ -619,7 +619,7 @@ one element in a set.
 ✅ **Driven both ways and confirmed by ear**, which is the only evidence that separates
 "the device stored it" from "the device acts on it". Going into OFF the M2 announced
 **"ambient sound control off"** — the vendor app's own name for the row — and back to ANC
-it said **"noise cancelling"**. ⚠ The cycle went ANC → OFF → ANC rather than repeating
+it said **"noise cancelling"**. The cycle went ANC → OFF → ANC rather than repeating
 OFF, because a write against the value already held is indistinguishable from a broken
 command; it may announce nothing at all, which reads as a refusal.
 
@@ -650,7 +650,7 @@ level from 7 and the index from 9. Index 4 is the KEY `01`; index 5 is `00`.
 ← aa a8 05 02  01 00  02 64            balance: off, centre
 ```
 So both are **key/value pairs, not positional**, and a positional read reports a feature
-that is off as on. The device and the app agreed the whole time. ⚠ PSAP is still
+that is off as on. The device and the app agreed the whole time. PSAP is still
 read-only here, now by choice rather than by doubt: it amplifies the world into your
 ears, which is [the volume limiter]'s argument in a second place.
 
@@ -672,7 +672,7 @@ feature known to have one. This one did not.
 ⚠ **`?` means nobody has looked**, not that it is hidden. Each unknown is one capture
 of the app touching that one control, and the method in `docs/captures.md` applies
 unchanged; the reason there are twenty of them is that the work stopped when ANC
-worked. ⚠ Several rows are toggles that are OFF right now — Spatial Sound, Smart Talk,
+worked. Several rows are toggles that are OFF right now — Spatial Sound, Smart Talk,
 VoiceAware, LE Audio, balance — so any of them could be the unidentified `34`, and
 attributing it needs one of them varied, not more reading.
 
@@ -689,7 +689,7 @@ Most of these share one convention, the same as `aa a2`: `aa <cmd> <len> <operat
 | Spatial Sound | `aa 9d 03 00 <on> <mode>` | `aa 9d 01 01` | `aa 9d 03 02 <on> <mode>` |
 | Smart Talk | `aa 9f 03 00 <on> <seconds>` | `aa 9f 01 01` | `aa 9f 03 02 <on> <seconds>` |
 | VoiceAware | `aa 98 03 00 <level> <on>` | `aa 98 01 01` | `aa 98 03 02 <level> <on>` |
-| Auto Play & Pause | `aa 35 01 <on>` | ? | ⚠ see above |
+| Auto Play & Pause | `aa 35 01 <on>` | ? | see above |
 | Left / Right Sound Balance | `aa a8 05 00 01 <on> 02 64` | `aa a8 01 01` | `aa a8 05 02 01 <on> 02 64` |
 | Smart Audio & Video | one of three fixed `aa 81 08 …` frames | `aa 82 00` | `aa 83 08 …` |
 
@@ -714,7 +714,7 @@ Grouping into little-endian pairs is a *reading*, not the vendor's word for it: 
 numbers themselves are undecoded and look like DSP tuning; what is settled is which
 frame corresponds to which state, which is all that is needed to drive it.
 
-⚠ **The off frame is sent whatever mode is selected**, and that is the measurement that
+**The off frame is sent whatever mode is selected**, and that is the measurement that
 matters here — it is why "which of the three bytes is the enable" has no answer:
 
     12:50:01  pick Video Mode, switch on   → c5 00 2e 00 50 00
@@ -724,7 +724,7 @@ matters here — it is why "which of the three bytes is the enable" has no answe
 Off carries the Audio-family first two values while Video is lit, so it is a state of
 its own rather than a modifier on the current mode.
 
-⚠ **A stated prediction, refuted.** Audio's third value moves `96` → `e6` when switched
+**A stated prediction, refuted.** Audio's third value moves `96` → `e6` when switched
 off, a difference of `0x50`; Video's is `50`, so `0x50 + 0x50 = a0` was written down
 beforehand as what Video-off should read if the third value carried the enable. It never
 appeared — the app does not compute an off-value from the mode, it sends a constant.
@@ -744,12 +744,12 @@ card's control (`docs/captures.md`). Three drags, Low then High then Mid:
     12:13:46  → aa 98 03 00 02 01     Mid
 
 So **`01` Low · `02` Mid · `03` High**, and the byte that had been written down as an
-unexplained constant was simply the level nobody had moved off its default. ⚠ Like the
+unexplained constant was simply the level nobody had moved off its default. Like the
 mode pickers, a level change carries `on = 01`: dragging the bar switches VoiceAware on.
 The resting read `aa 98 03 02 02 00` — Mid, off — says the same thing from the other
 side, and had done all along.
 
-⚠ **RETRACTED — "Spatial Sound's Movie / Music / Game buttons send NOTHING when
+**RETRACTED — "Spatial Sound's Movie / Music / Game buttons send NOTHING when
 tapped."** They send. This section previously said the opposite, "confirmed twice, the
 second time with the three taps landing on one row at identical coordinates, so this is
 no longer a suspected mis-tap". The identical coordinates were the evidence *for* a
@@ -775,7 +775,7 @@ render: the switch was OFF before the tile tap and ON after. Smart Audio & Video
 Smart Talk behave the same way, so "a segmented pick writes" is the rule here, not the
 exception.
 
-⚠ The old claim's other half survives: the mode byte does travel with the on/off write.
+The old claim's other half survives: the mode byte does travel with the on/off write.
 The 09:30 run that produced the retracted finding sent `aa 9d 03 00 01 01` — mode
 `01`, Music — because the Movie tap before it had done nothing. Nothing was ever left
 on Movie.
@@ -800,12 +800,12 @@ parseAnalyticsInfoData` names the fields: `aNCTimes`, `aAActiveTimes`, `tTActive
 `powerOnDuration`, `playtimeDuration`, `bTConnectionDuration`, `voicecallDuration`,
 `lowBattWarningTimes`, each of the last five split L/R on TWS models.
 
-⚠ **Worth stating plainly, since this app exists to replace the vendor's:** the
+**Worth stating plainly, since this app exists to replace the vendor's:** the
 headphones count how often you use each feature and how long you listen, and the
 vendor app collects it. Nothing here reads `aa 13`, and nothing should start without a
 reason better than "the frame is understood".
 
-⚠ **This sweep WAS the cheapest lead left; it has now been spent.** Of the six named
+**This sweep WAS the cheapest lead left; it has now been spent.** Of the six named
 there as unknown, four were decoded in the months since — `93` Voice Prompts, `a5`
 SafeSoundCmd, `b0` LeaAudioCmd, `a0` PSAPCmd — leaving `90` and `9b`.
 
@@ -825,7 +825,7 @@ aa 94 01 01     →  "TL1461-AN0018486"       serial, unchanged
 ```
 
 ⚠ **`90` and `61` do not follow `cmd+1`**, so a decoder that assumes it will wait for a
-reply that never comes and report the device silent. ⚠ **`90`'s fourteen zero bytes are
+reply that never comes and report the device silent. **`90`'s fourteen zero bytes are
 not evidence of an empty feature** — nothing here establishes what it is asking, and an
 all-zero payload reads identically to a field this unit does not populate.
 
@@ -866,7 +866,7 @@ const/4  v0, 0x2    iput-byte ...->subRetCmd:B    ← status
 | `a8` | LeftRightSoundBalanceCmd | Left / Right Sound Balance |
 | `aa` | PreserveSettingsCmd | — |
 | `b0` | LeaAudioCmd | LE Audio |
-| `b1` | GetSetFeatureCmd | ⚠ see below |
+| `b1` | GetSetFeatureCmd | see below |
 
 ✅ **This was checked before it was trusted**: five opcodes decoded from captures the
 hour before — `98`, `9d`, `9e`, `9f`, `a8` — land on the classes whose names match the
@@ -906,7 +906,7 @@ getter on the way in.
 → aa 93 01 01   ← aa 93 05 02 01 00 00 08   something else, and it never moves
 ```
 
-Toggling the vendor app's own switch moved `05 01` → `05 00` and back. ⚠ **`aa 93 01 01`
+Toggling the vendor app's own switch moved `05 01` → `05 00` and back. **`aa 93 01 01`
 was unchanged across both halves** — and that is the frame this row had been filed under
 since 2026-08-17. Two sub-commands on one command byte, and the one that looked like the
 answer is the one that never moved. **Only an ablation separates them**; reading either
@@ -920,7 +920,7 @@ picker offers eleven languages, and `BesOTATask` reads `OTA_LANGUAGE_TYPE` out o
 touched — the picker was opened, read, and backed out of, and `aa 93 01 01` was verified
 byte-identical afterwards.
 
-⚠ **Hence no SETTER for the switch either.** The mirror rule that guessed every other
+**Hence no SETTER for the switch either.** The mirror rule that guessed every other
 writer here is already broken on this device (Auto Play & Pause sets on `35`, reports on
 `38`), and `aa 93`'s neighbouring sub-commands are the OTA ones. Guessing in that space is
 the sweep this file forbids, on the one family where a wrong guess starts a file transfer.
@@ -929,7 +929,7 @@ the sweep this file forbids, on the one family where a wrong guess starts a file
 with an unsolicited battery frame glued on. Same hazard as `aa b1`, and `JblVoicePrompts`
 bounds its read by the length byte for it. `JblSettingsTest` pins that exact buffer.
 
-⚠ **Voice Assistant remains unshown — `aa 92 09 02 01 01 02 01 03 00 04 00`.** The app says
+**Voice Assistant remains unshown — `aa 92 09 02 01 01 02 01 03 00 04 00`.** The app says
 "Native" and none of `EnumHotwordVaType`'s OFF/GA/ALEX/DEFAULT/XIAOWEI fits, so the TLV's
 values are unmapped. Unlike Voice Prompts there is no safe ablation in sight: the picker's
 alternatives are assistants, not a switch.
@@ -943,7 +943,7 @@ arithmetic is `(len - 1) / 2` pairs with the key at `i * 2 + 4` and the value at
 
 | key | `AdvanceAncSettings` field |
 | --- | --- |
-| `01` | adaptiveAnc — ⚠ `0` MANUAL_ADAPTIVE_ANC · `1` TRUE_ADAPTIVE_ANC, declared constants |
+| `01` | adaptiveAnc — `0` MANUAL_ADAPTIVE_ANC · `1` TRUE_ADAPTIVE_ANC, declared constants |
 | `04` | manualAdaptiveAncLevel |
 | `05` | leakageCompensation |
 | `06` | earCanalCompensation |
@@ -966,12 +966,12 @@ located. So they are shown as numbers with their key names, never as sliders, an
 **no writer**: sub-command `20` is named and has never been sent.
 
 ✅ **Auracast's SESSION is `aa b0`**, now measured rather than inferred from
-`LeaAudioCmd` parsing into `AuracastGroup`. ⚠ This was read at the time as ruling `b0`
+`LeaAudioCmd` parsing into `AuracastGroup`. This was read at the time as ruling `b0`
 out for LE Audio and leaving that row unplaced. Both halves were half right: `b0` is
 the session, and the *switches* for both Auracast and LE Audio are keys on `aa b1` —
 see the `aa b1` section, where the whole row finally resolved.
 
-⚠ **Personi-Fi, SilentNow and Equalizer fired NOTHING when opened.** For the equaliser
+**Personi-Fi, SilentNow and Equalizer fired NOTHING when opened.** For the equaliser
 that is explained — the curve was already read at connect. For the other two it is a
 real result and not a missed tap: the taps are verified by the driver, and the frames
 either side are present. Their state is app-local until something is committed.
@@ -1005,12 +1005,12 @@ Step 1 of 3 of "Getting Ready" is an automatic ambient-noise measurement, and it
 ```
 
 Three runs, all `1e 00 1e 00` in a quiet room, each taking ~5 s between request and reply.
-⚠ **The reading of the payload is INFERRED**: two little-endian 16-bit values, both
+**The reading of the payload is INFERRED**: two little-endian 16-bit values, both
 `0x001e` = 30, most likely a per-side noise level. Nothing establishes the unit or which
 side is which — a quiet room gives no contrast, so this needs a noisy re-run to confirm
 the fields move independently.
 
-### ⚠ `aa a1` carries keys beyond `01`
+### `aa a1` carries keys beyond `01`
 
 The RETEST flow drove two more keys through the same set grammar, 34 sets in one run:
 
@@ -1021,12 +1021,12 @@ The RETEST flow drove two more keys through the same set grammar, 34 sets in one
 
 ⚠ **What the keys MEAN is not established** — `02` moved at the start and once mid-run,
 `04` stepped `01` → `02` and then repeated. They are recorded as observed traffic, not as
-named fields. ⚠ **No curve and no profile bytes appeared at any point**, which is
+named fields. **No curve and no profile bytes appeared at any point**, which is
 consistent with a run that never completed: see #981, where the vendor app wedges at step
 2 of 18.
 
-⚠ **TEST REPORT sends NOTHING.** The per-ear curve it draws is app-side in that window;
-no frame carried it. ⚠ And it is someone's hearing profile — a repo this public gets
+**TEST REPORT sends NOTHING.** The per-ear curve it draws is app-side in that window;
+no frame carried it. And it is someone's hearing profile — a repo this public gets
 the command shape and never the values.
 
 ### ⚠ A REPLY IS NOT THE ONLY FRAME IN THE BUFFER — measured
@@ -1049,7 +1049,7 @@ seconds**, unasked.
 | carried a second frame glued on | **8 of 64 (12.5%)**, every one an `aa 25` |
 | came back under an unexpected command | 0 |
 
-⚠ **All 8 decoded correctly, because the battery frame arrived AFTER the answer.** The
+**All 8 decoded correctly, because the battery frame arrived AFTER the answer.** The
 decoders here bound themselves by the length byte and check the command, so trailing junk is
 ignored. **The failure is the same event arriving FIRST**: offset 0 becomes someone else's
 frame, every decoder correctly returns null, and a settings row silently disappears. That is
@@ -1075,7 +1075,7 @@ not `0xa0`. Untreated, the **Sound amplification** row would have vanished. The 
 the reply behind the battery frame and decoded it.
 
 ⚠ **It still cannot be triggered on demand** — it was waited for, not provoked, so the 1.2%
-is one occurrence and not a rate to plan against. ⚠ Five other buffers began `aa 25` and are
+is one occurrence and not a rate to plan against. Five other buffers began `aa 25` and are
 NOT this bug: they are the battery row's own reply, which legitimately starts there. What
 separates them is whether a second frame follows.
 
@@ -1096,7 +1096,7 @@ aa b1 <len> <op> [<keyId> <valueSize> <value…>]…      op  00 get · 01 set �
 
 | key | feature | get | set |
 | --- | --- | --- | --- |
-| `00` | the vendor's keepalive | ⚠ silent | `aa b1 04 01 00 01 00` every 4 s |
+| `00` | the vendor's keepalive | silent | `aa b1 04 01 00 01 00` every 4 s |
 | `01` | **LE Audio** | `aa b1 03 00 01 00` | `aa b1 04 01 01 01 <on>` |
 | `02` | **Auracast** | `aa b1 03 00 02 00` | `aa b1 04 01 02 01 <on>` |
 | `03` | ⚠ **unnamed, and it answers** | `aa b1 03 00 03 00` | (not sent) |
@@ -1122,7 +1122,7 @@ blamed the DEVICE.** `volume`'s own process held a GATT client from a settings r
 second `discoverServices` returned an EMPTY service list and the probe printed
 `service 65786365-… not on this device`. That sentence is about a lease, not about the
 headphones, and it failed in 19 ms — far too fast for a connect that had really happened.
-⚠ Three identical retries all failed the same way, so this reads as a hard fact about the
+Three identical retries all failed the same way, so this reads as a hard fact about the
 device rather than as contention. `am force-stop org.xinutec.volume` cleared it instantly.
 Same shape as `probe.sh free` for the vendor apps, except the app holding the channel is
 ours.
@@ -1159,7 +1159,7 @@ triples, so a frame can be a get and still start with `00`:
   three of them outright. The ablation this file called "the honest next step" was
   never needed.
 
-⚠ **`aa b0` and `aa b1` are both Auracast, and both readings were right.** `LeaAudioCmd`
+**`aa b0` and `aa b1` are both Auracast, and both readings were right.** `LeaAudioCmd`
 (`b0`) is the *session* — `scanLeAudioSource`, `receiveLeAudioSource`, `cancelReceive…`.
 Key `02` on `b1` is the *switch*. Naming either one "Auracast" alone loses the other.
 
@@ -1206,7 +1206,7 @@ which is the decode explaining an observation rather than the other way round.
 `parseBatteryInfo` puts slave at index 6, master at 7, box at 9, and reads them only
 when the sub-command byte is `01`.
 
-⚠ **Master and slave cannot be told apart from any capture here**, because the two
+**Master and slave cannot be told apart from any capture here**, because the two
 bytes have been equal in every frame — `3c 3c` = 60%, `5a 5a` = 90% on
 2026-08-16 when it matched the app's "90%". That calibration fixes the SCALE and says
 nothing about the slots. It is precisely the shape of `SafeSound`'s two `01` bytes,
@@ -1273,7 +1273,7 @@ the ACTION, not the gesture: `aa 77 03 00 0a 06` — right double-tap → previo
 was accepted and read back at 23:26. Right-cup gestures are writable. What is still
 true is that left TRIPLE tap refused all fourteen actions tried.
 
-⚠ **LEFT_TAP is the left cup's physical BUTTON.** The M2's left cup has no touch
+**LEFT_TAP is the left cup's physical BUTTON.** The M2's left cup has no touch
 surface at all — touching it everywhere does nothing, which read as "the write is
 dead" until the button was pressed. The right cup is the touch panel.
 
@@ -1302,7 +1302,7 @@ selecting it:
 ⚠ **`a1` is in no SDK array.** `values_Action` runs `54`–`60` for the assistants and
 this is not among them — but the app's own `product_gesture_config.json` lists
 `activateNativeVoiceAssistant` as `0xA1` (and `eQOnOff` as `0xC8`), so the JSON and the
-device agree and the array is simply not the whole space. ⚠ It also means this file's
+device agree and the array is simply not the whole space. It also means this file's
 `0e`–`16` and `54`–`60` corrections were both wrong in the same way: derived from a
 table rather than from a device.
 
@@ -1340,7 +1340,7 @@ The third only became visible once the real table was read. A gesture write can 
 button to a volume change, which is the one thing this repo will not do casually, so
 these three stay out of any sweep and out of any writer.
 
-⚠ The `ff` in `aa 77 02 01 ff` is a read sentinel with no entry in `values`;
+The `ff` in `aa 77 02 01 ff` is a read sentinel with no entry in `values`;
 `GestureCmd.isReset` recognises `fd`/`fe`/`ff`. The ordinal table does not reach it.
 ```
 aa 21 01 <30..3d>   EnumDeviceStatusType, ordinal + 0x30 — see the list above
@@ -1353,7 +1353,7 @@ aa 74/75  ANC tuning    aa 81/82  smart switch      aa 95  factory reset
 ```
 Replies are `aa <cmd+1>` (`aa 11` → `aa 12`), per `RetHeader`. Seen on the wire:
 `aa 12` device info with the name and battery, `aa 22` status, `aa 94` the serial,
-`aa 77` the gesture map, `aa a2` EQ as IEEE floats. ⚠ `aa b1 …` every four seconds is
+`aa 77` the gesture map, `aa a2` EQ as IEEE floats. `aa b1 …` every four seconds is
 `GetSetFeatureCmd` polling, **not a keepalive** — it is the bulk of any capture and it
 carries writes too.
 
@@ -1378,7 +1378,7 @@ read       → aa 21 01 31   ← aa 22 02 31 <anc>  aa 22 02 32 <aa-mode>
 **The buds announce the mode aloud — "Noise cancelling", "TalkThru" — which is the one
 check that owes nothing to this decode. Ask whoever is wearing them.**
 
-⚠⚠ **`aa 91 01 11` — the M2's read — is WRONG here, and wrong in two different
+⚠ **`aa 91 01 11` — the M2's read — is WRONG here, and wrong in two different
 directions.** In a TalkThru confirmed by its owner's ears it answered `01 01 02 00 03
 00` ("ANC") at 11:12 and `01 00 02 01 03 00` ("Ambient") at 11:14. The status fields
 were right both times. **The device answers a single `aa 21 01 31` with `31` AND `32`,
@@ -1400,7 +1400,7 @@ Saving"), auto play `38`, L/R balance `aa a8`, voice prompts `aa 93` — and wri
 driven and read back for auto-off (`30 → 60 → 30 min`) and auto play (`on → off → on`).
 
 ✅ **Gestures `aa 77` are shipped**, checked by driving the map rather than by reading
-a screen. ⚠⚠ **This section said the vendor app has no controls screen for this model.
+a screen. **This section said the vendor app has no controls screen for this model.
 It has one** — a Gestures section holding "Ambient Sound Control" and "Playback & Voice
 Assistant Control". That survey was taken with the buds OUT of ears, where the app
 renders greyed and lists a SUBSET of its rows. **The in-ear confound corrupts a survey
@@ -1441,14 +1441,14 @@ express "same VIDEO, different AUDIO" — it needs a per-model table. ✅ The wr
 works: `aa 81 08` with the measured payload was acked and read back. The app offers only
 two options on this model; there is no third.
 
-✅ **VoiceAware `aa 98` ships.** ⚠ It was excluded on that same bad survey. The app's
+✅ **VoiceAware `aa 98` ships.** It was excluded on that same bad survey. The app's
 row is a switch plus Low/Mid/High; it read **off** and **Mid**, against
 `aa 98 03 02 02 00`, which decodes to exactly that.
 
 ⚠ **Still not shown** — `aa a0` PSAP is silent on this model, and `aa 82` is blocked
 above. Answering is not meaning the same thing. #1587.
 
-⚠ **The EQ contradicts itself and nothing here depends on it.** `aa 21 01 34` reads
+**The EQ contradicts itself and nothing here depends on it.** `aa 21 01 34` reads
 `04` while the vendor app shows the equaliser as JAZZ; this repo's preset table calls
 `04` Rock. Either the numbering is wrong or `34` is not the preset index. The `aa a2`
 ten-band read is silent on this model, so no EQ row ships either way.
@@ -1469,7 +1469,7 @@ So **`34` is the preset index and it mirrors the write**. The numbering is the S
 00 OFF · 01 JAZZ · 02 VOCAL · 03 BASS · 04 USER · 05 ROCK · 06 PIANO · 07 CLUB · 08 STUDIO
 ```
 
-⚠⚠ **Two numberings collide on small integers, and `JBL_EQ_PRESETS` is the OTHER one.**
+⚠ **Two numberings collide on small integers, and `JBL_EQ_PRESETS` is the OTHER one.**
 It is not a wrong version of this table — it maps the M2's `aa a2` **table ids**, where
 `04` is Rock and `c9` is Personi-Fi. Here `04` is a **preset index** meaning USER, and
 Rock is `05`. Same digits, different field, and the M2's `aa a2` is silent on this model
@@ -1479,7 +1479,7 @@ so nothing would have flagged the confusion. ⛔ Never name an `aa 40` index out
 ⚠ **The app's "JAZZ" label is its carousel position, not the active preset.** It showed
 JAZZ throughout while the field read `04`. A label beside a picker is not a state read.
 
-⚠ `aa 42 01 <idx>` (REQ_CUSTOM_EQ) answers short and undecoded — `af 03` for index 1,
+`aa 42 01 <idx>` (REQ_CUSTOM_EQ) answers short and undecoded — `af 03` for index 1,
 `03 01` for index 4. ⛔ **Do not publish any curve bytes from it.** A USER curve on a JBL
 can be a hearing profile; this repo has already purged one audiogram from public history.
 
@@ -1518,11 +1518,11 @@ aa 36 01 10   start RIGHT       aa 36 01 00   stop RIGHT
 aa 23 00      → aa 24 01 <n>    status; `generateGetEarBeepingCmd` takes no argument
 ```
 
-⚠⚠ **`BesBeepingType`'s ordinals are `00 01 02 03` and its WIRE values are `00 01 10
+⚠ **`BesBeepingType`'s ordinals are `00 01 02 03` and its WIRE values are `00 01 10
 11`.** `generateSetEarBeepingCmd` maps through `CmdBase.values_ear_beeping`, a dedicated
 four-entry table, **not** the generic `CmdBase.values` that every other generator uses.
 Sending the ordinal raw gets `aa 00 02 36 00` — a success ack — and does nothing at all.
-That table was dumped hours earlier and walked past. ⚠ **When a generator indexes a
+That table was dumped hours earlier and walked past. **When a generator indexes a
 named table, read WHICH table.** Two commands in this file now turn on that distinction;
 the other is the EQ preset space.
 
@@ -1544,7 +1544,7 @@ phone's GATT cache. The probe resolves by LE SCAN; the app connects through the 
 ⛔ Do not read this state as the device being unreachable, and do not debug frames
 through it — every write sent during it is uninformative.
 
-### ⚠⚠ Ambient Sound Control switches ITSELF on when worn — one fact, four symptoms
+### ⚠ Ambient Sound Control switches ITSELF on when worn — one fact, four symptoms
 
 Measured, nobody writing anything:
 
@@ -1561,7 +1561,7 @@ it was the user's hypothesis, not a reading off the wire:
   * the vendor app renders its whole dashboard greyed and ignores taps;
   * a mode "reverting" moments after a write — it had not reverted, the buds had left
     an ear;
-  * ⚠ and picking a bud up to put it back TOUCHES ITS STEM, which is the control
+  * and picking a bud up to put it back TOUCHES ITS STEM, which is the control
     surface, so the mode cycles. A test perturbed that way reads as a refused write.
 
 So: **check `41` at both ends of any run that writes.** A run whose in-ear state moved
@@ -1628,7 +1628,7 @@ own that anyone here has found.** Seven reply commands — `31`, `45`, `51`, `59
 So the driver still does not check it, and — see the map below — **it cannot be used to
 find where a reply ends** either.
 
-⚠⚠ **This paragraph said the opposite for one commit**. The −2 rule was
+**This paragraph said the opposite for one commit**. The −2 rule was
 verified against a capture in which the battery broadcast `31` repeats sixty times and
 every other reply appears once or twice, so "it held for every frame" was true by
 frame count and false by command — the sample was one command wearing a majority.
@@ -1638,7 +1638,7 @@ frame count and false by command — the sample was one command wearing a majori
 identical `47` and changed nothing. Verify a JLab write by reading the state back,
 never by the reply — which is now possible.
 
-⚠ **Guessing the mode byte failed and measuring worked**, as with the Sony. The
+**Guessing the mode byte failed and measuring worked**, as with the Sony. The
 values came from capturing the app twice, once per mode; `03` was invented and is
 simply not a mode.
 
@@ -1667,14 +1667,14 @@ the app itself sent.
 ### The framing, and why the CHECKSUM is the delimiter
 
     request  c0 ff 00 <cmd> 00 00 01 00 <sum>            sum = Σ preceding bytes, mod 256
-    reply    00 ff 01 <cmd> <b1> 00 <payload…> <tail>    ⚠ no rule found for <tail>
+    reply    00 ff 01 <cmd> <b1> 00 <payload…> <tail>    no rule found for <tail>
     write    c0 ff 00 <cmd+2> …                          each writer is its reader + 2
 
 ✅ **The REQUEST checksum is a real delimiter**, and it is needed: the app packs up to
 three requests into one RFCOMM payload. Walking forward until Σ matches the candidate
 last byte splits every such packet in all four captures with nothing left over.
 
-⚠⚠ **Nothing delimits a REPLY, so do not try.** The byte after a reply's cmd is not a
+⚠ **Nothing delimits a REPLY, so do not try.** The byte after a reply's cmd is not a
 length — `31` carries the SAME nine-byte body under `b1 = 01` and under `b1 = 03`, so one
 value would have to be wrong; `4d` declares `1b` (27) and carries 36; `71` declares `1e`
 (30) and carries 40 — and the checksum does not close for five of the twelve reply
@@ -1688,21 +1688,21 @@ parse and is stated rather than dressed up.
 | --- | --- | --- | --- | --- |
 | `30` | `31` | — | battery `<L> <R> 04 00 02 00 00`, also broadcast unasked ~every 10 s | watched them drain 90/90 → 90/80 → 80/80 across one capture; ✅ **L before R** settled at 70/60 by measuring the vendor app's own icons — 34 px of fill against 30 |
 | `44` | `45` | `46` | ANC — `00` off · `01` Noise Cancelling · `02` Be Aware | already driven; re-driven both ways here and restored |
-| `48` | `49` | `4a` | current EQ, `<preset idx> <10 band levels>` | reads preset `03` + a curve, and the UI had **Custom** — 4th of EQ1/EQ2/EQ3/Custom — ticked. ⚠⚠ **2026-09-02: `49`'s ten bytes are the CUSTOM slot's, not the selected preset's.** Driving `0` and `1` each moved the index and left the bytes at slot 3's cut curve, with `71` reading `[flat, flat, flat, cut]` live and unchanged by either write |
-| `4c` | `4d` | ⚠ | touch map, 12 × `<side 01·02> <gesture 01…06> <action>` | the 12 triples are exactly the 2 sides × 6 gestures the Touch Controls screen draws, in its order |
+| `48` | `49` | `4a` | current EQ, `<preset idx> <10 band levels>` | reads preset `03` + a curve, and the UI had **Custom** — 4th of EQ1/EQ2/EQ3/Custom — ticked. ⚠ **2026-09-02: `49`'s ten bytes are the CUSTOM slot's, not the selected preset's.** Driving `0` and `1` each moved the index and left the bytes at slot 3's cut curve, with `71` reading `[flat, flat, flat, cut]` live and unchanged by either write |
+| `4c` | `4d` | | touch map, 12 × `<side 01·02> <gesture 01…06> <action>` | the 12 triples are exactly the 2 sides × 6 gestures the Touch Controls screen draws, in its order |
 | `50` | `51` | `52` | spatial MODE — `00` Music · `01` Movie | driven both ways from the app's own tiles, restored to Music |
-| `70` | `71` | ⚠ | all four preset curves, 4 × 10 bands | preset 3's ten bytes are byte-identical to `49`'s current curve. ✅ read live 2026-09-02 as `[flat, flat, flat, cut]`, and **unchanged by a preset write** |
+| `70` | `71` | | all four preset curves, 4 × 10 bands | preset 3's ten bytes are byte-identical to `49`'s current curve. ✅ read live 2026-09-02 as `[flat, flat, flat, cut]`, and **unchanged by a preset write** |
 | `76` | `76` | `74` | Spatial Audio ON/OFF | the ablation below |
 | `58` | `59` | | ⚪ unidentified — reads `00` | |
 | `62` | `63` | | ⚪ unidentified — reads `04 04 04 04` | |
-| `66` | `67` | `68` | **Safe Hearing** — `00` Default · `01` 95 dB · `02` 85 dB | read at two values: `00` in two enumerations on Default, `02` in one on 85 dB; all three writes captured. ⚠ **higher = LOWER ceiling** |
+| `66` | `67` | `68` | **Safe Hearing** — `00` Default · `01` 95 dB · `02` 85 dB | read at two values: `00` in two enumerations on Default, `02` in one on 85 dB; all three writes captured. **higher = LOWER ceiling** |
 | `7a` | `7a` | | ⚪ unidentified — reads `00` | |
 | `7e` | `7f` | | ⚪ unidentified — reads `01 01 01` | |
 
 ⚠ **`76` and `7a` answer with their OWN id**; every other read answers `cmd+1`. Measured,
 and left as measured rather than tidied into the pattern.
 
-⚠ **The ⚠ in the write column is a PREDICTION, not a capture.** `4a`, `4e` and `72` follow
+⚠ **The in the write column is a PREDICTION, not a capture.** `4a`, `4e` and `72` follow
 from reader+2, which holds for all three writers that were actually observed (`44`→`46`,
 `50`→`52`, `76`→`74`) — but no EQ or gesture write has been seen on the wire, and this
 protocol is not one to test a guess on.
@@ -1725,12 +1725,12 @@ establishes by flagging repeats rather than by anyone eyeballing them. One varia
 byte, and the app drew the switch OFF on the cold relaunch, so it read that state from the
 device rather than remembering it.
 
-### ⚠ Three things about driving this app
+### Three things about driving this app
 
 - **Opening a row sends NOTHING.** The rows are accordions, and the app answers them from
   what the cold connect already read — the 09:49–09:52 window holds six row-opens and not
   one frame beyond the battery broadcast. To attribute a command you must CHANGE something.
-- ⚠⚠ **The switch is outside its row's clickable bounds.** `Spatial Audio` is a Button
+- **The switch is outside its row's clickable bounds.** `Spatial Audio` is a Button
   ending at x=848; its toggle sits at x≈917. Two taps on the row centre changed nothing,
   and the accessibility tree reports `checked=false` for every row either way, so the tree
   could not show it. **The wire is what proved the taps missed** — no `74` at either
@@ -1738,7 +1738,7 @@ device rather than remembering it.
 - **`am force-stop` then relaunch is the only way to re-read state**, since nothing but a
   change or a cold start makes the app ask again.
 
-### ⚠ What the JLab app has, and what we have
+### What the JLab app has, and what we have
 
 Every row of `com.jlab.app`'s device screen, read top to bottom with the list scrolled to
 the end (confirmed: two consecutive dumps with an identical label set), against the
@@ -1771,7 +1771,7 @@ true while also doing duty as an excuse not to count.
 ✅ **`Safe Hearing` is identified — 2026-09-01, with the user's explicit go-ahead**, and it
 is `66` read · `68` write · `00` Default, `01` 95 dB, `02` 85 dB.
 
-⚠⚠ **A HIGHER VALUE IS A LOWER CEILING.** `02` is the most protective and `00` the least.
+⚠ **A HIGHER VALUE IS A LOWER CEILING.** `02` is the most protective and `00` the least.
 Anything that sorts or compares these as loudness has the control backwards, on the one row
 where backwards is harmful.
 
@@ -1813,13 +1813,13 @@ Realtek's transport is `AA <type> <length: 2 LE> <payload>`, payload
 GET_STATUS, `0x0c` INFO_REQ, `0x105` GET_LE_ADDR) and the `*Req` classes
 (`0xc44`–`0xc46` ANC scenario, `0x2xx` EQ, `0x7xx` key mapping).
 
-⚠ **A sixth SDK, checked and a dead end.** `com.qcymall.qcylibrary` is QCY's
+**A sixth SDK, checked and a dead end.** `com.qcymall.qcylibrary` is QCY's
 own layer; the only thing in it that builds frames is `wq/sdk`, whose `DeviceMutualMapper`
 wraps payloads in **`0x33`** header and footer and is the OTA path.
 
 ## ✅✅ THE APK IS NOT A DEAD END — `c0 ff` IS IN IT, 2026-09-01
 
-⚠⚠ **This page said "`c0 ff` appears nowhere in the APK" and "the JLab stays capture-only,
+**This page said "`c0 ff` appears nowhere in the APK" and "the JLab stays capture-only,
 the one device of the five with no offline route". Both were WRONG**, and the reason is
 worth more than the correction: **`0xc0` in smali is `-0x40t`, not `c0`.** A search for the
 literal bytes cannot match a signed-byte array, which is the exact trap the `smali_enum.py`
@@ -1831,7 +1831,7 @@ Searching for `-0x40t` followed by `-0x1t` finds **exactly one file**:
     smali_classes3/com/realsil/sdk/bbpro/xb/e.smali
 
 It is the complete frame builder — **38 commands**, against the 13 the vendor app was seen
-to send. ⚠ **This said 35 until 2026-09-03**, from a hand count; the joined table below is
+to send. **This said 35 until 2026-09-03**, from a hand count; the joined table below is
 generated and reaches three more, all of them writers that pass their command to a helper
 rather than carrying it in a literal array. Every command decoded from captures lands in it at the right arity, which is what
 makes it trustworthy rather than merely suggestive:
@@ -1855,7 +1855,7 @@ Every command this repo had already decoded lands in it at the right arity and b
 right family — `66`/`68` under `safehearing`, `74`/`76` under `spatialaudio`, `4a` under
 `eq` — which is what makes the rows nobody has captured worth reading.
 
-⚠⚠ **A FAMILY IS EVIDENCE ABOUT THE SDK, NOT ABOUT THESE EARBUDS.** `hearyourself`, `enc`,
+⚠ **A FAMILY IS EVIDENCE ABOUT THE SDK, NOT ABOUT THESE EARBUDS.** `hearyourself`, `enc`,
 `autosensors`, `sn` and the force-touch half of `control` are widgets this SDK ships for
 other JLab models; the JBuds Sport ANC 4 draws seven feature rows. A row here says what a
 command MEANS, never that this device has it.
@@ -1908,7 +1908,7 @@ nothing measured has located. Replay only what the vendor app was OBSERVED to se
 ⚠ **`6c` and `87` are reached from no widget at all**, like the on-attach commands below —
 absence from `widget/` is a fact about the app's screens, not about the device.
 
-⚠ **Built by a two-pass read, and the second pass is the one that matters**: 25 builders
+**Built by a two-pass read, and the second pass is the one that matters**: 25 builders
 carry a literal `c0 ff 00 <cmd> <len> 00` array, and the rest pass the command as an
 ARGUMENT to a helper. A first version matched only `invoke-static` and silently dropped
 every writer going through the virtual helper `c()` — including `68`, Safe Hearing's. It
@@ -1936,11 +1936,11 @@ methods are obfuscated, the widgets that call it are not:
     `NoiseControlViewBES$mCallback$1$onUpdateLanguage$1`. **Language-related.**
 
   ⚠ The wire observation stands unchanged — present in every cold enumeration, never moved
-  all session. What was wrong was the *reason* given for it. ⚠⚠ **The first check of this
+  all session. What was wrong was the *reason* given for it. **The first check of this
   said all three were unreached, and it was a FALSE NEGATIVE**: it grepped only each
   widget's base `.smali`, and every one of these calls sits in a `$inner` class.
 
-⚠⚠ **The SDK is SHARED ACROSS JLAB MODELS, so its vocabulary is NOT this device's feature
+⚠ **The SDK is SHARED ACROSS JLAB MODELS, so its vocabulary is NOT this device's feature
 list.** `com/provista/jlab/widget/` holds `lighting`, `sleep`, `windnoise`, `boost`, `enc`,
 `leaudio`, `labsync`, `autosensors` and more; the JBuds Sport ANC 4's own screen draws
 seven feature rows and nothing here says the other widgets apply to it. A command existing
@@ -1951,7 +1951,7 @@ easier, not safer: the id space is a Realtek SDK's and holds a factory reset. Th
 unchanged — **replay only what the vendor app was observed to send**, and treat everything
 here as a map for reading, not a menu for trying.
 
-⚠ **Every one of those leads was a dead end**, and they cost the most time of
+**Every one of those leads was a dead end**, and they cost the most time of
 anything here. `01000100` accepts writes and answers neither the BES `aa` protocol
 nor Realtek `aa <type> <len:2 LE>` frames at any `type`; QCY's own `ff <len>`
 framing drew nothing either. The 14-byte thing that *does* arrive on both SPP and
@@ -1966,7 +1966,7 @@ by two taps and a snoop log.
 is *not* what it advertises under — that address never appears in a scan. Match it
 on the stable `21 55 35 33` run inside its `fe2c` service data instead.
 
-⚠ Neither device is identifiable by UUID (JBL has none unique, JLab only silent
+Neither device is identifiable by UUID (JBL has none unique, JLab only silent
 ones), so `Channels.kt` names both by device name and says so.
 `com.harman.ble.jbllink` is the speaker app; headphones are `jbl.stc.com`.
 
@@ -1990,7 +1990,7 @@ drives the QC35 and *will not* see the QC45; `com.harman.ble.jbllink` is JBL's
 **speaker** app, not the headphone one. Both mistakes cost a capture that recorded
 nothing and read as "the device does not answer".
 
-⚠ **These stay INSTALLED and go unused** — they are the reference for what each device
+**These stay INSTALLED and go unused** — they are the reference for what each device
 can do, and walking their screens is how every parity table above was built. **Coexisting
 with them is NOT a design goal**: nobody runs them, so their presence must not justify a
 trade-off; see `Leases`. Keep the APKs (`~/.cache/volume-apks`) too — they are the reference
@@ -2026,8 +2026,8 @@ be a reply.
 I/G flag, which no IEEE device address sets. There is no OUI to look up; the chipset had
 to come from SDP.
 
-⚠⚠ **There is NO vendor app, which removes the instrument every other device here was
-decoded with.** ⚠ **What replaces it is the JLab's route, not guesswork**: that one was
+⚠ **There is NO vendor app, which removes the instrument every other device here was
+decoded with.** **What replaces it is the JLab's route, not guesswork**: that one was
 a rebranded QCY app bundling six chip SDKs, and the answer came from the CHIP's SDK
 rather than the brand's. So the next step is a generic Jieli tool or SDK to read a
 command table out of — never bytes invented against the device.
@@ -2083,7 +2083,7 @@ arm that waited for detection would never run for the one device it exists to pr
 ← nothing in 3000 ms
 ```
 
-⚠⚠ **This is NOT "the device does not speak RCSP", and reading it that way would be
+⚠ **This is NOT "the device does not speak RCSP", and reading it that way would be
 the FOURTH time that mistake is made here.** The probe opens a socket, writes, reads for
 three seconds and closes. **A one-shot exchange cannot hold a protocol with state** —
 that has already cost three wrong conclusions on this repo (Bose writes, the Fast Pair
@@ -2098,19 +2098,19 @@ fe dc ba c0 03 00 06 01 ff ff ff ff 00 ef           SDK params       ← nothing
 …the same, sn 1 then sn 2, on ONE held socket       seq              ← nothing, twice
 ```
 
-⚠ **The second frame is the SDK's own.** `GetTargetInfoParam.getParamData` is a 4-byte
+**The second frame is the SDK's own.** `GetTargetInfoParam.getParamData` is a 4-byte
 big-endian mask then a platform byte, and `buildGetTargetInfoCmdForAll` passes mask
 `-1` with platform `0` (Android) — so `ff ff ff ff 00` is what the vendor SDK would have
 sent, not a shape invented here. The first frame, carrying only a sequence number, was
 under-parameterised and its silence says little.
 
-⚠ **The third tests the one-shot hypothesis and weakens it.** Two reads on one socket
+**The third tests the one-shot hypothesis and weakens it.** Two reads on one socket
 that stayed open drew nothing either, so the Sony's shape — where data only arrives
 inside a held session — is not the explanation on its own. It is not eliminated: the
 Sony's session also requires acking the device's own frames, and this device sends none
 to ack.
 
-⚠⚠ **The second frame is not merely well-formed — it is the SDK's OPENING command.**
+⚠ **The second frame is not merely well-formed — it is the SDK's OPENING command.**
 `RcspOpImpl` issues exactly one builder, `buildGetDeviceInfoCmdForAll()`, and that is
 `GetTargetInfoCmd` with mask `-1` and the platform left at its default `0`. So
 `fe dc ba c0 03 00 06 <sn> ff ff ff ff 00 ef` is the first thing Jieli's own app puts on
@@ -2129,13 +2129,13 @@ constructor takes NO arguments — `02` with nothing but a sequence number — s
 ⚠ **This page briefly said that read could not be constructed** — that the remaining
 opcodes "need a parameter value nothing names". That was an absence asserted without
 looking: `com/jieli/bluetooth/constant/AttrAndFunCode` names the attribute and function
-codes, and `02` needs no parameter whatsoever. ⚠ The reasoning was wrong in a second way
+codes, and `02` needs no parameter whatsoever. The reasoning was wrong in a second way
 too: "do not invent bytes for an undocumented device" is the rule for an UNKNOWN opcode
 space, and the opcode space stopped being unknown when the table was read. A read
 opcode with an uncertain parameter is not the hazard a destructive opcode is, and the
 destructive ones are denied by name.
 
-⚠ **The insecure-socket axis is closed without a test.** `Probe` tries secure first and
+**The insecure-socket axis is closed without a test.** `Probe` tries secure first and
 falls back; the secure socket CONNECTED, so the RFCOMM server accepted on that channel.
 A device serving only the insecure variant would have refused, not accepted and gone
 quiet.
@@ -2169,15 +2169,15 @@ fe dc ba c0 7f 00 01 05 ef      an opcode the table does NOT define  ← nothing
 (nothing written, 40 s)         socket held open                ← nothing, and NOT dropped
 ```
 
-⚠⚠ **The undefined opcode is the strongest of the lot.** A listening RCSP stack
+**The undefined opcode is the strongest of the lot.** A listening RCSP stack
 REJECTS an unknown command and says so — the SDK carries `buildErrCmd` for exactly
 that. Silence in answer to a deliberately bad frame is much better evidence than
 silence in answer to a good one.
 
-⚠ **The 40-second hold adds a second fact**: the device neither volunteers anything nor
+**The 40-second hold adds a second fact**: the device neither volunteers anything nor
 closes the connection. The RFCOMM server accepts and holds; nothing above it speaks.
 
-⚠⚠ **The passive test is INCONCLUSIVE, and this page called it the evening's strongest
+**The passive test is INCONCLUSIVE, and this page called it the evening's strongest
 result. It was not.** The plan was to hold the socket open 60 s while the user pressed
 the device's buttons. They pressed them, nothing arrived, they said so, and it was written
 down as confirmed. **The timestamps refute it**: their presses land at `23:04:09`–
@@ -2194,11 +2194,11 @@ then check the AVRCP timestamps fall inside it.
 ✅ **What checking it found: THE DEVICE IS NOT SILENT.** Every volume press is reported
 to the phone over AVRCP — the log walks `2 → 25`, back to `9`, up again — and
 `dumpsys audio` says `mAvrcpAbsVolSupported: true`. It is mute on the vendor channel
-and perfectly talkative on the standard one. ⚠⚠ **So the phone's media volume IS this
+and perfectly talkative on the standard one. ⚠ **So the phone's media volume IS this
 headset's volume, in both directions**, which is the surface an app called `volume`
 most wants and the one this page spent the evening not looking at.
 
-⚠ **It reports no battery either.** Nothing in `bluetooth_manager` carries a battery
+**It reports no battery either.** Nothing in `bluetooth_manager` carries a battery
 level for it — no HFP `AT+IPHONEACCEV`, no metadata — so even the one vendor-independent
 extra that A2DP/HFP devices commonly give is absent here.
 
@@ -2206,12 +2206,12 @@ extra that A2DP/HFP devices commonly give is absent here.
 easily" covers a reset or a lost setting; a part sitting in firmware-update mode with
 nothing to follow is a different category, and it was not asked for by name.
 
-⚠ **It publishes NO Device ID record.** The phone asked twice — `35 03 19 12 00` is a
+**It publishes NO Device ID record.** The phone asked twice — `35 03 19 12 00` is a
 search for `1200` PnPInformation — and both answers were an empty `36 00 00`. So there
 is no VID, no PID and no manufacturer to look up, which matches an address that is not
 an assigned one. Two independent identity surfaces, both blank.
 
-**So, for the original question — can this app support a NewPie 32?** ⚠⚠ **Not through
+**So, for the original question — can this app support a NewPie 32?** ⚠ **Not through
 RCSP, and that is NOT the same as "no". This page said the second for an hour.** The
 mistake was answering "is there a vendor protocol" to a question that asked "can we
 support it" — a repo built entirely around vendor protocols makes that substitution
@@ -2223,7 +2223,7 @@ presses back, so a slider stays true in both directions; **connected and active-
 state**, which `Active.kt` already knows how to answer; and the **negotiated codec**,
 which `dumpsys` reports as AAC and `BluetoothA2dp` exposes.
 
-⚠ **And today this device gets NO CARD AT ALL.** `Registry.fromAdvertisement` returns
+**And today this device gets NO CARD AT ALL.** `Registry.fromAdvertisement` returns
 null for anything it cannot name, so the pair the user is actually listening on is
 invisible to the app. A generic card — any A2DP/AVRCP device, volume and state, no
 vendor protocol required — is the feature this points at, and it would cover every
@@ -2234,16 +2234,16 @@ talks to *this* unit, or a capture of anything else successfully driving it.
 
 ✅ **The deny-list was proven live on the device path first.** A truncated
 `fe dc ba c0 22 00 01` came back `⛔ REFUSED / RCSP 22 / FORMAT_DEVICE — erases the
-device's storage`, nothing sent. ⚠ That control also found a real hole: `opcode()` had
+device's storage`, nothing sent. That control also found a real hole: `opcode()` had
 required a whole valid frame, so the short one fell through to the Bose arm — fixed
 before the read was sent.
 
-⚠ **Still unanswered: whether this unit speaks RCSP at all.** The SDP names prove a
+**Still unanswered: whether this unit speaks RCSP at all.** The SDP names prove a
 Jieli stack; the silent SPP is consistent with RCSP, which waits to be asked. The next
 step is one bounded read — `03` GET_TARGET_INFO — with a read-back. Until that answers,
 everything above describes the SDK rather than the device.
 
-⚠ Identification as a Newpie NP-S2201 is **the user's recollection and unconfirmed** —
+Identification as a Newpie NP-S2201 is **the user's recollection and unconfirmed** —
 the name searches poorly, the class byte says wearable headset rather than hands-free,
 and cheap devices misreport class routinely. Nothing above depends on the model name.
 
@@ -2252,21 +2252,21 @@ and cheap devices misreport class routinely. Nothing above depends on the model 
 1. Developer options → **Enable Bluetooth HCI snoop log**, then cycle Bluetooth.
    Cannot be set from adb (SELinux denies `setprop`; no `cmd bluetooth_manager`
    subcommand; the `bluetooth_btsnoop_default_mode` global is ignored on A17).
-   ⚠ **`getprop` on it is also DENIED and returns empty** — empty ≠ disabled.
+   **`getprop` on it is also DENIED and returns empty** — empty ≠ disabled.
    Confirm via logcat: `SnoopLogger: Snoop Logs full mode enabled`.
 2. Drive the app: `adb shell monkey -p <pkg> -c android.intent.category.LAUNCHER 1`.
    Headphones must be linked (`ACL BR/EDR:Y`) or the capture is empty.
 3. `adb bugreport br.zip` → `FS/data/misc/bluetooth/logs/btsnoop_hci.log`.
-   ⚠ **It ROTATES.** Extract `.log` *and* `.log.last` and `mergecap` them, or the
+   **It ROTATES.** Extract `.log` *and* `.log.last` and `mergecap` them, or the
    channel setup is missing and Wireshark cannot dissect RFCOMM — traffic then
    looks *absent* rather than undissected.
 4. ```
    tshark -r merged.pcapng -Y 'btrfcomm.dlci==0x10' -e btspp.data -e data.data
    ```
    Find the DLCI by counting frames per `btrfcomm.dlci` first; the vendor channel
-   is rarely the busiest and `0x18`/HFP will mislead. ⚠ Query **both** payload
+   is rarely the busiest and `0x18`/HFP will mislead. Query **both** payload
    fields — some channels dissect as SPP, others raw.
-5. ⚠ Some frames stay generic `L2CAP Connection oriented channel` even merged.
+5. Some frames stay generic `L2CAP Connection oriented channel` even merged.
    They are RFCOMM: strip `[addr][control][len(1-2)][credit if ctrl=0xff]` by
    hand. `47 ef 13 | 00 01 03 05 "1.1.0" | 51`.
 

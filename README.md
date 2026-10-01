@@ -15,12 +15,12 @@ consequences, and both change what counts as done:
   responsiveness to leave a channel free: nothing is waiting for it, so the only cost of
   holding a channel is power and the only cost of dropping it is a reconnect its owner
   feels. See `Leases`.
-- ⚠⚠ **THE SPEAKERS HANG OFF BOSE CONNECT, NOT BOSE MUSIC** — corrected, having
+- ⚠ **THE SPEAKERS HANG OFF BOSE CONNECT, NOT BOSE MUSIC** — corrected, having
   first been written the wrong way round here. `com.bose.monet` (Bose **Connect**)
   ships asset packages for `soundlink-revolve`, `soundlink-revolve-plus`,
   `soundlink-micro` and `soundlink-color-ii`, and drives the QC35; `com.bose.bosemusic`
   (Bose **Music**) drives the QC45 and knows the Revolve only through the shared
-  `BoseProductId` enum. ⚠ So **Bose Music is not what the speakers depend on** — Bose
+  `BoseProductId` enum. So **Bose Music is not what the speakers depend on** — Bose
   Connect is, and it is the one to walk for a speaker's rows.
 - ⚠ **Speakers are wanted eventually but are deliberately not in scope now** — the user's
   call. Scope is **headphones**: the five in the table below. A speaker absent from
@@ -44,7 +44,7 @@ widget** — `AncTileService`, `AncWidget`, both going through `Tap`.
 
 ⚠ **Control channels are owned per PROCESS, not per screen** (`Sessions`). The tile
 and the app drive the same headphones, and a device accepts one control channel, so
-a second one simply fails. They release on backgrounding — but ⚠ **in split screen
+a second one simply fails. They release on backgrounding — but **in split screen
 `onStop` never fires**, because both halves stay resumed, so there the idle lease is
 the only thing that lets go. That is the arrangement on this phone.
 
@@ -128,7 +128,7 @@ acknowledgements. `docs/protocols.md` has the correction.
 
 ## Next — parity work, in four states
 
-⚠ **Read the state before picking one up.** *Captured* means the bytes are on disk
+**Read the state before picking one up.** *Captured* means the bytes are on disk
 but nobody has looked; *decoded* means the frames are written down; *written* means
 there is driver code and a replay test; *driven* means **this code has changed a
 setting on a headphone**. On the XM4 that is now every decoded setting bar multipoint,
@@ -178,10 +178,10 @@ from a refusal until you look at the vendor SDK. `docs/sony-settings.md` has it.
 ⚠ **"Refused" means the VENDOR APP FAILS TOO, and only multipoint has earned it.** The
 XM4's [CUSTOM] button is not refused — Sony's app changes it and we cannot, which is #965
 and is an asymmetry, not a wall. Adaptive Sound Control is not refused either: its on/off
-turns out to be **app-side**, so there is no device toggle to refuse. ⚠ Calling either of
+turns out to be **app-side**, so there is no device toggle to refuse. Calling either of
 them device-blocked was an overclaim made and corrected the same evening.
 
-⚠ **The QC35 column was once five rows short**, having been "ANC only" since it
+**The QC35 column was once five rows short**, having been "ANC only" since it
 was written. Everything above was decoded and driven that day, each label checked against
 Bose Connect's own screens rather than against this repo's reading of the bytes — which is
 how the ANC row came to be wrong at **all three** of its values for months. Only Music
@@ -189,7 +189,7 @@ Share (`04 0a`/`04 0b`, needs a second Bose) and the Action button are outstandi
 
 ⚠ **This table is what is DRIVEN, not what the devices have.** The JBL's own app has
 twenty-three device controls and twenty are in the app — thirteen writable, seven
-read-only. ⚠ Not all twenty are rows above: this table lists what is driven, so the
+read-only. Not all twenty are rows above: this table lists what is driven, so the
 read-only ones live in `docs/protocols.md`'s inventory instead. The gap is #974.
 
 ✅ **The XM4 has now been ASKED.** `06 00` returns its own supported-function
@@ -200,11 +200,11 @@ absences retired six leads #1097 had listed as worth trying. `docs/sony-settings
 Sony's codec. Nothing writes them, and for the codec nothing can: it is negotiated between
 the two ends, so what an owner actually chooses is sound quality.
 
-⚠ **The Bose pair has a NAMED surface and no audit**, which are different things.
+**The Bose pair has a NAMED surface and no audit**, which are different things.
 The Sony and Bose command spaces are read out of the vendor APKs —
 every block, function and value enum, in `docs/sony-settings.md` and
 `docs/bose-settings.md` — so the rows below "EQ / tone" are no longer unknown, they are
-unasked. ⚠ Nothing there has been met on the wire; a name from an APK is a claim about
+unasked. Nothing there has been met on the wire; a name from an APK is a claim about
 the vendor's app until a device answers it. Both devices will also **list their own
 features on request** (Sony `06`, Bose `00 04`), and neither has been asked.
 
@@ -213,8 +213,8 @@ both; the QC45 accepts the equivalents from this code. Multipoint fails for Sony
 app too, so that one is the device's rule — the button works for the app and not for
 us, which is the lead in #965. ⚠ Never merge the two.
 
-⚠ **A "preset" is the app's on Bose and JBL** — three band values, or a ten-band curve
-of floats — and the device's on Sony, where it is an opaque id. ⚠ The JBL's curve does
+**A "preset" is the app's on Bose and JBL** — three band values, or a ten-band curve
+of floats — and the device's on Sony, where it is an opaque id. The JBL's curve does
 carry a *table id* beside the ten gains, but it is sent together with them and never
 alone, so it is not a preset in Sony's sense and nothing establishes which the device
 obeys.
@@ -231,7 +231,7 @@ recovering, so it is now demonstrated rather than argued.
 **Open:** #974 the three JBL rows still outside the app · #1038 the probe's
 decode-and-print and its Python port · #1232 why the QC35 started needing a wake at all.
 
-⚠ **The QC45 is finished** — every function it answers is driven from the card. See
+**The QC45 is finished** — every function it answers is driven from the card. See
 `docs/bose-read-surface.md`, "Where this stands", which is the current state; the rest of
 that page is a discovery log whose early sections later ones correct.
 
@@ -246,10 +246,10 @@ because the test named one model instead of the framing.
 The QC35 was bonded, connected, the active audio device and completely unreadable; the app
 said "it answered `01 06` in neither shape". The snoop showed every frame going out and
 nothing coming back, while the device's protobuf channel answered normally in the same log.
-Send `00 01` first and everything answers. ⚠ **A later session refuted the general rule**: on a
+Send `00 01` first and everything answers. **A later session refuted the general rule**: on a
 virgin session after a power cycle the same device answered `01 06` cold four times, so this
 is a state it gets into and not how a fresh socket behaves. **Idle is not it either** — 75
-minutes untouched, one cold read, answered. ⚠ **A third refuted the phone reboot too** and
+minutes untouched, one cold read, answered. **A third refuted the phone reboot too** and
 caught the whole thing live: silent on `01 06`, `01 01` AND `04 04`, then all three answering
 after one `00 01`, at **26.3 hours** since boot and 13 s since reconnect. So the silence is
 every block except `00`, not block `01`, and neither clock causes it. **Isolated the same evening by a
@@ -268,7 +268,7 @@ the ANC mode and the name that the GET_ALL between them had just returned.
 ✅ **And on the QC35, measured the same day once it was readable again: the cycle runs
 once** — 7 requests, 419 ms, where this task had recorded it running two or three times.
 
-⚠ The first framing of that comparison spanned the whole window and read as *no
+The first framing of that comparison spanned the whole window and read as *no
 improvement*; 4.84 s of it was the `sleep` in the driving script.
 
 **Closed on the QC45**: #1185 the ANC labels are right and the device said so
@@ -324,7 +324,7 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
   need them; `docs/protocols.md` says which app drives which device.
 - ⚠ **`send` cannot write.** The Bose ANC edit is transactional (operator-`05`
   Start, then the change). The orphaned write is *accepted* and the unchanged state
-  echoes back — reads exactly like a wrong field. Use `seq`. ⚠ But **not every Bose
+  echoes back — reads exactly like a wrong field. Use `seq`. But **not every Bose
   write is transactional**: EQ, multipoint and the Action button each took a plain
   `02` Set. Generalising from the one function cost nothing yet only because
   nothing had been sent to the other three.
@@ -349,7 +349,7 @@ Output: `adb logcat -s volume-probe`. `VOLUME_ADB_DEVICE` overrides the target.
   Merge them; keeping the first hid the JBL behind "(no name)".
 - ⚠ **"Answers nothing" and "has nothing to answer" look identical**, and this has
   now cost four findings. The Sony was being ignored for repeating a sequence byte.
-  ⚠ **And the JLab was written up here as "genuinely has no read command" — which
+  **And the JLab was written up here as "genuinely has no read command" — which
   was wrong.** It has one; nobody had asked the right byte. Both rendered as
   "reports no mode". Only comparing against a state you already know tells them
   apart — which is exactly how the JLab's read was finally found: set a mode from
@@ -381,13 +381,13 @@ volume-UP can never quietly turn the speakers down. See `docs/thoth.md`.
 ## Docs / build
 
 `docs/protocols.md` — the wire formats, capture method, channel traps, and which
-vendor app drives which device (⚠ each vendor ships two plausible ones).
+vendor app drives which device (each vendor ships two plausible ones).
 `docs/bose-read-surface.md` — Bose surface, error taxonomy, how ANC was found.
 `docs/liveness.md` — why the profile broadcasts, not ACL, keep the list live;
 measured timings, and the traps in measuring it.
 `docs/sony-settings.md` — Sony EQ, auto-off and multipoint frames.
 `docs/bose-settings.md` — Bose EQ, multipoint and Action-button frames.
-`docs/captures.md` — ⚠ WHAT WAS DONE AND WHEN for each capture, and the method
+`docs/captures.md` — WHAT WAS DONE AND WHEN for each capture, and the method
 that works. A capture without its action log is a haystack.
 `docs/thoth.md` — the Mac's audio over HTTP: the surface, the captured bodies, why
 the ceiling is read and never copied, and the two gotchas that cost time.
@@ -425,7 +425,7 @@ headphones; that mistake reached `docs/protocols.md` twice. `--where` reports `t
 or `LABEL — inert`, and VoiceAware's gradient bar is inert either way: it needs a
 real drag, which this cannot do.
 
-⚠ `adb logcat -s VolumeLive` is the app's own account of the same thing: every
+`adb logcat -s VolumeLive` is the app's own account of the same thing: every
 broadcast it receives, what the profile proxies said at that moment, and every
 channel it releases.
 
