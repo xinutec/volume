@@ -12,7 +12,7 @@ package org.xinutec.volume.protocol
  * down as a habit rather than a rule. `31`, `32` and `33` all set on the field they
  * report; this one sets on `35` and reports on `38`. The claim "38 is Auto Play & Pause"
  * was published on one agreeing byte, retracted on the mirror argument, and re-argued
- * from the SDK — none of which is a measurement. **Driven both ways 2026-08-17 23:38**:
+ * from the SDK — none of which is a measurement. **Driven both ways**:
  * off and back on, each confirmed by reading `38`, which is what settles it.
  */
 object JblAutoPlay {
@@ -48,7 +48,7 @@ data class Balance(
 }
 
 /**
- * JBL left/right balance — `aa a8`, driven 2026-08-17 23:39.
+ * JBL left/right balance — `aa a8`, driven.
  *
  * ```
  * → aa a8 01 01                    ← aa a8 05 02 01 <on> 02 <level>
@@ -125,7 +125,7 @@ object JblPsap {
  *
  * ⚠ **The way back is physical.** The vendor app's own dialog says "To power on again,
  * press a power button on a headphone", so this is the last thing any run can do and it
- * costs someone getting up. Driven once, 2026-08-16 23:29, by agreement.
+ * costs someone getting up. Driven once, by agreement.
  *
  * ⚠ **`aa 95` is two bytes away and is FACTORY RESET.** A slip in this constant would
  * wipe the gestures, the equaliser and the Personi-Fi profile, and the profile has no
@@ -260,7 +260,7 @@ object JblAdvancedAnc {
  * → aa 93 01 04   ← aa 93 02 05 <on>
  * ```
  *
- * ✅ **Attributed by ablation, 2026-08-25 11:47.** Toggling the vendor app's own switch
+ * ✅ **Attributed by ablation.** Toggling the vendor app's own switch
  * moved this byte `01` → `00` and back, while `aa 93 01 01` — the frame this row was
  * filed under for a week — stayed `aa 93 05 02 01 00 00 08` throughout. Two sub-commands
  * on one command byte, and the one that looked like the answer was the one that never

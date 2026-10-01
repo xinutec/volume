@@ -3,7 +3,7 @@ package org.xinutec.volume.protocol
 /**
  * Which control channel to open on a bonded device, and which protocol it speaks.
  *
- * Everything here was driven against the real headphones on 2026-08-15 — each
+ * Everything here was driven against the real headphones — each
  * mapping below has had a command sent to it and an answer come back. See
  * `docs/protocols.md` for the bytes. **Re-measure before trusting it**; a firmware
  * update can change what a device advertises.

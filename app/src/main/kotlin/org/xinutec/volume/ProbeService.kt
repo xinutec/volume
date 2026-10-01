@@ -23,7 +23,7 @@ import android.util.Log
  * start, by contract, and a service is not in the window stack so nothing on screen
  * moves. That is a structural argument, not a measured one — see below.
  *
- * ⚠ **The delivery bug did not reproduce on 2026-08-24 (20 runs, four conditions,
+ * ⚠ **The delivery bug did not reproduce (20 runs, four conditions,
  * all green), so this fix has NOT been demonstrated to cure the symptom.** What was
  * verified is that the service path delivers reliably and disturbs nothing. If a
  * skipped run ever reappears, `probe.sh`'s run-id check is what will say so.

@@ -258,7 +258,7 @@ class HazardsTest {
     }
 
     /**
-     * The 2026-08-26 incident: `06 01 00` was sent seven times, meant as `06 01 01 00`.
+     * The incident: `06 01 00` was sent seven times, meant as `06 01 01 00`.
      * Three bytes is not a BMAP frame at all — there is no length byte to disagree with
      * — and the device re-framed the STREAM into commands nobody typed.
      */

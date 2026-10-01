@@ -37,7 +37,7 @@ object JblFrames {
      * ⚠ Kept because it is the frame a size-only guard decodes as an equaliser: 196
      * bytes of records against a curve's 116, so "big enough" passes it.
      *
-     * ⚠⚠ **The captured frame was here until 2026-09-11 and must not come back.**
+     * ⚠⚠ **The captured frame was once here and must not come back.**
      * `c9` is PERSONIFY_EQ, so its gains are one person's hearing compensation, and
      * this repo is public. Every byte below is fixed by the protocol — the 18 bands
      * are 9 per ear on the test's own 250 Hz–12 kHz grid — and every gain is zero,

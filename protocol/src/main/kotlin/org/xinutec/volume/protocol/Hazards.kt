@@ -52,7 +52,7 @@ object Hazards {
     private const val BOSE_CLEAR_LIST: Byte = 0x07
 
     /**
-     * Bose `04 03` — REMOVE_DEVICE, added 2026-08-26.
+     * Bose `04 03` — REMOVE_DEVICE, added.
      *
      * ⚠ **`04 07` was guarded and this was not**, for the whole time both were known.
      * It unpairs **one** device rather than all of them, which sounds milder and is
@@ -307,7 +307,7 @@ object Hazards {
      * anyway**: it is caught at the same place, before the socket opens, so every caller
      * gets it. A wrong length byte does not fail loudly — the device parses by that byte,
      * so it reads a *different* frame than the one intended and answers plausibly. Three
-     * frames were mistyped by hand in one session on 2026-08-28; a length check would
+     * frames were mistyped by hand in one session; a length check would
      * have caught the ones that changed the payload size.
      *
      * ⚠ **Only frames that actually look like BES are checked.** The caller's fall-through

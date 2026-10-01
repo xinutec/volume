@@ -11,7 +11,7 @@ import org.junit.Test
 /**
  * The five drivers, against bytes the real headphones actually sent.
  *
- * Every fixture here is a transcript from 2026-08-15 — see `docs/protocols.md` for
+ * Every fixture here is a transcript off the wire — see `docs/protocols.md` for
  * where each came from and how it was confirmed. The point of the module split is
  * that this file needs no phone.
  */
@@ -35,7 +35,7 @@ class DriversTest {
     private val sonyAck = "3e 01 00 00 00 00 00 01 3c"
 
     // The three on/off settings. ⚠ The `Reply` fixtures are the payloads the XM4
-    // actually returned on 2026-08-23 — `e7 02 00 00`, `f7 03 00 01`, `f7 05 00 00`,
+    // actually returned — `e7 02 00 00`, `f7 03 00 01`, `f7 05 00 00`,
     // each cross-checked against Sound Connect's own screen the same minute. The
     // request and SET frames are this repo's, and the framing of all of them was
     // computed outside Kotlin so the guard below is not the encoder marking its own
@@ -132,7 +132,7 @@ class DriversTest {
 
     /**
      * The three reads that were confirmed against the XM4 and against the vendor
-     * app's own screens on 2026-08-23. Each fixture is the payload the device sent.
+     * app's own screens. Each fixture is the payload the device sent.
      */
     @Test
     fun `sony reads each on-off setting as the device answered it`() {
@@ -199,7 +199,7 @@ class DriversTest {
      *
      * `SmartTalkingModeSettingType.ON_OFF` = `00` answers a get;
      * `SmartTalkingModeParameterType.MODE_ON_OFF` = `01` is what a set must carry.
-     * Both frames below were driven on the XM4 on 2026-08-23.
+     * Both frames below were driven on the XM4.
      */
     @Test
     fun `sony speak-to-chat writes a different type byte than it reads`() {
@@ -212,7 +212,7 @@ class DriversTest {
     }
 
     /**
-     * The touch panel, in the bytes the XM4 actually exchanged on 2026-08-24.
+     * The touch panel, in the bytes the XM4 actually exchanged.
      *
      * ⚠ **The type byte is the ONLY thing separating this from multipoint**, which the
      * device refuses for everyone including Sony's own app. `d1` is the touch panel and
@@ -232,7 +232,7 @@ class DriversTest {
     }
 
     /**
-     * Speak-to-Chat's detail frame, in the bytes the XM4 exchanged on 2026-08-24.
+     * Speak-to-Chat's detail frame, in the bytes the XM4 exchanged.
      *
      * ⚠ **The whole value goes out every time**, so this asserts the round trip rather
      * than a field: a set built from a state must reproduce the frame that state came
@@ -303,7 +303,7 @@ class DriversTest {
 
     /**
      * ⚠ **The XM4 volunteers notifications, and one of them cost a working write.**
-     * Driving `e8 02 00 01` on 2026-08-23 made the device emit `17`
+     * Driving `e8 02 00 01` made the device emit `17`
      * COMMON_NTFY_UPSCALING_EFFECT as well as the `e9` that answered the write, and the
      * `17` arrived in the *next* read's window. The driver took the last DATA frame,
      * got a frame about something else, and reported the write — which had in fact
@@ -338,7 +338,7 @@ class DriversTest {
     }
 
     /**
-     * ✅ Focus on Voice, driven on the XM4 on 2026-08-23. The three frames below are the
+     * ✅ Focus on Voice, driven on the XM4. The three frames below are the
      * ones that were on the wire, checksums and all.
      */
     @Test
@@ -506,7 +506,7 @@ class DriversTest {
     }
 
     /**
-     * ✅ The frame the XM4 really sent on 2026-08-23, alongside Sound Connect reading
+     * ✅ The frame the XM4 really sent, alongside Sound Connect reading
      * **80%** on the same card at the same moment.
      */
     @Test
@@ -583,7 +583,7 @@ class DriversTest {
     // ---- JBL LIVE PRO 2 ----------------------------------------------------------
 
     /**
-     * Every mode this pair reports, from the bytes it sent on 2026-09-13.
+     * Every mode this pair reports, from the bytes it sent.
      *
      * ⚠⚠ **The TalkThru case is the reason this driver exists.** The device was
      * genuinely in TalkThru — confirmed by its owner's ears, after the wire had stopped
@@ -773,7 +773,7 @@ class DriversTest {
     }
 
     /**
-     * ✅ **The read, found 2026-08-16.** Frames captured from `com.jlab.app` opening
+     * ✅ **The read, found.** Frames captured from `com.jlab.app` opening
      * cold with the device in each state, then driven from this code.
      *
      * ⚠ **The mode is the seventh byte.** The two after it read `04 04` in either
@@ -882,11 +882,11 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **Both Bose models open one too, since 2026-08-28.** This test asserted that
+     * ⚠ **Both Bose models open one too.** This test asserted that
      * nobody but Sony did, on the reasoning that an opener costs a round trip nothing
      * needs — and a QC35 spent an afternoon reporting itself unreadable because of it.
      * That afternoon a fresh socket answered no `01 xx` read at all until a block-`00`
-     * read had been sent; on 2026-08-29 the same device answered without one, so the
+     * read had been sent; the same device answered without one, so the
      * opener is kept for being cheap rather than for being known necessary. See
      * `Registry.wakeBose` and #1232.
      */
@@ -965,7 +965,7 @@ class DriversTest {
     /**
      * ⚠ **TALK_THRU is claimed by exactly one driver, and only since it was driven.**
      * This test used to assert that *nobody* claimed it, as a guard against naming a
-     * mode from a vendor's UI without ever sending it. On 2026-08-16 it was sent to
+     * mode from a vendor's UI without ever sending it. It was then sent to
      * the JBL and confirmed against that app's own selector, so the guard is now
      * "only the device it was proved on" rather than "nobody".
      */
@@ -1035,7 +1035,7 @@ class DriversTest {
                     "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 01",
                     AncMode.TALK_THRU,
                 ),
-                // ⚠ The state that had nothing to return to it until 2026-08-23.
+                // ⚠ The state that once had nothing to return to it.
                 Triple(
                     Drivers.JblBes,
                     "aa 91 01 11" to "aa 91 07 12 01 00 02 00 03 00",
@@ -1095,7 +1095,7 @@ class DriversTest {
     }
 
     /**
-     * ⚠ **The JBL reported TalkThru as OFF until 2026-08-16.** [Drivers.JblBes.read]
+     * ⚠ **The JBL once reported TalkThru as OFF.** [Drivers.JblBes.read]
      * checked the first two TLV slots and fell through to OFF, so a mode the device
      * was really in rendered as the one state it cannot be put into from here — and
      * nothing noticed, because nothing had ever set the third slot.
@@ -1122,7 +1122,7 @@ class DriversTest {
     }
 
     /**
-     * The two named `aa b1` keys, read 2026-08-17 and again 2026-08-25 byte-identically.
+     * The two named `aa b1` keys, read twice a week apart, byte-identically.
      *
      * ⚠ **The key is checked on the way BACK, not assumed from the way out.** Replies on
      * this command arrive concatenated — key `03`'s status once came glued to an
@@ -1157,7 +1157,7 @@ class DriversTest {
      * ⚠ **#1154: a reply preceded by an unsolicited battery frame.**
      *
      * `Gatt.collect` concatenates everything in the window, and this device volunteers
-     * `aa 25` every ten seconds — 8 of 64 getters carried one on 2026-08-25. Those all
+     * `aa 25` every ten seconds — 8 of 64 getters carried one. Those all
      * decoded because it arrived AFTER. This is the same event arriving FIRST, which put
      * offset 0 on someone else's frame and made a settings row vanish.
      *
@@ -1226,7 +1226,7 @@ class DriversTest {
      * So the second write is not a retry or a nicety; without it the owner's working
      * button is gone, and the reply that destroyed it looks exactly like a success.
      *
-     * The left button refuses `07` ANC while taking `0c` ANC-off, measured 2026-08-17.
+     * The left button refuses `07` ANC while taking `0c` ANC-off, measured.
      */
     @Test
     fun `a refused action is put back and reported`() {
@@ -1377,7 +1377,7 @@ class DriversTest {
     // ---- Bose QC45, block 01 -----------------------------------------------------
 
     /**
-     * `01 01 05 00` on the QC45, read 2026-08-28 — the whole reply, unedited.
+     * `01 01 05 00` on the QC45, read — the whole reply, unedited.
      *
      * ⚠ **This is the device enumerating itself**, which is the evidence that the four
      * settings below are the QC35's and not merely shaped like them. Ten functions come

@@ -145,7 +145,7 @@ object Frames {
      * True only when [payload] is POSITIVELY a read — never as a default.
      *
      * ⚠⚠ **THE POINT IS WHAT THIS RETURNS FOR A FRAME IT CANNOT PLACE: false.** It gates
-     * the dry-run, so "I cannot tell" has to mean "do not send". On 2026-08-26 `06 01 00`
+     * the dry-run, so "I cannot tell" has to mean "do not send". Once `06 01 00`
      * was sent seven times as a probe and the device re-framed the STREAM into a SET to
      * block `06` that nobody typed; a classifier that guessed "probably a read" for
      * anything unfamiliar would have passed every one of them.

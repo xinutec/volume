@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The fixtures are the real SDP records, read off the Pixel 9 on 2026-08-15, and
+ * The fixtures are the real SDP records, read off the Pixel 9, and
  * the expectations are what each device actually answered when driven. They are
  * here rather than in a comment because the traps in this data are the kind a
  * later edit re-introduces by looking reasonable.

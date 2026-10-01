@@ -18,7 +18,7 @@ sealed interface ButtonWrite {
 /**
  * The five ANC drivers, one per wire format.
  *
- * Every byte below was driven against the real headphones on 2026-08-15 and is
+ * Every byte below was driven against the real headphones and is
  * documented with its evidence in `docs/protocols.md`. **Re-measure before
  * trusting it**; firmware moves things.
  */
@@ -34,7 +34,7 @@ object Drivers {
      *
      * ✅ **Those names come from the device, not from this file** — `1f 01 05 00`
      * returns all four slots with their names, and it reads `Quiet`, `Aware`,
-     * `Home`, `""`. Checked 2026-08-26 because the QC35's table was invented and
+     * `Home`, `""`. Checked because the QC35's table was invented and
      * inverted; read and write shared it, so nothing internal could disagree.
      * This one is answered from outside that loop.
      *
@@ -255,7 +255,7 @@ object Drivers {
      * Bose QC35. Same framing as the QC45, different table — `01 06` is ANC here
      * and is a function the QC45 reports unsupported. Three states, not a scale.
      *
-     * ⚠ **All three mode bytes were wrong until 2026-08-26, and in a way that
+     * ⚠ **All three mode bytes were once wrong, and in a way that
      * inverted the two that matter.** The table read `00` ANC · `01` AMBIENT ·
      * `03` OFF; the device means `00` **Off** · `01` **High** · `03` **Low**. So
      * this app's "Off" chip turned cancelling *down* rather than off, and its
@@ -354,8 +354,8 @@ object Drivers {
     /**
      * SoundLink Revolve — **the first device here that is not headphones**.
      *
-     * ✅ **It is the QC35's protocol on the QC35's channel**, established by sweep on
-     * 2026-09-03: BMAP over SPP `00001101`, 269 of 288 GETs answered, and a standby-timer
+     * ✅ **It is the QC35's protocol on the QC35's channel**, established by sweep:
+     * BMAP over SPP `00001101`, 269 of 288 GETs answered, and a standby-timer
      * round trip written and restored. Nothing in [BoseSettingsDriver] needed changing for
      * it — the wake, the framing and the settings reads all worked unmodified on a device
      * none of them was written for. See `docs/bose-read-surface.md`.
@@ -383,7 +383,7 @@ object Drivers {
          * ⚠ **Read directly rather than through [BoseSettingsDriver.readAll].** `01 01`
          * GET_ALL was never driven on this unit; the QC35 gets its standby that way and
          * borrowing that here would be extrapolation. This function WAS driven, both
-         * ways, and restored: 180 → 60 → 180 on 2026-09-03.
+         * ways, and restored: 180 → 60 → 180.
          */
         fun readStandby(t: Transport): BoseStandby? =
             BoseStandbyTimer.state(
@@ -416,11 +416,11 @@ object Drivers {
      *
      * The body is TLV pairs: `01` ANC, `02` ambient, `03` TalkThru.
      *
-     * ✅ **All three driven, TalkThru on 2026-08-16** — and confirmed against the
+     * ✅ **All three driven, TalkThru** — and confirmed against the
      * vendor app's own selector, which is what makes it TalkThru rather than merely
      * "the third slot went to 1". Its screen showed TalkThru highlighted.
      *
-     * ⚠ **[modes] omitted OFF until 2026-08-23, so the one thing a JBL owner most
+     * ⚠ **[modes] once omitted OFF, so the one thing a JBL owner most
      * obviously wants could not be done here at all.** Nothing else was missing:
      * [read] already decodes the all-zero frame as OFF and [write] already builds
      * it, because "exactly one slot is set" makes OFF fall out of the same
@@ -637,7 +637,7 @@ object Drivers {
          * [JblFeature.Key.AURACAST] are the two that are named.
          *
          * ⚠ **One key per exchange, because a get answers about the FIRST key only** —
-         * measured 2026-08-17: asking `01` and `02` together returned `01` alone. The
+         * measured: asking `01` and `02` together returned `01` alone. The
          * vendor SDK's list form buys nothing on this firmware.
          */
         fun readFeature(t: Transport, key: JblFeature.Key): Boolean? =
@@ -706,7 +706,7 @@ object Drivers {
      * different ANC protocol.
      *
      * ⚠⚠ **A second driver rather than a branch inside [JblBes], because the two
-     * disagree about both halves.** Measured 2026-09-13 against this device, with
+     * disagree about both halves.** Measured against this device, with
      * every mode confirmed by read-back and TalkThru confirmed by its owner's ears:
      *
      * ```
@@ -805,8 +805,8 @@ object Drivers {
 
         /**
          * ⚠ **The write's own reply is an `aa 83` status frame**, so this reads the
-         * outcome out of it rather than spending a second round trip — measured
-         * 2026-09-13, `aa 81 08 …` came back `aa 83 08 …` carrying the new mode.
+         * outcome out of it rather than spending a second round trip — measured:
+         * `aa 81 08 …` came back `aa 83 08 …` carrying the new mode.
          */
         internal fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? {
             val payload = SMART_AV[v] ?: return null
@@ -868,7 +868,7 @@ object Drivers {
         /**
          * ⚠ **`aa 40` answers NOTHING — not an ack, not an echo.** So the write cannot
          * confirm itself and this returns the read instead, which `setEq` then compares
-         * against what was asked for. Driven on four indices, 2026-09-13.
+         * against what was asked for. Driven on four indices.
          */
         override fun writeEq(t: Transport, preset: Int): EqSetting? {
             t.exchange(JblEqPreset.set(preset))
@@ -992,7 +992,7 @@ object Drivers {
         /**
          * **Focus on Voice** — `AsmId`, byte 6 of the frame [write] already sends.
          *
-         * ✅ **Driven on the XM4 2026-08-23 18:05, worn**, and confirmed by independent
+         * ✅ **Driven on the XM4, worn**, and confirmed by independent
          * reads: `67 02 01 02 00 01 00 14` then `67 02 01 02 00 01 01 14`.
          *
          * ⚠ **It only takes in ambient mode.** Sending `AsmId.NORMAL` while the device is
@@ -1099,9 +1099,9 @@ object Drivers {
         }
 
         /**
-         * The equaliser, decoded 2026-08-16 (`docs/sony-settings.md`).
+         * The equaliser, decoded (`docs/sony-settings.md`).
          *
-         * ✅ **Driven against the XM4 on 2026-08-16**, read and write. The read
+         * ✅ **Driven against the XM4**, read and write. The read
          * returned `preset=a2, levels=[3, 0, 0, 2, 4, 6]`, byte-identical to what the
          * vendor app's capture had shown the day it was decoded — the same answer by
          * two independent routes. Presets `a1` and `a2` were each written and
@@ -1136,7 +1136,7 @@ object Drivers {
          * device goes on reporting the real slot — so a preset comparison would
          * contradict every correct write.
          *
-         * ✅ Driven against the XM4 on 2026-08-24, down and back up.
+         * ✅ Driven against the XM4, down and back up.
          */
         fun setEqLevels(t: Transport, levels: List<Int>): Confirmation<EqSetting> {
             exchangeFramed(t, SonyEq.setLevels(levels))
@@ -1187,7 +1187,7 @@ object Drivers {
 
         /**
          * ⚠ Its notify echoes the value set, so this one really is confirmable.
-         * ✅ Driven on hardware 2026-08-16, both directions, and restored.
+         * ✅ Driven on hardware, both directions, and restored.
          */
         internal fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
             exchangeFramed(t, SonyAutoOff.set(mode))?.let(SonyAutoOff::state)
@@ -1208,7 +1208,7 @@ object Drivers {
             exchangeFramed(t, SonyChatDetail.get(), SonyChatDetail.RET, SonyChatDetail.NOTIFY)
                 ?.let(SonyChatDetail::state)
 
-        /** ✅ Driven on hardware 2026-08-24, all three fields, and restored. */
+        /** ✅ Driven on hardware, all three fields, and restored. */
         internal fun writeChatDetail(t: Transport, detail: ChatDetail): ChatDetail? =
             exchangeFramed(
                 t,
@@ -1220,7 +1220,7 @@ object Drivers {
         fun setChatDetail(t: Transport, detail: ChatDetail): Confirmation<ChatDetail> =
             confirm(detail, writeChatDetail(t, detail))
 
-        /** ✅ Driven on hardware 2026-08-16, both directions, and restored. */
+        /** ✅ Driven on hardware, both directions, and restored. */
         fun readSoundQuality(t: Transport): SoundQuality? =
             exchangeFramed(t, SonySoundQuality.get())?.let(SonySoundQuality::state)
 
@@ -1268,8 +1268,8 @@ object Drivers {
          *
          * ⚠ **A yes KILLS THE LINK, and that is the success path.** The XM4 commits and
          * reconnects at once, so this write throws or reports a broken pipe while its
-         * bytes land. The exception is swallowed for exactly that reason — measured
-         * 2026-08-24, both answers. **The caller must reopen and re-read to learn the
+         * bytes land. The exception is swallowed for exactly that reason — measured,
+         * both answers. **The caller must reopen and re-read to learn the
          * outcome; nothing here can tell it.**
          *
          * ⚠ A no is orderly: no disconnect, an `f9` echo, and the value unchanged.
@@ -1281,7 +1281,7 @@ object Drivers {
         }
 
         /**
-         * The three on/off settings whose **reads** were confirmed on 2026-08-23
+         * The three on/off settings whose **reads** were confirmed
          * against both the XM4 and Sound Connect's own screens — see [SonySwitch].
          *
          * ⚠ **The writes had not been driven when this was written.** Each returns the
@@ -1347,7 +1347,7 @@ object Drivers {
             }
         }
 
-        /** ✅ Confirmed against Sound Connect's own card on 2026-08-23 — see [SonyBattery]. */
+        /** ✅ Confirmed against Sound Connect's own card — see [SonyBattery]. */
         fun readBattery(t: Transport): Battery? =
             exchangeFramed(t, SonyBattery.get(), SonyBattery.RET, SonyBattery.NOTIFY)
                 ?.let(SonyBattery::state)
@@ -1369,7 +1369,7 @@ object Drivers {
          *
          * ⚠ **[expect] is which command bytes would actually answer this request**, and
          * without it the last DATA frame in the window is taken whatever it says. That
-         * is not a hypothetical: driving `e8 02 00 01` on 2026-08-23 made the XM4 emit
+         * is not a hypothetical: driving `e8 02 00 01` made the XM4 emit
          * `17` COMMON_NTFY_UPSCALING_EFFECT *as well as* its `e9` NTFY_PARAM, and the
          * `17` landed in the next read's window. The read returned it, [SonySwitch.state]
          * rightly refused to decode it, and the write — **which had worked** — was
@@ -1527,7 +1527,7 @@ object Drivers {
         /**
          * Ask, and read again if the window closed before the answer arrived.
          *
-         * ⚠⚠ **Both halves are measured, not defensive.** On 2026-09-01 the first read
+         * ⚠⚠ **Both halves are measured, not defensive.** Once, the first read
          * after an idle link took 420 ms against a window of about 400: `44`'s window
          * closed empty and `76` was handed `45`, after which every read ran one behind.
          * [JLabFrame.replyTo] scanning the buffer fixes the second half; this retry fixes
@@ -1586,7 +1586,7 @@ object Drivers {
         fun readEq(t: Transport): JLabCurve? = ask(t, JLabEq.get(), JLabEq::state)
 
         /**
-         * The four stored curves. ⚠ **This came back on 2026-09-01** — it was deleted as
+         * The four stored curves. ⚠ **This came back** — it was deleted as
          * unreferenced when the EQ was read-only, and the writer is what gives it a
          * caller: the card cannot offer a preset without knowing the curve to send for it.
          */

@@ -376,7 +376,7 @@ class GattTransport private constructor(
         // arrived before this request, so it CANNOT be its reply — it is an
         // unsolicited status frame the device sent on its own. Without this, the
         // next `exchange` returns that stale frame and the caller reads it as the
-        // answer: measured on the JBL 2026-08-16 (#953), where a read a few seconds
+        // answer: measured on the JBL (#953), where a read a few seconds
         // after a confirmed ANC write reported OFF, every time, worn or not. Two
         // reads back to back gave `OFF then AMBIENT` — the device was never wrong,
         // the queue was one frame behind.

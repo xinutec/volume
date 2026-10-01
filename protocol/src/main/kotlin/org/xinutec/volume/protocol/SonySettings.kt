@@ -83,7 +83,7 @@ object SonyAutoOff {
  * ```
  *
  * ⚠ **THE XM4 REFUSES TO ENABLE MULTIPOINT, and so this has never once succeeded.**
- * Driven on hardware 2026-08-16: `d8 d2 01 01` is acked and answered with
+ * Driven on hardware: `d8 d2 01 01` is acked and answered with
  * `d9 d2 01 00` — still off — and a following [get] agrees. Sony Headphones Connect
  * fails identically: its switch flips on and immediately back, both driven over adb
  * and pressed by hand. So the frame below is not suspected of being wrong; the
@@ -148,7 +148,7 @@ enum class SoundQuality {
  * ← e9 01 00 <v>       NTFY_PARAM, echoes the value
  * ```
  *
- * ✅ **Driven on hardware 2026-08-16**, both directions, each confirmed by read-back
+ * ✅ **Driven on hardware**, both directions, each confirmed by read-back
  * and restored. Decoded the same evening from the vendor app changing it.
  *
  * ✅ **The third byte is the feature's settingType** — see [SonySwitch], which was
@@ -200,7 +200,7 @@ object SonySoundQuality {
  * ← f9 06 01 <v>       NTFY_PARAM
  * ```
  *
- * Decoded 2026-08-16 evening — this is what #955 went looking for, after the morning's
+ * Decoded in the evening — this is what #955 went looking for, after the morning's
  * attempt sent nothing at all.
  *
  * ⚠ **THE WRITE DOES NOT WORK FROM THIS CODE, AND IT DOES WORK FROM THE VENDOR APP.**
@@ -235,7 +235,7 @@ object SonyButton {
      * control on a device that never offered one.
      *
      * ⚠ This enum said "two of the three the menu offers" and called `31`
-     * `DIGITAL_ASSISTANT` until 2026-08-24, when the capability grammar was decoded from
+     * `DIGITAL_ASSISTANT` until the capability grammar was decoded from
      * Sony's own parser and the reply turned out to name its values exactly.
      */
     enum class Action(
@@ -314,7 +314,7 @@ object SonyButton {
      *
      * ⚠ **A positive answer KILLS THE LINK, and that is success.** The device commits and
      * reconnects at once, so the write of this frame reports a broken pipe while its bytes
-     * land. Driven both ways 2026-08-24: negative gives an orderly `f9` and no disconnect.
+     * land. Driven both ways: negative gives an orderly `f9` and no disconnect.
      */
     fun answer(yes: Boolean): SonyPayload =
         SonyPayload.table1(0x98.toByte(), 0x01, 0x02, if (yes) 0x01 else 0x00)
@@ -338,7 +338,7 @@ object SonyButton {
  * A Sony setting that is simply on or off: `<command> <inquiredType> <settingType> <value>`.
  *
  * ✅ **That shape is not a guess from mirroring replies — it is the vendor SDK's own
- * argument list**, read out of `com.sony.songpal.mdr` on 2026-08-23 with
+ * argument list**, read out of `com.sony.songpal.mdr` with
  * [scripts/smali_enum.py]. Every byte position lands on a named enum:
  *
  * | position | enum | example |
@@ -495,7 +495,7 @@ data class ChatDetail(
 /**
  * Speak-to-Chat's detail settings — `fa`/`fc` SYSTEM_*_EXTENDED_PARAM, type `05`.
  *
- * ✅ **All three driven on the XM4 2026-08-24**, each confirmed by an independent `fa 05`
+ * ✅ **All three driven on the XM4**, each confirmed by an independent `fa 05`
  * read and every one restored:
  *
  * ```
@@ -578,7 +578,7 @@ private fun generalSwitch(type: Byte) =
 /**
  * **Touch sensor control panel** — `GsInquiredType.GENERAL_SETTING1`.
  *
- * ✅ **Driven on the XM4 2026-08-24**, `00` → `01` → `00`, each step confirmed by a `d9`
+ * ✅ **Driven on the XM4**, `00` → `01` → `00`, each step confirmed by a `d9`
  * notify and an independent `d6 d1` read.
  *
  * ⚠ **The device names this setting itself, so it is not a guess.** `d0 d1` answers
@@ -608,7 +608,7 @@ val SonyTouchPanel = generalSwitch(type = 0xd1.toByte())
  * → e8 02 00 01        write AUTO
  * ```
  *
- * ✅ **Read on the XM4 2026-08-23 and confirmed**: `e7 02 00 00`, and Sound Connect's
+ * ✅ **Read on the XM4 and confirmed**: `e7 02 00 00`, and Sound Connect's
  * DSEE Extreme row read **Off** at the same moment.
  *
  * ⚠ **`true` is `UpscalingSettingValue.AUTO`, not a generic "on"** — the table has
@@ -632,7 +632,7 @@ val SonyDsee = audioSwitch(type = 0x02, readType = 0x00, writeType = 0x00)
  * → f8 03 00 00        write OFF
  * ```
  *
- * ✅ **Read on the XM4 2026-08-23 and confirmed**: `f7 03 00 01`, and the app's
+ * ✅ **Read on the XM4 and confirmed**: `f7 03 00 01`, and the app's
  * "Pause when headphones are removed" row read **On**.
  *
  * ⚠ **Not the same thing as [SonyAutoOff].** That one is `f4` AUTO_POWER_OFF and switches
@@ -651,7 +651,7 @@ val SonyPauseOnRemoval = systemSwitch(type = 0x03, readType = 0x00, writeType = 
  * ← f9 05 01 01        ParameterType.MODE_ON_OFF ⚠ a DIFFERENT table in the same slot
  * ```
  *
- * ✅ **Driven both ways on the XM4 2026-08-23 18:50, worn**, and restored to Off.
+ * ✅ **Driven both ways on the XM4, worn**, and restored to Off.
  *
  * ⚠ **THE READ AND THE WRITE USE DIFFERENT TYPE TABLES, and this is the only setting
  * here that does.** The reply to a [get] carries `SmartTalkingModeSettingType.ON_OFF`
@@ -693,7 +693,7 @@ val SonySpeakToChat = systemSwitch(type = 0x05, readType = 0x00, writeType = 0x0
  * ← 11 00 50 00        80%, BatteryChargingStatus.NOT_CHARGING
  * ```
  *
- * ✅ **Read on the XM4 2026-08-23 and cross-checked**: the reply was `11 00 50 00` and
+ * ✅ **Read on the XM4 and cross-checked**: the reply was `11 00 50 00` and
  * Sound Connect's own card read **80%** at the same moment. Every byte lands on a named
  * SDK enum, so this is not a scale inferred from one sample.
  *
@@ -769,7 +769,7 @@ fun MultipointDriver.setMultipoint(t: Transport, on: Boolean): Confirmation<Bool
 /**
  * Voice guidance — the spoken prompts, on **frame type `0e`, the second command table**.
  *
- * ✅ **Driven on the XM4 2026-08-24**, off and back on, each confirmed by its own notify
+ * ✅ **Driven on the XM4**, off and back on, each confirmed by its own notify
  * and by an independent read:
  *
  * ```

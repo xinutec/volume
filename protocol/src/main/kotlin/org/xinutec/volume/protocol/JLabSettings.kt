@@ -3,7 +3,7 @@ package org.xinutec.volume.protocol
 /**
  * The JLab JBuds Sport ANC 4's own protocol, on plain RFCOMM SPP.
  *
- * Everything here was captured from `com.jlab.app` on 2026-09-01 and is written up in
+ * Everything here was captured from `com.jlab.app` and is written up in
  * `docs/protocols.md`, "The JLab's command map, decoded". ⛔ **Never sweep this
  * protocol.** The app is a QCY rebrand of a Realtek SDK whose id space holds a factory
  * reset, and nothing measured says which id that is — so only ids the vendor app was
@@ -63,7 +63,7 @@ object JLabFrame {
      * tidied into the pattern, so callers name the reply id they expect.
      *
      * ⚠⚠ **It SCANS rather than checking offset 0, and that is not tidiness.** Measured
-     * 2026-09-01 against the real earbuds: the first read after an idle link took 420 ms
+     * against the real earbuds: the first read after an idle link took 420 ms
      * against a reply window of about 400, so its answer landed in the *next* read's
      * window and every read after it ran one behind — `44` returned nothing and `76` was
      * handed `45`. On the card that read as "could not read it" plus a silently absent
@@ -102,7 +102,7 @@ object JLabFrame {
  * cells discharging at different rates and pins both the offsets and the plain-percent
  * scale.
  *
- * ✅ **WHICH BUD IS WHICH IS SETTLED — 2026-09-01, and by measurement.** It could not be
+ * ✅ **WHICH BUD IS WHICH IS SETTLED — and by measurement.** It could not be
  * done when the decode was found, because both cells then read `50`. Once they had
  * drifted to 70/60 the vendor app was opened beside a read of this frame and its two
  * battery icons measured off the render: the `L` icon's green fill is **34 px** and the
@@ -252,7 +252,7 @@ object JLabSpatialMode {
  * answered `03` while the app had **Custom** — the fourth of EQ1/EQ2/EQ3/Custom — ticked,
  * and preset 3's ten bytes inside `71` are byte-identical to `49`'s curve.
  *
- * ⚠⚠ **WRITABLE AT THE USER'S EXPLICIT REQUEST — 2026-09-01.** It shipped read-only first,
+ * ⚠⚠ **WRITABLE AT THE USER'S EXPLICIT REQUEST.** It shipped read-only first,
  * because selecting any of EQ1/EQ2/EQ3 — all flat `78` — RAISES the two bands the live
  * Custom curve cuts to `5a`. That is still true and the card says so; what changed is that
  * he asked for the control.
@@ -271,7 +271,7 @@ object JLabSpatialMode {
  * ⚠ **`4b` answered preset `01` and a flat curve after a write of preset `03`**, so it
  * reports neither the request nor the state. [Drivers.JLabQcy.setEq] re-reads `48`.
  *
- * ✅ **A SECOND PRESET INDEX IS NOW MEASURED — 2026-09-02.** `eq 1` was selected on our
+ * ✅ **A SECOND PRESET INDEX IS MEASURED.** `eq 1` was selected on our
  * own card and `49` re-read preset `0`, so the preset byte is observed at two values and
  * writing an index is no longer an extension of a single capture. The original selection
  * was restored in the same step and the device ended byte-identical to where it started.
@@ -285,13 +285,13 @@ object JLabSpatialMode {
  * ✅ **The `Contradicted` alone carries that, without leaning on the `71` capture.** The
  * outcome fires only when the re-read differs from what was REQUESTED, and the request was
  * whatever slot 0 held at that moment — so slot 0 was not the cut curve, and the cut curve
- * came back regardless. Calling those levels "flat `78`s" is the 2026-09-01 capture
+ * came back regardless. Calling those levels "flat `78`s" is the capture
  * talking; that they were not what returned is today's measurement.
  *
  * ✅ **RESOLVED THE SAME DAY: `49`'s ten bytes are the CUSTOM SLOT'S, not the selected
  * preset's.** A second non-custom index was driven — `eq 2`, slot 1 — with `71` printed
  * beside it, which made the slot table readable for the first time. It reads
- * `[flat, flat, flat, cut]` LIVE rather than from the 2026-09-01 capture: slots 0, 1 and 2
+ * `[flat, flat, flat, cut]` LIVE rather than from the capture: slots 0, 1 and 2
  * are all `78`, and only slot 3 carries the two cuts. Selecting `0` and selecting `1` each
  * moved the index and each left the ten bytes sitting at slot 3's cut curve, so the bytes
  * do not follow the index. `71` itself came back unchanged by both writes — a preset write
@@ -377,7 +377,7 @@ data class JLabCurve(
  * → c0 ff 00 66 00 00 01 00 26     ← 00 ff 01 67 01 00 <level> 00 00 <sum>
  * ```
  *
- * ✅ **Measured at two values on 2026-09-01**, which is why this is a decode and not the
+ * ✅ **Measured at two values**, which is why this is a decode and not the
  * reader+2 rule guessing: `67` read `00` in two cold enumerations taken while the app's
  * slider sat on `Default`, then `02` in a third taken with it on `85 dB Limit`. One
  * variable, one byte.
@@ -386,7 +386,7 @@ data class JLabCurve(
  * mistake this control punishes.** `02` is the most protective setting and `00` is the
  * least. Anything that sorts or compares these numbers as "loudness" has them backwards.
  *
- * ⚠⚠ **THE WRITER EXISTS BECAUSE THE USER ASKED FOR IT — 2026-09-01, explicitly.** It was
+ * ⚠⚠ **THE WRITER EXISTS BECAUSE THE USER ASKED FOR IT — explicitly.** It was
  * shipped read-only first, with a test asserting the absence, precisely so that adding one
  * had to be a decision rather than a refactor. That decision was taken; this comment is
  * the record of it, and nothing here should be read as the default for a control of this

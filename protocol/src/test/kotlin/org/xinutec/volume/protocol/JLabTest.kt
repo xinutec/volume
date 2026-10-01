@@ -9,8 +9,8 @@ import org.junit.Test
 /**
  * The JLab's own protocol, against bytes the earbuds actually sent.
  *
- * Every reply fixture here is a whole RFCOMM payload from the four captures of
- * 2026-09-01, copied off the wire rather than written to match the code — the
+ * Every reply fixture here is a whole RFCOMM payload from four captures,
+ * copied off the wire rather than written to match the code — the
  * distinction that `docs/captures.md` exists to enforce. The request fixtures are this
  * repo's own frames, checked byte for byte against what `com.jlab.app` sent.
  */
@@ -118,7 +118,7 @@ class JLabTest {
 
     /**
      * ⚠⚠ **The regression this shipped once.** These are the two payloads exactly as the
-     * earbuds sent them on 2026-09-01, in order: `44`'s answer arrived 20 ms after its
+     * earbuds sent them, in order: `44`'s answer arrived 20 ms after its
      * own window closed, so the NEXT read — `76` — was handed both. A decoder testing
      * offset 3 sees `45`, returns null, and the card silently loses its Spatial Audio row
      * while reporting the ANC read as a link failure. The device was answering both.
@@ -183,7 +183,7 @@ class JLabTest {
     }
 
     // ---- safe hearing ----------------------------------------------------------
-    // ✅ The two cold enumerations that name it: `Default` on 2026-09-01 09:47 and again
+    // ✅ The two cold enumerations that name it: `Default` and again
     // at 10:12, then `85 dB Limit` at 11:21. One variable, one byte.
 
     private val safeHearingDefault = "00 ff 01 67 01 00 00 00 00 66"
@@ -219,7 +219,7 @@ class JLabTest {
     }
 
     /**
-     * ✅ **The three writes exactly as the vendor app sent them**, 2026-09-01.
+     * ✅ **The three writes exactly as the vendor app sent them**.
      *
      * ⚠ This test replaced one asserting that no writer existed. That guard did its job:
      * shipping read-only first meant adding the writer was a decision the user took
@@ -276,7 +276,7 @@ class JLabTest {
     /**
      * ⚠ The other three are flat, which is why selecting one RAISES two bands.
      *
-     * ✅ **Corroborated against the earbuds on 2026-09-02**, not just this capture: `71`
+     * ✅ **Corroborated against the earbuds**, not just this capture: `71`
      * was read live beside two preset writes and came back `[flat, flat, flat, cut]` both
      * times — so the fixture still describes the device, and a preset write does not
      * rewrite the stored curves.
@@ -293,7 +293,7 @@ class JLabTest {
     }
 
     // ---- the writer ------------------------------------------------------------
-    // ⚠ **The write had no test at all until 2026-09-02**, while shipping and being
+    // ⚠ **The write once had no test at all**, while shipping and being
     // driven against the earbuds. These pin the bytes; what the DEVICE does with them
     // is a separate question and [JLabEq] carries the answer.
 
@@ -315,7 +315,7 @@ class JLabTest {
 
     /**
      * ⚠⚠ **What a `eq 1` tap actually puts on the wire**, and the frame behind the
-     * 2026-09-02 finding: the card sends slot 0's OWN contents, which [eqPresets] shows
+     * The finding: the card sends slot 0's OWN contents, which [eqPresets] shows
      * are flat, and the device answered with the CUT curve still in place. So this frame
      * is established and the device's response to it is not — see [JLabEq].
      */
@@ -451,7 +451,7 @@ class JLabTest {
     /**
      * ⚠⚠ **The reply checksum has NO rule, and this records which way each command
      * falls** so nobody re-derives it. Seven close at Σ−2; five close at no offset over
-     * any prefix. A commit on 2026-09-01 claimed the −2 held universally — it had been
+     * any prefix. A commit claimed the −2 held universally — it had been
      * checked frame-by-frame on a capture where the `31` broadcast repeats sixty times.
      */
     @Test

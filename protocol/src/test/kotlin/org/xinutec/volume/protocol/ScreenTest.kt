@@ -227,7 +227,7 @@ class ScreenTest {
     /**
      * ⚠ **The defect this type replaces.** Every empty list rendered one sentence,
      * "No headphones bonded to this phone", and it was false in four of the five
-     * cases — measured on 2026-08-16 with thirteen devices bonded. The radio being
+     * cases — measured with thirteen devices bonded. The radio being
      * off is the one that bites, because `bondedDevices` returns an empty set then
      * rather than failing, so the honest answer and the misleading one are the same
      * value and only the caller can tell them apart.

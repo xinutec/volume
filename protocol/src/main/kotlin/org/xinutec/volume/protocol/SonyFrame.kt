@@ -4,7 +4,7 @@ package org.xinutec.volume.protocol
  * Sony's framing on the `96cc203e-…` RFCOMM channel.
  *
  * Written from memory of the open-source SonyHeadphonesClient, and **settled by the
- * 2026-08-16 capture** (`docs/sony-settings.md`), which is what this note used to
+ * Headphones Connect capture** (`docs/sony-settings.md`), which is what this note used to
  * ask for. The band-table reply
  * `3e 0c 00 00000015 5b…01 3d 2e 80 54 3c` decides all three open questions at once:
  * its declared length of 21 matches only *after* unescaping 22 bytes, its checksum

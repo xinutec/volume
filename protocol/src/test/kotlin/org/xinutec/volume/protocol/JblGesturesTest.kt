@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The JBL gesture map — read 2026-08-16, written and confirmed by ear 2026-08-17.
+ * The JBL gesture map — read, written and confirmed by ear.
  *
  * Every frame here is off the wire except where a test says it is synthetic and why.
  */
@@ -28,7 +28,7 @@ class JblGesturesTest {
     @Test
     fun `the frames are the ones the vendor app builds`() {
         assertEquals("aa770201ff", hex(JblGestures.get().bytes))
-        // What was actually sent on 2026-08-17, and what restored it.
+        // What was actually sent, and what restored it.
         assertEquals(
             "aa7703000605",
             hex(JblGestures.set(Gesture.LEFT_TAP, GestureAction.NEXT_TRACK).bytes),

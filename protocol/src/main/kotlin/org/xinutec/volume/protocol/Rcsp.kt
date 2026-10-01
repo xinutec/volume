@@ -9,7 +9,7 @@ package org.xinutec.volume.protocol
  *          param[0] = the sequence number, on a command
  * ```
  *
- * ✅ **Read out of `com/jieli/bluetooth` in the JLab APK on 2026-09-12**, not guessed:
+ * ✅ **Read out of `com/jieli/bluetooth` in the JLab APK**, not guessed:
  * `ParseHelper.packSendBasePacket` assembles exactly this, `ParseHelper`'s four framing
  * constants are the head and tail, and `CHexConver.int2byte2` writes the length high
  * byte first. There is no checksum — the assembler sizes the whole frame at
@@ -77,7 +77,7 @@ object Rcsp {
      *
      * ⚠ **Recognition is the head and the opcode byte, NOT a whole valid frame.**
      * Requiring [OVERHEAD] here made a truncated RCSP frame fall through [Hazards]'
-     * RCSP arm into the Bose one — caught 2026-09-12 by a control that sent a short
+     * RCSP arm into the Bose one — caught by a control that sent a short
      * `fe dc ba … 22` and watched it be described as "Bose block fe". A deny-list that
      * a malformed frame walks past is not one.
      */

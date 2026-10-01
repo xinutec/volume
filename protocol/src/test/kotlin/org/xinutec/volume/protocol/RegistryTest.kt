@@ -8,7 +8,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The fixtures are the real SDP records, read off the Pixel 9 on 2026-08-15. */
+/** The fixtures are the real SDP records, read off the Pixel 9. */
 class RegistryTest {
     private val std =
         setOf(
@@ -80,7 +80,7 @@ class RegistryTest {
      * An unrecognised JBL is not driven as a Tour One M2.
      *
      * ⚠⚠ **This is the JLab bug above, nine days later and one vendor over.** The JBL
-     * branch stayed vendor-only when that one was fixed, so on 2026-09-12 a LIVE PRO 2
+     * branch stayed vendor-only when that one was fixed, so a LIVE PRO 2
      * TWS was named "JBL Tour One M2" on the screen and the app went looking for the
      * wrong model over LE. The name is the only thing separating them: both answer to
      * the same Fast Pair UUID and neither publishes a model anywhere else.
@@ -120,7 +120,7 @@ class RegistryTest {
     /**
      * ⚠⚠ **The same rule as the Bose test below, for the vendor where breaking it is
      * worst.** Every JLab used to resolve to the JBuds Sport ANC 4 and its driver; the
-     * phone has seen three `JLab JBuds Air Sport` — not bonded on 2026-09-03, so nothing
+     * phone has seen three `JLab JBuds Air Sport` — not bonded, so nothing
      * was ever mis-driven, but the branch would have done it the day one was paired.
      *
      * ⛔ The JLab id space is a Realtek SDK's and holds a factory reset, so replaying

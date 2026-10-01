@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Fixtures are **real frames** from the 2026-08-16 capture of Sony Headphones
+ * Fixtures are **real frames** from the capture of Sony Headphones
  * Connect (`docs/sony-settings.md`), payloads only — the `3e0c…3c` framing and the
  * acks are stripped.
  *
@@ -26,7 +26,7 @@ class SonyEqTest {
     }
 
     /**
-     * Captured at 18:57:24 on 2026-08-24, the last frame of a band dragged back up
+     * Captured at 18:57:24, the last frame of a band dragged back up
      * to +6 in Sony Headphones Connect.
      *
      * ⚠ **The `ff` is the assertion.** Byte for byte this is what the driver had
@@ -138,7 +138,7 @@ class SonyEqPresetsTest {
 }
 
 /**
- * `50 01 01` → `51 01 …`, captured off the WH-1000XM4 on 2026-09-10.
+ * `50 01 01` → `51 01 …`, captured off the WH-1000XM4.
  *
  * ⚠ **The frame is real and the read that produced it is NOT reliable.** It came from a
  * one-shot `probe.sh send`; the identical call a minute later drew "nothing in 3000ms",

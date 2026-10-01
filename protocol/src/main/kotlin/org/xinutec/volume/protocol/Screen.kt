@@ -111,7 +111,7 @@ sealed interface DeviceState {
      *
      * @param mode null when the mode cannot be read, which is a real state and not
      *   "unknown yet" — a spinner there would wait forever. ⚠ The JLab was the
-     *   example until its read was found on 2026-08-16; no device here is in that
+     *   example until its read was found; no device here is in that
      *   state now, so null means "nobody has found the read yet".
      */
     data class Ready(
@@ -136,8 +136,7 @@ sealed interface DeviceState {
      * M2 is driven through. The wording says "over SPP" for that reason; widening it
      * to "no control channel" claims a property of the device that was never measured.
      *
-     * ⚠⚠ **The distinction from [Unavailable] is RETRY, and one label carried both
-     * until 2026-09-12.** "Would not connect" is a fact about this attempt — the pair
+     * ⚠⚠ **The distinction from [Unavailable] is RETRY, and one label once carried both.** "Would not connect" is a fact about this attempt — the pair
      * was asleep, the radio was busy, another app held the channel — and the right
      * offer is a Connect button. "SPP opened and it said nothing" is a fact about the
      * DEVICE, and the same button re-runs a probe that cannot succeed.
@@ -162,7 +161,7 @@ sealed interface DeviceState {
  * none switched on. The worst is [BLUETOOTH_OFF]: `bondedDevices` reads as empty
  * when the adapter is disabled, so the app blamed its owner's pairing for its own
  * blindness, and the sentence sent them to the one settings screen that could not
- * help. Measured on 2026-08-16: thirteen bonded devices, that sentence on screen.
+ * help. Measured: thirteen bonded devices, that sentence on screen.
  *
  * The distinctions are here rather than in `:app` because they are a *decision*
  * about which fact is true, and each carries a different thing for the owner to
@@ -215,7 +214,7 @@ data class Screen(
      * somewhere that is not on this screen.
      *
      * ⚠ **One address here, not a boolean on every card.** It was a boolean per card
-     * first, and both of 2026-09-12's staleness bugs were copies of this single fact
+     * first, and two staleness bugs were copies of this single fact
      * disagreeing: [reconciled] stamped them on the connect broadcast, before the audio
      * framework had the A2DP output, and the re-stamp that fixed that rode on state
      * changes which a later fix removed. One value written in one place cannot go stale
@@ -245,7 +244,7 @@ data class Screen(
      * have its slider move a level belonging to something else, which is the same class
      * of bug as a one-tap tile changing the ANC of the pair that is not in your ears.
      *
-     * ✅ Measured on a NewPie 32, 2026-09-12: `dumpsys audio` reports
+     * ✅ Measured on a NewPie 32: `dumpsys audio` reports
      * `mAvrcpAbsVolSupported: true`, and its own volume buttons walk the phone's
      * AVRCP volume `2 → 25` and back. Absolute volume means the two numbers are one
      * number, in both directions — which is why this is a control and not a guess.

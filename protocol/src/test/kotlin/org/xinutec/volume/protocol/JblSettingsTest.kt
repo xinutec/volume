@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * The JBL's auto power off and equaliser, replayed from the 2026-08-16 capture.
+ * The JBL's auto power off and equaliser, replayed from the capture.
  *
  * ⚠ **Every hex string here is a whole frame off the wire**, taken with
  * `tshark -e btatt.value` — the JBL is GATT, so `data.data` is empty for it and a
@@ -31,7 +31,7 @@ class JblSettingsTest {
     }
 
     /**
-     * The three the app offers, driven on hardware 2026-08-25 10:06 and read back at
+     * The three the app offers, driven on hardware and read back at
      * each step — `3c` and `78` took, and `1e` restored.
      *
      * ⚠ **Pins the TRAILER against being composed from the minutes.** `78` is 120 and
@@ -63,7 +63,7 @@ class JblSettingsTest {
     }
 
     /**
-     * Both halves of the 2026-08-25 ablation, and the concatenated frame that ended it.
+     * Both halves of the ablation, and the concatenated frame that ended it.
      *
      * ⚠ **The `aa 25` tail is real traffic, not a crafted case.** The restore's reply came
      * back as `aa 93 02 05 01 aa 25 0d …` — an unsolicited battery notification glued on.
@@ -91,7 +91,7 @@ class JblSettingsTest {
     }
 
     /**
-     * Customize ANC, read 2026-08-17 and again 2026-08-25 byte-identically.
+     * Customize ANC, read twice a week apart, byte-identically.
      *
      * ⚠ **`a1` is the assertion that matters.** It is the only key outside `01`–`08` and
      * it arrives LAST, so a reader that walks fixed offsets, stops at a contiguous key
@@ -319,7 +319,7 @@ class JblSettingsTest {
 
     @Test
     fun `the feature keys read what the headphones answered`() {
-        // Both frames are off the wire, 2026-08-17, and they disagree in the value
+        // Both frames are off the wire, and they disagree in the value
         // byte only — which is what makes them worth having as a pair.
         val leAudio = bytes(JblFrames.FEATURE_LE_AUDIO_OFF)
         val auracast = bytes(JblFrames.FEATURE_AURACAST_ON)

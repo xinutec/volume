@@ -221,7 +221,7 @@ data class ThothScreen(
      * ⚠ On the screen rather than in a log. thoth refuses a request by saying why,
      * so a client that swallows the sentence turns an explained refusal into a
      * control that silently did nothing. ⚠ The volume ceiling was the one refusal
-     * that happened in ordinary use and it was removed on 2026-09-12; what is left
+     * that happened in ordinary use and it was removed; what is left
      * is malformed bodies and unknown cabinets.
      */
     val refusal: String? = null,

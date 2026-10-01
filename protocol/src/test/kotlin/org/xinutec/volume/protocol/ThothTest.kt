@@ -10,7 +10,7 @@ import java.io.IOException
 /**
  * The thoth contract, against what the server actually said.
  *
- * Every JSON body below was read off the live service on 2026-09-04 with `curl`, and
+ * Every JSON body below was read off the live service with `curl`, and
  * the refusal text is the one it returned to an over-ceiling request. ⚠ **That
  * particular refusal can no longer happen** — thoth dropped its volume ceiling on
  * 2026-09-12 — but the body is kept because what it tests is that ANY 400 reaches the
@@ -57,7 +57,7 @@ class ThothTest {
     /** The `ceiling` field, for the tests that take it away again. */
     private val ceilingField = """"ceiling":0.65,"""
 
-    /** Verbatim from a `POST /api/picades` the server refused on 2026-09-04. */
+    /** Verbatim from a `POST /api/picades` the server refused. */
     private val refusalText =
         "volume 0.9 exceeds the ceiling of 0.65 — thoth will not set a level that loud (see #787)"
 

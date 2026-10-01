@@ -30,7 +30,7 @@ interface ThothTransport {
  *
  * ⚠ [reason] is the server's own words and is meant to be SHOWN — swallowing it turns
  * an explained refusal into a control that silently did nothing. ⚠ The volume ceiling
- * was the refusal this was written for and it was removed on 2026-09-12; what reaches
+ * was the refusal this was written for and it was removed; what reaches
  * here now is a malformed body or an unknown cabinet.
  */
 class ThothRefused(

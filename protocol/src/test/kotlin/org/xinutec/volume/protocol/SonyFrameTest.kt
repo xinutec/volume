@@ -85,7 +85,7 @@ class SonyFrameTest {
     }
 
     /**
-     * The frame that settled the framing: the XM4's band table, 2026-08-16 11:01:41,
+     * The frame that settled the framing: the XM4's band table,
      * copied whole off the wire.
      *
      * ⚠ **It decides escaping, length and checksum at once, and only one reading of

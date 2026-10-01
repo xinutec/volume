@@ -86,7 +86,7 @@ object Registry {
                 )
             }
 
-            // ⚠⚠ **Its own driver, and the reason is the whole of 2026-09-13.** This
+            // ⚠⚠ **Its own driver, and the reason is a whole day of measurement.** This
             // pair answers on the same service as the M2, to the same name frame, and
             // then disagrees about ANC in both directions: `aa 91 01 11` reports a
             // confirmed TalkThru as ANC or as Ambient depending on when you ask, and
@@ -108,8 +108,8 @@ object Registry {
                 )
             }
 
-            // ⚠⚠ **The MODEL, not just the vendor — and this branch was vendor-only
-            // until 2026-09-12**, which is nine days after the identical fix went in
+            // ⚠⚠ **The MODEL, not just the vendor — and this branch was once vendor-only**,
+            // nine days after the identical fix went in
             // for JLab immediately below and did not get carried across. A LIVE PRO 2
             // TWS was named "JBL Tour One M2" on screen and sent the app hunting for
             // the wrong model over LE; the user watched it do that.
@@ -131,8 +131,7 @@ object Registry {
                 )
             }
 
-            // ⚠⚠ **The MODEL, not just the vendor — and this branch was vendor-only
-            // until 2026-09-03.** It named every JLab "JBuds Sport ANC 4" and handed it
+            // ⚠⚠ **The MODEL, not just the vendor — and this branch was once vendor-only.** It named every JLab "JBuds Sport ANC 4" and handed it
             // that driver, which is the mistake `the two bose models do not share a
             // driver` exists to forbid one vendor over. ⛔ It matters more here than
             // there: this protocol's id space is a Realtek SDK's and **holds a factory
@@ -173,21 +172,21 @@ object Registry {
     /**
      * Wake a Bose BMAP session — a QC35 has been seen answering NOTHING until this is sent.
      *
-     * ⚠ **REFUTED as a rule, 2026-08-29 — this is a STATE, not a property of a fresh
+     * ⚠ **REFUTED as a rule — this is a STATE, not a property of a fresh
      * socket.** On a virgin session after a power cycle, with the activity and every vendor
      * app stopped, the same QC35 answered `01 06` cold four times, including once after a
      * five-minute idle gap. So the wake is kept because it costs one read, **NOT** because
      * a fresh socket is known to need it.
      *
-     * ✅ **The state is per-DEVICE-SESSION, not per-socket** (2026-08-29): the wake was sent
+     * ✅ **The state is per-DEVICE-SESSION, not per-socket**: the wake was sent
      * on one socket and a later, separate socket answered without a block-`00` of its own.
      * So this is sent once per session and the cost is one read, not one read per socket.
      *
      * ⚠ What induces it is still unknown, and the two obvious answers are both spent.
-     * **Idle is out to 75 minutes** (2026-08-29: one cold read after 4500 s untouched,
+     * **Idle is out to 75 minutes** (one cold read after 4500 s untouched,
      * answered). **A Bluetooth stack restart does not induce it** either — though that
      * control moved two variables at once and so settles less than a clean one would. The
-     * **A phone reboot does not induce it** — 2026-08-30 caught a silence 26.3 HOURS after
+     * **A phone reboot does not induce it** — a silence was caught 26.3 HOURS after
      * boot, 13 s after the headset reconnected, which retires both clocks. That sitting also
      * showed the silence covers `04 04` as well as block `01`, so it is every block except
      * `00`. **The cause is how long the HEADSET was powered off**, isolated by a matched
@@ -196,7 +195,7 @@ object Registry {
      * threshold is somewhere in 20 s … 20.9 min and was not chased, because this read is sent
      * unconditionally and no branch asks. #1232.
      *
-     * ⚠⚠ **Measured on a QC35, 2026-08-28, and it made the device unusable from this app.**
+     * ⚠⚠ **Measured on a QC35, and it made the device unusable from this app.**
      * Every `01 06`, `01 02` and `01 01` sent on a new socket went out on the wire and drew
      * no reply at all — four in a row in one socket, then more across 28 minutes and two
      * reconnections. The snoop shows the frames leaving and nothing coming back, while the
@@ -224,7 +223,7 @@ object Registry {
      * wearing, which a probing write would not be.
      *
      * ⚠ **Wakes the session first.** Without it a QC35 answers nothing here and is
-     * reported "unidentified", which is what it did all afternoon on 2026-08-28 — see
+     * reported "unidentified", which is what it did all afternoon — see
      * [wakeBose]. The null return below cannot tell a silent device from an asleep one.
      *
      * Returns null if it answers neither way; the caller should say "unidentified"
@@ -253,7 +252,7 @@ object Registry {
  * ⚠⚠ **"It answered in neither shape" was printed for SILENCE.** `identifyBose`
  * returned null both when the operator byte was unrecognised and when there was no
  * reply to take one from, and the screen's one sentence claimed an answer either way.
- * On 2026-09-12 that sentence sat under a device which — measured eight different ways
+ * That sentence once sat under a device which — measured eight different ways
  * — never answers anything at all, and it was convincing enough to briefly overturn the
  * evening's conclusion. A device that says nothing and a device that says something
  * unexpected are different facts about it, and only one of them is worth probing again.

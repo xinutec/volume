@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Auto Play & Pause, balance and PSAP — all three driven or read on 2026-08-17. */
+/** Auto Play & Pause, balance and PSAP — all three driven or read. */
 class JblMoreTest {
     // ---- auto play & pause -------------------------------------------------
 

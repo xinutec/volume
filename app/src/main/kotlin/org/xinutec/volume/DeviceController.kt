@@ -664,7 +664,7 @@ class DeviceController(
             // cancelling: re-asking spent a round trip on something nothing had
             // invalidated, and on the JBL — where a reply can be a keepalive that
             // arrived first — it came back empty and the mode silently went blank.
-            // Measured 2026-08-16: switching auto power off on the JBL cleared its
+            // Measured: switching auto power off on the JBL cleared its
             // selected ANC chip, with the headphones still plainly cancelling noise.
             val mode = (card(address)?.state as? DeviceState.Ready)?.mode
             update(address, DeviceState.Busy("$what…"))
@@ -705,11 +705,11 @@ class DeviceController(
             // ⚠ **`eq` is in here because a bare `Confirmed` is not evidence about
             // WHICH value landed.** A slider dragged too small rounds back to where it
             // started, writes the value already held, and confirms — indistinguishable
-            // in the log from a drag that moved a band. Measured 2026-08-24, and it
+            // in the log from a drag that moved a band. Measured, and it
             // cost a re-run to notice the screen and the log did not disagree because
             // neither of them named a number.
             // ⚠ **The JLab needs its SLOTS beside its curve, for the same reason.** `49`
-            // answers a preset index and ten bytes, and 2026-09-02 measured those two
+            // answers a preset index and ten bytes, and a measurement caught those two
             // disagreeing — the index moved to a preset whose stored curve is flat while
             // the bytes stayed cut. Neither the card nor this log could show which slot
             // the bytes belonged to, so `71` is printed alongside them; the question is
@@ -966,7 +966,7 @@ class DeviceController(
 
     /**
      * ⚠⚠ **Raising this raises how loud the headphones can get.** Writable at the user's
-     * explicit request, 2026-09-01. It re-reads rather than trusting the reply: `69`
+     * explicit request. It re-reads rather than trusting the reply: `69`
      * answers `01` for every level, so it is an ack and says nothing about what the device
      * did — and reporting a hearing control as set when it was not is the worst version of
      * that mistake.
@@ -1129,7 +1129,7 @@ class DeviceController(
                 }
                 // ⚠ **A yes has already taken the link down.** Reopening is a race against
                 // the device's own reconnect, so this retries rather than waiting a fixed
-                // time and hoping — measured 2026-08-24, where a single attempt after 6 s
+                // time and hoping — measured, where a single attempt after 6 s
                 // sometimes lost and left the card showing the PRE-CHANGE value. That is
                 // the worst outcome available: the change had committed and the screen
                 // said it had not.
@@ -1322,8 +1322,7 @@ class DeviceController(
      * owned by the process now, so the Quick Settings tile can have opened this
      * channel before the screen ever asked. Returning early with "we already have a
      * session" left the card on [DeviceState.Idle] — reading *"Not connected"*, with
-     * a Connect button, for a device the tile was driving at that moment. Measured
-     * 2026-08-16.
+     * a Connect button, for a device the tile was driving at that moment. Measured.
      */
     private fun describe(address: String, session: Session): Session {
         update(address, DeviceState.Busy("reading…"))
@@ -1402,7 +1401,7 @@ class DeviceController(
     /**
      * Re-stamp which card owns the media volume, from the audio framework's own event.
      *
-     * ⚠⚠ **Hanging this off state changes was wrong, and the two fixes of 2026-09-12
+     * ⚠⚠ **Hanging this off state changes was wrong, and two fixes made the same day
      * collided to prove it.** The first re-stamped on every [update]; the second
      * stopped re-probing a [DeviceState.NoControl] device, which removed its state
      * changes entirely. So when the other pair disconnected, the card that HAD become

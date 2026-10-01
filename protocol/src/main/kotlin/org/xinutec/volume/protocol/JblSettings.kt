@@ -9,7 +9,7 @@ package org.xinutec.volume.protocol
  * neither device has: a Sony that counts minutes, or a JBL that senses wearing.
  *
  * ⚠ **[minutes] really is minutes** — the vendor app's own "30 min", "1 hr" and "2 hr"
- * sent `1e`, `3c` and `78` on 2026-08-16, so the unit is measured rather than a label
+ * sent `1e`, `3c` and `78`, so the unit is measured rather than a label
  * this repo chose. [JBL_IDLE_MINUTES] is what to offer; the field itself is a whole
  * byte and is carried as read, because nothing has probed its edges.
  */
@@ -33,7 +33,7 @@ data class TimedOff(
 val JBL_IDLE_MINUTES = listOf(30, 60, 120)
 
 /**
- * JBL auto power off — status field `33`, driven 2026-08-16.
+ * JBL auto power off — status field `33`, driven.
  *
  * ```
  * → aa 21 01 33              ← aa 22 04 33 <on> <minutes> <?>
@@ -83,7 +83,7 @@ object JblAutoOff {
  * → aa a2 <len16> 00 <id> …     write — the same frame with operator 00
  * ```
  *
- * ✅ **Read off `com.harman.commands.EQCmd.parse`, 2026-09-11**, which ended a model
+ * ✅ **Read off `com.harman.commands.EQCmd.parse`**, which ended a model
  * that fit every byte and still said the wrong thing about three of them:
  *
  * ```
@@ -226,8 +226,8 @@ val JBL_HZ = listOf(32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
  *
  * ⚠⚠ **`EnumEqPresetIdx`, a different SDK in the same APK, numbers these differently
  * from `04` up**, because it carries a `USER` entry that `EQSettings2` does not: it
- * reads `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO`. This table said exactly that
- * until 2026-09-11, so a Rock curve would have rendered as "User". `EQSettings2` wins
+ * reads `04 USER 05 ROCK 06 PIANO 07 CLUB 08 STUDIO`. This table once said exactly that,
+ * so a Rock curve would have rendered as "User". `EQSettings2` wins
  * for the reason it won over `EQSettings` on `c9`: it declares the ids this device has
  * answered with, and `EQCmd`, which parses the frame, is its sibling.
  *
@@ -368,7 +368,7 @@ data class Spatial(
 )
 
 /**
- * JBL Spatial Sound — `aa 9d`, decoded 2026-08-17.
+ * JBL Spatial Sound — `aa 9d`, decoded.
  *
  * ```
  * → aa 9d 01 01                  ← aa 9d 03 02 <on> <mode>
@@ -437,7 +437,7 @@ data class VoiceAware(
 )
 
 /**
- * JBL VoiceAware — `aa 98`, level decoded 2026-08-17.
+ * JBL VoiceAware — `aa 98`, level decoded.
  *
  * ```
  * → aa 98 01 01                     ← aa 98 03 02 <level> <on>
@@ -506,7 +506,7 @@ data class SmartTalk(
 )
 
 /**
- * JBL Smart Talk — `aa 9f`, decoded 2026-08-16.
+ * JBL Smart Talk — `aa 9f`, decoded.
  *
  * ```
  * → aa 9f 01 01                       ← aa 9f 03 02 <on> <seconds>
@@ -537,7 +537,7 @@ object JblSmartTalk {
 }
 
 /**
- * JBL Low Volume Dynamic EQ — `aa 9e`, decoded 2026-08-16.
+ * JBL Low Volume Dynamic EQ — `aa 9e`, decoded.
  *
  * ```
  * → aa 9e 01 01            ← aa 9e 02 02 <on>
@@ -567,7 +567,7 @@ object JblLowVolumeEq {
 /**
  * Smart Audio & Video — three whole frames, and **no enable byte**.
  *
- * ⚠ **[OFF] is a state, not a modifier.** Measured 2026-08-17: with Video lit,
+ * ⚠ **[OFF] is a state, not a modifier.** Measured: with Video lit,
  * switching off sends the Audio-family payload, not a Video payload with a flag
  * cleared. So this is one three-way choice rather than a switch plus a mode, and
  * modelling it as the latter would invent a state — Video-and-off — that the device
@@ -628,7 +628,7 @@ object JblSmartAv {
      * the M2's payload byte-for-byte and AUDIO with one of its own
      * (`00 01 2e 00 18 01 ff ff` against `00 01 35 00 96 00 ff ff`), so a single payload
      * per enum entry cannot describe both — and [set] writes exactly these bytes, so
-     * getting it wrong does not mis-read, it mis-writes. Measured 2026-09-13 by switching
+     * getting it wrong does not mis-read, it mis-writes. Measured by switching
      * the vendor app's Audio/Video row and reading `aa 82` either side.
      *
      * ⚠ The LIVE PRO 2 offers **two** modes; there is no OFF on its screen. A table that
@@ -671,7 +671,7 @@ object JblSmartAv {
  * captured `aa b1 03 00 02 00` look like a *set* with operator `00` for a whole
  * session. It is a *get* of key `02`.
  *
- * ⚠ **A get answers about the FIRST key only** — measured 2026-08-17: asking for
+ * ⚠ **A get answers about the FIRST key only** — measured: asking for
  * `01` and `02` together returned `01` alone. So ask one at a time; the list form
  * the vendor's SDK offers buys nothing here.
  */
@@ -823,7 +823,7 @@ enum class Bud(
  * `aa a2` is silent on the LIVE PRO 2 — so nothing would catch a value read out of the
  * wrong table. Name an `aa 40` index only from here.
  *
- * ✅ Driven on a LIVE PRO 2, 2026-09-13: writing `01`, `05`, `03` and `04` each made
+ * ✅ Driven on a LIVE PRO 2: writing `01`, `05`, `03` and `04` each made
  * field `34` report the same number back. The write draws no ack at all, so [state] is
  * the only confirmation there is.
  *
@@ -923,7 +923,7 @@ object Bes {
      * ⚠ **A reply is NOT the only thing in the buffer.** `Gatt.collect` concatenates every
      * notification that arrives in the window — it has to, because a long answer comes
      * split across MTU-sized notifications — and this device volunteers `aa 25` battery
-     * every ten seconds. Measured 2026-08-25: **8 of 64 getters came back with a battery
+     * every ten seconds. Measured: **8 of 64 getters came back with a battery
      * frame glued on**. Those all decoded, because it arrived *after*. When it arrives
      * FIRST, offset 0 is someone else's frame, every decoder here correctly returns null,
      * and the settings row silently vanishes — #1154.

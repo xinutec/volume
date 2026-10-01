@@ -64,7 +64,7 @@ value class JblCurveTable(
 )
 
 /**
- * The Sony EQEBB frames, as captured 2026-08-16 (`docs/sony-settings.md`).
+ * The Sony EQEBB frames, as captured (`docs/sony-settings.md`).
  *
  * Here rather than in the driver because it is pure arithmetic over bytes, and
  * because the capture gives exact fixtures — the tests replay real frames rather
@@ -135,7 +135,7 @@ object SonyEq {
      * a day to find.** Sending the slot's own id — the `a2` that `57 01` had just
      * reported — produces a frame the XM4 acks and silently drops. Every other byte
      * was already right, so nothing looked wrong: the write went out, the ack came
-     * back, and the levels did not move. Captured 2026-08-24 with a band dragged in
+     * back, and the levels did not move. Captured with a band dragged in
      * Sony Headphones Connect, and confirmed in the SDK, where `sendEqBandSteps`
      * hardcodes `UNSPECIFIED` and **ignores the preset it was passed**.
      *
@@ -234,10 +234,10 @@ object SonyEq {
  * either.** Commands are v2's: `EQEBB_GET_PARAM` is `0x2d` in v1 and `0x56` here, and
  * `0x56` is what this repo has on the wire. But v2's `EqEbbInquiredType` numbers
  * `PRESET_EQ` as `00` and calls `01` `EBB`, while `01` is demonstrably what returns
- * preset ids on this device — which is **v1's** numbering. Measured on 2026-09-10, not
+ * preset ids on this device — which is **v1's** numbering. Measured, not
  * reconciled: the two tables are mixed here, so neither may be applied wholesale.
  *
- * ⚠ **`00`, `02` and `03` drew no answer** from a one-shot socket on 2026-09-10, and
+ * ⚠ **`00`, `02` and `03` drew no answer** from a one-shot socket, and
  * that is NOT evidence they are unsupported: the same socket answered `01` once and
  * then fell silent to a repeat of it. Type `02` appeared to reply and did not — the
  * frame was `17 00 02 00`, v1's `COMMON_NTFY_UPSCALING_EFFECT`, volunteered. Settling
@@ -285,7 +285,7 @@ object SonyEqCapability {
 
 /**
  * Sony's own names for its preset ids, read out of `EqPresetId` in the vendor APK
- * (`com.sony.songpal.mdr`) on 2026-09-09.
+ * (`com.sony.songpal.mdr`).
  *
  * ⚠⚠ **A NAME, never a claim that a device HAS the preset.** This enum is the SDK's
  * and is shared across every MDR product, and an SDK naming a thing is not a device

@@ -135,12 +135,12 @@ object Probe {
          * anything — which reads as "that command returns no data".
          *
          * ⚠ **A list, because a window can hold more than one frame and each wants its
-         * own ack.** This returned a single reply until 2026-08-23 and acked only the
+         * own ack.** This once returned a single reply and acked only the
          * last DATA frame. `Drivers.SonyXm4` had the identical defect.
          *
          * ⚠ **WHEN, not how many.** Acking every frame after the window closed still ran
          * one behind, because the XM4 is **stop-and-wait**: it withholds its next DATA
-         * frame until the current one is acknowledged. Measured 2026-08-23 — a
+         * frame until the current one is acknowledged. Measured — a
          * volunteered `13` battery notify arrived first, the device retransmitted it
          * four times across the remaining 2.5 s, the real answer never came, and the
          * six exchanges after it were each one window late.
@@ -234,7 +234,7 @@ object Probe {
      * one is acked. Acking only after the window therefore guaranteed that a window
      * opening with a volunteered frame held *only* that frame, with the answer meant
      * for this packet surfacing against the next one — and the device retransmitting
-     * the unacked frame four to six times meanwhile. Driven on the XM4 2026-08-23.
+     * the unacked frame four to six times meanwhile. Driven on the XM4.
      *
      * [acksFor] is called on the buffer so far and returns an ack per DATA frame in
      * order, so the list only grows; `sent` is how much of it has already gone out.

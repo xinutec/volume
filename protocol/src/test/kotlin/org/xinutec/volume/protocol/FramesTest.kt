@@ -104,7 +104,7 @@ class FramesTest {
      * ⚠ **A refusal you cannot read is half a warning.** `Frames.describe` prints before
      * the verdict so a wrong frame is visible while it can still be stopped — so any
      * command [Hazards] is prepared to refuse must have a NAME here. Driven against the
-     * phone on 2026-08-29, `aa 95` printed "unknown command" while being refused as a
+     * phone, `aa 95` printed "unknown command" while being refused as a
      * factory reset: the guard knew and the sentence above it did not.
      *
      * ⚠ This does NOT weaken "an unknown command must read as unknown" — that rule is
@@ -166,7 +166,7 @@ class FramesTest {
 
     /**
      * ⚠⚠ **THE FAIL-CLOSED HALF, and the reason this classifier exists.** `reads` gates the
-     * dry-run, so anything it cannot place must come back false. `06 01 00` is the 2026-08-26
+     * dry-run, so anything it cannot place must come back false. `06 01 00` is the
      * frame the QC45 re-framed into a SET nobody typed; a classifier that guessed would have
      * sent it.
      */

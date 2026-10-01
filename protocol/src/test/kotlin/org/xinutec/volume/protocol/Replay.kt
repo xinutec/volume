@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
  * without a phone, a pairing, or the headphones being switched on.
  *
  * ⚠ **These fixtures are real bytes**, copied from the snoop captures and probe
- * output of 2026-08-15 — not invented to match the code. A hand-written fixture
+ * output — not invented to match the code. A hand-written fixture
  * only proves the driver agrees with whoever wrote the fixture, which in this repo
  * has been wrong about a device's behaviour more often than the device has.
  *
@@ -28,7 +28,7 @@ class Replay(
      *
      * `DriversTest` has a guard that walks named fixtures and asserts their checksums,
      * because two transcripts were once written by hand with invented ones and every
-     * test still passed. On 2026-08-23 that guard was found to cover **16 of 36** frame
+     * test still passed. That guard was found to cover **16 of 36** frame
      * literals in the file — the rest are written inline in `Replay(...)` calls, where
      * nothing looked at them, and one of those had a checksum that could not occur
      * (`9a` where the bytes sum to `99`).

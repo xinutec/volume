@@ -14,7 +14,7 @@ data class Battery(
     /**
      * Whether it is charging, or **null when the device does not say**.
      *
-     * ⚠ **Nullable since 2026-08-26, and the null is the point.** The Bose QC35 reports
+     * ⚠ **Nullable, and the null is the point.** The Bose QC35 reports
      * one battery byte and its `02 05` CHARGER_DETECT is *not supported*, so nothing on
      * that device establishes a charging state. Defaulting to `false` would have put
      * "not charging" on a card as though it were a reading, which is the same class of
@@ -43,15 +43,15 @@ data class Battery(
  * So this reads index 7 because `parseBatteryInfo` does, and that is the whole warrant.
  *
  * ⚠ One calibration point exists and it does not settle the above: `5a` = 90 matched
- * the vendor app's "90%" on 2026-08-16 — but *both* bytes read `5a`, so it confirms the
+ * the vendor app's "90%" — but *both* bytes read `5a`, so it confirms the
  * scale and says nothing about which slot is which.
  */
 object JblBattery {
     const val CMD: Byte = 0x25
 
     /**
-     * ⚠ It is volunteered every ten seconds, but it can also be ASKED — measured
-     * 2026-08-17, `aa 25 01 01` answers immediately with the same frame. Worth having:
+     * ⚠ It is volunteered every ten seconds, but it can also be ASKED — measured:
+     * `aa 25 01 01` answers immediately with the same frame. Worth having:
      * waiting for a notification means a card that is blank for up to ten seconds.
      */
     fun get(): OutFrame = Bes.encode(CMD, 0x01)
@@ -69,7 +69,7 @@ object JblBattery {
      * this, try [get] and this one on it: if it answers both, these collapse into one.
      *
      * ⚠ [state] and [charge] decode BOTH replies unchanged — the difference is only in
-     * the asking. Measured 2026-09-13: `aa 25 0d 01 …` came back with `5a` in both cup
+     * the asking. Measured: `aa 25 0d 01 …` came back with `5a` in both cup
      * slots, 90%, agreeing with what `jbl.stc.com` drew for the same moment.
      */
     fun getSdk(): OutFrame = Bes.encode(CMD)

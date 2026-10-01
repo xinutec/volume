@@ -39,8 +39,8 @@ enum class AncMode {
 /**
  * A frame that may be SENT.
  *
- * ⚠ **The constructor is internal to `:protocol`, and that is the whole feature.** Until
- * 2026-09-02 [Transport] took a bare `ByteArray`, so any module could hand any bytes to
+ * ⚠ **The constructor is internal to `:protocol`, and that is the whole feature.** At first
+ * [Transport] took a bare `ByteArray`, so any module could hand any bytes to
  * hardware someone is wearing; the only gate ([Hazards]) sat on the probe path alone,
  * called because somebody remembered to. Now bytes become sendable exactly two ways:
  * a builder in this module — code that exists because the frame was captured from a
@@ -198,7 +198,7 @@ interface AncDriver : Driver {
      *
      * ⚠ **No device here is in that state any more.** The JLab was the example for
      * months, on the reasoning that its app tracked the mode locally; that was
-     * disproved on 2026-08-16 — the app draws whatever the device is actually in —
+     * disproved — the app draws whatever the device is actually in —
      * and its read was found the same evening. Null now means a device nobody has
      * found the read for **yet**, which is a claim about this repo, not about it.
      */

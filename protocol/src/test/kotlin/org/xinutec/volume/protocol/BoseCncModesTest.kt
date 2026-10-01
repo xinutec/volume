@@ -8,7 +8,7 @@ import org.junit.Test
 /**
  * The QC45's mode table, against bytes the device actually sent.
  *
- * ⚠ **Every buffer here is a real reply**, copied from the 2026-08-26 sitting — the
+ * ⚠ **Every buffer here is a real reply**, copied from one sitting — the
  * `1f 01 05 00` transaction and the Status that came back from an edit. A hand-written
  * fixture would agree with whatever this file happened to implement.
  */
@@ -127,7 +127,7 @@ class BoseCncModesTest {
     }
 
     /**
-     * ⚠ **These two are the frames Bose Music sent**, lifted from the 2026-08-28 snoop of
+     * ⚠ **These two are the frames Bose Music sent**, lifted from the snoop of
      * a real delete and a real create, not from what this file implements. Both were then
      * replayed from this repo's own socket against the same headphones, and the table read
      * back byte-for-byte identical to the baseline taken before any of it.
@@ -206,8 +206,8 @@ class BoseCncModesTest {
 
     /**
      * ⚠ **The four the WIRE gave, before the decompile was read.** These are the check on
-     * the other 33 names: they were measured off a QC45's own slot records on 2026-08-26
-     * and 2026-08-28, and if the decompiled table disagreed with any of them the table
+     * the other 33 names: they were measured off a QC45's own slot records
+     * on two days, and if the decompiled table disagreed with any of them the table
      * would be the thing that is wrong.
      */
     @Test
@@ -258,7 +258,7 @@ class BoseCncModesTest {
 
     /**
      * Commute as the device returned it with wind block ON — `[46]`=01, and `[42]`=00
-     * where it had been 07 a second earlier. Read off the wire 2026-08-28 after writing
+     * where it had been 07 a second earlier. Read off the wire after writing
      * `[38]`=01, and put back in the same sitting.
      */
     private val windBlockOn =

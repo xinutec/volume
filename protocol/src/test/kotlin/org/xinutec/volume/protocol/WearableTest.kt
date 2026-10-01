@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Every value here was read off the user's phone on 2026-08-16
+ * Every value here was read off the user's phone
  * (`dumpsys bluetooth_manager`), not invented — a class of device made up to suit
  * the rule would prove only that the rule matches itself.
  */

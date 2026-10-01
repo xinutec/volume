@@ -476,7 +476,7 @@ class Probes(
             }
         val how = if (sony) " (sony framed, acked)" else ""
         emit("seq: ${raw.size} packets on one socket to $mac$how")
-        // ⚠ **`seq` reached the device with NO hazard check until 2026-08-29.** #1038
+        // ⚠ **`seq` reached the device with NO hazard check at first.** #1038
         // wired the guard into `send` only, so the repo's most dangerous subcommand —
         // the write tool — was the one without it: `04 07 02 00` CLEAR_DEVICE_LIST went
         // straight out. The shell guard that existed then judged frame SHAPE, not
@@ -644,7 +644,7 @@ class Probes(
     /**
      * Everything decoded that is not ANC: EQ, multipoint, auto-off, the Action button.
      *
-     * ⚠ **This op is how those drivers get proven.** They were written on 2026-08-16
+     * ⚠ **This op is how those drivers get proven.** They were written
      * from a capture and replayed in tests; until something sends them to a headphone
      * they are a hypothesis with good spelling. Read first — with no write argument
      * this only asks questions.
@@ -746,7 +746,7 @@ class Probes(
             emit("  → multipoint $arg")
             report(d.setMultipoint(t, on))
         }
-        // The three whose reads were confirmed on 2026-08-23 and whose writes had not
+        // The three whose reads were confirmed and whose writes had not
         // been driven when this was written. ⚠ Each is reversible and each is the
         // owner's setting — put back what was there.
         val switches =
@@ -927,8 +927,8 @@ class Probes(
         emit("gatt: ${packets.size} writes to ${device.address}")
         emit("  service $service")
         // ⚠⚠ **THIS is the path `aa 95` is typed on.** The JBL is driven over GATT, the
-        // BES factory reset lives there, and this subcommand had no hazard check at all
-        // until 2026-08-29 — the one place the repo's loudest standing rule applies.
+        // BES factory reset lives there, and this subcommand once had no hazard check at all
+        // — the one place the repo's loudest standing rule applies.
         // A null uuid falls through to the BES rules, which is what catches it.
         val admittedPackets =
             admittedAll(null, packets, SonyTable.TABLE_1, intent = intent) ?: return

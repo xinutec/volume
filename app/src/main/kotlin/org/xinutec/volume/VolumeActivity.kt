@@ -222,7 +222,7 @@ class VolumeActivity : ComponentActivity() {
                 // ⚠ **The profile events are the load-bearing ones; ACL alone finds
                 // nothing.** Presence is read from the A2DP and headset proxies, and
                 // those populate well after the link comes up. Measured on the Pixel
-                // 9, 2026-08-16, switching the Sony on with this screen in front —
+                // 9, switching the Sony on with this screen in front —
                 // the timings are in `docs/liveness.md`:
                 //
                 //   53.768  ACL_CONNECTED           → proxies say connected=0
@@ -335,7 +335,7 @@ class VolumeActivity : ComponentActivity() {
      *
      * ⚠ **Both halves fire.** A pair disconnecting removes an output and promotes
      * another; the promoted one gets no Bluetooth broadcast of its own, which is how a
-     * NewPie 32 sat there with no volume row after a JBL dropped on 2026-09-12.
+     * NewPie 32 sat there with no volume row after a JBL dropped.
      */
     private val outputs =
         object : AudioDeviceCallback() {
@@ -472,7 +472,7 @@ interface SettingActions {
 
     /**
      * ⚠⚠ **This CAN RAISE an exposure ceiling** — `DEFAULT` is the least protective of the
-     * JLab's three. Writable at the user's explicit request, 2026-09-01; it shipped
+     * JLab's three. Writable at the user's explicit request; it shipped
      * read-only first so that adding it had to be a decision. The JBL's Max Volume Limiter
      * and PSAP are the same class of control and remain read-only.
      */
@@ -829,7 +829,7 @@ private fun DeviceRow(
                         // ⚠ **Opening the section is ALL this does.** The read is started
                         // by the effect below, and starting it here as well is what made
                         // every card open run the whole read cycle twice — measured on
-                        // the wire 2026-08-28, two GET_ALLs and two mode-table reads for
+                        // the wire, two GET_ALLs and two mode-table reads for
                         // one tap. Both triggers fired on the same condition at the same
                         // moment, so neither was ever the redundant-looking one. #1191.
                         if (expanded) {
@@ -1042,8 +1042,8 @@ private fun SettingRowFor(
             )
             // ⚠ Offered while OFF, like Spatial's modes and for the same reason: the
             // device keeps the timeout across a switch-off, so hiding these would throw
-            // the choice away on every toggle. Driven at the switch's own `off` on
-            // 2026-08-25, which is also why changing one is inaudible.
+            // the choice away on every toggle. Driven at the switch's own `off`,
+            // which is also why changing one is inaudible.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (m in JBL_IDLE_MINUTES) {
                     FilterChip(
@@ -1806,7 +1806,7 @@ private fun SettingRowFor(
             // passthrough".
             //
             // ⚠⚠ **"Which collides with nothing" WAS the reason for that name and is no
-            // longer true — measured 2026-09-03.** Sony now titles the `AsmId` checkbox
+            // longer true — measured.** Sony now titles the `AsmId` checkbox
             // "Voice passthrough" as well, with a byte-identical description, so the two
             // controls share a label in the vendor app and differ only by which screen
             // they sit on and by resource id — `voice_focus_*` under Speak-to-Chat,

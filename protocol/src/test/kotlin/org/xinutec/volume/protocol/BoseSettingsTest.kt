@@ -15,7 +15,7 @@ import org.junit.Test
  * with its owner. Every other byte is as captured; the substitution is confined to the
  * six address bytes, which no decode under test looks at.
  *
- * Fixtures are **whole real frames** from the 2026-08-16 Bose Music capture
+ * Fixtures are **whole real frames** from the Bose Music capture
  * (`docs/captures.md`), copied out of `tshark` — not written to match the code.
  *
  * The decode was arrived at by pairing each Set with the Status it drew, so these
@@ -32,7 +32,7 @@ class BoseSettingsTest {
     /**
      * ✅ **Both bytes agree with Android on the QC35, which is what settles the order.**
      * `dumpsys audio` reported `Max: 25` and `bt_a2dp: 18` for `STREAM_MUSIC` at the
-     * moment this frame was read, 2026-09-03. One matching byte would be luck.
+     * moment this frame was read. One matching byte would be luck.
      */
     @Test
     fun `volume reads the scale and the level, in that order`() {
@@ -243,7 +243,7 @@ class BoseSettingsTest {
         t.assertDrained()
     }
 
-    /** The 2026-08-15 sweep's own reply to `01 07`, with the EQ flat. */
+    /** The read sweep's own reply to `01 07`, with the EQ flat. */
     @Test
     fun `the driver reads the EQ`() {
         val t = Replay("01 07 01 00" to "01 07 03 0c f6 0a 00 00 f6 0a 00 01 f6 0a 00 02")
@@ -251,7 +251,7 @@ class BoseSettingsTest {
     }
 
     /**
-     * 11:26:47's status, which is also what the 2026-08-15 sweep saw at rest — the
+     * 11:26:47's status, which is also what the sweep saw at rest — the
      * shortcut was on Hear Battery Level both days.
      */
     @Test
@@ -299,7 +299,7 @@ class BoseSettingsTest {
  * The QC35's settings block, all of it read by one `01 01` GET_ALL.
  *
  * ⚠ **The bytes here are the ones the device actually sent**, captured from Bose
- * Connect's own connect on 2026-08-26 and reproduced from this repo's probe. The values
+ * Connect's own connect and reproduced from this repo's probe. The values
  * are labelled by the vendor app's screens, not by this repo — which is the discipline
  * the QC35's ANC table lacked when all three of its mode bytes turned out inverted.
  */
@@ -383,7 +383,7 @@ class BoseAllSettingsTest {
     @Test
     fun `the standby write names the value in a payload, not in the length`() {
         // ⚠ `01 04 02 14` is operator 02 with a LENGTH of 0x14 and no payload; the
-        // device answers 04 01 01 bad argument. Hit for real on 2026-08-25.
+        // device answers 04 01 01 bad argument. Hit for real.
         assertEquals("01 04 02 01 14", Hex.format(BoseStandbyTimer.set(20).bytes))
         assertEquals("01 04 02 01 00", Hex.format(BoseStandbyTimer.set(0).bytes))
     }
@@ -442,7 +442,7 @@ class BoseBatteryAndLanguageTest {
 /**
  * The writes, against the frames Bose Connect actually sent.
  *
- * ⚠ **Captured, not derived.** Before 2026-08-26 this repo's stated expectation was that
+ * ⚠ **Captured, not derived.** Before the capture this repo's stated expectation was that
  * `01 0b` takes a one-byte payload "by the shape of every other setting on this block".
  * It takes two. Shipping that guess would have sent a malformed frame and read the
  * device's refusal as a fact about what it permits.
@@ -490,7 +490,7 @@ class BoseWritesTest {
 
     @Test
     fun `the undecoded high bits are carried rather than dropped`() {
-        // ⚠ This test asserted the OPPOSITE until 2026-08-28 — that bit 7 is the
+        // ⚠ This test once asserted the OPPOSITE — that bit 7 is the
         // device's and is never written back — on the reasoning that the vendor app
         // writes 21 where the device reads a1. True of bit 7, which the device restores
         // by itself. Bit 6 it does not restore: a QC45 read e1 before any write to this
@@ -810,7 +810,7 @@ class BoseNameTest {
     }
 
     /**
-     * ⚠ The frame that was SENT on 2026-08-28 and dropped the link (ACL 1 → 0), with the
+     * ⚠ The frame that was SENT and dropped the link (ACL 1 → 0), with the
      * address replaced — this repo is public and a real BD_ADDR does not go in a fixture.
      */
     @Test
@@ -830,7 +830,7 @@ class BoseNameTest {
     }
 
     /**
-     * ⚠ The exact exchange driven on a QC45 2026-08-28 and restored: read `01`, write
+     * ⚠ The exact exchange driven on a QC45 and restored: read `01`, write
      * `00`, read `00`, write `01`, read `01`.
      */
     @Test

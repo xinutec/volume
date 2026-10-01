@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** `aa 25`, read from the M2 on 2026-08-17 and volunteered by it all evening. */
+/** `aa 25`, read from the M2 and volunteered by it all evening. */
 class JblBatteryTest {
     /** The answer to `aa 25 01 01` at 23:10, and the frame it volunteers unasked. */
     private val sixty = "aa250d0100003c3cffffffffffffffff"

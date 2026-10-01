@@ -6,7 +6,7 @@ import org.junit.Test
 
 /**
  * The Sony EQ driver, replayed against **whole framed exchanges** from the
- * 2026-08-16 capture — `3e … 3c` and all, checksums included, copied out of
+ * Headphones Connect capture — `3e … 3c` and all, checksums included, copied out of
  * `tshark` rather than assembled here.
  *
  * ⚠ **This driver has never spoken to a headphone.** Every byte below is Sony

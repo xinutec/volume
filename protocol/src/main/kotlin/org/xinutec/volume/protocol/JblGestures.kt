@@ -13,7 +13,7 @@ package org.xinutec.volume.protocol
  * right cup is a touch panel.
  *
  * ⚠ **"Every right-cup gesture refuses writes" was WRONG and stood here for a week.**
- * `aa 77 03 00 0a 06` was accepted at 23:26 on 2026-08-17. Refusals are per ACTION and
+ * `aa 77 03 00 0a 06` was accepted at 23:26. Refusals are per ACTION and
  * per gesture, not per cup: `09` wants `0a`, not the `08` play/pause that was tried, and
  * a whole side was written off on the strength of one badly chosen action.
  */
@@ -83,7 +83,7 @@ enum class GestureAction(
     TALK_TO_ASSISTANT(0x5f, "talk to the assistant"),
 
     /**
-     * ⚠ **`a1`, and it is NOT in `values_Action` at all** — measured 2026-08-17 by
+     * ⚠ **`a1`, and it is NOT in `values_Action` at all** — measured by
      * letting the vendor app assign its own Touch Panel bundle and reading the map
      * back. The device put `a1` on right tap-and-hold while its screen said
      * "Activating Native Voice Assistant".
@@ -108,7 +108,7 @@ enum class GestureAction(
 }
 
 /**
- * JBL gestures — `aa 77`, read 2026-08-16 and written 2026-08-17.
+ * JBL gestures — `aa 77`, read and written.
  *
  * ```
  * → aa 77 02 01 ff              ← aa 77 <1+2N> 02 [<gesture> <action>]…

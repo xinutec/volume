@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * Auto power off and multipoint, replayed from whole framed exchanges in the
- * 2026-08-16 capture. As with the EQ, ⚠ **none of this has been sent to a
+ * Headphones Connect capture. As with the EQ, ⚠ **none of this has been sent to a
  * headphone** — the bytes are the vendor app's.
  */
 class SonySettingsTest {
@@ -225,7 +225,7 @@ class SonySettingsTest {
     }
 
     /**
-     * ✅ **The whole #965 sequence, in the bytes the XM4 sent on 2026-08-24.**
+     * ✅ **The whole #965 sequence, in the bytes the XM4 sent.**
      *
      * ⚠ **The subscription is the first frame and the reason this works at all.** Remove
      * it and the device answers the `f8 06` with a bare ack and never asks anything —
@@ -312,7 +312,7 @@ class SonySettingsTest {
      * ⚠ **`VOLUME_CONTROL` is the point of this test.** It is a legal
      * `AssignableSettingsPreset` and the XM4 does not offer it — an editor built from the
      * enum instead of from this reply would put a volume control on the card. The 23
-     * bytes are the XM4's own, read 2026-08-23.
+     * bytes are the XM4's own, read.
      */
     @Test
     fun `sony button offers what the device advertises, not what the enum contains`() {
