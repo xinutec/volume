@@ -8,6 +8,8 @@ local.properties
 *.keystore
 captures/
 .cxx/
+# Kotlin 2 writes its daemon sessions and build-error reports here
+.kotlin/
 
 # scripts/ is importable now, so running its self-test leaves bytecode
 __pycache__/
