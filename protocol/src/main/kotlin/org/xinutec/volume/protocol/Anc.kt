@@ -133,6 +133,31 @@ interface Driver {
     fun name(t: Transport): String? = null
 }
 
+/**
+ * A driver's modes and the byte each one is on the wire, in one place, so [AncDriver.modes]
+ * cannot offer a mode that read and write do not both know.
+ */
+class ModeTable(
+    private val device: String,
+    vararg wire: Pair<AncMode, Int>,
+) {
+    private val byMode = wire.associate { (mode, byte) -> mode to byte.toByte() }
+
+    init {
+        require(byMode.size == wire.size) { "$device: a mode appears twice" }
+        require(byMode.values.toSet().size == byMode.size) { "$device: two modes share a byte" }
+    }
+
+    val modes: Set<AncMode> = byMode.keys
+
+    /** The mode [byte] means, or null for a byte this table does not hold. */
+    fun mode(byte: Byte?): AncMode? = byMode.entries.firstOrNull { it.value == byte }?.key
+
+    /** ⚠ Refuses a mode the device lacks, before any frame exists. */
+    fun byte(mode: AncMode): Byte =
+        byMode[mode] ?: throw IllegalArgumentException("$device has no $mode")
+}
+
 /** One headphone family's ANC control, in terms of [AncMode]. */
 interface AncDriver : Driver {
     /** The subset of [AncMode] this device implements. */

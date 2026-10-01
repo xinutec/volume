@@ -279,28 +279,16 @@ object Drivers {
     object BoseQc35 :
         AncDriver,
         BoseSettingsDriver {
-        override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.ANC_LOW)
+        private val table =
+            ModeTable("the QC35", AncMode.OFF to 0x00, AncMode.ANC to 0x01, AncMode.ANC_LOW to 0x03)
 
-        private fun value(mode: AncMode): Byte =
-            when (mode) {
-                AncMode.OFF -> 0x00
-                AncMode.ANC -> 0x01
-                AncMode.ANC_LOW -> 0x03
-                else -> error("QC35 has no $mode")
-            }
+        override val modes = table.modes
 
-        override fun read(t: Transport): AncMode? {
-            val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00)))
-            return when (r.getOrNull(4)) {
-                0x00.toByte() -> AncMode.OFF
-                0x01.toByte() -> AncMode.ANC
-                0x03.toByte() -> AncMode.ANC_LOW
-                else -> null
-            }
-        }
+        override fun read(t: Transport): AncMode? =
+            table.mode(t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00))).getOrNull(4))
 
         override fun write(t: Transport, mode: AncMode) {
-            t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x02, 0x01, value(mode))))
+            t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x02, 0x01, table.byte(mode))))
         }
 
         /**
@@ -1517,7 +1505,10 @@ object Drivers {
     object JLabQcy :
         AncDriver,
         SpatialDriver {
-        override val modes = setOf(AncMode.OFF, AncMode.ANC, AncMode.AMBIENT)
+        private val table =
+            ModeTable("the JLab", AncMode.OFF to 0x00, AncMode.ANC to 0x01, AncMode.AMBIENT to 0x02)
+
+        override val modes = table.modes
 
         /**
          * `c0 ff 00 44 00 00 01 00 04` → `00 ff 01 45 03 00 <mode> <a> <b> 00 <sum> 00`.
@@ -1541,13 +1532,7 @@ object Drivers {
          */
         override fun read(t: Transport): AncMode? =
             ask(t, JLabFrame.read(0x44)) { r ->
-                val f = JLabFrame.replyTo(r, 0x45, atLeast = 7) ?: return@ask null
-                when (f[6]) {
-                    0x00.toByte() -> AncMode.OFF
-                    0x01.toByte() -> AncMode.ANC
-                    0x02.toByte() -> AncMode.AMBIENT
-                    else -> null
-                }
+                JLabFrame.replyTo(r, 0x45, atLeast = 7)?.let { table.mode(it[6]) }
             }
 
         /**
@@ -1558,13 +1543,7 @@ object Drivers {
          * Off, because that is what was driven — the device normalises it.
          */
         override fun write(t: Transport, mode: AncMode) {
-            val m: Byte =
-                when (mode) {
-                    AncMode.OFF -> 0x00
-                    AncMode.ANC -> 0x01
-                    AncMode.AMBIENT -> 0x02
-                    else -> throw IllegalArgumentException("the JLab has no $mode")
-                }
+            val m = table.byte(mode)
             t.exchange(
                 checksummed(
                     byteArrayOf(
