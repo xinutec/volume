@@ -691,7 +691,7 @@ object Drivers {
          * ⚠ The read up front is not a wasted round trip: [JblEq.set] builds the write
          * from it precisely so the thirteen unexplained bytes go back unchanged.
          */
-        internal fun writeCurve(t: Transport, table: Int, gains: List<Float>): EqCurve? {
+        internal fun writeCurve(t: Transport, table: JblCurveTable, gains: List<Float>): EqCurve? {
             val read = t.exchange(JblEq.get())
             val frame = JblEq.set(read, table, gains) ?: return null
             t.exchange(frame)

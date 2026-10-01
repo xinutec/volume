@@ -147,7 +147,7 @@ class JblSettingsTest {
         val c = JblEq.curve(flat)!!
         assertEquals(JBL_HZ, c.bands.map { it.hz })
         assertEquals(List(10) { 0f }, c.bands.map { it.gain })
-        assertEquals(0, c.table)
+        assertEquals(JblCurveTable(0), c.table)
     }
 
     @Test
@@ -157,7 +157,7 @@ class JblSettingsTest {
             listOf(4f, 2f, 1f, 2.5f, -1.5f, -1.5f, 0f, 1f, 2f, 4f),
             c.bands.map { it.gain },
         )
-        assertEquals(1, c.table)
+        assertEquals(JblCurveTable(1), c.table)
     }
 
     /**
@@ -185,7 +185,8 @@ class JblSettingsTest {
      */
     @Test
     fun `writing flat back rebuilds the frame the device was found in`() {
-        val built = hex(JblEq.set(bytes(JblFrames.JAZZ_ECHO), 0, List(10) { 0f })!!.bytes)
+        val built =
+            hex(JblEq.set(bytes(JblFrames.JAZZ_ECHO), JblCurveTable(0), List(10) { 0f })!!.bytes)
         assertEquals(JblFrames.FLAT.drop(10), built.drop(10))
         assertEquals("00", built.substring(8, 10))
     }
@@ -202,7 +203,7 @@ class JblSettingsTest {
     @Test
     fun `a frame we sent is not a template for the next one`() {
         assertNull(JblEq.curve(bytes(JblFrames.JAZZ_SENT)))
-        assertNull(JblEq.set(bytes(JblFrames.JAZZ_SENT), 0, List(10) { 0f }))
+        assertNull(JblEq.set(bytes(JblFrames.JAZZ_SENT), JblCurveTable(0), List(10) { 0f }))
     }
 
     /**
@@ -256,16 +257,16 @@ class JblSettingsTest {
      */
     @Test
     fun `the preset ids follow the enum this device answers in`() {
-        assertEquals("Rock", JBL_EQ_PRESETS[0x04])
-        assertEquals("Studio", JBL_EQ_PRESETS[0x07])
-        assertEquals("Personi-Fi", JBL_EQ_PRESETS[0xc9])
+        assertEquals("Rock", JBL_EQ_PRESETS[JblCurveTable(0x04)])
+        assertEquals("Studio", JBL_EQ_PRESETS[JblCurveTable(0x07)])
+        assertEquals("Personi-Fi", JBL_EQ_PRESETS[JblCurveTable(0xc9)])
         assertNull(JBL_EQ_PRESETS.entries.firstOrNull { it.value == "User" })
     }
 
     @Test
     fun `a curve is not built from the wrong number of gains`() {
-        assertNull(JblEq.set(flat, 0, List(5) { 0f }))
-        assertNull(JblEq.set(bytes("aa22023101"), 0, List(10) { 0f }))
+        assertNull(JblEq.set(flat, JblCurveTable(0), List(5) { 0f }))
+        assertNull(JblEq.set(bytes("aa22023101"), JblCurveTable(0), List(10) { 0f }))
     }
 
     /** The named curves are the two whose bytes exist, and they are those bytes. */

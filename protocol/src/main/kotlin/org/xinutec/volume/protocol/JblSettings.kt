@@ -167,7 +167,7 @@ object JblEq {
     fun curve(frame: ByteArray): EqCurve? {
         if (!isTable(frame) || bandCount(frame) != BANDS) return null
         return EqCurve(
-            table = frame[TABLE].toInt() and 0xff,
+            table = JblCurveTable(frame[TABLE].toInt() and 0xff),
             bands =
                 (0 until BANDS).map {
                     val at = RECORDS + it * RECORD
@@ -210,11 +210,11 @@ object JblEq {
      * Returns null if [read] is not a curve frame or [gains] is not [BANDS] long,
      * rather than emitting a frame of the wrong shape at the headphones.
      */
-    fun set(read: ByteArray, table: Int, gains: List<Float>): OutFrame? {
+    fun set(read: ByteArray, table: JblCurveTable, gains: List<Float>): OutFrame? {
         if (curve(read) == null || gains.size != BANDS) return null
         val out = read.copyOf()
         out[OPERATOR] = WRITE
-        out[TABLE] = table.toByte()
+        out[TABLE] = table.id.toByte()
         for (i in 0 until BANDS) {
             putFloat(out, RECORDS + i * RECORD + GAIN, gains[i])
         }
@@ -249,25 +249,25 @@ val JBL_HZ = listOf(32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
  * still offers the two whose bytes exist. What it buys is that a curve set from the
  * vendor app renders as "Vocal" rather than "table 2".
  */
-val JBL_EQ_PRESETS: Map<Int, String> =
+val JBL_EQ_PRESETS: Map<JblCurveTable, String> =
     mapOf(
-        0x00 to "Off",
-        0x01 to "Jazz",
-        0x02 to "Vocal",
-        0x03 to "Bass",
-        0x04 to "Rock",
-        0x05 to "Piano",
-        0x06 to "Club",
-        0x07 to "Studio",
-        0x08 to "Extreme bass",
-        0x09 to "Extreme bass 2",
-        0x0a to "Diablo",
-        0x0b to "Rock 2",
-        0x0c to "Funk",
-        0xc8 to "Max preset",
-        0xc9 to "Personi-Fi",
-        0xca to "Design EQ",
-        0xe6 to "Customised",
+        JblCurveTable(0x00) to "Off",
+        JblCurveTable(0x01) to "Jazz",
+        JblCurveTable(0x02) to "Vocal",
+        JblCurveTable(0x03) to "Bass",
+        JblCurveTable(0x04) to "Rock",
+        JblCurveTable(0x05) to "Piano",
+        JblCurveTable(0x06) to "Club",
+        JblCurveTable(0x07) to "Studio",
+        JblCurveTable(0x08) to "Extreme bass",
+        JblCurveTable(0x09) to "Extreme bass 2",
+        JblCurveTable(0x0a) to "Diablo",
+        JblCurveTable(0x0b) to "Rock 2",
+        JblCurveTable(0x0c) to "Funk",
+        JblCurveTable(0xc8) to "Max preset",
+        JblCurveTable(0xc9) to "Personi-Fi",
+        JblCurveTable(0xca) to "Design EQ",
+        JblCurveTable(0xe6) to "Customised",
     )
 
 /**
@@ -283,10 +283,10 @@ val JBL_EQ_PRESETS: Map<Int, String> =
  */
 val JBL_CURVES: List<Pair<String, EqCurve>> =
     listOf(
-        "Flat" to EqCurve(0, JBL_HZ.map { EqBand(it, 0f) }),
+        "Flat" to EqCurve(JblCurveTable(0), JBL_HZ.map { EqBand(it, 0f) }),
         "Jazz" to
             EqCurve(
-                1,
+                JblCurveTable(1),
                 JBL_HZ
                     .zip(listOf(4f, 2f, 1f, 2.5f, -1.5f, -1.5f, 0f, 1f, 2f, 4f))
                     .map { (hz, gain) -> EqBand(hz, gain) },

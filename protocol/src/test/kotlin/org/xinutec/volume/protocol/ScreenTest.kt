@@ -432,7 +432,7 @@ class ScreenTest {
                     emptyMap(),
                 ),
                 ToneRow(BoseBands(0, 0, 0)),
-                CurveEqRow(EqCurve(table = 0, bands = emptyList())),
+                CurveEqRow(EqCurve(table = JblCurveTable(0), bands = emptyList())),
                 IdleTimerRow(TimedOff(on = true, minutes = 30)),
                 SpatialRow(Spatial(true, SpatialMode.MUSIC), SpatialMode.entries),
                 VoiceAwareRow(VoiceAware(true, VoiceLevel.MID)),

@@ -1247,7 +1247,7 @@ class DeviceController(
         }
 
     override fun setCurve(address: String, curve: EqCurve) =
-        applied<EqCurve>(address, "setting the equaliser", { "table ${it.table}" }) {
+        applied<EqCurve>(address, "setting the equaliser", { "table ${it.table.id}" }) {
             val d = it.can<Drivers.JblBes>() ?: return@applied null
             d.setCurve(it.transport, curve)
         }

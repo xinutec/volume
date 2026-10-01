@@ -1004,7 +1004,7 @@ private fun SettingRowFor(
             SettingLabel(
                 "Equaliser",
                 JBL_CURVES.firstOrNull { it.second == c }?.first
-                    ?: "custom · ${JBL_EQ_PRESETS[c.table] ?: "table ${c.table}"}",
+                    ?: "custom · ${JBL_EQ_PRESETS[c.table] ?: "table ${c.table.id}"}",
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

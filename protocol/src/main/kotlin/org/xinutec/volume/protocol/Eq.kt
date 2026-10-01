@@ -47,8 +47,20 @@ data class EqBand(
  * sent for JAZZ. Two values, so this is not evidence for an ordering of the menu.
  */
 data class EqCurve(
-    val table: Int,
+    val table: JblCurveTable,
     val bands: List<EqBand>,
+)
+
+/**
+ * An `aa a2` table id — [JBL_EQ_PRESETS] names them.
+ *
+ * ⚠ **A type of its own because the LIVE PRO 2's `aa 40` preset ids use the same small
+ * integers for other things**: `04` is Rock here and User there. [JblEqPreset.NAMES]
+ * cannot be asked about one of these, nor this table about one of those.
+ */
+@JvmInline
+value class JblCurveTable(
+    val id: Int,
 )
 
 /**
