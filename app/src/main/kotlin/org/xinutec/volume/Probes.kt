@@ -733,14 +733,7 @@ class Probes(
                 emit("  ✗ '$arg' is not one of ${AutoOff.entries}")
             } else {
                 emit("  → $mode")
-                // Its own notify echoes the value, but the comparison is still made
-                // against a real read — see setMultipoint's note.
-                val after = d.writeAutoOff(t, mode) ?: d.readAutoOff(t)
-                when (after) {
-                    null -> emit("  ⚠ sent; nothing came back to check it against")
-                    mode -> emit("  ✓ confirmed")
-                    else -> emit("  ✗ it reads back as $after")
-                }
+                report(d.setAutoOff(t, mode))
             }
         }
         intent.getStringExtra("multipoint")?.let { arg ->
@@ -778,12 +771,7 @@ class Probes(
                 emit("  ✗ '$arg' is not one of ${SoundQuality.entries}")
             } else {
                 emit("  → $mode (this renegotiates the codec; the link drops and returns)")
-                val after = d.writeSoundQuality(t, mode) ?: d.readSoundQuality(t)
-                when (after) {
-                    null -> emit("  ⚠ sent; nothing came back to check it against")
-                    mode -> emit("  ✓ confirmed")
-                    else -> emit("  ✗ it reads back as $after")
-                }
+                report(d.setSoundQuality(t, mode))
             }
         }
         intent.getStringExtra("button")?.let { arg ->
@@ -837,12 +825,7 @@ class Probes(
                 return@let
             }
             emit("  → $want")
-            val after = d.writeEq(t, want) ?: d.readEq(t)
-            when (after) {
-                null -> emit("  ⚠ sent; nothing came back to check it against")
-                want -> emit("  ✓ confirmed")
-                else -> emit("  ✗ it reads back as $after")
-            }
+            report(d.setTone(t, want))
         }
         intent.getStringExtra("multipoint")?.let { arg ->
             val on = onOff(arg) ?: return@let emit("  ✗ multipoint wants on|off, not '$arg'")
@@ -857,12 +840,7 @@ class Probes(
                 return@let
             }
             emit("  → $action")
-            val after = d.writeButton(t, action) ?: d.readButton(t)
-            when (after) {
-                null -> emit("  ⚠ sent; nothing came back to check it against")
-                action -> emit("  ✓ confirmed")
-                else -> emit("  ✗ it reads back as $after")
-            }
+            report(d.setButton(t, action))
         }
     }
 

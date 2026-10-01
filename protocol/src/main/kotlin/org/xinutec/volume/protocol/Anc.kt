@@ -190,6 +190,10 @@ interface AncDriver : Driver {
  * preset, a multipoint flag and a mode all have the same three outcomes, and a
  * second copy of this taxonomy would be a second place for "it replied, so it
  * worked" to creep back in.
+ *
+ * **Every write a caller makes is a `set*` returning one of these.** A driver's
+ * `write*` only decodes a reply, which may be an echo or an ack; which reply is
+ * evidence is decided in the driver, beside the capture that showed it.
  */
 sealed interface Confirmation<out T> {
     /** The device read back as asked. */

@@ -1472,11 +1472,11 @@ interface BoseSettingsDriver : Driver {
     /**
      * `01 0e` — whether the noise setting persists.
      *
-     * ⚠ **Read back with a separate Get**, the same rule as [writeStandby]: the SET_GET
+     * ⚠ **Read back with a separate Get**, the same rule as [setStandby]: the SET_GET
      * echoes the resulting state, and an echo is the device repeating what it was told.
      * Driven both ways and restored on a QC45, 2026-08-28.
      */
-    fun writeCncPersistence(t: Transport, on: Boolean): Confirmation<Boolean> {
+    fun setCncPersistence(t: Transport, on: Boolean): Confirmation<Boolean> {
         t.exchange(BoseCncPersistence.set(on))
         return confirm(on, BoseCncPersistence.state(t.exchange(BoseCncPersistence.get())))
     }
@@ -1486,12 +1486,11 @@ interface BoseSettingsDriver : Driver {
      * the device repeating what it was told; only an independent read says the value
      * stuck. Driven and restored on a QC35 2026-08-26 and on a QC45 2026-08-28.
      */
-    fun writeStandby(t: Transport, minutes: Int): BoseStandby? {
+    fun setStandby(t: Transport, minutes: Int): Confirmation<BoseStandby> {
         t.exchange(BoseStandbyTimer.set(minutes))
-        return BoseStandbyTimer.state(
+        val after =
             BoseFrame.payload(t.exchange(BoseStandbyTimer.get()), 0x01, BoseStandbyTimer.FN)
-                ?: return null,
-        )
+        return confirm(BoseStandby(minutes), after?.let(BoseStandbyTimer::state))
     }
 
     /**
@@ -1502,11 +1501,14 @@ interface BoseSettingsDriver : Driver {
      * reports afterwards, which is what the card should show — if the device trimmed or
      * refused it, that is the truth and not what was typed.
      */
-    fun writeName(t: Transport, name: String): String? {
+    private fun writeName(t: Transport, name: String): String? {
         val frame = BoseName.set(name) ?: return null
         t.exchange(frame)
         return name(t)
     }
+
+    fun setName(t: Transport, name: String): Confirmation<String> =
+        confirm(name, writeName(t, name))
 
     /**
      * Turn the prompts on or off **without touching the language**, and vice versa.
@@ -1515,31 +1517,37 @@ interface BoseSettingsDriver : Driver {
      * field this call is not changing has to be carried, and a write that changes
      * anything draws no reply.
      */
-    fun writeVoicePrompts(t: Transport, on: Boolean): Boolean? =
+    private fun writeVoicePrompts(t: Transport, on: Boolean): Boolean? =
         BoseVoicePrompts.set(t, on = on)?.let { BoseVoicePrompts.enabled(it) }
 
+    fun setVoicePrompts(t: Transport, on: Boolean): Confirmation<Boolean> =
+        confirm(on, writeVoicePrompts(t, on))
+
     /** The other half of the same byte; the switch is carried across unchanged. */
-    fun writePromptLanguage(
+    private fun writePromptLanguage(
         t: Transport,
         language: BoseVoicePromptLanguage,
     ): BoseVoicePromptLanguage? =
         BoseVoicePrompts.set(t, language = language)?.let { BoseVoicePromptLanguage.of(it) }
+
+    fun setPromptLanguage(
+        t: Transport,
+        language: BoseVoicePromptLanguage,
+    ): Confirmation<BoseVoicePromptLanguage> = confirm(language, writePromptLanguage(t, language))
 
     /**
      * ⚠ **The persist byte is READ, not assumed.** It has only ever been seen as `01`,
      * which is exactly the kind of constant that turns out to mean something on the next
      * device.
      */
-    fun writeSelfVoice(t: Transport, level: SidetoneLevel): SidetoneLevel? {
+    fun setSelfVoice(t: Transport, level: SidetoneLevel): Confirmation<SidetoneLevel> {
         val current =
             BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
-                ?: return null
-        val persist = current.getOrNull(0) ?: return null
+                ?: return Confirmation.Unverifiable
+        val persist = current.getOrNull(0) ?: return Confirmation.Unverifiable
         t.exchange(BoseWrites.sidetone(persist, level))
-        val after =
-            BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
-                ?: return null
-        return BoseSidetone.level(after)
+        val after = BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+        return confirm(level, after?.let(BoseSidetone::level))
     }
 }
 

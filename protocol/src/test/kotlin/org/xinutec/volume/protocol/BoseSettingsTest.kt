@@ -781,7 +781,7 @@ class BoseNameTest {
                     "01 02 03 0a 00 42 6f 73 65 54 65 73 74 31",
                 "01 02 01 00" to "01 02 03 0a 00 42 6f 73 65 54 65 73 74 31",
             )
-        assertEquals("BoseTest1", Drivers.BoseQc35.writeName(t, "BoseTest1"))
+        assertEquals(Confirmation.Confirmed, Drivers.BoseQc35.setName(t, "BoseTest1"))
     }
 
     @Test

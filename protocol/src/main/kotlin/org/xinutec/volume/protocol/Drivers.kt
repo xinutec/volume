@@ -75,16 +75,23 @@ object Drivers {
          * answer. Sending fewer is untested: nothing says a band left alone keeps its
          * value across a partial write.
          */
-        fun writeEq(t: Transport, bands: BoseBands): BoseBands? {
+        internal fun writeEq(t: Transport, bands: BoseBands): BoseBands? {
             val replies = BoseEq.setAll(bands).map { t.exchange(it) }
             return BoseEq.state(replies.last())
         }
 
+        /** The last band's reply, or a fresh read when it said nothing. */
+        fun setTone(t: Transport, bands: BoseBands): Confirmation<BoseBands> =
+            confirm(bands, writeEq(t, bands) ?: readEq(t))
+
         fun readButton(t: Transport): BoseButton.Action? =
             BoseButton.state(t.exchange(BoseButton.get()))
 
-        fun writeButton(t: Transport, action: BoseButton.Action): BoseButton.Action? =
+        internal fun writeButton(t: Transport, action: BoseButton.Action): BoseButton.Action? =
             BoseButton.state(t.exchange(BoseButton.set(action)))
+
+        fun setButton(t: Transport, action: BoseButton.Action): Confirmation<BoseButton.Action> =
+            confirm(action, writeButton(t, action) ?: readButton(t))
 
         /**
          * The mode table and which slot is selected — **one exchange, not two.**
@@ -102,12 +109,17 @@ object Drivers {
             return CncModes(modes, BoseCncModes.activeSlot(buffer), BoseCncModes.slotsOf(buffer))
         }
 
-        /** Turn a mode's wind block on or off, then report the table as it stands. */
-        fun setWindBlock(t: Transport, slot: Int, on: Boolean): CncModes? {
-            val mode = readModes(t)?.modes?.firstOrNull { it.slot == slot } ?: return null
-            if (!mode.windBlockMutable) return null
+        /** Turn a mode's wind block on or off, confirmed against the table as it stands. */
+        fun setWindBlock(t: Transport, slot: Int, on: Boolean): Confirmation<CncModes> {
+            val mode =
+                readModes(t)?.modes?.firstOrNull { it.slot == slot }
+                    ?: return Confirmation.Unverifiable
+            if (!mode.windBlockMutable) return Confirmation.Unverifiable
             t.exchange(BoseCncModes.setWindBlock(mode, on))
-            return readModes(t)
+            return confirmBy(readModes(t)) { m ->
+                m.modes.firstOrNull { it.slot == slot }?.windBlock ==
+                    on
+            }
         }
 
         /**
@@ -116,56 +128,79 @@ object Drivers {
          * ⚠ **Both frames or neither.** The record write alone leaves the slot
          * unoccupied and the mode invisible — see [BoseCncModes.create].
          */
-        fun createMode(t: Transport, slot: Int, name: BosePromptName, level: Int): CncModes? {
-            val slots = readModes(t)?.slots ?: return null
-            if (slots.holds(slot)) return null
+        fun createMode(
+            t: Transport,
+            slot: Int,
+            name: BosePromptName,
+            level: Int,
+        ): Confirmation<CncModes> {
+            val slots = readModes(t)?.slots ?: return Confirmation.Unverifiable
+            if (slots.holds(slot)) return Confirmation.Unverifiable
             for (frame in BoseCncModes.create(slot, name.id, name.label, level, slots)) {
                 t.exchange(frame)
             }
-            return readModes(t)
+            return confirmBy(readModes(t)) { it.slots?.holds(slot) == true }
         }
 
         /**
-         * Empty a slot, then report the table as it stands.
+         * Empty a slot.
          *
          * ⚠ **Destructive, and the device has only four slots.** Refuses a slot the
          * device reports as not editable: Quiet and Aware are built in, and a blanked
          * record in one of those is not something this repo can put back.
+         *
+         * ⚠ **Confirmed by the OCCUPANCY bit, not by the record.** A blanked slot still
+         * answers with a full-length record, so reading the name back would report
+         * success for a delete whose `1f 08` write never landed.
          */
-        fun deleteMode(t: Transport, slot: Int): CncModes? {
-            val before = readModes(t) ?: return null
-            val slots = before.slots ?: return null
-            if (!slots.holds(slot)) return null
-            if (before.modes.none { it.slot == slot && it.editable }) return null
+        fun deleteMode(t: Transport, slot: Int): Confirmation<CncModes> {
+            val before = readModes(t) ?: return Confirmation.Unverifiable
+            val slots = before.slots ?: return Confirmation.Unverifiable
+            if (!slots.holds(slot)) return Confirmation.Unverifiable
+            if (before.modes.none {
+                    it.slot == slot && it.editable
+                }
+            ) {
+                return Confirmation.Unverifiable
+            }
             for (frame in BoseCncModes.delete(slot, slots)) {
                 t.exchange(frame)
             }
-            return readModes(t)
+            return confirmBy(readModes(t)) { it.slots?.holds(slot) == false }
         }
 
         /**
-         * Select a slot, and report the table as it stands afterwards.
+         * Select a slot.
          *
-         * ⚠ **Re-read rather than assume.** The selection is also moved by the button on
-         * the headphones, so what came back from a write is the only thing worth showing.
+         * ⚠ **Confirmed against the slot the DEVICE reports, not the one asked for.** The
+         * button on the headphones moves the selection too, so a write and a press can
+         * race; echoing the request would show a mode the wearer is not in.
          */
-        fun selectMode(t: Transport, slot: Int): CncModes? {
+        fun selectMode(t: Transport, slot: Int): Confirmation<CncModes> {
             t.exchange(BoseCncModes.select(slot))
-            return readModes(t)
+            return confirmBy(readModes(t)) { it.active == slot }
         }
 
         /**
          * Move one mode's level on the eleven-point scale.
          *
+         * ⚠ **Re-read first**: the level goes out inside a record carrying the mode's
+         * NAME and its undecoded [BoseCncModes.Mode.nameId], and a stale copy of those
+         * would rename the mode as a side effect of moving a slider.
+         *
          * ⚠ **Only a mode the device marks editable.** Quiet and Aware report
          * [BoseCncModes.Mode.editable] false, and nothing here has established what the
-         * firmware does with a write to one of them — refusing locally costs nothing and
-         * a wrong guess there edits the two modes the owner cannot recreate.
+         * firmware does with a write to one of them.
          */
-        fun setModeLevel(t: Transport, mode: BoseCncModes.Mode, level: Int): CncModes? {
-            if (!mode.editable) return null
+        fun setModeLevel(t: Transport, slot: Int, level: Int): Confirmation<CncModes> {
+            val mode =
+                readModes(t)?.modes?.firstOrNull { it.slot == slot }
+                    ?: return Confirmation.Unverifiable
+            if (!mode.editable) return Confirmation.Unverifiable
             t.exchange(BoseCncModes.setLevel(mode, level))
-            return readModes(t)
+            // A slot missing from the reading says nothing about the level.
+            val after = readModes(t)?.takeIf { m -> m.modes.any { it.slot == slot } }
+            return confirmBy(after) { m -> m.modes.first { it.slot == slot }.level == level }
         }
 
         private const val QUIET: Byte = 0x00
@@ -319,9 +354,9 @@ object Drivers {
          * transaction did; only an independent read says the device is still in that
          * mode by the time anyone looks.
          */
-        fun startPairing(t: Transport): Boolean? {
+        fun startPairing(t: Transport): Confirmation<Boolean> {
             t.exchange(BosePairing.enter())
-            return BosePairing.on(t.exchange(BosePairing.get()))
+            return confirm(true, BosePairing.on(t.exchange(BosePairing.get())))
         }
 
         override fun name(t: Transport): String? = Bose.name(t)
@@ -494,7 +529,7 @@ object Drivers {
          * repo has been wrong once already by reading one of those as an answer. The
          * caller re-reads; [readAutoOff] is the only thing that knows.
          */
-        override fun writeAutoOff(t: Transport, v: TimedOff) {
+        internal fun writeAutoOff(t: Transport, v: TimedOff) {
             t.exchange(JblAutoOff.set(v))
         }
 
@@ -519,27 +554,27 @@ object Drivers {
          * there is no way to change the switch alone, which is also why the vendor
          * app's mode buttons switch the feature on.
          */
-        override fun writeSpatial(t: Transport, v: Spatial): Spatial? =
+        internal fun writeSpatial(t: Transport, v: Spatial): Spatial? =
             JblSpatial.state(t.exchange(JblSpatial.set(v)))
 
         override fun readVoiceAware(t: Transport): VoiceAware? =
             ask(t, JblVoiceAware.get(), JblVoiceAware::state)
 
         /** Level and switch in one frame, and the reply is the read-back — as [writeSpatial]. */
-        override fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
+        internal fun writeVoiceAware(t: Transport, v: VoiceAware): VoiceAware? =
             JblVoiceAware.state(t.exchange(JblVoiceAware.set(v)))
 
         fun readSmartTalk(t: Transport): SmartTalk? =
             ask(t, JblSmartTalk.get(), JblSmartTalk::state)
 
         /** Switch and hold in one frame, and the reply is the read-back — as [writeSpatial]. */
-        fun writeSmartTalk(t: Transport, v: SmartTalk): SmartTalk? =
+        internal fun writeSmartTalk(t: Transport, v: SmartTalk): SmartTalk? =
             JblSmartTalk.state(t.exchange(JblSmartTalk.set(v)))
 
         fun readLowVolumeEq(t: Transport): Boolean? =
             ask(t, JblLowVolumeEq.get(), JblLowVolumeEq::state)
 
-        fun writeLowVolumeEq(t: Transport, on: Boolean): Boolean? =
+        internal fun writeLowVolumeEq(t: Transport, on: Boolean): Boolean? =
             JblLowVolumeEq.state(t.exchange(JblLowVolumeEq.set(on)))
 
         override fun readSmartAv(t: Transport): SmartAv? =
@@ -562,7 +597,7 @@ object Drivers {
          * ⚠ **The reply to the set is an ACK, not the state** — `aa 00 02 35 <on>` — so
          * this re-reads, exactly as [writeAutoOff] does and unlike [writeSpatial].
          */
-        override fun writeAutoPlay(t: Transport, on: Boolean): Boolean? {
+        internal fun writeAutoPlay(t: Transport, on: Boolean): Boolean? {
             t.exchange(JblAutoPlay.set(on))
             return readAutoPlay(t)
         }
@@ -571,7 +606,7 @@ object Drivers {
             ask(t, JblBalance.get(), JblBalance::state)
 
         /** The level goes back as it was read — [Balance] says why it is not offered. */
-        override fun writeBalance(t: Transport, v: Balance): Balance? =
+        internal fun writeBalance(t: Transport, v: Balance): Balance? =
             JblBalance.state(t.exchange(JblBalance.set(v)))
 
         /** ⚠ Read only, deliberately — see [JblPsap]. */
@@ -647,7 +682,7 @@ object Drivers {
             t.exchange(JblPowerOff.off())
         }
 
-        override fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
+        internal fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? =
             JblSmartAv.state(t.exchange(JblSmartAv.set(v)))
 
         /**
@@ -656,12 +691,43 @@ object Drivers {
          * ⚠ The read up front is not a wasted round trip: [JblEq.set] builds the write
          * from it precisely so the thirteen unexplained bytes go back unchanged.
          */
-        fun writeCurve(t: Transport, table: Int, gains: List<Float>): EqCurve? {
+        internal fun writeCurve(t: Transport, table: Int, gains: List<Float>): EqCurve? {
             val read = t.exchange(JblEq.get())
             val frame = JblEq.set(read, table, gains) ?: return null
             t.exchange(frame)
             return readCurve(t)
         }
+
+        /** ⚠ The reply is an ack, so the truth is a re-read — see [writeAutoOff]. */
+        override fun setAutoOff(t: Transport, v: TimedOff): Confirmation<TimedOff> {
+            writeAutoOff(t, v)
+            return confirm(v, readAutoOff(t))
+        }
+
+        /** The reply is the status frame — see [writeSpatial]. */
+        override fun setSpatial(t: Transport, v: Spatial): Confirmation<Spatial> =
+            confirm(v, writeSpatial(t, v))
+
+        override fun setVoiceAware(t: Transport, v: VoiceAware): Confirmation<VoiceAware> =
+            confirm(v, writeVoiceAware(t, v))
+
+        fun setSmartTalk(t: Transport, v: SmartTalk): Confirmation<SmartTalk> =
+            confirm(v, writeSmartTalk(t, v))
+
+        fun setLowVolumeEq(t: Transport, on: Boolean): Confirmation<Boolean> =
+            confirm(on, writeLowVolumeEq(t, on))
+
+        override fun setAutoPlay(t: Transport, on: Boolean): Confirmation<Boolean> =
+            confirm(on, writeAutoPlay(t, on))
+
+        override fun setBalance(t: Transport, v: Balance): Confirmation<Balance> =
+            confirm(v, writeBalance(t, v))
+
+        override fun setSmartAv(t: Transport, v: SmartAv): Confirmation<SmartAv> =
+            confirm(v, writeSmartAv(t, v))
+
+        fun setCurve(t: Transport, curve: EqCurve): Confirmation<EqCurve> =
+            confirm(curve, writeCurve(t, curve.table, curve.bands.map { it.gain }))
     }
 
     /**
@@ -772,10 +838,13 @@ object Drivers {
          * outcome out of it rather than spending a second round trip — measured
          * 2026-09-13, `aa 81 08 …` came back `aa 83 08 …` carrying the new mode.
          */
-        override fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? {
+        internal fun writeSmartAv(t: Transport, v: SmartAv): SmartAv? {
             val payload = SMART_AV[v] ?: return null
             return smartAv(t.exchange(JblSmartAv.set(payload)))
         }
+
+        override fun setSmartAv(t: Transport, v: SmartAv): Confirmation<SmartAv> =
+            confirm(v, writeSmartAv(t, v))
 
         private fun smartAv(buffer: ByteArray): SmartAv? {
             JblSmartAv.state(buffer, SMART_AV)?.let { return it }
@@ -997,7 +1066,7 @@ object Drivers {
          * the setting is for, not a side effect to be suppressed; it is noted because it
          * is the one write here that is audible to whoever is wearing them.
          */
-        fun writeVoiceGuidance(t: Transport, on: Boolean): Boolean? =
+        internal fun writeVoiceGuidance(t: Transport, on: Boolean): Boolean? =
             exchangeFramed2(t, SonyVoiceGuidance.set(on), SonyVoiceGuidance.NOTIFY)
                 ?.let(SonyVoiceGuidance::state)
 
@@ -1143,8 +1212,12 @@ object Drivers {
          * ⚠ Its notify echoes the value set, so this one really is confirmable.
          * ✅ Driven on hardware 2026-08-16, both directions, and restored.
          */
-        fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
+        internal fun writeAutoOff(t: Transport, mode: AutoOff): AutoOff? =
             exchangeFramed(t, SonyAutoOff.set(mode))?.let(SonyAutoOff::state)
+
+        /** Its notify, or a read when nothing came back. */
+        fun setAutoOff(t: Transport, mode: AutoOff): Confirmation<AutoOff> =
+            confirm(mode, writeAutoOff(t, mode) ?: readAutoOff(t))
 
         /**
          * Speak-to-Chat's three detail settings, which travel as one frame.
@@ -1159,7 +1232,7 @@ object Drivers {
                 ?.let(SonyChatDetail::state)
 
         /** ✅ Driven on hardware 2026-08-24, all three fields, and restored. */
-        fun writeChatDetail(t: Transport, detail: ChatDetail): ChatDetail? =
+        internal fun writeChatDetail(t: Transport, detail: ChatDetail): ChatDetail? =
             exchangeFramed(
                 t,
                 SonyChatDetail.set(detail),
@@ -1167,12 +1240,19 @@ object Drivers {
                 SonyChatDetail.NOTIFY,
             )?.let(SonyChatDetail::state)
 
+        fun setChatDetail(t: Transport, detail: ChatDetail): Confirmation<ChatDetail> =
+            confirm(detail, writeChatDetail(t, detail))
+
         /** ✅ Driven on hardware 2026-08-16, both directions, and restored. */
         fun readSoundQuality(t: Transport): SoundQuality? =
             exchangeFramed(t, SonySoundQuality.get())?.let(SonySoundQuality::state)
 
-        fun writeSoundQuality(t: Transport, mode: SoundQuality): SoundQuality? =
+        internal fun writeSoundQuality(t: Transport, mode: SoundQuality): SoundQuality? =
             exchangeFramed(t, SonySoundQuality.set(mode))?.let(SonySoundQuality::state)
+
+        /** Its notify, or a read when nothing came back. */
+        fun setSoundQuality(t: Transport, mode: SoundQuality): Confirmation<SoundQuality> =
+            confirm(mode, writeSoundQuality(t, mode) ?: readSoundQuality(t))
 
         fun readButton(t: Transport): SonyButton.Action? =
             exchangeFramed(t, SonyButton.get())?.let(SonyButton::state)
@@ -1242,7 +1322,7 @@ object Drivers {
         fun readSwitch(t: Transport, switch: SonySwitch): Boolean? =
             exchangeFramed(t, switch.get(), *switch.answers)?.let(switch::state)
 
-        fun writeSwitch(t: Transport, switch: SonySwitch, on: Boolean): Boolean? =
+        internal fun writeSwitch(t: Transport, switch: SonySwitch, on: Boolean): Boolean? =
             exchangeFramed(t, switch.set(on), *switch.answers)?.let(switch::state)
 
         /**
@@ -1543,10 +1623,10 @@ object Drivers {
          * carrying both, so each is read back on its own and a half-applied edit comes
          * back as a mismatch. Switch first, so the mode is the last word.
          */
-        override fun writeSpatial(t: Transport, v: Spatial): Spatial? {
+        override fun setSpatial(t: Transport, v: Spatial): Confirmation<Spatial> {
             val on = writeSpatial(t, v.on)
             val mode = writeSpatialMode(t, v.mode)
-            return if (on == null || mode == null) null else Spatial(on, mode)
+            return confirm(v, if (on == null || mode == null) null else Spatial(on, mode))
         }
 
         /**
@@ -1555,7 +1635,7 @@ object Drivers {
          * device did. The JLab already burned this repo once on exactly that: a mode of
          * `03` drew an identical `47` and changed nothing.
          */
-        fun writeSpatial(t: Transport, on: Boolean): Boolean? {
+        internal fun writeSpatial(t: Transport, on: Boolean): Boolean? {
             t.exchange(JLabSpatial.set(on))
             return readSpatial(t)
         }
@@ -1565,7 +1645,7 @@ object Drivers {
          * back **`01` for both** the Music and the Movie write, so it is a bare
          * acknowledgement carrying no state at all.
          */
-        fun writeSpatialMode(t: Transport, mode: SpatialMode): SpatialMode? {
+        internal fun writeSpatialMode(t: Transport, mode: SpatialMode): SpatialMode? {
             val frame = JLabSpatialMode.set(mode) ?: return null
             t.exchange(frame)
             return readSpatialMode(t)
@@ -1587,10 +1667,10 @@ object Drivers {
          * ⚠ Re-reads: `4b` came back with preset `01` and a flat curve after a write of
          * preset `03`, so it reports neither the request nor the state.
          */
-        fun writeEq(t: Transport, preset: Int, levels: List<Int>): JLabCurve? {
-            val frame = JLabEq.set(preset, levels) ?: return null
+        fun setEq(t: Transport, curve: JLabCurve): Confirmation<JLabCurve> {
+            val frame = JLabEq.set(curve.preset, curve.levels) ?: return Confirmation.Unverifiable
             t.exchange(frame)
-            return readEq(t)
+            return confirm(curve, readEq(t))
         }
 
         fun readSafeHearing(t: Transport): JLabSafeHearing.Level? =
@@ -1601,9 +1681,12 @@ object Drivers {
          * every level written. Believing it would report success for a write the device
          * declined, which is the mistake the JLab's `47` already cost this repo once.
          */
-        fun writeSafeHearing(t: Transport, level: JLabSafeHearing.Level): JLabSafeHearing.Level? {
+        fun setSafeHearing(
+            t: Transport,
+            level: JLabSafeHearing.Level,
+        ): Confirmation<JLabSafeHearing.Level> {
             t.exchange(JLabSafeHearing.set(level))
-            return readSafeHearing(t)
+            return confirm(level, readSafeHearing(t))
         }
 
         fun readTouch(t: Transport): Map<Pair<JLabTouch.Side, JLabTouch.Tap>, JLabTouch.Action>? =

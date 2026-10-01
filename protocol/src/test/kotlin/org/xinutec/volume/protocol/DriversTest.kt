@@ -1466,7 +1466,7 @@ class DriversTest {
                 "01 03 01 00" to "01 03 03 07 a1 00 01 81 5e 00 00",
                 "01 03 01 00" to "01 03 03 07 81 00 01 81 5e 00 00",
             )
-        assertEquals(false, Drivers.BoseQc45.writeVoicePrompts(t, false))
+        assertEquals(Confirmation.Confirmed, Drivers.BoseQc45.setVoicePrompts(t, false))
         t.assertDrained()
         assertEquals(
             listOf("01 03 01 00", "01 03 02 01 81", "01 03 01 00"),
@@ -1482,7 +1482,7 @@ class DriversTest {
     @Test
     fun `asking for the state the device already holds writes nothing at all`() {
         val t = Replay("01 03 01 00" to "01 03 03 07 a1 00 01 81 5e 00 00")
-        assertEquals(true, Drivers.BoseQc45.writeVoicePrompts(t, true))
+        assertEquals(Confirmation.Confirmed, Drivers.BoseQc45.setVoicePrompts(t, true))
         t.assertDrained()
         assertEquals(listOf("01 03 01 00"), t.sent)
     }
@@ -1496,8 +1496,8 @@ class DriversTest {
                 "01 03 01 00" to "01 03 03 07 a2 00 01 81 5e 00 00",
             )
         assertEquals(
-            BoseVoicePromptLanguage.FRENCH,
-            Drivers.BoseQc45.writePromptLanguage(t, BoseVoicePromptLanguage.FRENCH),
+            Confirmation.Confirmed,
+            Drivers.BoseQc45.setPromptLanguage(t, BoseVoicePromptLanguage.FRENCH),
         )
         assertEquals("01 03 02 01 a2", t.sent[1])
     }
@@ -1518,7 +1518,7 @@ class DriversTest {
                 "01 03 01 00" to on,
                 "01 03 01 00" to "01 03 03 07 81 00 01 81 5e 00 00",
             )
-        assertEquals(false, Drivers.BoseQc45.writeVoicePrompts(t, false))
+        assertEquals(Confirmation.Confirmed, Drivers.BoseQc45.setVoicePrompts(t, false))
         t.assertDrained()
     }
 
@@ -1530,8 +1530,8 @@ class DriversTest {
     fun `a change that never appears is reported as it stands rather than waited on`() {
         val on = "01 03 03 07 a1 00 01 81 5e 00 00"
         val t = Replay("01 03 01 00" to on, "01 03 01 00" to on, "01 03 01 00" to on)
-        // Still on after both attempts — the caller turns this into Contradicted.
-        assertEquals(true, Drivers.BoseQc45.writeVoicePrompts(t, false))
+        // Still on after both attempts.
+        assertEquals(Confirmation.Contradicted(true), Drivers.BoseQc45.setVoicePrompts(t, false))
         t.assertDrained()
     }
 
@@ -1546,7 +1546,7 @@ class DriversTest {
             Replay(
                 "01 03 01 00" to "01 04 03 01 00 01 03 03 07 a1 00 01 81 5e 00 00",
             )
-        assertEquals(true, Drivers.BoseQc45.writeVoicePrompts(t, true))
+        assertEquals(Confirmation.Confirmed, Drivers.BoseQc45.setVoicePrompts(t, true))
         t.assertDrained()
     }
 }

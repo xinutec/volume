@@ -284,7 +284,7 @@ object JLabSpatialMode {
  * ⚠ `0b` is 11 — preset plus ten levels — and it agrees with the read's own length prefix.
  *
  * ⚠ **`4b` answered preset `01` and a flat curve after a write of preset `03`**, so it
- * reports neither the request nor the state. [Drivers.JLabQcy.writeEq] re-reads `48`.
+ * reports neither the request nor the state. [Drivers.JLabQcy.setEq] re-reads `48`.
  *
  * ✅ **A SECOND PRESET INDEX IS NOW MEASURED — 2026-09-02.** `eq 1` was selected on our
  * own card and `49` re-read preset `0`, so the preset byte is observed at two values and
@@ -417,7 +417,7 @@ data class JLabCurve(
  *
  * ⚠ **`69` answers `01` whichever level was written**, so it is a bare acknowledgement
  * carrying no state. A caller that believes it reports success for a write the device
- * declined — [Drivers.JLabQcy.writeSafeHearing] re-reads instead.
+ * declined — [Drivers.JLabQcy.setSafeHearing] re-reads instead.
  *
  * ⚠ The three values were identified **downward from `Default` and back**, so the ceiling
  * was never above where it started at any point in the identification.
