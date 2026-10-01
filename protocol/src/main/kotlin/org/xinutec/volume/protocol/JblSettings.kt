@@ -389,7 +389,6 @@ data class Spatial(
 object JblSpatial {
     const val CMD: Byte = 0x9d.toByte()
 
-    private const val LEN: Byte = 0x03
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
@@ -406,11 +405,9 @@ object JblSpatial {
      * the wrong command are a live failure here rather than a theoretical one.
      */
     fun state(reply: ByteArray): Spatial? {
-        if (reply.size < 6) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS) return null
-        val mode = SpatialMode.of(reply[5]) ?: return null
-        return Spatial(on = reply[4] != 0x00.toByte(), mode = mode)
+        val v = Bes.answer(reply, CMD, STATUS, values = 2) ?: return null
+        val mode = SpatialMode.of(v[1]) ?: return null
+        return Spatial(on = v[0] != 0x00.toByte(), mode = mode)
     }
 }
 
@@ -462,7 +459,6 @@ data class VoiceAware(
 object JblVoiceAware {
     const val CMD: Byte = 0x98.toByte()
 
-    private const val LEN: Byte = 0x03
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
@@ -476,11 +472,9 @@ object JblVoiceAware {
      * is the only thing that tells them apart.
      */
     fun state(reply: ByteArray): VoiceAware? {
-        if (reply.size < 6) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS) return null
-        val level = VoiceLevel.of(reply[4]) ?: return null
-        return VoiceAware(on = reply[5] != 0x00.toByte(), level = level)
+        val v = Bes.answer(reply, CMD, STATUS, values = 2) ?: return null
+        val level = VoiceLevel.of(v[0]) ?: return null
+        return VoiceAware(on = v[1] != 0x00.toByte(), level = level)
     }
 }
 
@@ -528,7 +522,6 @@ data class SmartTalk(
 object JblSmartTalk {
     const val CMD: Byte = 0x9f.toByte()
 
-    private const val LEN: Byte = 0x03
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
@@ -537,11 +530,9 @@ object JblSmartTalk {
     fun set(v: SmartTalk): OutFrame = Bes.encode(CMD, SET, if (v.on) 0x01 else 0x00, v.timeout.wire)
 
     fun state(reply: ByteArray): SmartTalk? {
-        if (reply.size < 6) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS) return null
-        val timeout = TalkTimeout.of(reply[5]) ?: return null
-        return SmartTalk(on = reply[4] != 0x00.toByte(), timeout = timeout)
+        val v = Bes.answer(reply, CMD, STATUS, values = 2) ?: return null
+        val timeout = TalkTimeout.of(v[1]) ?: return null
+        return SmartTalk(on = v[0] != 0x00.toByte(), timeout = timeout)
     }
 }
 
@@ -560,7 +551,6 @@ object JblSmartTalk {
 object JblLowVolumeEq {
     const val CMD: Byte = 0x9e.toByte()
 
-    private const val LEN: Byte = 0x02
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
 
@@ -569,10 +559,8 @@ object JblLowVolumeEq {
     fun set(on: Boolean): OutFrame = Bes.encode(CMD, SET, if (on) 0x01 else 0x00)
 
     fun state(reply: ByteArray): Boolean? {
-        if (reply.size < 5) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS) return null
-        return reply[4] != 0x00.toByte()
+        val v = Bes.answer(reply, CMD, STATUS, values = 1) ?: return null
+        return v[0] != 0x00.toByte()
     }
 }
 
@@ -892,6 +880,17 @@ object Bes {
     fun encode(cmd: Byte, vararg payload: Byte): OutFrame {
         require(payload.size <= 0xff) { "a BES length is one byte: ${payload.size}" }
         return OutFrame(byteArrayOf(HEADER, cmd, payload.size.toByte()) + payload)
+    }
+
+    /**
+     * The values of `aa <cmd> <len> <sub> <values…>` — a setting's answer, `02` STATUS
+     * for most — when [reply] is that and its length says exactly [values] follow.
+     */
+    fun answer(reply: ByteArray, cmd: Byte, sub: Byte, values: Int): ByteArray? {
+        if (reply.size < 4 + values) return null
+        if (reply[0] != HEADER || reply[1] != cmd || reply[3] != sub) return null
+        if ((reply[2].toInt() and 0xff) != values + 1) return null
+        return reply.copyOfRange(4, 4 + values)
     }
 
     /** `aa 21 01 <field>` asks; `aa 22 <len> <field> <payload…>` answers. */

@@ -66,13 +66,10 @@ data class Balance(
 object JblBalance {
     const val CMD: Byte = 0xa8.toByte()
 
-    private const val LEN: Byte = 0x05
     private const val SET: Byte = 0x00
     private const val STATUS: Byte = 0x02
     private const val ON_KEY: Byte = 0x01
     private const val LEVEL_KEY: Byte = 0x02
-    private const val ON_AT = 5
-    private const val LEVEL_AT = 7
 
     fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
@@ -80,11 +77,9 @@ object JblBalance {
         Bes.encode(CMD, SET, ON_KEY, if (v.on) 0x01 else 0x00, LEVEL_KEY, v.level.toByte())
 
     fun state(reply: ByteArray): Balance? {
-        if (reply.size <= LEVEL_AT) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS) return null
-        if (reply[4] != ON_KEY || reply[6] != LEVEL_KEY) return null
-        return Balance(on = reply[ON_AT] != 0x00.toByte(), level = reply[LEVEL_AT].toInt() and 0xff)
+        val v = Bes.answer(reply, CMD, STATUS, values = 4) ?: return null
+        if (v[0] != ON_KEY || v[2] != LEVEL_KEY) return null
+        return Balance(on = v[1] != 0x00.toByte(), level = v[3].toInt() and 0xff)
     }
 }
 
@@ -110,19 +105,14 @@ object JblBalance {
 object JblPsap {
     const val CMD: Byte = 0xa0.toByte()
 
-    private const val LEN: Byte = 0x07
     private const val STATUS: Byte = 0x02
-    private const val ON_AT = 5
-    private const val LEVEL_AT = 7
 
     fun get(): OutFrame = Bes.encode(CMD, 0x01)
 
     fun state(reply: ByteArray): Boolean? {
-        if (reply.size <= LEVEL_AT) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS) return null
-        if (reply[4] != 0x01.toByte()) return null
-        return reply[ON_AT] != 0x00.toByte()
+        val v = Bes.answer(reply, CMD, STATUS, values = 6) ?: return null
+        if (v[0] != 0x01.toByte()) return null
+        return v[1] != 0x00.toByte()
     }
 }
 
@@ -292,14 +282,11 @@ object JblVoicePrompts {
 
     private const val GET_SUB: Byte = 0x04
     private const val STATUS_SUB: Byte = 0x05
-    private const val LEN: Byte = 0x02
 
     fun get(): OutFrame = Bes.encode(CMD, GET_SUB)
 
     fun state(reply: ByteArray): Boolean? {
-        if (reply.size < 5) return null
-        if (reply[0] != Bes.HEADER || reply[1] != CMD) return null
-        if (reply[2] != LEN || reply[3] != STATUS_SUB) return null
-        return reply[4] != 0x00.toByte()
+        val v = Bes.answer(reply, CMD, STATUS_SUB, values = 1) ?: return null
+        return v[0] != 0x00.toByte()
     }
 }
