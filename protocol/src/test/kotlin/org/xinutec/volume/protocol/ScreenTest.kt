@@ -283,18 +283,22 @@ class ScreenTest {
 
     private val ready = DeviceState.Ready("Sony WH-1000XM4", listOf(AncMode.ANC), AncMode.ANC)
 
+    private val multipointOff =
+        Settings(listOf(MultipointRow(false, Writability.Refused(RefusalReason.DEVICE))), true)
+
     @Test
     fun `settings attach to a ready card`() {
         val next =
             screen
                 .with("E4:58:BC:3E:9D:AA", ready)
-                .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
+                .withSettings("E4:58:BC:3E:9D:AA", multipointOff)
         assertEquals(
             false,
             next.cards
                 .first()
                 .settings
-                ?.multipoint,
+                ?.get<MultipointRow>()
+                ?.on,
         )
     }
 
@@ -311,7 +315,7 @@ class ScreenTest {
         val next =
             screen
                 .with("E4:58:BC:3E:9D:AA", ready)
-                .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
+                .withSettings("E4:58:BC:3E:9D:AA", multipointOff)
                 .with("E4:58:BC:3E:9D:AA", DeviceState.Busy("setting ambient…"))
                 .with("E4:58:BC:3E:9D:AA", ready)
         assertEquals(
@@ -319,7 +323,8 @@ class ScreenTest {
             next.cards
                 .first()
                 .settings
-                ?.multipoint,
+                ?.get<MultipointRow>()
+                ?.on,
         )
     }
 
@@ -329,8 +334,10 @@ class ScreenTest {
         val next =
             screen
                 .with("E4:58:BC:3E:9D:AA", ready)
-                .withSettings("E4:58:BC:3E:9D:AA", Settings(autoOff = AutoOff.NEVER))
-                .reconciled(
+                .withSettings(
+                    "E4:58:BC:3E:9D:AA",
+                    Settings(listOf(AutoOffRow(AutoOff.NEVER)), true),
+                ).reconciled(
                     listOf("E4:58:BC:3E:9D:AA" to "Bose QC Headphones"),
                     Emptiness.NONE_CONNECTED,
                 )
@@ -339,7 +346,8 @@ class ScreenTest {
             next.cards
                 .single()
                 .settings
-                ?.autoOff,
+                ?.get<AutoOffRow>()
+                ?.mode,
         )
     }
 
@@ -353,7 +361,7 @@ class ScreenTest {
         val next =
             screen
                 .with("E4:58:BC:3E:9D:AA", DeviceState.Unavailable("switched off"))
-                .withSettings("E4:58:BC:3E:9D:AA", Settings(multipoint = false))
+                .withSettings("E4:58:BC:3E:9D:AA", multipointOff)
         assertTrue(next.cards.first().state is DeviceState.Unavailable)
         assertNull(next.cards.first().settings)
     }
@@ -361,26 +369,43 @@ class ScreenTest {
     /** Nothing read yet and nothing to draw are the same thing for a renderer. */
     @Test
     fun `empty settings have nothing to show`() {
-        assertFalse(Settings().any)
-        assertTrue(Settings(multipoint = true).any)
-        assertTrue(Settings(tone = BoseBands(0, 0, 0)).any)
+        assertFalse(Settings.NONE.any)
+        assertTrue(Settings(listOf(ToneRow(BoseBands(0, 0, 0))), true).any)
     }
 
     /**
-     * ⚠ **Every field of [Settings] must make [Settings.any] true, and this test fails
-     * when a new one is added without being considered.**
-     *
-     * The old test above checked two fields out of eleven, so `spatial` was added on
-     * 2026-08-17 without reaching `any` and nothing noticed: on the JBL the EQ and the
-     * timer are read too, so the section drew anyway, and the bug would have appeared
-     * only as "the settings vanished" on a device whose earlier reads had failed. The
-     * count assertion is the part that matters — enumerating values would have gone
-     * just as stale as the code it checks.
-     *
-     * [IGNORED] is the deliberate exception list, and it is spelled out rather than
-     * implied: `bands` accompanies `eq` and never stands alone, and `refuses` is about
-     * what cannot be written rather than what was read.
+     * ⚠ An action is not a reading: a card holding only a power-off button or a rename
+     * has no settings section to put them in.
      */
+    @Test
+    fun `a card of actions alone has nothing to show`() {
+        assertFalse(Settings(listOf(PowerOffRow, NameRow("Example")), true).any)
+    }
+
+    /** The card's order is the kinds', not the order the device's reads came back in. */
+    @Test
+    fun `rows come out in card order`() {
+        val read =
+            Settings(
+                listOf(
+                    BatteryRow(Battery(percent = 60, charging = false)),
+                    PowerOffRow,
+                    ToneRow(BoseBands(0, 0, 0)),
+                ),
+                true,
+            )
+        assertEquals(
+            listOf(SettingKind.TONE, SettingKind.POWER_OFF, SettingKind.BATTERY),
+            read.rows.map { it.kind },
+        )
+    }
+
+    /** ⚠ Two rows of one kind would draw one twice and say nothing about which is true. */
+    @Test(expected = IllegalArgumentException::class)
+    fun `a row cannot appear twice`() {
+        Settings(listOf(AutoPlayRow(true), AutoPlayRow(false)), true)
+    }
+
     @Test
     fun `a link is open while Ready or Busy, and shut otherwise`() {
         assertTrue(DeviceState.Ready(model = "XM4", modes = emptyList(), mode = null).linkOpen)
@@ -391,170 +416,118 @@ class ScreenTest {
         assertFalse(DeviceState.Unavailable("switched off").linkOpen)
     }
 
+    /**
+     * ⚠ **Every kind of row is something to show, unless it is an action** — and this
+     * fails when a kind is added without a sample here. `spatial` was once added to the
+     * old union without reaching `any`, and nothing noticed.
+     */
     @Test
-    fun `every settings field is something to show`() {
-        val each =
-            mapOf(
-                "eq" to Settings(eq = EqSetting(preset = 0, levels = emptyList())),
-                "tone" to Settings(tone = BoseBands(0, 0, 0)),
-                "curve" to Settings(curve = EqCurve(table = 0, bands = emptyList())),
-                "multipoint" to Settings(multipoint = true),
-                "cncPersistence" to Settings(cncPersistence = true),
-                "autoOff" to Settings(autoOff = AutoOff.NEVER),
-                "timedOff" to Settings(timedOff = TimedOff(on = true, minutes = 30)),
-                "volumeLimit" to Settings(volumeLimit = true),
-                "spatial" to Settings(spatial = Spatial(true, SpatialMode.MUSIC)),
-                // ⚠ TRUE, not false: false is the ordinary case and a renderer that
-                // drew nothing for it would pass while the row that matters went missing.
-                // ⚠ The XM4's real twelve, not a token pair: the row IS the menu, so a
-                // sample of one would pass a renderer that drew only the first.
-                "eqPresets" to
-                    Settings(
-                        eqPresets =
+    fun `every kind of row is something to show unless it is an action`() {
+        val one =
+            listOf(
+                PresetEqRow(
+                    EqSetting(preset = 0, levels = emptyList()),
+                    emptyList(),
+                    listOf(0),
+                    emptyMap(),
+                ),
+                ToneRow(BoseBands(0, 0, 0)),
+                CurveEqRow(EqCurve(table = 0, bands = emptyList())),
+                IdleTimerRow(TimedOff(on = true, minutes = 30)),
+                SpatialRow(Spatial(true, SpatialMode.MUSIC), SpatialMode.entries),
+                VoiceAwareRow(VoiceAware(true, VoiceLevel.MID)),
+                SmartTalkRow(SmartTalk(true, TalkTimeout.SEC_5)),
+                LowVolumeEqRow(true),
+                SmartAvRow(SmartAv.AUDIO, SmartAv.entries),
+                // ⚠ Shows on its own: a bud that reports itself worn is offered no button.
+                FindBudsRow(InEar(left = false, right = false)),
+                AutoPlayRow(true),
+                BalanceRow(Balance(on = false, level = 100)),
+                PsapRow(false),
+                VoicePromptsRow(true, Writability.NoWriter),
+                NameRow("Example"),
+                ConnectionsRow(listOf(BoseDevice(address = "aa bb cc dd ee ff")), pairing = null),
+                CncRow(
+                    CncModes(
+                        modes =
                             listOf(
-                                0x00,
-                                0x10,
-                                0x11,
-                                0x12,
-                                0x13,
-                                0x14,
-                                0x15,
-                                0x16,
-                                0x17,
-                                0xa0,
-                                0xa1,
-                                0xa2,
+                                BoseCncModes.Mode(
+                                    2,
+                                    nameId = 10,
+                                    name = "Home",
+                                    level = 4,
+                                    editable = true,
+                                ),
                             ),
+                        active = 2,
                     ),
-                "jblCupsDiffer" to Settings(jblCupsDiffer = true),
-                "budBattery" to
-                    Settings(
-                        budBattery =
-                            BudBattery(
-                                left = Battery(percent = 90, charging = null),
-                                right = Battery(percent = 80, charging = null),
-                            ),
+                ),
+                StandbyRow(BoseStandby(60)),
+                SelfVoiceRow(SidetoneLevel.MEDIUM),
+                AdvancedAncRow(AdvancedAnc(tuning = AncTuning.ADAPTIVE)),
+                LeAudioRow(false),
+                AuracastRow(true),
+                CodecRow("LDAC"),
+                PowerOffRow,
+                BatteryRow(Battery(percent = 60, charging = false)),
+                // ⚠ A volume alone IS worth a card: a Revolve that answers nothing else
+                // still has a level worth seeing.
+                LoudnessRow(BoseLoudness(steps = 100, level = 36)),
+                BudBatteryRow(
+                    BudBattery(
+                        Battery(percent = 90, charging = null),
+                        Battery(percent = 80, charging = null),
                     ),
-                // ⚠ A real curve, not an empty one: the levels ARE the row, so a blank
-                // sample would let a renderer that draws only the preset number pass.
-                "jlabEq" to Settings(jlabEq = JLabCurve(preset = 3, levels = List(10) { 120 })),
-                // ⚠ DEFAULT rather than a limit: it is the value that means "no ceiling",
-                // so a renderer that treated it as absent would pass with any other one.
-                "jlabSafeHearing" to Settings(jlabSafeHearing = JLabSafeHearing.Level.DEFAULT),
-                "jlabTouch" to
-                    Settings(
-                        jlabTouch =
-                            mapOf(
-                                (JLabTouch.Side.FIRST to JLabTouch.Tap.ONE_TAP) to
-                                    JLabTouch.Action.PLAY_PAUSE,
-                            ),
+                ),
+                JLabEqRow(JLabCurve(preset = 3, levels = List(10) { 120 }), presets = null),
+                // ⚠ DEFAULT, the value that means "no ceiling": a renderer treating it as
+                // absent would pass with any other one.
+                SafeHearingRow(JLabSafeHearing.Level.DEFAULT),
+                JLabTouchRow(
+                    mapOf(
+                        (JLabTouch.Side.FIRST to JLabTouch.Tap.ONE_TAP) to
+                            JLabTouch.Action.PLAY_PAUSE,
                     ),
-                "voiceAware" to Settings(voiceAware = VoiceAware(true, VoiceLevel.MID)),
-                "smartTalk" to Settings(smartTalk = SmartTalk(true, TalkTimeout.SEC_5)),
-                "lowVolumeEq" to Settings(lowVolumeEq = true),
-                "smartAv" to Settings(smartAv = SmartAv.AUDIO),
-                "battery" to Settings(battery = Battery(percent = 60, charging = false)),
-                // ⚠ Shows on its own: it is what the Find My Buds row is drawn
-                // FROM, and a bud that reports itself worn is offered no button.
-                "inEar" to Settings(inEar = InEar(left = false, right = false)),
-                "autoPlay" to Settings(autoPlay = true),
-                "balance" to Settings(balance = Balance(on = false, level = 100)),
-                "psap" to Settings(psap = false),
-                "voicePrompts" to Settings(voicePrompts = true),
-                "standby" to Settings(standby = BoseStandby(60)),
-                "selfVoice" to Settings(selfVoice = SidetoneLevel.MEDIUM),
-                "promptLanguage" to Settings(promptLanguage = BoseVoicePromptLanguage.US_ENGLISH),
-                "pairing" to Settings(pairing = true),
-                "devices" to Settings(devices = listOf(BoseDevice(address = "aa bb cc dd ee ff"))),
-                "advancedAnc" to Settings(advancedAnc = AdvancedAnc(tuning = AncTuning.ADAPTIVE)),
-                "leAudio" to Settings(leAudio = false),
-                "auracast" to Settings(auracast = true),
-                "gestures" to
-                    Settings(gestures = mapOf(Gesture.LEFT_TAP to GestureAction.ANC_AMBIENT)),
-                "soundQuality" to Settings(soundQuality = SoundQuality.QUALITY),
-                "button" to Settings(button = "a"),
-                "dsee" to Settings(dsee = true),
-                "pauseOnRemoval" to Settings(pauseOnRemoval = true),
-                "speakToChat" to Settings(speakToChat = false),
-                "touchPanel" to Settings(touchPanel = false),
-                "chatDetail" to
-                    Settings(chatDetail = ChatDetail(ChatSensitivity.AUTO, false, ModeOutTime.MID)),
-                "voiceGuidance" to Settings(voiceGuidance = false),
-                "codec" to Settings(codec = "LDAC"),
-                "focusOnVoice" to Settings(focusOnVoice = false),
-                // ⚠ A volume alone IS worth a card: a SoundLink Revolve that answers
-                // nothing else still has a level worth seeing, and the pair carries its
-                // own scale so there is nothing to guess.
-                "loudness" to Settings(loudness = BoseLoudness(steps = 100, level = 36)),
-                // ⚠ A real slot as the QC45 reports one, not a blank: `editable` is what
-                // decides whether the card offers a level slider at all, so a sample with
-                // it false would let a broken renderer pass.
-                "cnc" to
-                    Settings(
-                        cnc =
-                            CncModes(
-                                modes =
-                                    listOf(
-                                        BoseCncModes.Mode(
-                                            slot = 2,
-                                            nameId = 10,
-                                            name = "Home",
-                                            level = 4,
-                                            editable = true,
-                                        ),
-                                    ),
-                                active = 2,
-                            ),
-                    ),
+                ),
+                GesturesRow(mapOf(Gesture.LEFT_TAP to GestureAction.ANC_AMBIENT)),
+                VolumeLimitRow(true),
+                CncPersistenceRow(true),
+                MultipointRow(true, Writability.Writable),
+                DseeRow(true, Writability.Writable),
+                PauseOnRemovalRow(true, Writability.Writable),
+                SpeakToChatRow(false, Writability.Writable),
+                ChatDetailRow(ChatDetail(ChatSensitivity.AUTO, false, ModeOutTime.MID)),
+                TouchPanelRow(false, Writability.Writable),
+                VoiceGuidanceRow(false, Writability.Writable),
+                FocusOnVoiceRow(false, Writability.NotNow),
+                AutoOffRow(AutoOff.NEVER),
+                SoundQualityRow(SoundQuality.QUALITY),
+                SonyButtonRow(SonyButton.Action.entries.first(), SonyButton.Action.entries),
             )
-        for ((name, one) in each) {
-            assertTrue("$name alone should be something to show", one.any)
+        val actions = setOf(SettingKind.POWER_OFF, SettingKind.NAME)
+        for (row in one) {
+            assertEquals("${row.kind} alone", row.kind !in actions, Settings(listOf(row), true).any)
         }
-        val declared =
-            Settings::class.java.declaredFields
-                .filterNot { it.isSynthetic }
-                .map { it.name }
-                .toSet()
         assertEquals(
-            "Settings gained or lost a field — decide whether `any` should count it",
-            declared,
-            each.keys + IGNORED,
+            "a kind of row was added — give it a sample here",
+            SettingKind.entries.toSet(),
+            one.map { it.kind }.toSet(),
         )
     }
 
     /**
      * ⚠ **Reported and changeable are different questions**, and this is the whole
-     * reason [Settings.refuses] exists. The XM4 answers `d6 d2` and then ignores
+     * reason [Writability] exists. The XM4 answers `d6 d2` and then ignores
      * `d8 d2 01 01`; the QC45 accepts both. A screen that inferred "we can set it"
      * from "it told us" would offer a switch that springs back.
      */
     @Test
     fun `a setting can be reported and still not be writable`() {
-        val xm4 =
-            Settings(
-                multipoint = false,
-                button = "Ambient Sound Control",
-                refuses =
-                    mapOf(
-                        SettingKind.MULTIPOINT to RefusalReason.DEVICE,
-                        SettingKind.BUTTON to RefusalReason.THIS_APP,
-                    ),
-            )
-        assertEquals(false, xm4.multipoint)
-        assertFalse(xm4.writable(SettingKind.MULTIPOINT))
-        assertFalse(xm4.writable(SettingKind.BUTTON))
-        assertTrue(xm4.writable(SettingKind.EQ))
-
-        // ⚠ **The two are not refused for the same reason and the screen says so.**
-        // Both were a plain Set until 2026-08-23, under one note reading "not even its
-        // own app" — true of multipoint, false of the button, which Sony's own app
-        // changes freely. That is #965's asymmetry, and it was rendered as its opposite.
-        assertEquals(RefusalReason.DEVICE, xm4.refusal(SettingKind.MULTIPOINT))
-        assertEquals(RefusalReason.THIS_APP, xm4.refusal(SettingKind.BUTTON))
-        assertNull(xm4.refusal(SettingKind.EQ))
-
-        val qc45 = Settings(multipoint = false, tone = BoseBands(0, 0, 0))
-        assertTrue(qc45.writable(SettingKind.MULTIPOINT))
+        val row = multipointOff.get<MultipointRow>()!!
+        assertEquals(false, row.on)
+        // ⚠ **The reason is part of the refusal.** "Not even its own app" is true of
+        // multipoint and was once shown, falsely, under the button too (#965).
+        assertEquals(Writability.Refused(RefusalReason.DEVICE), row.writability)
     }
 
     /** A confirmed settings write says nothing: the row already shows the new value. */
@@ -629,70 +602,10 @@ class ScreenTest {
      */
     @Test
     fun `settings that were asked for and came back empty are not settings nobody asked for`() {
-        assertFalse(Settings().attempted)
-        assertFalse(Settings().any)
-        val silent = Settings(attempted = true)
+        assertFalse(Settings.NONE.attempted)
+        assertFalse(Settings.NONE.any)
+        val silent = Settings(emptyList(), attempted = true)
         assertFalse(silent.any)
         assertTrue(silent.attempted)
-    }
-
-    private companion object {
-        /**
-         * Fields [Settings.any] deliberately does not count. See the test that uses it.
-         *
-         * ⚠ `attempted` is here because it is not a setting at all — it says whether
-         * the device was ASKED, and counting it would make every probed device look as
-         * though it had something to show. It was added on 2026-08-17 and this test
-         * caught it immediately, which is what it is for.
-         *
-         * ⚠ `focusOnVoiceSettable` is here for the same reason: it says whether ONE row
-         * gets a switch, not whether there is a row. A device in ANC would otherwise
-         * count as having something to show purely by being in ANC.
-         *
-         * ⚠ `buttonOptions` accompanies `button` and never stands alone: an options list
-         * with no current value is a device that answered its capability and not its
-         * parameter, which is not something to put on a card.
-         *
-         * ⚠ `supportedLanguages` is the same shape and was briefly listed as a row of its
-         * own, which this test caught: thirteen languages a device *would* speak, with no
-         * word on which one it is speaking, is a capability rather than a reading.
-         */
-        val IGNORED =
-            setOf(
-                "bands",
-                // ⚠ Accompanies `eq`, like `bands` — a naming table for ids that are
-                // shown elsewhere, never a reading of its own.
-                "eqPresetNames",
-                // ⚠ Accompanies `smartAv`: which modes exist, not a reading. Empty means
-                // all three, so it can never be the only thing a card has to show.
-                "smartAvOptions",
-                "refuses",
-                "attempted",
-                "focusOnVoiceSettable",
-                "buttonOptions",
-                "supportedLanguages",
-                // ⚠ A capability, not a reading, like canPowerOff: it says whether
-                // `voicePrompts` may be WRITTEN, and a card holding only that holds
-                // nothing to show.
-                "canWriteVoicePrompts",
-                // ⚠ A capability, not a reading — see Settings.canPowerOff.
-                "canPowerOff",
-                // Same: a capability, saying only whether the control exists.
-                "canRename",
-                // ⚠ Which modes the chips may offer, not a reading — it has a non-null
-                // default and accompanies `spatial`, exactly as `bands` does `eq`.
-                "spatialModes",
-                // ⚠ The four stored curves, so a preset chip knows what to send. Never
-                // stands alone: without `jlabEq` there is nothing to show them against.
-                "jlabEqPresets",
-                // ⚠ Accompanies canRename and never stands alone, like `bands` does
-                // `eq` — the row is drawn by the capability, and a device that answered
-                // its name and nothing else has no settings section to put it in.
-                //
-                // ⚠ It is NOT the name on the card. That one is Android's bonded record,
-                // which a rename over this protocol does not change; showing it here made
-                // a confirmed rename look like it had done nothing.
-                "deviceName",
-            )
     }
 }

@@ -64,48 +64,95 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
+import org.xinutec.volume.protocol.AdvancedAncRow
 import org.xinutec.volume.protocol.AncMode
+import org.xinutec.volume.protocol.AuracastRow
 import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.AutoOffRow
+import org.xinutec.volume.protocol.AutoPlayRow
 import org.xinutec.volume.protocol.Balance
+import org.xinutec.volume.protocol.BalanceRow
+import org.xinutec.volume.protocol.BatteryRow
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseButtonRow
 import org.xinutec.volume.protocol.BoseCncModes
 import org.xinutec.volume.protocol.BosePromptName
 import org.xinutec.volume.protocol.BoseStandbyTimer
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.Bud
+import org.xinutec.volume.protocol.BudBatteryRow
 import org.xinutec.volume.protocol.ChatDetail
+import org.xinutec.volume.protocol.ChatDetailRow
 import org.xinutec.volume.protocol.ChatSensitivity
+import org.xinutec.volume.protocol.CncPersistenceRow
+import org.xinutec.volume.protocol.CncRow
+import org.xinutec.volume.protocol.CodecRow
+import org.xinutec.volume.protocol.ConnectionsRow
+import org.xinutec.volume.protocol.CurveEqRow
 import org.xinutec.volume.protocol.DeviceCard
 import org.xinutec.volume.protocol.DeviceState
+import org.xinutec.volume.protocol.DseeRow
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqSetting
+import org.xinutec.volume.protocol.FindBudsRow
+import org.xinutec.volume.protocol.FocusOnVoiceRow
 import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
+import org.xinutec.volume.protocol.GesturesRow
+import org.xinutec.volume.protocol.IdleTimerRow
 import org.xinutec.volume.protocol.JBL_CURVES
 import org.xinutec.volume.protocol.JBL_EQ_PRESETS
 import org.xinutec.volume.protocol.JBL_IDLE_MINUTES
 import org.xinutec.volume.protocol.JLabCurve
+import org.xinutec.volume.protocol.JLabEqRow
 import org.xinutec.volume.protocol.JLabSafeHearing
 import org.xinutec.volume.protocol.JLabTouch
+import org.xinutec.volume.protocol.JLabTouchRow
+import org.xinutec.volume.protocol.LeAudioRow
+import org.xinutec.volume.protocol.LoudnessRow
+import org.xinutec.volume.protocol.LowVolumeEqRow
 import org.xinutec.volume.protocol.ModeOutTime
+import org.xinutec.volume.protocol.MultipointRow
+import org.xinutec.volume.protocol.NameRow
 import org.xinutec.volume.protocol.NoteKind
 import org.xinutec.volume.protocol.PairPatch
+import org.xinutec.volume.protocol.PauseOnRemovalRow
+import org.xinutec.volume.protocol.PowerOffRow
+import org.xinutec.volume.protocol.PresetEqRow
+import org.xinutec.volume.protocol.PsapRow
 import org.xinutec.volume.protocol.RefusalReason
+import org.xinutec.volume.protocol.SafeHearingRow
 import org.xinutec.volume.protocol.Screen
-import org.xinutec.volume.protocol.SettingKind
+import org.xinutec.volume.protocol.SelfVoiceRow
+import org.xinutec.volume.protocol.Setting
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
+import org.xinutec.volume.protocol.SmartAvRow
 import org.xinutec.volume.protocol.SmartTalk
+import org.xinutec.volume.protocol.SmartTalkRow
+import org.xinutec.volume.protocol.SonyButton
+import org.xinutec.volume.protocol.SonyButtonRow
 import org.xinutec.volume.protocol.SonyEq
 import org.xinutec.volume.protocol.SoundQuality
+import org.xinutec.volume.protocol.SoundQualityRow
 import org.xinutec.volume.protocol.Spatial
+import org.xinutec.volume.protocol.SpatialRow
+import org.xinutec.volume.protocol.SpeakToChatRow
+import org.xinutec.volume.protocol.StandbyRow
 import org.xinutec.volume.protocol.TalkTimeout
 import org.xinutec.volume.protocol.TimedOff
+import org.xinutec.volume.protocol.ToneRow
+import org.xinutec.volume.protocol.TouchPanelRow
 import org.xinutec.volume.protocol.VoiceAware
+import org.xinutec.volume.protocol.VoiceAwareRow
+import org.xinutec.volume.protocol.VoiceGuidanceRow
 import org.xinutec.volume.protocol.VoiceLevel
+import org.xinutec.volume.protocol.VoicePromptsRow
+import org.xinutec.volume.protocol.VolumeLimitRow
+import org.xinutec.volume.protocol.Writability
 import org.xinutec.volume.protocol.balanceOf
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -470,7 +517,7 @@ interface SettingActions {
 
     fun setChatDetail(address: String, detail: ChatDetail)
 
-    fun setSonyButton(address: String, name: String)
+    fun setSonyButton(address: String, action: SonyButton.Action)
 
     fun answerButton(address: String, yes: Boolean)
 
@@ -835,18 +882,12 @@ private fun DeviceRow(
 private const val NEW_MODE_LEVEL = 5
 
 /**
- * Everything a device has beyond ANC.
+ * Everything a device has beyond ANC, one [Setting] at a time.
  *
- * ⚠ **A setting that will not move is drawn as a value, not a control.** The XM4
- * reports its multipoint and its CUSTOM button and then ignores writes to both, so a
- * switch here would flip and spring back — this repo's oldest trap wearing a new hat.
- * The value is still worth showing; the control is not.
- *
- * ⚠ **They do not fail for the same reason and the screen must not say they do.**
- * "Sony's own app fails the same way" is true of multipoint and false of the button —
- * see [RefusalReason].
+ * ⚠ **A setting that will not move is drawn as a value, not a control** — see
+ * [Writability]. The XM4 reports its multipoint and ignores writes to it, so a switch
+ * would flip and spring back.
  */
-
 @Composable
 private fun SettingsSection(
     address: String,
@@ -859,62 +900,6 @@ private fun SettingsSection(
     actions: SettingActions,
     onPowerOff: () -> Unit,
 ) {
-    var confirmDelete by remember { mutableStateOf<BoseCncModes.Mode?>(null) }
-    var addingAt by remember { mutableStateOf<Int?>(null) }
-
-    confirmDelete?.let { m ->
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete ${m.name}?") },
-            // ⚠ Says what cannot be undone rather than "are you sure": the level and the
-            // name go, and this app cannot restore a mode it did not record first.
-            text = {
-                Text(
-                    "The headphones keep four mode slots and two are built in. " +
-                        "Deleting ${m.name} frees its slot; its level of ${m.level} is not kept.",
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    actions.deleteCncMode(address, m.slot)
-                    confirmDelete = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) { Text("Keep it") }
-            },
-        )
-    }
-
-    addingAt?.let { slot ->
-        AlertDialog(
-            onDismissRequest = { addingAt = null },
-            title = { Text("Add a mode") },
-            // ⚠ The vendor's OWN ten for this product, not all 37 it knows: nothing here
-            // has seen what a QC45 does with a name its app never sends — see OFFERED.
-            text = {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (n in BosePromptName.OFFERED) {
-                        FilterChip(
-                            selected = false,
-                            onClick = {
-                                // ⚠ Created at the midpoint the vendor app starts a new
-                                // mode at; the slider then moves it.
-                                actions.createCncMode(address, slot, n, NEW_MODE_LEVEL)
-                                addingAt = null
-                            },
-                            label = { Text(n.label) },
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { addingAt = null }) { Text("Cancel") }
-            },
-        )
-    }
-
     if (settings == null) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -947,19 +932,35 @@ private fun SettingsSection(
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        settings.eq?.let { eq ->
+        for (row in settings.rows) {
+            // ⚠ Keyed: a row appearing or going must not hand its state to a neighbour.
+            key(row.kind) { SettingRowFor(row, name, address, actions, onPowerOff) }
+        }
+    }
+}
+
+/** One row of a device's settings card. */
+@Composable
+private fun SettingRowFor(
+    row: Setting,
+    name: String,
+    address: String,
+    actions: SettingActions,
+    onPowerOff: () -> Unit,
+) {
+    when (row) {
+        is PresetEqRow -> {
+            val eq = row.eq
             // The device's own name for a preset, or its number — never another vendor's.
-            val naming = { p: Int -> settings.eqPresetNames[p] }
+            val naming = { p: Int -> row.names[p] }
             SettingLabel("Equaliser", naming(eq.preset) ?: "preset ${eq.preset}")
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // ⚠ **What the DEVICE said it has**, falling back to the three known
-                // ids when it would not say. Never an empty menu: [Settings.eqPresets]
-                // is empty for "no answer", and drawing that literally would take the
-                // equaliser away on a read that merely timed out.
-                for (p in settings.eqPresets) {
+                // What the device said it has, or its branch's fallback when it would
+                // not say — never an empty menu on a read that merely timed out.
+                for (p in row.presets) {
                     FilterChip(
                         selected = p == eq.preset,
                         onClick = { actions.setEqPreset(address, p) },
@@ -967,10 +968,11 @@ private fun SettingsSection(
                     )
                 }
             }
-            EqBands(address, eq, settings.bands, actions)
+            EqBands(address, eq, row.bands, actions)
         }
 
-        settings.tone?.let { t ->
+        is ToneRow -> {
+            val t = row.tone
             SettingLabel(
                 "Tone",
                 "bass ${signed(t.bass)} · mid ${signed(t.mid)} · treble ${signed(t.treble)} dB",
@@ -991,7 +993,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.curve?.let { c ->
+        is CurveEqRow -> {
+            val c = row.curve
             // ⚠ The name is looked up, not stored: the device sends back ten numbers
             // and a table id, and "Jazz" is only true if both still match what the app
             // sent for it. ⚠ **The table id is part of that, and it caught something**
@@ -1027,7 +1030,8 @@ private fun SettingsSection(
             )
         }
 
-        settings.timedOff?.let { v ->
+        is IdleTimerRow -> {
+            val v = row.timer
             SettingRow(
                 "Power off when idle",
                 if (v.on) "after ${idleLabel(v.minutes)}" else "off",
@@ -1050,7 +1054,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.spatial?.let { v ->
+        is SpatialRow -> {
+            val v = row.value
             SettingRow(
                 "Spatial sound",
                 if (v.on) v.mode.name.lowercase() else "off",
@@ -1065,10 +1070,10 @@ private fun SettingsSection(
             // should render for is not also a decision to turn it on. The mode is
             // offered while off for the same reason the device keeps it: it is
             // remembered, and `off` is not `no mode`.
-            // ⚠ [Settings.spatialModes], not [org.xinutec.volume.protocol.SpatialMode.entries]: the JLab has no
-            // Game, and a chip whose write this repo refuses is worse than no chip.
+            // ⚠ [SpatialRow.modes], not [SpatialMode.entries]: the JLab has no Game,
+            // and a chip whose write this repo refuses is worse than no chip.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (m in settings.spatialModes) {
+                for (m in row.modes) {
                     FilterChip(
                         selected = m == v.mode,
                         onClick = { actions.setSpatial(address, v.copy(mode = m)) },
@@ -1078,7 +1083,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.voiceAware?.let { v ->
+        is VoiceAwareRow -> {
+            val v = row.value
             SettingRow(
                 "VoiceAware",
                 if (v.on) v.level.name.lowercase() else "off",
@@ -1102,7 +1108,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.smartTalk?.let { v ->
+        is SmartTalkRow -> {
+            val v = row.value
             SettingRow(
                 "Smart Talk",
                 if (v.on) "hold ${v.timeout.seconds} s" else "off",
@@ -1124,7 +1131,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.lowVolumeEq?.let { on ->
+        is LowVolumeEqRow -> {
+            val on = row.on
             SettingRow(
                 "Low volume dynamic EQ",
                 if (on) "on" else "off",
@@ -1134,17 +1142,17 @@ private fun SettingsSection(
             )
         }
 
-        settings.smartAv?.let { v ->
+        is SmartAvRow -> {
+            val v = row.value
             // ⚠ No switch, deliberately — the device has no enable byte, so `off` is
             // one of three choices rather than the absence of the other two. The
             // vendor app draws a switch and a mode here and can therefore show
             // Video-and-off, a state the headphones never actually hold.
             SettingLabel("Smart audio & video", v.name.lowercase())
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // ⚠ **What this model HAS**, falling back to all three when it did not
-                // say — see [Settings.smartAvOptions]. A chip for a mode whose payload is
-                // unknown on this device would write nothing at all.
-                for (m in settings.smartAvOptions.ifEmpty { SmartAv.entries }) {
+                // ⚠ **What this model HAS** — see [SmartAvRow.options]. A chip for a mode
+                // whose payload is unknown on this device would write nothing at all.
+                for (m in row.options) {
                     FilterChip(
                         selected = m == v,
                         onClick = { actions.setSmartAv(address, m) },
@@ -1154,7 +1162,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.inEar?.let { worn ->
+        is FindBudsRow -> {
+            val worn = row.inEar
             // ⚠ **An ACTION, not a setting — the only one on this card.** Nothing here
             // reports state: [JblBeeping.status] answers `00` while a bud is audibly
             // sounding, so a "beeping now" indicator would be invented.
@@ -1207,7 +1216,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.autoPlay?.let { on ->
+        is AutoPlayRow -> {
+            val on = row.on
             SettingRow(
                 "Auto play & pause",
                 if (on) "on" else "off",
@@ -1217,7 +1227,8 @@ private fun SettingsSection(
             )
         }
 
-        settings.balance?.let { v ->
+        is BalanceRow -> {
+            val v = row.value
             // ⚠ The level is carried, never offered — nothing here has ever moved it,
             // so its range is unknown and 100 is only known to be this unit's centre.
             SettingRow(
@@ -1229,7 +1240,8 @@ private fun SettingsSection(
             )
         }
 
-        settings.psap?.let { on ->
+        is PsapRow -> {
+            val on = row.on
             SettingLabel("Sound amplification", if (on) "on" else "off")
             Text(
                 "amplifies the world — this app will read it, never change it",
@@ -1238,17 +1250,17 @@ private fun SettingsSection(
             )
         }
 
-        settings.voicePrompts?.let { on ->
+        is VoicePromptsRow -> {
+            val on = row.on
             SettingRow(
                 "Voice prompts",
-                settings.promptLanguage
+                row.language
                     ?.name
                     ?.lowercase()
                     ?.replace('_', ' ') ?: "",
                 // ⚠ **Not hardcoded true.** Only the Bose driver has a writer; the JBLs
-                // read this and drew an operable switch that did nothing. See
-                // [Settings.canWriteVoicePrompts].
-                writable = settings.canWriteVoicePrompts,
+                // read this and drew an operable switch that did nothing.
+                writable = row.writability.open,
                 checked = on,
                 onChange = { actions.setVoicePrompts(address, it) },
             )
@@ -1257,9 +1269,9 @@ private fun SettingsSection(
             // while US English is present. Offered while off, like the JBL's timeouts,
             // because the language survives the switch.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (l in settings.supportedLanguages) {
+                for (l in row.languages) {
                     FilterChip(
-                        selected = l == settings.promptLanguage,
+                        selected = l == row.language,
                         onClick = { actions.setPromptLanguage(address, l) },
                         label = { Text(l.name.lowercase().replace('_', ' ')) },
                     )
@@ -1267,12 +1279,12 @@ private fun SettingsSection(
             }
         }
 
-        if (settings.canRename) {
+        is NameRow -> {
             var renaming by remember(address) { mutableStateOf(false) }
             // ⚠ The DEVICE's name, falling back to the bonded one only when it will not
             // say. Showing the bonded name here made a successful rename look like a
             // no-op — Android keeps its own record and this protocol does not touch it.
-            val held = settings.deviceName ?: name
+            val held = row.held ?: name
             SettingLabel("Name", held)
             TextButton(onClick = { renaming = true }) { Text("Rename") }
             if (renaming) {
@@ -1287,9 +1299,9 @@ private fun SettingsSection(
             }
         }
 
-        if (settings.devices.isNotEmpty() || settings.pairing != null) {
+        is ConnectionsRow -> {
             SettingLabel("Connections", "")
-            for (d in settings.devices) {
+            for (d in row.devices) {
                 // The NAME, with the address only as a fallback: a list of six-byte
                 // addresses tells nobody which entry is their laptop.
                 SettingLabel(
@@ -1309,11 +1321,67 @@ private fun SettingsSection(
             // mode times out by itself — a "stop" here would be a guessed frame on the
             // block that holds CLEAR_DEVICE_LIST.
             TextButton(onClick = { actions.startPairing(address) }) {
-                Text(if (settings.pairing == true) "Ready to connect" else "Connect new")
+                Text(if (row.pairing == true) "Ready to connect" else "Connect new")
             }
         }
 
-        settings.cnc?.let { cnc ->
+        is CncRow -> {
+            val cnc = row.cnc
+            var confirmDelete by remember { mutableStateOf<BoseCncModes.Mode?>(null) }
+            var addingAt by remember { mutableStateOf<Int?>(null) }
+
+            confirmDelete?.let { m ->
+                AlertDialog(
+                    onDismissRequest = { confirmDelete = null },
+                    title = { Text("Delete ${m.name}?") },
+                    // ⚠ Says what cannot be undone rather than "are you sure": the level and the
+                    // name go, and this app cannot restore a mode it did not record first.
+                    text = {
+                        Text(
+                            "The headphones keep four mode slots and two are built in. " +
+                                "Deleting ${m.name} frees its slot; its level of ${m.level} is not kept.",
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            actions.deleteCncMode(address, m.slot)
+                            confirmDelete = null
+                        }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmDelete = null }) { Text("Keep it") }
+                    },
+                )
+            }
+
+            addingAt?.let { slot ->
+                AlertDialog(
+                    onDismissRequest = { addingAt = null },
+                    title = { Text("Add a mode") },
+                    // ⚠ The vendor's OWN ten for this product, not all 37 it knows: nothing here
+                    // has seen what a QC45 does with a name its app never sends — see OFFERED.
+                    text = {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (n in BosePromptName.OFFERED) {
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        // ⚠ Created at the midpoint the vendor app starts a new
+                                        // mode at; the slider then moves it.
+                                        actions.createCncMode(address, slot, n, NEW_MODE_LEVEL)
+                                        addingAt = null
+                                    },
+                                    label = { Text(n.label) },
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { addingAt = null }) { Text("Cancel") }
+                    },
+                )
+            }
             // ⚠ The device's OWN names — "Quiet", "Aware", and whatever the owner
             // called the ones they made. Nothing here supplies a label.
             SettingLabel("Noise control", cnc.current?.name ?: "unknown mode")
@@ -1391,7 +1459,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.standby?.let { st ->
+        is StandbyRow -> {
+            val st = row.standby
             SettingLabel("Standby timer", standbyLabel(st.minutes))
             // ⚠ The vendor app's own six values and its own word for zero, not a free
             // number: every one of these was selected in Bose Connect and read back off
@@ -1407,7 +1476,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.selfVoice?.let { level ->
+        is SelfVoiceRow -> {
+            val level = row.level
             SettingLabel("Self voice", level.name.lowercase())
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (l in SidetoneLevel.entries) {
@@ -1420,7 +1490,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.advancedAnc?.let { a ->
+        is AdvancedAncRow -> {
+            val a = row.value
             SettingLabel("Customize ANC", a.tuning?.name?.lowercase() ?: "unknown tuning")
             // ⚠ Raw numbers with their key names, NOT sliders. Nothing establishes what
             // these are out of, and a slider draws a scale — it would answer a question
@@ -1442,7 +1513,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.leAudio?.let { on ->
+        is LeAudioRow -> {
+            val on = row.on
             SettingLabel("LE Audio", if (on) "on" else "off")
             // ⚠ **NOT the error colour.** That one is reserved for the two hearing rows,
             // where the sentence is a promise about the owner's ears. This is an ordinary
@@ -1455,17 +1527,19 @@ private fun SettingsSection(
             )
         }
 
-        settings.auracast?.let { on ->
+        is AuracastRow -> {
+            val on = row.on
             SettingLabel("Auracast", if (on) "on" else "off")
         }
 
-        settings.codec?.let { c ->
+        is CodecRow -> {
+            val c = row.codec
             // ⚠ A label, not a row with a control: nothing here can set a codec, and a
             // greyed switch would suggest the app merely refuses to.
             SettingLabel("Codec", c)
         }
 
-        if (settings.canPowerOff) {
+        PowerOffRow -> {
             // ⚠ **Last, and separated, because it is not a setting.** Everything above
             // reports something the device holds; this ends the session. Putting it in
             // the flow of switches would make it one more thing to flick past.
@@ -1479,7 +1553,8 @@ private fun SettingsSection(
             ) { Text("Switch off") }
         }
 
-        settings.battery?.let { b ->
+        is BatteryRow -> {
+            val b = row.battery
             SettingLabel(
                 "Battery",
                 // ⚠ `== true`, not truthiness: null means the device never said, and
@@ -1490,7 +1565,7 @@ private fun SettingsSection(
             // device has no second slot to disagree with, so neither is worth a line —
             // but the number above stops describing the pair the moment this fires, and
             // saying nothing then would be printing one cup as though it were both.
-            if (settings.jblCupsDiffer == true) {
+            if (row.cupsDiffer == true) {
                 Caveat("the two cup slots disagree — this is one of them, and which is unknown")
             }
         }
@@ -1502,7 +1577,8 @@ private fun SettingsSection(
         // ⚠⚠ **A LABEL, not a control.** A volume is never raised above where it was
         // found, so this shows and does not set — the same treatment Safe Hearing had
         // before the user asked for a writer explicitly.
-        settings.loudness?.let { v ->
+        is LoudnessRow -> {
+            val v = row.loudness
             SettingLabel("Volume", "${v.level} of ${v.steps}")
         }
 
@@ -1510,11 +1586,13 @@ private fun SettingsSection(
         // 80/80, then 70/60. ✅ Left and right are the right way round: at 70/60 the
         // vendor app's own two icons were measured off the render and the `L` one is the
         // fuller. [JLabBattery] has the numbers.
-        settings.budBattery?.let { b ->
+        is BudBatteryRow -> {
+            val b = row.battery
             SettingLabel("Battery", "L ${b.left.percent}%  ·  R ${b.right.percent}%")
         }
 
-        settings.jlabEq?.let { c ->
+        is JLabEqRow -> {
+            val c = row.curve
             SettingLabel("Equalizer", "preset ${c.preset}")
             Text(
                 c.levels.joinToString(" ") { it.toString() },
@@ -1533,7 +1611,7 @@ private fun SettingsSection(
             // rather than what this repo believes they should be — the JBL's `curve` row
             // above carries a hard-coded table and had to grow a note about a device found
             // holding gains under a table neither chip writes.
-            settings.jlabEqPresets?.let { presets ->
+            row.presets?.let { presets ->
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     presets.forEachIndexed { i, levels ->
                         FilterChip(
@@ -1546,7 +1624,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.jlabSafeHearing?.let { level ->
+        is SafeHearingRow -> {
+            val level = row.level
             // ⚠ The label carries the DIRECTION, because "Default" is the least protective
             // of the three and nothing about the word says so. The chips are ordered
             // most-protective first for the same reason — the device's own numbering runs
@@ -1575,7 +1654,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.jlabTouch?.let { m ->
+        is JLabTouchRow -> {
+            val m = row.bindings
             SettingLabel("Touch controls", "${m.size} bindings")
             // ⚠ Grouped by gesture, not by side: both sides carry identical maps in
             // every capture, so a per-side list would draw a distinction nothing has
@@ -1590,7 +1670,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.gestures?.let { map ->
+        is GesturesRow -> {
+            val map = row.bindings
             SettingLabel(
                 "Controls",
                 "${map.count { it.value != GestureAction.NONE }} of ${map.size} assigned",
@@ -1632,7 +1713,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.volumeLimit?.let { on ->
+        is VolumeLimitRow -> {
+            val on = row.on
             // ⚠ A value with no switch, and a sentence saying why — otherwise a
             // missing control reads as a missing feature, which is the trap
             // `RefusedNote` exists for. This one is not refused: the device would
@@ -1645,7 +1727,8 @@ private fun SettingsSection(
             )
         }
 
-        settings.cncPersistence?.let { on ->
+        is CncPersistenceRow -> {
+            val on = row.on
             // ⚠ **The subtitle does not say what the name suggests, because the name was
             // tested and did not survive.** The user power-cycled the headphones with this
             // ON (Home, level 0) and again with it OFF (Commute, level 7): the mode AND
@@ -1661,48 +1744,56 @@ private fun SettingsSection(
             )
         }
 
-        settings.multipoint?.let { on ->
+        is MultipointRow -> {
+            val on = row.on
             SettingRow(
                 "Two devices at once",
                 if (on) "on" else "off",
-                writable = settings.writable(SettingKind.MULTIPOINT),
+                writable = row.writability.open,
                 checked = on,
                 onChange = { actions.setMultipoint(address, it) },
-                refusal = settings.refusal(SettingKind.MULTIPOINT),
+                refusal = row.writability.refusal,
             )
         }
 
-        settings.dsee?.let { on ->
+        is DseeRow -> {
+            val on = row.on
             SettingRow(
                 "DSEE Extreme",
                 if (on) "on" else "off",
-                writable = settings.writable(SettingKind.DSEE),
+                writable = row.writability.open,
+                refusal = row.writability.refusal,
                 checked = on,
                 onChange = { actions.setDsee(address, it) },
             )
         }
 
-        settings.pauseOnRemoval?.let { on ->
+        is PauseOnRemovalRow -> {
+            val on = row.on
             SettingRow(
                 "Pause when removed",
                 if (on) "on" else "off",
-                writable = settings.writable(SettingKind.PAUSE_ON_REMOVAL),
+                writable = row.writability.open,
+                refusal = row.writability.refusal,
                 checked = on,
                 onChange = { actions.setPauseOnRemoval(address, it) },
             )
         }
 
-        settings.speakToChat?.let { on ->
+        is SpeakToChatRow -> {
+            val on = row.on
             SettingRow(
                 "Speak-to-Chat",
                 if (on) "on" else "off",
-                writable = settings.writable(SettingKind.SPEAK_TO_CHAT),
+                writable = row.writability.open,
+                refusal = row.writability.refusal,
                 checked = on,
                 onChange = { actions.setSpeakToChat(address, it) },
             )
         }
 
-        settings.chatDetail?.let { d ->
+        is ChatDetailRow -> {
+            val d = row.detail
             // ⚠ **Three controls, one frame.** Each chip sends the whole [ChatDetail]
             // with one field changed — see [SonyChatDetail], where the payload has no
             // field selector, so a partial write would reset the other two.
@@ -1765,47 +1856,57 @@ private fun SettingsSection(
             }
         }
 
-        settings.touchPanel?.let { on ->
+        is TouchPanelRow -> {
+            val on = row.on
             // ⚠ **Sony's own words, shortened**: "control playback, adjust volume,
             // receive/end phone calls". The note is there because "Touch panel: off" does
             // not tell an owner that their taps are being ignored on purpose.
             SettingRow(
                 "Touch sensor control panel",
                 if (on) "on" else "off",
-                writable = settings.writable(SettingKind.TOUCH_PANEL),
+                writable = row.writability.open,
+                refusal = row.writability.refusal,
                 checked = on,
                 onChange = { actions.setTouchPanel(address, it) },
                 note = "when off, the earcup ignores taps and swipes",
             )
         }
 
-        settings.voiceGuidance?.let { on ->
+        is VoiceGuidanceRow -> {
+            val on = row.on
             SettingRow(
                 "Voice guidance",
                 if (on) "on" else "off",
-                writable = settings.writable(SettingKind.VOICE_GUIDANCE),
+                writable = row.writability.open,
+                refusal = row.writability.refusal,
                 checked = on,
                 onChange = { actions.setVoiceGuidance(address, it) },
                 note = "spoken prompts; switching it on may say so out loud",
             )
         }
 
-        settings.focusOnVoice?.let { on ->
+        is FocusOnVoiceRow -> {
+            val on = row.on
             // ⚠ Shown always, switchable only in ambient. The fourth distinct reason a
             // control is absent on this screen, and the sentence says which one it is —
             // a missing switch with no explanation reads as a missing feature.
             SettingRow(
                 "Focus on Voice",
                 if (on) "on" else "off",
-                writable = settings.focusOnVoiceSettable,
+                writable = row.writability.open,
                 checked = on,
                 onChange = { actions.setFocusOnVoice(address, it) },
                 note =
-                    if (settings.focusOnVoiceSettable) null else "switch to Ambient to change this",
+                    if (row.writability == Writability.NotNow) {
+                        "switch to Ambient to change this"
+                    } else {
+                        null
+                    },
             )
         }
 
-        settings.autoOff?.let { mode ->
+        is AutoOffRow -> {
+            val mode = row.mode
             SettingLabel("Power off", autoOffLabel(mode))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (m in AutoOff.entries) {
@@ -1818,7 +1919,8 @@ private fun SettingsSection(
             }
         }
 
-        settings.soundQuality?.let { mode ->
+        is SoundQualityRow -> {
+            val mode = row.mode
             SettingLabel("Sound quality", qualityLabel(mode))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (m in SoundQuality.entries) {
@@ -1838,34 +1940,33 @@ private fun SettingsSection(
             )
         }
 
-        settings.button?.let { current ->
-            SettingLabel("Button", prettyAction(current))
-            if (settings.buttonOptions.isNotEmpty()) {
-                // ⚠ **The DEVICE'S list, never `SonyButton.Action.entries`.** The enum
-                // contains `VOLUME_CONTROL`; this pair does not offer it, and building
-                // chips from the enum would put a volume control on the card for a
-                // device that never advertised one. See [Settings.buttonOptions].
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (name in settings.buttonOptions) {
-                        FilterChip(
-                            selected = name == current,
-                            onClick = { actions.setSonyButton(address, name) },
-                            label = { Text(prettyAction(name)) },
-                        )
-                    }
+        is SonyButtonRow -> {
+            SettingLabel("Button", prettyAction(row.action.name))
+            // ⚠ **The DEVICE'S list, never `SonyButton.Action.entries`.** The enum
+            // contains `VOLUME_CONTROL`; this pair does not offer it, and building
+            // chips from the enum would put a volume control on the card for a
+            // device that never advertised one. See [SonyButtonRow.options].
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (a in row.options) {
+                    FilterChip(
+                        selected = a == row.action,
+                        onClick = { actions.setSonyButton(address, a) },
+                        label = { Text(prettyAction(a.name)) },
+                    )
                 }
-            } else if (settings.writable(SettingKind.BUTTON)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (a in BoseButton.Action.entries) {
-                        FilterChip(
-                            selected = a.name == current,
-                            onClick = { actions.setButton(address, a) },
-                            label = { Text(prettyAction(a.name)) },
-                        )
-                    }
+            }
+        }
+
+        is BoseButtonRow -> {
+            SettingLabel("Button", prettyAction(row.action.name))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (a in BoseButton.Action.entries) {
+                    FilterChip(
+                        selected = a == row.action,
+                        onClick = { actions.setButton(address, a) },
+                        label = { Text(prettyAction(a.name)) },
+                    )
                 }
-            } else {
-                RefusedNote(settings.refusal(SettingKind.BUTTON))
             }
         }
     }
@@ -2049,6 +2150,12 @@ private fun Caveat(text: String) {
         color = MaterialTheme.colorScheme.tertiary,
     )
 }
+
+/** Whether the row gets a control. */
+private val Writability.open get() = this == Writability.Writable
+
+/** Why the row has no control, when the device refuses it. */
+private val Writability.refusal get() = (this as? Writability.Refused)?.reason
 
 /** ⚠ The one sentence that keeps a missing control from reading as a missing feature. */
 @Composable

@@ -4,51 +4,87 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
+import org.xinutec.volume.protocol.AdvancedAncRow
 import org.xinutec.volume.protocol.AncDriver
 import org.xinutec.volume.protocol.AncMode
+import org.xinutec.volume.protocol.AuracastRow
 import org.xinutec.volume.protocol.AutoOff
+import org.xinutec.volume.protocol.AutoOffRow
+import org.xinutec.volume.protocol.AutoPlayRow
 import org.xinutec.volume.protocol.Balance
+import org.xinutec.volume.protocol.BalanceRow
+import org.xinutec.volume.protocol.BatteryRow
+import org.xinutec.volume.protocol.BoseAll
 import org.xinutec.volume.protocol.BoseBands
 import org.xinutec.volume.protocol.BoseBattery
 import org.xinutec.volume.protocol.BoseButton
+import org.xinutec.volume.protocol.BoseButtonRow
 import org.xinutec.volume.protocol.BosePromptName
 import org.xinutec.volume.protocol.BoseSettingsDriver
 import org.xinutec.volume.protocol.BoseStandby
 import org.xinutec.volume.protocol.BoseVoicePromptLanguage
 import org.xinutec.volume.protocol.BoseVoicePrompts
 import org.xinutec.volume.protocol.Bud
+import org.xinutec.volume.protocol.BudBatteryRow
 import org.xinutec.volume.protocol.ButtonWrite
 import org.xinutec.volume.protocol.ChatDetail
+import org.xinutec.volume.protocol.ChatDetailRow
 import org.xinutec.volume.protocol.CncModes
+import org.xinutec.volume.protocol.CncPersistenceRow
+import org.xinutec.volume.protocol.CncRow
+import org.xinutec.volume.protocol.CodecRow
 import org.xinutec.volume.protocol.Confirmation
+import org.xinutec.volume.protocol.ConnectionsRow
+import org.xinutec.volume.protocol.CurveEqRow
 import org.xinutec.volume.protocol.DeviceState
 import org.xinutec.volume.protocol.Drivers
+import org.xinutec.volume.protocol.DseeRow
 import org.xinutec.volume.protocol.Emptiness
 import org.xinutec.volume.protocol.EqCurve
 import org.xinutec.volume.protocol.EqDriver
 import org.xinutec.volume.protocol.EqSetting
+import org.xinutec.volume.protocol.FindBudsRow
+import org.xinutec.volume.protocol.FocusOnVoiceRow
 import org.xinutec.volume.protocol.Forget
 import org.xinutec.volume.protocol.Gesture
 import org.xinutec.volume.protocol.GestureAction
+import org.xinutec.volume.protocol.GesturesRow
+import org.xinutec.volume.protocol.IdleTimerRow
 import org.xinutec.volume.protocol.JLabCurve
+import org.xinutec.volume.protocol.JLabEqRow
 import org.xinutec.volume.protocol.JLabSafeHearing
+import org.xinutec.volume.protocol.JLabTouchRow
 import org.xinutec.volume.protocol.JblEqPreset
 import org.xinutec.volume.protocol.JblFeature
 import org.xinutec.volume.protocol.JblSharedSettings
+import org.xinutec.volume.protocol.LeAudioRow
+import org.xinutec.volume.protocol.LoudnessRow
+import org.xinutec.volume.protocol.LowVolumeEqRow
 import org.xinutec.volume.protocol.MultipointDriver
+import org.xinutec.volume.protocol.MultipointRow
+import org.xinutec.volume.protocol.NameRow
 import org.xinutec.volume.protocol.NoMode
 import org.xinutec.volume.protocol.Note
 import org.xinutec.volume.protocol.NoteKind
+import org.xinutec.volume.protocol.PauseOnRemovalRow
+import org.xinutec.volume.protocol.PowerOffRow
+import org.xinutec.volume.protocol.PresetEqRow
+import org.xinutec.volume.protocol.PsapRow
 import org.xinutec.volume.protocol.RefusalReason
 import org.xinutec.volume.protocol.Registry
+import org.xinutec.volume.protocol.SafeHearingRow
 import org.xinutec.volume.protocol.Screen
-import org.xinutec.volume.protocol.SettingKind
+import org.xinutec.volume.protocol.SelfVoiceRow
+import org.xinutec.volume.protocol.Setting
 import org.xinutec.volume.protocol.Settings
 import org.xinutec.volume.protocol.SidetoneLevel
 import org.xinutec.volume.protocol.SmartAv
 import org.xinutec.volume.protocol.SmartAvDriver
+import org.xinutec.volume.protocol.SmartAvRow
 import org.xinutec.volume.protocol.SmartTalk
+import org.xinutec.volume.protocol.SmartTalkRow
 import org.xinutec.volume.protocol.SonyButton
+import org.xinutec.volume.protocol.SonyButtonRow
 import org.xinutec.volume.protocol.SonyDsee
 import org.xinutec.volume.protocol.SonyEqPresets
 import org.xinutec.volume.protocol.SonyPauseOnRemoval
@@ -56,11 +92,22 @@ import org.xinutec.volume.protocol.SonySpeakToChat
 import org.xinutec.volume.protocol.SonySwitch
 import org.xinutec.volume.protocol.SonyTouchPanel
 import org.xinutec.volume.protocol.SoundQuality
+import org.xinutec.volume.protocol.SoundQualityRow
 import org.xinutec.volume.protocol.Spatial
 import org.xinutec.volume.protocol.SpatialDriver
 import org.xinutec.volume.protocol.SpatialMode
+import org.xinutec.volume.protocol.SpatialRow
+import org.xinutec.volume.protocol.SpeakToChatRow
+import org.xinutec.volume.protocol.StandbyRow
 import org.xinutec.volume.protocol.TimedOff
+import org.xinutec.volume.protocol.ToneRow
+import org.xinutec.volume.protocol.TouchPanelRow
 import org.xinutec.volume.protocol.VoiceAware
+import org.xinutec.volume.protocol.VoiceAwareRow
+import org.xinutec.volume.protocol.VoiceGuidanceRow
+import org.xinutec.volume.protocol.VoicePromptsRow
+import org.xinutec.volume.protocol.VolumeLimitRow
+import org.xinutec.volume.protocol.Writability
 import org.xinutec.volume.protocol.confirm
 import org.xinutec.volume.protocol.confirmBy
 import org.xinutec.volume.protocol.noMode
@@ -287,256 +334,285 @@ class DeviceController(
         }
 
     /**
-     * ⚠ **`refuses` is not a guess about the device — it is measured, on 2026-08-16.**
-     * The XM4 acks `d8 d2 01 01` and `f8 06 01 31` and then ignores both. The QC45
-     * accepts the same two settings from this code. So the map is per-driver and is
-     * stated where a future session will see it next to the evidence, rather than
-     * being rediscovered by a user watching a switch spring back.
+     * Every row this device answers for, read in one pass.
      *
-     * ⚠ **The two do NOT fail for the same reason, and it is a Map now because of
-     * that.** Sony's own app fails at multipoint identically — that is [RefusalReason.DEVICE]. It
-     * changes the CUSTOM button perfectly well, and only this repo cannot — that is
-     * [RefusalReason.THIS_APP], and it is #965. Both were a plain `Set` until 2026-08-23, under a
-     * note on screen reading "not even its own app", which was false for the button.
+     * ⚠ **The XM4's multipoint refusal is measured, not guessed.** It acks `d8 d2 01 01`
+     * and then ignores it, and Sony's own app fails identically — [RefusalReason.DEVICE].
+     * The QC45 accepts the same write from this code.
+     *
+     * ⚠ Each branch reads into locals in a fixed order before building rows, so the
+     * exchanges on the wire are in the order the device has always been asked.
      */
-    private fun readSettings(s: Session): Settings =
-        when (val d = s.headphones.driver) {
-            is Drivers.SonyXm4 -> {
-                val focus = d.readFocus(s.transport)
-                Settings(
-                    eq = d.readEq(s.transport),
-                    bands = d.bands(s.transport),
-                    multipoint = d.readMultipoint(s.transport),
-                    autoOff = d.readAutoOff(s.transport),
-                    soundQuality = d.readSoundQuality(s.transport),
-                    button = d.readButton(s.transport)?.name,
-                    buttonOptions = d.buttonPresets(s.transport).map { it.name },
-                    battery = d.readBattery(s.transport),
-                    dsee = d.readSwitch(s.transport, SonyDsee),
-                    pauseOnRemoval = d.readSwitch(s.transport, SonyPauseOnRemoval),
-                    speakToChat = d.readSwitch(s.transport, SonySpeakToChat),
-                    touchPanel = d.readSwitch(s.transport, SonyTouchPanel),
-                    voiceGuidance = d.readVoiceGuidance(s.transport),
-                    codec = d.readCodec(s.transport),
-                    canPowerOff = true,
-                    chatDetail = d.readChatDetail(s.transport),
-                    eqPresets = d.readEqPresets(s.transport).ifEmpty { SonyEqPresets.SEEN },
-                    eqPresetNames = SonyEqPresets.NAMES,
-                    // ⚠ ONE read for both — see [Drivers.SonyXm4.readFocus]. Asking
-                    // separately cost an extra `66 02` per settings load.
-                    focusOnVoice = focus.on,
-                    focusOnVoiceSettable = focus.settable,
-                    refuses =
-                        mapOf(
-                            // ⚠ **BUTTON came off this map on 2026-08-24.** It sat here as
-                            // THIS_APP for eight days and the cause was ours: the device
-                            // sends no alert to a peer that never subscribed, and the
-                            // write does not commit until the alert is answered. #965.
-                            SettingKind.MULTIPOINT to RefusalReason.DEVICE,
-                        ),
-                    attempted = true,
-                )
-            }
+    private fun readSettings(s: Session): Settings {
+        val t = s.transport
+        val rows: List<Setting?> =
+            when (val d = s.headphones.driver) {
+                is Drivers.SonyXm4 -> {
+                    // ⚠ ONE read for the value and whether it may move — see
+                    // [Drivers.SonyXm4.readFocus].
+                    val focus = d.readFocus(t)
+                    val eq = d.readEq(t)
+                    val bands = d.bands(t)
+                    val multipoint = d.readMultipoint(t)
+                    val autoOff = d.readAutoOff(t)
+                    val quality = d.readSoundQuality(t)
+                    val button = d.readButton(t)
+                    val buttonOptions = d.buttonPresets(t)
+                    val battery = d.readBattery(t)
+                    val dsee = d.readSwitch(t, SonyDsee)
+                    val pause = d.readSwitch(t, SonyPauseOnRemoval)
+                    val chat = d.readSwitch(t, SonySpeakToChat)
+                    val touch = d.readSwitch(t, SonyTouchPanel)
+                    val guidance = d.readVoiceGuidance(t)
+                    val codec = d.readCodec(t)
+                    val chatDetail = d.readChatDetail(t)
+                    val presets = d.readEqPresets(t).ifEmpty { SonyEqPresets.SEEN }
+                    val w = Writability.Writable
+                    listOf(
+                        eq?.let { PresetEqRow(it, bands, presets, SonyEqPresets.NAMES) },
+                        multipoint?.let {
+                            MultipointRow(it, Writability.Refused(RefusalReason.DEVICE))
+                        },
+                        autoOff?.let(::AutoOffRow),
+                        quality?.let(::SoundQualityRow),
+                        // ⚠ The button is writable: it sat refused for eight days because
+                        // this app never subscribed to the alert the write waits on. #965.
+                        button?.let { SonyButtonRow(it, buttonOptions) },
+                        battery?.let { BatteryRow(it) },
+                        dsee?.let { DseeRow(it, w) },
+                        pause?.let { PauseOnRemovalRow(it, w) },
+                        chat?.let { SpeakToChatRow(it, w) },
+                        touch?.let { TouchPanelRow(it, w) },
+                        guidance?.let { VoiceGuidanceRow(it, w) },
+                        codec?.let(::CodecRow),
+                        PowerOffRow,
+                        chatDetail?.let(::ChatDetailRow),
+                        focus.on?.let {
+                            FocusOnVoiceRow(it, if (focus.settable) w else Writability.NotNow)
+                        },
+                    )
+                }
 
-            // The SoundLink Revolve — a speaker, so no ANC row and no chips.
-            //
-            // ⚠ **Every field here was MEASURED on the device 2026-09-03**, not inherited
-            // from the QC35's branch: `01 04` standby, `01 02` name, `02 02` battery,
-            // `02 05` charger and `05 05` volume all answered in the sweep. ⚠ `readAll`
-            // is deliberately NOT used — `01 01` was never driven on this unit, and
-            // reusing the QC35's one-exchange trick would be extrapolation dressed as
-            // economy.
-            Drivers.BoseRevolve -> {
-                val battery = BoseBattery.state(s.transport.exchange(BoseBattery.get()))
-                // ⚠ `01 03` read DIRECTLY, not via GET_ALL. The Revolve answers it with
-                // `a1 00 04 cf de` — byte-identical to the QC35's, so the same decoder
-                // applies — while `01 01` GET_ALL has never been driven on this unit.
-                val prompts = BoseVoicePrompts.read(s.transport)
-                Settings(
-                    standby = Drivers.BoseRevolve.readStandby(s.transport),
-                    voicePrompts = prompts?.let { BoseVoicePrompts.enabled(it) },
-                    promptLanguage = prompts?.let { BoseVoicePromptLanguage.of(it) },
-                    supportedLanguages =
-                        prompts?.let { BoseVoicePrompts.supported(it) } ?: emptyList(),
-                    deviceName = Drivers.BoseRevolve.name(s.transport),
-                    canRename = true,
+                // The SoundLink Revolve — a speaker, so no ANC row and no chips.
+                //
+                // ⚠ **Every read here was measured on this unit**, not inherited from the
+                // QC35: `01 04` standby, `01 02` name, `02 02` battery, `02 05` charger and
+                // `05 05` volume all answered. ⚠ `readAll` is deliberately NOT used —
+                // `01 01` was never driven on this unit.
+                Drivers.BoseRevolve -> {
+                    val battery = BoseBattery.state(t.exchange(BoseBattery.get()))
+                    // ⚠ `01 03` read DIRECTLY: the Revolve answers it byte-identically to
+                    // the QC35, so the same decoder applies.
+                    val prompts = BoseVoicePrompts.read(t)
+                    val standby = Drivers.BoseRevolve.readStandby(t)
+                    val name = Drivers.BoseRevolve.name(t)
                     // ⚠ The charger bit rides on [Battery.charging], which the QC35 leaves
                     // null because it does not answer `02 05` at all.
-                    battery =
-                        battery?.copy(charging = Drivers.BoseRevolve.readCharging(s.transport)),
-                    loudness = Drivers.BoseRevolve.readVolume(s.transport),
-                    attempted = true,
-                )
-            }
+                    val charging = battery?.let { Drivers.BoseRevolve.readCharging(t) }
+                    val volume = Drivers.BoseRevolve.readVolume(t)
+                    listOf(
+                        standby?.let(::StandbyRow),
+                        prompts?.let { p ->
+                            BoseVoicePrompts.enabled(p)?.let {
+                                VoicePromptsRow(
+                                    it,
+                                    Writability.Writable,
+                                    BoseVoicePromptLanguage.of(p),
+                                    BoseVoicePrompts.supported(p),
+                                )
+                            }
+                        },
+                        NameRow(name),
+                        battery?.let { BatteryRow(it.copy(charging = charging)) },
+                        volume?.let(::LoudnessRow),
+                    )
+                }
 
-            // ⚠ Not `d.` — matching an `object` does not smart-cast, so this names
-            // it again rather than going through the `AncDriver` it is typed as.
-            Drivers.BoseQc35 -> {
-                // ⚠ ONE exchange, not one per setting — `01 01` GET_ALL is also the
-                // device's own enumeration of what it has, which is what settles a
-                // function being absent rather than merely quiet.
-                val all = Drivers.BoseQc35.readAll(s.transport)
-                Settings(
-                    standby = all?.standby,
-                    selfVoice = all?.sidetone,
-                    voicePrompts = all?.voicePrompts,
-                    // ✅ Bose is the only driver with a writer — see
-                    // [Settings.canWriteVoicePrompts].
-                    canWriteVoicePrompts = true,
-                    promptLanguage = all?.promptLanguage,
-                    supportedLanguages = all?.supportedLanguages ?: emptyList(),
-                    devices = Drivers.BoseQc35.readDevices(s.transport),
-                    pairing = Drivers.BoseQc35.readPairing(s.transport),
-                    canRename = true,
-                    deviceName = all?.name,
-                    // ⚠ A second exchange, because battery is block 02 and GET_ALL only
-                    // covers the block it is asked about.
-                    battery = BoseBattery.state(s.transport.exchange(BoseBattery.get())),
-                    attempted = true,
-                )
-            }
+                // ⚠ Not `d.` — matching an `object` does not smart-cast, so this names
+                // it again rather than going through the `Driver` it is typed as.
+                Drivers.BoseQc35 -> {
+                    // ⚠ ONE exchange, not one per setting — `01 01` GET_ALL is also the
+                    // device's own enumeration of what it has.
+                    val all = Drivers.BoseQc35.readAll(t)
+                    val devices = Drivers.BoseQc35.readDevices(t)
+                    val pairing = Drivers.BoseQc35.readPairing(t)
+                    // ⚠ A second exchange: battery is block 02, and GET_ALL covers only
+                    // the block it is asked about.
+                    val battery = BoseBattery.state(t.exchange(BoseBattery.get()))
+                    listOf(
+                        all?.standby?.let(::StandbyRow),
+                        all?.sidetone?.let(::SelfVoiceRow),
+                        all?.let(::bosePrompts),
+                        NameRow(all?.name),
+                        if (devices.isNotEmpty() || pairing != null) {
+                            ConnectionsRow(devices, pairing)
+                        } else {
+                            null
+                        },
+                        battery?.let { BatteryRow(it) },
+                    )
+                }
 
-            Drivers.BoseQc45 -> {
-                // ⚠ **ONE exchange for the whole of block 01** — the reply is the
-                // device's own enumeration, and it already carries the tone, the button
-                // and multipoint. This branch asked for those three again, individually,
-                // immediately after.
-                //
-                // ✅ Measured on the wire, one card open, 2026-08-28: **18 requests → 12,
-                // 946 ms → 710 ms.** Six went rather than three because the whole read
-                // cycle runs TWICE per open — which is #1191 and is still open.
-                //
-                // ⚠ The three payloads were compared byte-for-byte against their
-                // individual reads before those reads were deleted. `01 05` and `01 06`
-                // already mean different things on these two models, so "it is in the
-                // GET_ALL reply" is not on its own a reason to believe it is the same.
-                val all = Drivers.BoseQc45.readAll(s.transport)
-                Settings(
-                    tone = all?.tone,
-                    multipoint = all?.multipoint,
-                    cncPersistence = all?.cncPersistence,
-                    button = all?.button?.name,
-                    // ⚠ The device's own named modes, which the two-ended AncMode
-                    // cannot express — see CncModes. Read every time the card opens:
-                    // the button on the headphones moves the selection.
-                    cnc = Drivers.BoseQc45.readModes(s.transport),
-                    standby = all?.standby,
-                    selfVoice = all?.sidetone,
-                    voicePrompts = all?.voicePrompts,
-                    // ✅ Bose is the only driver with a writer — see
-                    // [Settings.canWriteVoicePrompts].
-                    canWriteVoicePrompts = true,
-                    promptLanguage = all?.promptLanguage,
-                    supportedLanguages = all?.supportedLanguages ?: emptyList(),
-                    canRename = true,
-                    deviceName = all?.name,
-                    attempted = true,
-                )
-            }
+                Drivers.BoseQc45 -> {
+                    // ⚠ **ONE exchange for the whole of block 01** — the reply already
+                    // carries the tone, the button and multipoint. The three payloads were
+                    // compared byte-for-byte against their individual reads first: `01 05`
+                    // and `01 06` mean different things on these two models.
+                    val all = Drivers.BoseQc45.readAll(t)
+                    // ⚠ The device's own named modes, which AncMode cannot express — see
+                    // CncModes. Read every time: the button on the headphones moves it.
+                    val cnc = Drivers.BoseQc45.readModes(t)
+                    listOf(
+                        all?.tone?.let(::ToneRow),
+                        all?.multipoint?.let { MultipointRow(it, Writability.Writable) },
+                        all?.cncPersistence?.let(::CncPersistenceRow),
+                        all?.button?.let(::BoseButtonRow),
+                        cnc?.let(::CncRow),
+                        all?.standby?.let(::StandbyRow),
+                        all?.sidetone?.let(::SelfVoiceRow),
+                        all?.let(::bosePrompts),
+                        NameRow(all?.name),
+                    )
+                }
 
-            Drivers.JblBes -> {
-                // ⚠ Hoisted out of the constructor call because ONE exchange carries both
-                // the charge and whether the cups agreed; reading them as two calls would
-                // attach an agreement to a percentage taken from a different frame.
-                val charge = Drivers.JblBes.readCharge(s.transport)
-                Settings(
-                    curve = Drivers.JblBes.readCurve(s.transport),
-                    timedOff = Drivers.JblBes.readAutoOff(s.transport),
-                    volumeLimit = Drivers.JblBes.readVolumeLimit(s.transport),
-                    spatial = Drivers.JblBes.readSpatial(s.transport),
-                    voiceAware = Drivers.JblBes.readVoiceAware(s.transport),
-                    smartTalk = Drivers.JblBes.readSmartTalk(s.transport),
-                    lowVolumeEq = Drivers.JblBes.readLowVolumeEq(s.transport),
-                    smartAv = Drivers.JblBes.readSmartAv(s.transport),
-                    gestures = Drivers.JblBes.readGestures(s.transport),
-                    battery = charge?.battery,
-                    jblCupsDiffer = charge?.cupsDiffer,
-                    autoPlay = Drivers.JblBes.readAutoPlay(s.transport),
-                    balance = Drivers.JblBes.readBalance(s.transport),
-                    psap = Drivers.JblBes.readPsap(s.transport),
-                    advancedAnc = Drivers.JblBes.readAdvancedAnc(s.transport),
-                    voicePrompts = Drivers.JblBes.readVoicePrompts(s.transport),
-                    leAudio = Drivers.JblBes.readFeature(s.transport, JblFeature.LE_AUDIO),
-                    auracast = Drivers.JblBes.readFeature(s.transport, JblFeature.AURACAST),
-                    canPowerOff = true,
-                    attempted = true,
-                )
-            }
+                Drivers.JblBes -> {
+                    // ⚠ ONE exchange carries both the charge and whether the cups agreed;
+                    // two calls would attach an agreement to a percentage from another frame.
+                    val charge = Drivers.JblBes.readCharge(t)
+                    val curve = Drivers.JblBes.readCurve(t)
+                    val timer = Drivers.JblBes.readAutoOff(t)
+                    val limit = Drivers.JblBes.readVolumeLimit(t)
+                    val spatial = Drivers.JblBes.readSpatial(t)
+                    val voiceAware = Drivers.JblBes.readVoiceAware(t)
+                    val smartTalk = Drivers.JblBes.readSmartTalk(t)
+                    val lowVolumeEq = Drivers.JblBes.readLowVolumeEq(t)
+                    val smartAv = Drivers.JblBes.readSmartAv(t)
+                    val gestures = Drivers.JblBes.readGestures(t)
+                    val autoPlay = Drivers.JblBes.readAutoPlay(t)
+                    val balance = Drivers.JblBes.readBalance(t)
+                    val psap = Drivers.JblBes.readPsap(t)
+                    val advancedAnc = Drivers.JblBes.readAdvancedAnc(t)
+                    val prompts = Drivers.JblBes.readVoicePrompts(t)
+                    val leAudio = Drivers.JblBes.readFeature(t, JblFeature.LE_AUDIO)
+                    val auracast = Drivers.JblBes.readFeature(t, JblFeature.AURACAST)
+                    listOf(
+                        curve?.let(::CurveEqRow),
+                        timer?.let(::IdleTimerRow),
+                        limit?.let(::VolumeLimitRow),
+                        spatial?.let { SpatialRow(it, SpatialMode.entries) },
+                        voiceAware?.let(::VoiceAwareRow),
+                        smartTalk?.let(::SmartTalkRow),
+                        lowVolumeEq?.let(::LowVolumeEqRow),
+                        smartAv?.let { SmartAvRow(it, SmartAv.entries) },
+                        gestures?.let(::GesturesRow),
+                        charge?.let { BatteryRow(it.battery, it.cupsDiffer) },
+                        autoPlay?.let(::AutoPlayRow),
+                        balance?.let(::BalanceRow),
+                        psap?.let(::PsapRow),
+                        advancedAnc?.let(::AdvancedAncRow),
+                        prompts?.let { VoicePromptsRow(it, Writability.NoWriter) },
+                        leAudio?.let(::LeAudioRow),
+                        auracast?.let(::AuracastRow),
+                        PowerOffRow,
+                    )
+                }
 
-            Drivers.JblLivePro2 -> {
-                val charge = Drivers.JblLivePro2.readCharge(s.transport)
-                val smartAvModes = ArrayList(Drivers.JblLivePro2.SMART_AV.keys)
-                // ⚠⚠ **Exactly the reads this device answers, and no others.** All
-                // sixteen of the M2's were tried; the silent ones cost ~1.6 s each in
-                // timeout, which is thirteen seconds of spinner for rows that render
-                // nothing. Decoders are [Drivers.JblBes]'s — the frames ARE the M2's,
-                // byte for byte, and only ANC differs.
-                //
-                // ⚠ **Four reads that ANSWER are dropped.** The test is whether
-                // `jbl.stc.com` offers the same row for THIS model: a reply that decodes
-                // is not evidence the field means here what it means on an over-ear.
-                // ⛔ `aa 82` audio/video is measured but blocked — [SmartAv] holds one
-                // payload per entry and this model's AUDIO differs from the M2's. #1587.
-                //
-                // ⚠ **`canPowerOff` is not claimed**: `aa 97` has never been sent here.
-                //
-                // Which reads were driven, against which instrument, is in
-                // `docs/protocols.md` — not repeated here.
-                Settings(
-                    timedOff = Drivers.JblLivePro2.readAutoOff(s.transport),
-                    autoPlay = Drivers.JblLivePro2.readAutoPlay(s.transport),
-                    balance = Drivers.JblLivePro2.readBalance(s.transport),
-                    voicePrompts = Drivers.JblLivePro2.readVoicePrompts(s.transport),
-                    gestures = Drivers.JblLivePro2.readGestures(s.transport),
-                    advancedAnc = Drivers.JblLivePro2.readAdvancedAnc(s.transport),
-                    voiceAware = Drivers.JblLivePro2.readVoiceAware(s.transport),
-                    // ✅ The preset index, driven on four values 2026-09-13. ⚠ Names come
-                    // from [JblEqPreset], NOT [JBL_EQ_PRESETS] — different field, same
-                    // small integers, and the M2's `aa a2` is silent here so a value
-                    // named out of the wrong table would look perfectly reasonable.
-                    // ✅ `aa 25 00`, the app's own frame — ours (`aa 25 01 01`) is
-                    // silent here. The DECODER is unchanged; only the asking differed.
-                    // Hoisted for the reason the M2's is: one exchange carries both the
-                    // charge and whether the two cups agreed.
-                    battery = charge?.battery,
-                    jblCupsDiffer = charge?.cupsDiffer,
-                    eq = Drivers.JblLivePro2.readEq(s.transport),
-                    eqPresets = JblEqPreset.NAMES.keys.sorted(),
-                    eqPresetNames = JblEqPreset.NAMES,
-                    // ⚠ Read every time the section opens, never cached: it is the guard
-                    // on the locating tone, and a bud that went into an ear since the
-                    // last read would otherwise still be offered a button.
-                    inEar = Drivers.JblLivePro2.readInEar(s.transport),
-                    // ✅ Its own payload table — VIDEO matches the M2's, AUDIO does not,
-                    // and there is no OFF on this model. See [Drivers.JblLivePro2.SMART_AV].
-                    smartAv = Drivers.JblLivePro2.readSmartAv(s.transport),
-                    smartAvOptions = smartAvModes,
-                    attempted = true,
-                )
-            }
+                Drivers.JblLivePro2 -> {
+                    // ⚠⚠ **Exactly the reads this device answers, and no others.** All
+                    // sixteen of the M2's were tried; each silent one costs ~1.6 s of
+                    // timeout. Decoders are [Drivers.JblBes]'s — the frames ARE the M2's,
+                    // byte for byte, and only ANC differs.
+                    //
+                    // ⚠ **Four reads that ANSWER are dropped**: a reply that decodes is not
+                    // evidence the field means here what it means on an over-ear, so a row
+                    // needs `jbl.stc.com` to offer it for THIS model. ⚠ No power-off row:
+                    // `aa 97` has never been sent here.
+                    //
+                    // Which reads were driven, against which instrument, is in
+                    // `docs/protocols.md`.
+                    val charge = Drivers.JblLivePro2.readCharge(t)
+                    val timer = Drivers.JblLivePro2.readAutoOff(t)
+                    val autoPlay = Drivers.JblLivePro2.readAutoPlay(t)
+                    val balance = Drivers.JblLivePro2.readBalance(t)
+                    val prompts = Drivers.JblLivePro2.readVoicePrompts(t)
+                    val gestures = Drivers.JblLivePro2.readGestures(t)
+                    val advancedAnc = Drivers.JblLivePro2.readAdvancedAnc(t)
+                    val voiceAware = Drivers.JblLivePro2.readVoiceAware(t)
+                    // ⚠ Names from [JblEqPreset], NOT [JBL_EQ_PRESETS] — a different field
+                    // with the same small integers.
+                    val eq = Drivers.JblLivePro2.readEq(t)
+                    // ⚠ Read every time the section opens: it is the guard on the locating
+                    // tone, and a bud that went into an ear since would still get a button.
+                    val inEar = Drivers.JblLivePro2.readInEar(t)
+                    // ✅ Its own payload table — see [Drivers.JblLivePro2.SMART_AV].
+                    val smartAv = Drivers.JblLivePro2.readSmartAv(t)
+                    listOf(
+                        timer?.let(::IdleTimerRow),
+                        autoPlay?.let(::AutoPlayRow),
+                        balance?.let(::BalanceRow),
+                        prompts?.let { VoicePromptsRow(it, Writability.NoWriter) },
+                        gestures?.let(::GesturesRow),
+                        advancedAnc?.let(::AdvancedAncRow),
+                        voiceAware?.let(::VoiceAwareRow),
+                        charge?.let { BatteryRow(it.battery, it.cupsDiffer) },
+                        eq?.let {
+                            PresetEqRow(
+                                it,
+                                bands = emptyList(),
+                                presets = JblEqPreset.NAMES.keys.sorted(),
+                                names = JblEqPreset.NAMES,
+                            )
+                        },
+                        inEar?.let(::FindBudsRow),
+                        smartAv?.let {
+                            SmartAvRow(it, ArrayList(Drivers.JblLivePro2.SMART_AV.keys))
+                        },
+                    )
+                }
 
-            is Drivers.JLabQcy -> {
-                // ⚠ **Two reads for one card field.** The JLab keeps the switch and the
-                // mode in separate commands, so [Settings.spatial] is only offered when
-                // both answer — a Spatial carrying a guessed mode would put a choice on
-                // screen that nothing read.
-                val on = Drivers.JLabQcy.readSpatial(s.transport)
-                val mode = Drivers.JLabQcy.readSpatialMode(s.transport)
-                Settings(
-                    budBattery = Drivers.JLabQcy.readBattery(s.transport),
-                    spatial = if (on != null && mode != null) Spatial(on, mode) else null,
-                    spatialModes = listOf(SpatialMode.MUSIC, SpatialMode.MOVIE),
-                    jlabEq = Drivers.JLabQcy.readEq(s.transport),
-                    jlabEqPresets = Drivers.JLabQcy.readEqPresets(s.transport),
-                    jlabTouch = Drivers.JLabQcy.readTouch(s.transport),
-                    jlabSafeHearing = Drivers.JLabQcy.readSafeHearing(s.transport),
-                    attempted = true,
-                )
-            }
+                is Drivers.JLabQcy -> {
+                    // ⚠ **Two reads for one row.** The JLab keeps the switch and the mode in
+                    // separate commands, so the row needs both: a guessed mode would put a
+                    // choice on screen that nothing read.
+                    val on = Drivers.JLabQcy.readSpatial(t)
+                    val mode = Drivers.JLabQcy.readSpatialMode(t)
+                    val battery = Drivers.JLabQcy.readBattery(t)
+                    val eq = Drivers.JLabQcy.readEq(t)
+                    val presets = Drivers.JLabQcy.readEqPresets(t)
+                    val touch = Drivers.JLabQcy.readTouch(t)
+                    val safeHearing = Drivers.JLabQcy.readSafeHearing(t)
+                    listOf(
+                        battery?.let(::BudBatteryRow),
+                        if (on != null && mode != null) {
+                            SpatialRow(
+                                Spatial(on, mode),
+                                listOf(SpatialMode.MUSIC, SpatialMode.MOVIE),
+                            )
+                        } else {
+                            null
+                        },
+                        eq?.let { JLabEqRow(it, presets) },
+                        touch?.let(::JLabTouchRow),
+                        safeHearing?.let(::SafeHearingRow),
+                    )
+                }
 
-            else -> {
-                Settings()
+                else -> {
+                    return Settings.NONE
+                }
             }
+        return Settings(rows.filterNotNull(), attempted = true)
+    }
+
+    /** Bose's voice prompts from GET_ALL. ✅ Bose is the only driver with this writer. */
+    private fun bosePrompts(all: BoseAll): VoicePromptsRow? =
+        all.voicePrompts?.let {
+            VoicePromptsRow(
+                it,
+                Writability.Writable,
+                all.promptLanguage,
+                all.supportedLanguages,
+            )
         }
 
     /**
@@ -641,10 +717,12 @@ class DeviceController(
             // not answerable from the curve alone. See [JLabEq].
             Log.i(
                 LIVE,
-                "$what: wrote=$outcome refresh: eq=${settings.eq?.levels} " +
-                    "jlabEq=${settings.jlabEq} slots=${settings.jlabEqPresets} " +
-                    "dsee=${settings.dsee} pause=${settings.pauseOnRemoval} " +
-                    "chat=${settings.speakToChat} voice=${settings.focusOnVoice}",
+                "$what: wrote=$outcome refresh: eq=${settings.get<PresetEqRow>()?.eq?.levels} " +
+                    "jlab=${settings.get<JLabEqRow>()} " +
+                    "dsee=${settings.get<DseeRow>()?.on} " +
+                    "pause=${settings.get<PauseOnRemovalRow>()?.on} " +
+                    "chat=${settings.get<SpeakToChatRow>()?.on} " +
+                    "voice=${settings.get<FocusOnVoiceRow>()?.on}",
             )
             update(
                 address,
@@ -722,7 +800,12 @@ class DeviceController(
      */
     override fun setGesture(address: String, g: Gesture, want: GestureAction) =
         driven(address, "setting ${g.label}", { it.note(GestureAction::label) }) {
-            val was = card(address)?.settings?.gestures?.get(g) ?: GestureAction.NONE
+            val was =
+                card(address)
+                    ?.settings
+                    ?.get<GesturesRow>()
+                    ?.bindings
+                    ?.get(g) ?: GestureAction.NONE
             it.can<JblSharedSettings>()?.writeGesture(it.transport, g, want, was)
         }
 
@@ -1035,23 +1118,18 @@ class DeviceController(
      * device will not commit until its alert is answered, and answering yes drops the
      * audio link — so the answer is the owner's, not ours. [answerButton] resumes it.
      */
-    override fun setSonyButton(address: String, name: String) =
+    override fun setSonyButton(address: String, action: SonyButton.Action) =
         work.execute {
             holding(address) {
                 val s = openIfNeeded(address) ?: return@holding
                 val d = s.headphones.driver as? Drivers.SonyXm4 ?: return@holding
-                val action = SonyButton.Action.entries.firstOrNull { it.name == name }
-                if (action == null) {
-                    update(address, DeviceState.Unavailable("no such button action: $name"))
-                    return@holding
-                }
                 when (d.beginButtonWrite(s.transport, action)) {
                     ButtonWrite.Asks -> {
                         emit(
                             screen.asking(
                                 address,
                                 "Changing the button disconnects and reconnects the " +
-                                    "headphones. Change it to ${pretty(name)}?",
+                                    "headphones. Change it to ${pretty(action.name)}?",
                             ),
                         )
                     }
@@ -1134,8 +1212,8 @@ class DeviceController(
         read?.let { emit(screen.withSettings(address, it)) }
         Log.i(
             LIVE,
-            "refresh $address: read button=${read?.button} state=$before " +
-                "→ card now ${card(address)?.settings?.button}",
+            "refresh $address: read button=${read?.get<SonyButtonRow>()?.action} " +
+                "state=$before → card now ${card(address)?.settings?.get<SonyButtonRow>()?.action}",
         )
         return read != null
     }
