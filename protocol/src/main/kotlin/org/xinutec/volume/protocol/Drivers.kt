@@ -211,7 +211,7 @@ object Drivers {
             // were refused 04 01 05. The reply is a Status frame whose payload is
             // `0b <level> 03`, so the level is the SIXTH byte, not the fifth —
             // 0b is a constant and reads convincingly like data.
-            val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x05, 0x01, 0x00)))
+            val r = t.exchange(BoseFrame.encode(0x01, 0x05, BoseOperator.GET))
             //
             // ✅ Which end is which is the device's word, cross-checked against a
             // state this session did not set: `1f 03` reported the active slot as
@@ -227,7 +227,7 @@ object Drivers {
             // ⚠ Operator 05 is Start, and the payload order is <slot> 01, not
             // 01 <slot>. The one captured example had 01 in both bytes, which hid
             // the order until a slot other than 1 was tried.
-            t.exchange(OutFrame(byteArrayOf(0x1f, 0x03, 0x05, 0x02, slot, 0x01)))
+            t.exchange(BoseFrame.encode(0x1f, 0x03, BoseOperator.START, byteArrayOf(slot, 0x01)))
         }
 
         override fun name(t: Transport): String? = Bose.name(t)
@@ -285,10 +285,12 @@ object Drivers {
         override val modes = table.modes
 
         override fun read(t: Transport): AncMode? =
-            table.mode(t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00))).getOrNull(4))
+            table.mode(t.exchange(BoseFrame.encode(0x01, 0x06, BoseOperator.GET)).getOrNull(4))
 
         override fun write(t: Transport, mode: AncMode) {
-            t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x02, 0x01, table.byte(mode))))
+            t.exchange(
+                BoseFrame.encode(0x01, 0x06, BoseOperator.SET_GET, byteArrayOf(table.byte(mode))),
+            )
         }
 
         /**
@@ -397,7 +399,7 @@ object Drivers {
             when (
                 BoseFrame
                     .payload(
-                        t.exchange(BoseFrame.encode(0x02, 0x05, BoseFrame.GET)),
+                        t.exchange(BoseFrame.encode(0x02, 0x05, BoseOperator.GET)),
                         0x02,
                         0x05,
                     )?.getOrNull(0)

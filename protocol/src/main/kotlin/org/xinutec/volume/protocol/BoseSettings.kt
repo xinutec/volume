@@ -1,59 +1,58 @@
 package org.xinutec.volume.protocol
 
 /**
+ * The BMAP operator, byte 2 of every Bose frame — `BmapPacket$OPERATOR` in Bose Connect.
+ */
+enum class BoseOperator(
+    val code: Byte,
+    val label: String,
+) {
+    /** ⚠ **Never sent by this repo**, so what the QC45 does with it is unknown. */
+    SET(0x00, "set"),
+    GET(0x01, "get"),
+
+    /**
+     * ⚠ **Bose's own name for `02` is SET_GET, and `00` is the plain SET.** This was
+     * called `SET` until `BmapPacket$OPERATOR` was read out of Bose Connect. The byte
+     * never changed — `02` is what every Bose write here is driven with — but the name
+     * invited a reader wanting "just set it" not to look for `00`. SET_GET *returns the
+     * resulting state*, which is why a Bose write answers with a status payload.
+     */
+    SET_GET(0x02, "set and get"),
+    STATUS(0x03, "status"),
+    ERROR(0x04, "error"),
+
+    /**
+     * ⚠ **Start, and NOT needed for every write.** The ANC mode table (`1f 03`) takes it;
+     * EQ, multipoint and the Action button take a plain [SET_GET].
+     */
+    START(0x05, "start"),
+
+    /**
+     * The end of a transaction: a [START] draws [PROCESSING], one Status frame per item,
+     * then this — an end marker, not data, so a decoder treating every frame as a
+     * setting finds a zero-length one at the end.
+     */
+    RESULT(0x06, "result"),
+    PROCESSING(0x07, "processing"),
+    ;
+
+    companion object {
+        fun of(code: Byte): BoseOperator? = entries.firstOrNull { it.code == code }
+    }
+}
+
+/**
  * The Bose frame: `<block> <fn> <operator> <len> <payload…>`.
  *
- * Hand-rolled in [Drivers] for the ANC paths, which were driven against the real
- * headphones and are left exactly as measured. Everything decoded since goes
- * through here instead, because the length byte is the field that has been got
- * wrong — a name read one byte short, and a level read at offset 4 that lives at 5.
+ * Every Bose request is built here, because the length byte is the field that has
+ * been got wrong — a name read one byte short, and a level read at offset 4 that
+ * lives at 5. The ANC paths were hand-rolled until their bytes were pinned by the
+ * driver tests, which replay them byte for byte.
  */
 object BoseFrame {
-    const val GET: Byte = 0x01
-
-    /**
-     * ⚠ **Bose's own name for `02` is SET_GET, and `00` is the plain SET.** This
-     * constant was called `SET` until 2026-08-23, when `BmapPacket$OPERATOR` was read
-     * out of Bose Connect: `00` SET · `01` GET · `02` SET_GET · `03` STATUS · `04`
-     * ERROR · `05` START · `06` RESULT · `07` PROCESSING.
-     *
-     * The **byte never changed** — `02` is what every Bose write in this repo has been
-     * driven with, on hardware, and it works. Only the label was wrong, and it was
-     * wrong in the direction that invites a mistake: a reader who wanted "just set it,
-     * without the reply" would find this named `SET` and have no reason to look for
-     * `00`. Which also explains the reply shape the drivers already work around —
-     * SET_GET *returns the resulting state*, so a Bose write answering with a status
-     * payload is the operator doing what it says, not the device being awkward.
-     *
-     * ⚠ **`00` has never been sent by this repo**, so nothing here knows what the
-     * QC45 does with it, and finding out is not free — see the `04 07` note in
-     * `docs/bose-settings.md` for what lives in that neighbourhood.
-     */
-    const val SET_GET: Byte = 0x02
-    const val STATUS: Byte = 0x03
-    const val ERROR: Byte = 0x04
-
-    /**
-     * ⚠ **Operator `05` is Start, and it is NOT needed for every write.** The ANC
-     * mode table (`1f 03`) takes it; EQ, multipoint and the Action button all took a
-     * plain [SET_GET] and the device's echoed state changed, so "Bose edits are
-     * transactional" is true of one function, not of the protocol.
-     */
-    const val START: Byte = 0x05
-
-    /**
-     * The other two thirds of a transaction, named 2026-08-26 when one was first used.
-     *
-     * A [START] draws [PROCESSING], then one Status frame per item, then [RESULT] —
-     * so `06` is the end marker rather than data, and a decoder that treated every
-     * frame as a setting would find a zero-length one at the end.
-     */
-    const val RESULT: Byte = 0x06
-
-    const val PROCESSING: Byte = 0x07
-
-    fun encode(block: Byte, fn: Byte, operator: Byte, payload: ByteArray = ByteArray(0)) =
-        OutFrame(byteArrayOf(block, fn, operator, payload.size.toByte()) + payload)
+    fun encode(block: Byte, fn: Byte, operator: BoseOperator, payload: ByteArray = ByteArray(0)) =
+        OutFrame(byteArrayOf(block, fn, operator.code, payload.size.toByte()) + payload)
 
     /**
      * Split a reply window into the frames it actually holds.
@@ -114,20 +113,28 @@ object BoseFrame {
         val block = sent[0]
         val fn = sent[1]
         val ends =
-            when (sent[2]) {
+            when (BoseOperator.of(sent[2])) {
                 // ⚠ **A GET can be answered with RESULT.** `04 08` PAIRING_MODE does
                 // exactly that — `04 08 01 00` draws `04 08 06 02 00 03`. That was
                 // written down the morning this rule was made and not carried into it,
                 // and the capture showed the cost precisely: every other exchange fell
                 // to ~13 ms while `04 08` alone stayed at 418 ms, still timing out.
                 // RESULT ends an exchange whatever started it.
-                GET, SET_GET -> setOf(STATUS, RESULT, ERROR)
+                BoseOperator.GET, BoseOperator.SET_GET -> {
+                    setOf(BoseOperator.STATUS, BoseOperator.RESULT, BoseOperator.ERROR)
+                }
 
-                START -> setOf(RESULT, ERROR)
+                BoseOperator.START -> {
+                    setOf(BoseOperator.RESULT, BoseOperator.ERROR)
+                }
 
-                else -> return false
+                else -> {
+                    return false
+                }
             }
-        return frames(buffer).any { it[0] == block && it[1] == fn && it[2] in ends }
+        return frames(
+            buffer,
+        ).any { it[0] == block && it[1] == fn && BoseOperator.of(it[2]) in ends }
     }
 
     /**
@@ -137,9 +144,14 @@ object BoseFrame {
      * disagree. A reply window can hold two frames, and decoding to the end of the
      * buffer silently reads the next frame's header as this one's data.
      */
-    fun payload(frame: ByteArray, block: Byte, fn: Byte, operator: Byte = STATUS): ByteArray? {
+    fun payload(
+        frame: ByteArray,
+        block: Byte,
+        fn: Byte,
+        operator: BoseOperator = BoseOperator.STATUS,
+    ): ByteArray? {
         if (frame.size < 4) return null
-        if (frame[0] != block || frame[1] != fn || frame[2] != operator) return null
+        if (frame[0] != block || frame[1] != fn || frame[2] != operator.code) return null
         val len = frame[3].toInt() and 0xff
         if (frame.size < 4 + len) return null
         return frame.copyOfRange(4, 4 + len)
@@ -190,14 +202,14 @@ object BoseEq {
      */
     val RANGE = -10..10
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     /** `01 07 02 02 <level> <band>` — one band per frame. ⚠ Level first, band second. */
     fun set(band: Int, level: Int): OutFrame {
         require(band in BASS..TREBLE) { "no band $band" }
         require(level in RANGE) { "$level dB is outside $RANGE" }
         val payload = byteArrayOf(level.toByte(), band.toByte())
-        return BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, payload)
+        return BoseFrame.encode(BLOCK, FN, BoseOperator.SET_GET, payload)
     }
 
     /**
@@ -271,10 +283,10 @@ object BoseCncPersistence {
     const val BLOCK: Byte = 0x01
     const val FN: Byte = 0x0e
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     fun set(on: Boolean) =
-        BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, byteArrayOf(if (on) 0x01 else 0x00))
+        BoseFrame.encode(BLOCK, FN, BoseOperator.SET_GET, byteArrayOf(if (on) 0x01 else 0x00))
 
     fun state(frame: ByteArray): Boolean? {
         val payload = BoseFrame.payload(frame, BLOCK, FN) ?: return null
@@ -301,10 +313,10 @@ object BoseMultipoint {
     const val BLOCK: Byte = 0x01
     const val FN: Byte = 0x0a
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     fun set(on: Boolean) =
-        BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, byteArrayOf(if (on) 0x01 else 0x00))
+        BoseFrame.encode(BLOCK, FN, BoseOperator.SET_GET, byteArrayOf(if (on) 0x01 else 0x00))
 
     /**
      * Whether it is on, from `01 0a 03 01 <flags>`.
@@ -350,9 +362,15 @@ object BoseButton {
         SPOTIFY(0x10),
     }
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
-    fun set(action: Action) = BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, SELECTOR + action.code)
+    fun set(action: Action) =
+        BoseFrame.encode(
+            BLOCK,
+            FN,
+            BoseOperator.SET_GET,
+            SELECTOR + action.code,
+        )
 
     /**
      * `01 09 03 0b 80 09 <action>` + eight trailing bytes.
@@ -482,7 +500,7 @@ object BoseAllSettings {
     const val BLOCK: Byte = 0x01
     const val FN: Byte = 0x01
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.START)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.START)
 
     /**
      * Pick the settings out of a GET_ALL reply.
@@ -541,14 +559,14 @@ object BoseStandbyTimer {
      */
     val OFFERED = listOf(0, 5, 20, 40, 60, 180)
 
-    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseOperator.GET)
 
     fun set(minutes: Int): OutFrame {
         require(minutes in OFFERED) { "$minutes minutes is not one of $OFFERED" }
         return BoseFrame.encode(
             BoseAllSettings.BLOCK,
             FN,
-            BoseFrame.SET_GET,
+            BoseOperator.SET_GET,
             byteArrayOf(minutes.toByte()),
         )
     }
@@ -573,7 +591,7 @@ object BoseStandbyTimer {
 object BoseSidetone {
     const val FN: Byte = 0x0b
 
-    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseOperator.GET)
 
     /**
      * ⚠ **The level is payload `[1]`, not `[0]`.** `[0]` is a persist flag —
@@ -600,7 +618,7 @@ object BoseVoicePrompts {
     /** How many times [set] will wait and re-ask before reporting what it still sees. */
     private const val SETTLE_READS = 2
 
-    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BoseAllSettings.BLOCK, FN, BoseOperator.GET)
 
     /**
      * The payload as the device holds it right now — **the only safe basis for a write.**
@@ -835,11 +853,11 @@ object BoseCncModes {
         val windBlockMutable: Boolean = false,
     )
 
-    fun list() = BoseFrame.encode(BLOCK, LIST, BoseFrame.START)
+    fun list() = BoseFrame.encode(BLOCK, LIST, BoseOperator.START)
 
-    fun active() = BoseFrame.encode(BLOCK, ACTIVE, BoseFrame.GET)
+    fun active() = BoseFrame.encode(BLOCK, ACTIVE, BoseOperator.GET)
 
-    fun slots() = BoseFrame.encode(BLOCK, SLOTS, BoseFrame.GET)
+    fun slots() = BoseFrame.encode(BLOCK, SLOTS, BoseOperator.GET)
 
     /**
      * `1f 08`'s reply: how many slots the device has, and which are occupied.
@@ -872,7 +890,7 @@ object BoseCncModes {
         BoseFrame.encode(
             BLOCK,
             SLOTS,
-            BoseFrame.SET_GET,
+            BoseOperator.SET_GET,
             byteArrayOf(slots.capacity.toByte(), slots.occupied.toByte()),
         )
 
@@ -898,7 +916,7 @@ object BoseCncModes {
             )
         val body = byteArrayOf(slot.toByte(), 0x00, nameId.toByte()) + padded + tail
         check(body.size == LEVEL_WRITE + 4) { "record is ${body.size} bytes, not 39" }
-        return BoseFrame.encode(BLOCK, SLOT, BoseFrame.SET_GET, body)
+        return BoseFrame.encode(BLOCK, SLOT, BoseOperator.SET_GET, body)
     }
 
     /**
@@ -943,7 +961,7 @@ object BoseCncModes {
      * `01 <slot>`: the one captured example had `01` in both bytes and hid the order.
      */
     fun select(slot: Int) =
-        BoseFrame.encode(BLOCK, ACTIVE, BoseFrame.START, byteArrayOf(slot.toByte(), 0x01))
+        BoseFrame.encode(BLOCK, ACTIVE, BoseOperator.START, byteArrayOf(slot.toByte(), 0x01))
 
     /**
      * Move one mode's level, leaving its name and [Mode.nameId] as they are.
@@ -1015,7 +1033,7 @@ object BoseBattery {
     const val BLOCK: Byte = 0x02
     const val FN: Byte = 0x02
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     fun state(buffer: ByteArray): Battery? {
         val frame =
@@ -1056,7 +1074,7 @@ object BoseVolume {
     const val BLOCK: Byte = 0x05
     const val FN: Byte = 0x05
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     fun state(buffer: ByteArray): BoseLoudness? {
         val frame =
@@ -1170,7 +1188,7 @@ object BoseWrites {
         BoseFrame.encode(
             BoseAllSettings.BLOCK,
             BoseVoicePrompts.FN,
-            BoseFrame.SET_GET,
+            BoseOperator.SET_GET,
             byteArrayOf(
                 (
                     (current.toInt() and 0xc0) or
@@ -1191,7 +1209,7 @@ object BoseWrites {
         BoseFrame.encode(
             BoseAllSettings.BLOCK,
             BoseSidetone.FN,
-            BoseFrame.SET_GET,
+            BoseOperator.SET_GET,
             byteArrayOf(persist, level.code),
         )
 }
@@ -1228,16 +1246,16 @@ object BosePairing {
     const val BLOCK: Byte = 0x04
     const val FN: Byte = 0x08
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     /** Put the headphones in pairing mode so a new device can find them. */
-    fun enter() = BoseFrame.encode(BLOCK, FN, BoseFrame.START, byteArrayOf(0x01))
+    fun enter() = BoseFrame.encode(BLOCK, FN, BoseOperator.START, byteArrayOf(0x01))
 
     /** ⚠ The reply is a RESULT, so [BoseFrame.payload] is asked for that operator. */
     fun on(buffer: ByteArray): Boolean? {
         val frame =
             BoseFrame.frames(buffer).firstOrNull { it[0] == BLOCK && it[1] == FN } ?: return null
-        val payload = BoseFrame.payload(frame, BLOCK, FN, BoseFrame.RESULT) ?: return null
+        val payload = BoseFrame.payload(frame, BLOCK, FN, BoseOperator.RESULT) ?: return null
         return payload.getOrNull(0)?.let { it.toInt() != 0 }
     }
 }
@@ -1274,12 +1292,12 @@ object BoseDevices {
     const val LIST: Byte = 0x04
     const val INFO: Byte = 0x05
 
-    fun list() = BoseFrame.encode(BLOCK, LIST, BoseFrame.GET)
+    fun list() = BoseFrame.encode(BLOCK, LIST, BoseOperator.GET)
 
     /** ⚠ **INFO is keyed by the ADDRESS, not by an index.** A bare Get and a one-byte
      *  index both answer `04 01 01` bad-argument; the six address bytes are the key, so
      *  the paired list is a set rather than an array. */
-    fun info(address: ByteArray) = BoseFrame.encode(BLOCK, INFO, BoseFrame.GET, address)
+    fun info(address: ByteArray) = BoseFrame.encode(BLOCK, INFO, BoseOperator.GET, address)
 
     /**
      * The addresses, and which are connected.
@@ -1378,7 +1396,7 @@ object BoseDisconnect { // dev-lint: allow-test-only unwired by decision, see th
 
     /** ⚠ START, and the payload is the address to drop — the same shape as [BoseForget]. */
     fun frame(address: ByteArray) =
-        BoseFrame.encode(BoseDevices.BLOCK, FN, BoseFrame.START, address)
+        BoseFrame.encode(BoseDevices.BLOCK, FN, BoseOperator.START, address)
 }
 
 /** `04 03` REMOVE_DEVICE — Bose Connect's "disconnect & forget". */
@@ -1388,7 +1406,7 @@ object BoseForget {
      * app; the Set-shaped guess would have been `04 03 02 06 <addr>`.
      */
     fun frame(address: ByteArray) =
-        BoseFrame.encode(BoseDevices.BLOCK, 0x03, BoseFrame.START, address)
+        BoseFrame.encode(BoseDevices.BLOCK, 0x03, BoseOperator.START, address)
 }
 
 /**
@@ -1414,7 +1432,7 @@ object BoseName {
     const val BLOCK: Byte = 0x01
     const val FN: Byte = 0x02
 
-    fun get() = BoseFrame.encode(BLOCK, FN, BoseFrame.GET)
+    fun get() = BoseFrame.encode(BLOCK, FN, BoseOperator.GET)
 
     /**
      * The name out of a `01 02` payload.
@@ -1439,7 +1457,7 @@ object BoseName {
     fun set(name: String): OutFrame? {
         val bytes = name.toByteArray(Charsets.UTF_8)
         if (bytes.isEmpty() || bytes.size > 0xff) return null
-        return BoseFrame.encode(BLOCK, FN, BoseFrame.SET_GET, bytes)
+        return BoseFrame.encode(BLOCK, FN, BoseOperator.SET_GET, bytes)
     }
 }
 
@@ -1500,7 +1518,11 @@ interface BoseSettingsDriver : Driver {
     fun setStandby(t: Transport, minutes: Int): Confirmation<BoseStandby> {
         t.exchange(BoseStandbyTimer.set(minutes))
         val after =
-            BoseFrame.payload(t.exchange(BoseStandbyTimer.get()), 0x01, BoseStandbyTimer.FN)
+            BoseFrame.payload(
+                t.exchange(BoseStandbyTimer.get()),
+                BoseAllSettings.BLOCK,
+                BoseStandbyTimer.FN,
+            )
         return confirm(BoseStandby(minutes), after?.let(BoseStandbyTimer::state))
     }
 
@@ -1553,11 +1575,20 @@ interface BoseSettingsDriver : Driver {
      */
     fun setSelfVoice(t: Transport, level: SidetoneLevel): Confirmation<SidetoneLevel> {
         val current =
-            BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+            BoseFrame.payload(
+                t.exchange(BoseSidetone.get()),
+                BoseAllSettings.BLOCK,
+                BoseSidetone.FN,
+            )
                 ?: return Confirmation.Unverifiable
         val persist = current.getOrNull(0) ?: return Confirmation.Unverifiable
         t.exchange(BoseWrites.sidetone(persist, level))
-        val after = BoseFrame.payload(t.exchange(BoseSidetone.get()), 0x01, BoseSidetone.FN)
+        val after =
+            BoseFrame.payload(
+                t.exchange(BoseSidetone.get()),
+                BoseAllSettings.BLOCK,
+                BoseSidetone.FN,
+            )
         return confirm(level, after?.let(BoseSidetone::level))
     }
 }

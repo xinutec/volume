@@ -54,19 +54,6 @@ object Frames {
             0xb1 to "feature get/set",
         )
 
-    /** The BMAP operators, from `docs/bose-read-surface.md`. */
-    private val BOSE_OPERATORS =
-        mapOf(
-            0x00 to "set",
-            0x01 to "get",
-            0x02 to "set and get",
-            0x03 to "status",
-            0x04 to "error",
-            0x05 to "start",
-            0x06 to "result",
-            0x07 to "processing",
-        )
-
     /**
      * A sentence describing [payload] as sent to [uuid], or to GATT when that is null.
      *
@@ -85,15 +72,13 @@ object Frames {
             else -> "${payload.size} bytes, no framing recognised: ${hex(payload)}"
         }
 
-    private const val BOSE_GET: Byte = 0x01
-
     private fun bose(payload: ByteArray): String {
         if (payload.size < 4) return "a short Bose frame: ${hex(payload)}"
         val block = payload[0].toInt() and 0xff
         val fn = payload[1].toInt() and 0xff
         val op = payload[2].toInt() and 0xff
         val len = payload[3].toInt() and 0xff
-        val opName = BOSE_OPERATORS[op] ?: "operator %02x (unknown)".format(op)
+        val opName = BoseOperator.of(op.toByte())?.label ?: "operator %02x (unknown)".format(op)
         return "Bose block %02x function %02x, %s, %d payload byte%s"
             .format(block, fn, opName, len, if (len == 1) "" else "s")
     }
@@ -153,7 +138,8 @@ object Frames {
      * ⚠ `02` SET_GET both writes and reads, and `05` START opens a transaction. Neither is
      * a read. Only a bare GET qualifies.
      */
-    private fun boseReads(payload: ByteArray): Boolean = payload.size >= 4 && payload[2] == BOSE_GET
+    private fun boseReads(payload: ByteArray): Boolean =
+        payload.size >= 4 && payload[2] == BoseOperator.GET.code
 
     /**
      * True only when [payload] is POSITIVELY a read — never as a default.

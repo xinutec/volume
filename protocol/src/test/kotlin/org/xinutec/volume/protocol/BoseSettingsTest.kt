@@ -279,9 +279,9 @@ class BoseSettingsTest {
     fun `encode writes the length from the payload`() {
         assertArrayEquals(
             bytes("010702020800"),
-            BoseFrame.encode(0x01, 0x07, BoseFrame.SET_GET, bytes("0800")).bytes,
+            BoseFrame.encode(0x01, 0x07, BoseOperator.SET_GET, bytes("0800")).bytes,
         )
-        assertArrayEquals(bytes("010a0100"), BoseFrame.encode(0x01, 0x0a, BoseFrame.GET).bytes)
+        assertArrayEquals(bytes("010a0100"), BoseFrame.encode(0x01, 0x0a, BoseOperator.GET).bytes)
     }
 
     /** An Error frame is not a Status, and `04 01 05` means the function exists. */
@@ -290,7 +290,7 @@ class BoseSettingsTest {
         assertNull(BoseEq.state(bytes("01070401" + "05")))
         assertArrayEquals(
             bytes("05"),
-            BoseFrame.payload(bytes("0107040105"), 0x01, 0x07, BoseFrame.ERROR),
+            BoseFrame.payload(bytes("0107040105"), 0x01, 0x07, BoseOperator.ERROR),
         )
     }
 }
@@ -323,8 +323,8 @@ class BoseAllSettingsTest {
         // Processing header and nothing else.
         val frames = BoseFrame.frames(getAll)
         assertEquals(8, frames.size)
-        assertEquals(BoseFrame.PROCESSING, frames.first()[2])
-        assertEquals(BoseFrame.RESULT, frames.last()[2])
+        assertEquals(BoseOperator.PROCESSING.code, frames.first()[2])
+        assertEquals(BoseOperator.RESULT.code, frames.last()[2])
     }
 
     @Test

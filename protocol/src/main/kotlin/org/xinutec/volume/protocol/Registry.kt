@@ -213,7 +213,7 @@ object Registry {
      * than per model — a device that does not need it pays one cheap read.
      */
     fun wakeBose(t: Transport) {
-        t.exchange(OutFrame(byteArrayOf(0x00, 0x01, 0x01, 0x00)))
+        t.exchange(BoseFrame.encode(0x00, 0x01, BoseOperator.GET))
     }
 
     /**
@@ -233,14 +233,14 @@ object Registry {
      */
     fun identifyBose(t: Transport): BoseIdentity {
         wakeBose(t)
-        val r = t.exchange(OutFrame(byteArrayOf(0x01, 0x06, 0x01, 0x00)))
+        val r = t.exchange(BoseFrame.encode(0x01, 0x06, BoseOperator.GET))
         val operator = r.getOrNull(2) ?: return BoseIdentity.Silent(r.size)
-        return when (operator) {
-            // 04 is the Error operator: the function is not on this model.
-            0x04.toByte() -> BoseIdentity.Known(Drivers.BoseQc45, "QC45")
+        return when (BoseOperator.of(operator)) {
+            // Error: the function is not on this model.
+            BoseOperator.ERROR -> BoseIdentity.Known(Drivers.BoseQc45, "QC45")
 
-            // 03 is Status: it answered with a value, so the function exists.
-            0x03.toByte() -> BoseIdentity.Known(Drivers.BoseQc35, "QC35")
+            // Status: it answered with a value, so the function exists.
+            BoseOperator.STATUS -> BoseIdentity.Known(Drivers.BoseQc35, "QC35")
 
             else -> BoseIdentity.Unexpected(r)
         }
