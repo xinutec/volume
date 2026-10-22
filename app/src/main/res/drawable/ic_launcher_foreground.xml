@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Launcher foreground: headphones with an equaliser between the cups, the
-  app's job. Drawn on the 108dp adaptive canvas inside the 66dp safe circle.
+  app's job. Drawn on the 108dp adaptive canvas inside the 66dp safe circle, centred a little
+  high: the solid cups and bars weigh the bottom.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -13,7 +14,7 @@
         android:pivotY="54"
         android:scaleX="0.9"
         android:scaleY="0.9"
-        android:translateY="1">
+        android:translateY="-3.25">
         <path
             android:pathData="M33,60 A21,21 0 0 1 75,60"
             android:strokeColor="#FFFFFF"

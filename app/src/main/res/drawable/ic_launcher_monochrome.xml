@@ -13,7 +13,7 @@
         android:pivotY="54"
         android:scaleX="0.9"
         android:scaleY="0.9"
-        android:translateY="1">
+        android:translateY="-3.25">
         <path
             android:pathData="M33,60 A21,21 0 0 1 75,60"
             android:strokeColor="#FFFFFF"
